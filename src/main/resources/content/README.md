@@ -38,7 +38,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   line `{ range, width }` (a beam: everyone within width/2 of the line, stops at the first block
   and at enemy barriers; writes beam_start / beam_end for the visual),
   path `{ from, to, width }` (everyone along the segment between two keys, e.g. a dash's path)
-- **Effects:** damage `{amount, ignore_iframes, lifesteal, overflow}`, heal `{amount, overflow}`,
+- **Effects:** damage `{amount, ignore_iframes, lifesteal, overflow, knockback}` (`knockback: false`:
+  magic damage like vanilla poison, no knockback; for damage over time), heal `{amount, overflow}`,
   status `{status, duration}`,
   teleport `{to, ground}`, knockback `{from, radius, center, edge, lift}`
 - **Damage** is in "design HP": 10 design HP = 1 Minecraft health point (half a heart), so a

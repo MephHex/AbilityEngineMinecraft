@@ -25,7 +25,7 @@ statuses:
     tick:
       every: 20                      # ...10 damage per second = 40 total
       effects:
-        - { id: damage, amount: 10 }
+        - { id: damage, amount: 10, knockback: false }   # just damage: no knockback
 
   flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
     duration: 60                     # 3s
