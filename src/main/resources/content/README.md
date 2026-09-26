@@ -63,7 +63,9 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Tags with effects in game:** `state.resistant` = 40% less damage taken, `state.slowed` = -40% speed,
   `state.hasted` = +30% speed, `state.invisible` = invisible (held items still show, like vanilla).
 - **Projectile visual:** an item Material (`DIAMOND_BLOCK`), or `"entity:<EntityType>"`
-  (`"entity:END_CRYSTAL"`).
+  (`"entity:END_CRYSTAL"`). Arrow types (`"entity:ARROW"`, `SPECTRAL_ARROW`, `TRIDENT`) fly as real
+  arrows pointing along their flight; they can't hurt, stick or be picked up (the engine still decides
+  what gets hit), and an infused bolt's `ARROW` is tinted in its infusions' colors.
 
 ### Targeting (aim previews)
 
