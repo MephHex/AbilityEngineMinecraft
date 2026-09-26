@@ -154,6 +154,19 @@ class HunterTest {
     }
 
     @Test
+    void aFiredBoltIsTintedByItsInfusions() throws IOException {
+        setup();
+        t.engine.quivers().infuse(p, "poison", 1);
+        t.engine.quivers().infuse(p, "slowness", 2);
+        for (int i = 0; i < 3; i++) {
+            t.engine.quivers().tryLoad(p);
+            shoot();
+        }
+        // poison + slowness mixed (#4E9331 and #5A6C81 averaged), then slowness alone, then a plain bolt
+        assertEquals(java.util.Arrays.asList("#547F59", "#5A6C81", null), t.render.tints);
+    }
+
+    @Test
     void hitsSpeedUpReloadingUpToThreeTimesThenItFades() throws IOException {
         setup();
         UUID target = t.spawn(10, 1, 0);

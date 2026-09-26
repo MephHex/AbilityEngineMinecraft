@@ -2,6 +2,7 @@ package me.mephisto.ability_engine.engine.nodes.gameplay;
 
 import me.mephisto.ability_engine.engine.graph.ExecutionContext;
 import me.mephisto.ability_engine.engine.graph.GraphNode;
+import me.mephisto.ability_engine.engine.graph.Keys;
 import me.mephisto.ability_engine.engine.graph.NodeResult;
 import me.mephisto.ability_engine.engine.graph.Ports;
 import me.mephisto.ability_engine.engine.math.Vec3;
@@ -48,13 +49,14 @@ public final class ProjectileNode implements GraphNode {
         if (aim.isEmpty()) return NodeResult.out(Ports.EXPIRED);
 
         Aim a = aim.get();
+        String tint = ctx.engine().infusions().tintOf(ctx.get(Keys.BOLT)); // a fired bolt shows its infusions
         double spread = Math.toRadians(spec.spreadDegrees());
         for (int i = 0; i < spec.count(); i++) {
             ExecutionContext branch = ctx.fork();
             Vec3 dir = a.direction().randomInCone(spread, ThreadLocalRandom.current());
             Vec3 start = a.eye().add(a.direction().multiply(MUZZLE_OFFSET));
             var handle = ctx.engine().projectiles().launch(spec, a.world(), start, dir.multiply(spec.speed()),
-                    branch.suspend(), a.eye());
+                    branch.suspend(), a.eye(), tint);
             if (store != null) ctx.blackboard().putRaw(store, handle);
         }
         return NodeResult.out(Ports.SPAWNED);

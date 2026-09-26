@@ -78,7 +78,7 @@ abilities:
         speed: 3.0                   # vanilla crossbow bolts are ~3.15
         size: 0.35
         lifetime: 40
-        visual: ARROW
+        visual: "entity:ARROW"      # a real arrow, tinted by the bolt's infusions
         motion:
           - { type: gravity, amount: 0.02 }
         on: { spawned: twang, hit_entity: strike, hit_block: thunk }
