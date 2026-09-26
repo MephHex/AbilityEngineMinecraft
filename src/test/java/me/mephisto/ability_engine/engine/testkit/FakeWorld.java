@@ -45,6 +45,17 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     @Override
     public void stop(UUID id) {}
     public void look(UUID id, Vec3 direction) { looking.put(id, direction.normalize()); }
+
+    private final Map<UUID, Vec3> moving = new HashMap<>();
+
+    /** Walking this way (horizontal), for dashes along the movement direction. Null = standing still. */
+    public void walk(UUID id, Vec3 direction) {
+        if (direction == null) moving.remove(id);
+        else moving.put(id, new Vec3(direction.x(), 0, direction.z()).normalize());
+    }
+
+    @Override
+    public Optional<Vec3> movementOf(UUID entity) { return Optional.ofNullable(moving.get(entity)); }
     public void floor(double y) { floorY = y; }
 
     @Override

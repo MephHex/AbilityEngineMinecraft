@@ -10,7 +10,9 @@
 # IntelliJ
 out/
 
-target/
+# Maven's build folder at the project root ONLY. A bare "target/" also matched the Java package
+# src/main/java/.../engine/target/ and kept it out of git.
+/target/
 
 #################
 ## Eclipse

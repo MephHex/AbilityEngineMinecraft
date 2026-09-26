@@ -16,6 +16,8 @@ import me.mephisto.ability_engine.engine.platform.Platform;
 import me.mephisto.ability_engine.engine.platform.TaskScheduler;
 import me.mephisto.ability_engine.engine.platform.WorldQuery;
 import me.mephisto.ability_engine.engine.projectile.ProjectileSystem;
+import me.mephisto.ability_engine.engine.quiver.InfusionRegistry;
+import me.mephisto.ability_engine.engine.quiver.QuiverManager;
 import me.mephisto.ability_engine.engine.state.CooldownManager;
 import me.mephisto.ability_engine.engine.state.ResourceManager;
 import me.mephisto.ability_engine.engine.status.StatusManager;
@@ -53,6 +55,8 @@ public final class AbilityEngine {
     private final TargetingManager targeting;
     private final Teams teams;
     private final me.mephisto.ability_engine.engine.barrier.BarrierSystem barriers;
+    private final InfusionRegistry infusions = new InfusionRegistry();
+    private final QuiverManager quivers;
 
     public AbilityEngine(Platform platform) {
         this.platform = platform;
@@ -66,7 +70,9 @@ public final class AbilityEngine {
         this.activator = new AbilityActivator(this);
         this.constructs = new ConstructSystem(platform.constructRenderer(), platform.scheduler(), teams, log);
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
-        this.loadouts = new LoadoutManager(characters, activator, resources);
+        this.quivers = new QuiverManager(tags, statuses,
+                id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
+        this.loadouts = new LoadoutManager(characters, activator, resources, quivers);
         this.targeting = new TargetingManager(this);
 
         tags.addListener(instances); // interrupts
@@ -109,6 +115,8 @@ public final class AbilityEngine {
     public TargetingManager targeting() { return targeting; }
     public Teams teams() { return teams; }
     public me.mephisto.ability_engine.engine.barrier.BarrierSystem barriers() { return barriers; }
+    public InfusionRegistry infusions() { return infusions; }
+    public QuiverManager quivers() { return quivers; }
 
     /** Cancel casts, clear statuses and tags. For death, logout, or mobs despawning. Keeps cooldowns, resources and character. */
     public void resetEntity(UUID entity, String reason) {

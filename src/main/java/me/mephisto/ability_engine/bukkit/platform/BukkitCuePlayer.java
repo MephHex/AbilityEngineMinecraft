@@ -18,6 +18,7 @@ import org.bukkit.util.Vector;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.Particle;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.Sound;
 
 import java.util.HashMap;
@@ -75,6 +76,31 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.FALLING_WATER, loc, 8, 0.3, 0.3, 0.3, 0);
             loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_SPLASH, 0.8f, 1.4f);
         });
+        // ---- Hunter ----
+        c.register("crossbow_shot", loc -> loc.getWorld().playSound(loc, Sound.ITEM_CROSSBOW_SHOOT, 1f, 1f));
+        c.register("dry_fire", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_DISPENSER_FAIL, 0.6f, 1.6f));
+        c.register("hunter_dash", loc -> {
+            loc.getWorld().spawnParticle(Particle.CLOUD, loc, 10, 0.3, 0.1, 0.3, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.6f);
+        });
+        c.register("vanish", loc -> {
+            loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 20, 0.3, 0.6, 0.3, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1f, 1.2f);
+        });
+        c.register("flask_throw", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_SPLASH_POTION_THROW, 1f, 0.8f));
+        c.register("flask_burst", loc -> {
+            loc.getWorld().spawnParticle(Particle.WITCH, loc, 60, 1.6, 0.6, 1.6, 0.1);
+            loc.getWorld().spawnParticle(Particle.SPLASH, loc, 40, 1.4, 0.3, 1.4, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_SPLASH_POTION_BREAK, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.6f);
+        });
+        c.register("overdrive_start", loc -> {
+            loc.getWorld().spawnParticle(Particle.FIREWORK, loc, 30, 0.4, 0.8, 0.4, 0.1);
+            loc.getWorld().playSound(loc, Sound.ITEM_CROSSBOW_QUICK_CHARGE_3, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.6f);
+        });
+        c.registerLoop("overdrive", e -> overdrive(plugin, e));
+
         c.register("hit", loc -> {
             loc.getWorld().spawnParticle(Particle.CRIT, loc, 12, 0.2, 0.2, 0.2, 0.2);
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1.2f);
@@ -231,6 +257,16 @@ public final class BukkitCuePlayer implements CuePlayer {
     }
 
     /** Particles around an entity every {@code period} ticks while the cue runs. */
+    /** Sparks around the Hunter during Overdrive, but none while invisible (they'd give them away). */
+    private static CueHandle overdrive(Plugin plugin, Entity entity) {
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!entity.isValid() || (entity instanceof LivingEntity l && l.hasPotionEffect(PotionEffectType.INVISIBILITY))) return;
+            Vector c = entity.getBoundingBox().getCenter();
+            entity.getWorld().spawnParticle(Particle.CRIT, c.getX(), c.getY(), c.getZ(), 3, 0.35, 0.5, 0.35, 0.01);
+        }, 0, 3);
+        return task::cancel;
+    }
+
     private static CueHandle particlesOn(Plugin plugin, Entity entity, Particle particle, int count, int period) {
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!entity.isValid()) return;

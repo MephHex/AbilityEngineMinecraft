@@ -6,18 +6,26 @@ import me.mephisto.ability_engine.engine.AbilityEngine;
 import me.mephisto.ability_engine.engine.ability.Ability;
 import me.mephisto.ability_engine.engine.loadout.CharacterDef;
 import me.mephisto.ability_engine.engine.loadout.Slots;
+import me.mephisto.ability_engine.engine.quiver.Bolt;
+import me.mephisto.ability_engine.engine.quiver.InfusionDef;
+import me.mephisto.ability_engine.engine.quiver.QuiverDef;
 import me.mephisto.ability_engine.engine.state.ResourceDef;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.CrossbowMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
@@ -32,11 +40,16 @@ import java.util.UUID;
  * Draws a character's kit on the hotbar and equips/unequips characters.
  *
  * <pre>
- * [ab1][ab2][ab3][ - ][WEAPON][ - ][ult][ind][ind]
- *   0    1    2    3     4      5    6    7    8      (3 and 5 stay empty for the scroll guard;
- *                                                     7 and 8 are reserved for indicators)
+ * [ult]  [ab1][ab2][ab3][ - ][WEAPON][ - ][ind][ind][ind]
+ * offhand  0    1    2    3     4      5    6    7    8   (3 and 5 stay empty for the scroll guard;
+ *                                                         6-8 are for indicators: resources, a quiver)
  * </pre>
  * The weapon IS the primary fire: its tooltip describes it and its cooldown sweep shows the fire rate.
+ *
+ * <p>Quiver characters: the queued bolts are arrows in their quiver's hotbar slots (tipped and tinted when
+ * infused; the leftmost loads next), and a CROSSBOW weapon mirrors the engine: it shows loaded while a
+ * bolt is loaded, and its Quick Charge level is the quiver's reload speed (so the client draws it at
+ * that speed). The arrows also give the vanilla crossbow something to draw.
  *
  * Cooldowns show twice: the vanilla item-cooldown sweep (player.setCooldown, animated by the client)
  * and the icon's stack size = seconds left (updated every 5 ticks). Every item we place is tagged,
@@ -45,10 +58,12 @@ import java.util.UUID;
 public final class HotbarHud {
 
     public static final int WEAPON_SLOT = 4;
+    /** PlayerInventory index of the offhand, where the ultimate's icon sits. */
+    public static final int OFFHAND_SLOT = 40;
     /** Items stack to 64 by default; icons are raised to 99 so longer cooldowns still count down. */
     private static final int MAX_COUNT = 99;
     private static final Map<String, Integer> HOTBAR_POSITIONS = Map.of(
-            Slots.ABILITY_1, 0, Slots.ABILITY_2, 1, Slots.ABILITY_3, 2, Slots.ULTIMATE, 6);
+            Slots.ABILITY_1, 0, Slots.ABILITY_2, 1, Slots.ABILITY_3, 2, Slots.ULTIMATE, OFFHAND_SLOT);
     private static final Map<String, Material> FALLBACK_ICONS = Map.of(
             Slots.ABILITY_1, Material.LIME_DYE,
             Slots.ABILITY_2, Material.LIGHT_BLUE_DYE,
@@ -60,6 +75,11 @@ public final class HotbarHud {
     private final NamespacedKey hudKey;
     /** Per player: when each material's cooldown sweep we last sent ends (server ticks). */
     private final Map<UUID, Map<Material, Long>> sweepEnds = new HashMap<>();
+    /** Per player: what the quiver HUD last showed, so it's only redrawn when something changed. */
+    private final Map<UUID, QuiverShown> quiverShown = new HashMap<>();
+
+    /** @param revision the quiver's revision (queue + loaded bolt) @param reloadSpeed the weapon's Quick Charge */
+    private record QuiverShown(long revision, int reloadSpeed) {}
 
     public HotbarHud(Plugin plugin, AbilityEngine engine, Keybinds keybinds) {
         this.engine = engine;
@@ -69,7 +89,7 @@ public final class HotbarHud {
 
     // ---- character sessions -------------------------------------------------------------
 
-    /** Overwrites hotbar slots 0, 1, 4 and the offhand. Returns false for an unknown character. */
+    /** Overwrites the kit's hotbar slots and the offhand. Returns false for an unknown character. */
     public boolean equip(Player p, String characterId) {
         if (engine.characters().find(characterId).isEmpty()) return false;
         engine.instances().cancelAll(p.getUniqueId(), "character_change");
@@ -93,7 +113,7 @@ public final class HotbarHud {
         if (character.isEmpty()) return;
 
         PlayerInventory inv = p.getInventory();
-        inv.setItem(WEAPON_SLOT, weapon(character.get()));
+        inv.setItem(WEAPON_SLOT, weapon(p, character.get()));
         inv.setHeldItemSlot(WEAPON_SLOT);
 
         for (String slot : Slots.ALL) {
@@ -103,6 +123,8 @@ public final class HotbarHud {
         for (ResourceDef def : character.get().resources().values()) {
             if (def.hotbarSlot() > 0) inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
         }
+        drawBolts(p, character.get());
+        quiverShown.put(p.getUniqueId(), quiverState(p));
         refresh(p);
     }
 
@@ -121,6 +143,7 @@ public final class HotbarHud {
             }
         });
         updateCounters(p);
+        syncQuiver(p);
     }
 
     /**
@@ -154,6 +177,7 @@ public final class HotbarHud {
                 if (!engine.loadouts().has(p.getUniqueId())) continue;
                 updateGauges(p);
                 updateGlints(p);
+                syncQuiver(p); // reload speed follows statuses that expire on their own
             }
         });
     }
@@ -185,6 +209,103 @@ public final class HotbarHud {
                 });
             }
         });
+    }
+
+    // ---- quiver -----------------------------------------------------------------------------
+
+    /** A crossbow weapon + a quiver: the vanilla crossbow draws and shows loaded (see CrossbowListener). */
+    public boolean usesCrossbow(Player p) {
+        return engine.loadouts().characterOf(p.getUniqueId())
+                .filter(c -> c.quiver() != null && weaponMaterial(c) == Material.CROSSBOW).isPresent();
+    }
+
+    private QuiverShown quiverState(Player p) {
+        UUID id = p.getUniqueId();
+        return new QuiverShown(engine.quivers().revision(id), engine.quivers().reloadSpeed(id));
+    }
+
+    /**
+     * Redraw the bolts and the weapon if the quiver or the reload speed changed. Cheap when nothing did.
+     * A change of reload speed alone waits while the player is drawing (swapping the item mid-draw would
+     * restart it); a bolt loaded by an ability shows at once and ends any draw in progress.
+     */
+    private void syncQuiver(Player p) {
+        UUID id = p.getUniqueId();
+        Optional<CharacterDef> c = engine.loadouts().characterOf(id);
+        if (c.isEmpty() || c.get().quiver() == null) return;
+        QuiverShown now = quiverState(p);
+        QuiverShown before = quiverShown.get(id);
+        if (now.equals(before)) return;
+
+        boolean boltsChanged = before == null || before.revision() != now.revision();
+        if (!boltsChanged && p.isHandRaised()) return; // only the speed changed: after the draw
+        if (boltsChanged) drawBolts(p, c.get());
+        ItemStack held = p.getInventory().getItem(WEAPON_SLOT);
+        if (isHudItem(held)) {
+            boolean loadedNow = engine.quivers().isLoaded(id);
+            boolean shownLoaded = held.getItemMeta() instanceof CrossbowMeta cm && cm.hasChargedProjectiles();
+            p.getInventory().setItem(WEAPON_SLOT, weapon(p, c.get()));
+            if (loadedNow && !shownLoaded && p.isHandRaised()) p.clearActiveItem(); // loaded for you: stop drawing
+        }
+        quiverShown.put(id, now);
+    }
+
+    /** The queued bolts as arrows in the quiver's hotbar slots, next-to-load leftmost. */
+    private void drawBolts(Player p, CharacterDef c) {
+        QuiverDef q = c.quiver();
+        if (q == null || q.hotbarSlot() <= 0) return;
+        List<Bolt> queue = engine.quivers().queue(p.getUniqueId());
+        PlayerInventory inv = p.getInventory();
+        for (int i = 0; i < q.size(); i++) {
+            inv.setItem(q.hotbarSlot() - 1 + i, i < queue.size() ? boltItem(queue.get(i), i == 0) : null);
+        }
+    }
+
+    /** A plain bolt is an arrow; an infused one a tipped arrow in the infusions' mixed color. */
+    private ItemStack boltItem(Bolt bolt, boolean next) {
+        List<InfusionDef> infusions = infusionsOf(bolt);
+        ItemStack item = new ItemStack(infusions.isEmpty() ? Material.ARROW : Material.TIPPED_ARROW);
+        ItemMeta meta = item.getItemMeta();
+        if (meta instanceof PotionMeta potion && !infusions.isEmpty()) potion.setColor(mix(infusions));
+        meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP); // no "No Effects" potion line
+        String name = boltName(infusions);
+        meta.displayName(next
+                ? plain("[Next] ", NamedTextColor.YELLOW).append(plain(name, NamedTextColor.WHITE))
+                : plain(name, NamedTextColor.WHITE));
+        List<Component> lore = new ArrayList<>();
+        for (InfusionDef inf : infusions) {
+            lore.add(plain(inf.name(), TextColor.fromHexString(inf.color())));
+            for (String line : inf.description()) lore.add(plain("  " + line, NamedTextColor.GRAY));
+        }
+        if (next) lore.add(plain("Loads next (hold RMB to draw)", NamedTextColor.DARK_GRAY));
+        meta.lore(lore);
+        return tag(item, meta);
+    }
+
+    private List<InfusionDef> infusionsOf(Bolt bolt) {
+        List<InfusionDef> out = new ArrayList<>();
+        for (String id : bolt.infusions()) engine.infusions().find(id).ifPresent(out::add);
+        return out;
+    }
+
+    private static String boltName(List<InfusionDef> infusions) {
+        if (infusions.isEmpty()) return "Bolt";
+        List<String> names = new ArrayList<>();
+        for (InfusionDef inf : infusions) names.add(inf.name());
+        return String.join(" + ", names) + " Bolt";
+    }
+
+    /** Average of the infusions' colors, like mixed potions. */
+    private static Color mix(List<InfusionDef> infusions) {
+        int r = 0, g = 0, b = 0;
+        for (InfusionDef inf : infusions) {
+            int rgb = Integer.parseInt(inf.color().substring(1), 16);
+            r += (rgb >> 16) & 0xFF;
+            g += (rgb >> 8) & 0xFF;
+            b += rgb & 0xFF;
+        }
+        int n = infusions.size();
+        return Color.fromRGB(r / n, g / n, b / n);
     }
 
     // ---- resource gauges -------------------------------------------------------------------
@@ -255,6 +376,7 @@ public final class HotbarHud {
     /** Remove every item this HUD placed. Leaves the player's own items alone. */
     public void clear(Player p) {
         sweepEnds.remove(p.getUniqueId()); // next refresh re-sends every sweep
+        quiverShown.remove(p.getUniqueId());
         PlayerInventory inv = p.getInventory();
         ItemStack[] contents = inv.getContents();
         for (int i = 0; i < contents.length; i++) {
@@ -288,12 +410,13 @@ public final class HotbarHud {
         return m != null && m.isItem() ? m : Material.IRON_SWORD;
     }
 
-    private ItemStack weapon(CharacterDef c) {
+    private ItemStack weapon(Player p, CharacterDef c) {
         ItemStack item = new ItemStack(weaponMaterial(c));
         ItemMeta meta = item.getItemMeta();
         meta.displayName(plain(c.name(), NamedTextColor.GOLD));
         meta.setUnbreakable(true);
         List<Component> lore = new ArrayList<>();
+        if (c.quiver() != null) crossbowState(p, meta, lore);
         for (String slot : List.of(Slots.PRIMARY, Slots.SECONDARY, Slots.MELEE)) {
             ability(c, slot).ifPresent(a -> {
                 String key = Slots.MELEE.equals(slot) ? "LMB on target"
@@ -304,6 +427,25 @@ public final class HotbarHud {
         }
         if (!lore.isEmpty()) meta.lore(lore);
         return tag(item, meta);
+    }
+
+    /**
+     * The quiver's state on the weapon: loaded or not (a crossbow shows the bolt), reload speed as Quick
+     * Charge (the client draws faster; the glint shows it's active), and a tooltip line for both.
+     */
+    private void crossbowState(Player p, ItemMeta meta, List<Component> lore) {
+        UUID id = p.getUniqueId();
+        Optional<Bolt> loaded = engine.quivers().loaded(id);
+        if (meta instanceof CrossbowMeta crossbow) {
+            crossbow.setChargedProjectiles(loaded.map(b -> List.of(boltItem(b, false))).orElse(List.of()));
+        }
+        int speed = engine.quivers().reloadSpeed(id);
+        if (speed > 0) meta.addEnchant(Enchantment.QUICK_CHARGE, speed, true);
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_ADDITIONAL_TOOLTIP); // our own lines below
+        lore.add(loaded.isPresent()
+                ? plain("Loaded: ", NamedTextColor.GRAY).append(plain(boltName(infusionsOf(loaded.get())), NamedTextColor.GREEN))
+                : plain("Not loaded (hold RMB to draw)", NamedTextColor.RED));
+        if (speed > 0) lore.add(plain("Reload speed +" + speed, NamedTextColor.AQUA));
     }
 
     private ItemStack icon(String slot, Ability a) {

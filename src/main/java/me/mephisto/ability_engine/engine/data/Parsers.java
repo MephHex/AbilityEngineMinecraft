@@ -14,6 +14,8 @@ import me.mephisto.ability_engine.engine.projectile.Gravity;
 import me.mephisto.ability_engine.engine.projectile.Homing;
 import me.mephisto.ability_engine.engine.projectile.MotionModifier;
 import me.mephisto.ability_engine.engine.projectile.ProjectileSpec;
+import me.mephisto.ability_engine.engine.quiver.InfusionDef;
+import me.mephisto.ability_engine.engine.quiver.QuiverDef;
 import me.mephisto.ability_engine.engine.status.StackPolicy;
 import me.mephisto.ability_engine.engine.status.StatusDef;
 import me.mephisto.ability_engine.engine.target.ConeQuery;
@@ -123,6 +125,57 @@ public final class Parsers {
                     m.getString("ammo", null), m.getDouble("ammo_per_pulse", 1), m.getString("while_projectile", null));
             default -> throw m.error("type", "unknown mode '" + type + "' (instant, channel, hold)");
         };
+    }
+
+    /** Dash {@code direction: aim} (default) or {@code movement}. True = along the caster's movement. */
+    public static boolean dashDirection(Params p) {
+        String d = p.getString("direction", "aim");
+        if (!d.equals("aim") && !d.equals("movement")) throw p.error("direction", "expected aim or movement");
+        return d.equals("movement");
+    }
+
+    /** One entry of {@code infusions:}. {@code on_hit} is required: an infusion that does nothing is a typo. */
+    public static InfusionDef infusion(String id, Params p, EffectRegistry registry) {
+        String color = p.getString("color", "#FFFFFF");
+        if (!color.matches("#[0-9a-fA-F]{6}")) throw p.error("color", "expected #RRGGBB, got '" + color + "'");
+        return new InfusionDef(id, p.getString("name", id), color, p.getStringList("description"),
+                effects(p, "on_hit", registry));
+    }
+
+    /** Maximum reload speed level: Quick Charge 5 and up breaks the vanilla crossbow. */
+    public static final int MAX_RELOAD_SPEED = 4;
+
+    /**
+     * A character's {@code quiver:} section. {@code hotbar} is where the queue starts (1-9); the queue
+     * must fit in the hotbar. {@code statuses} are the known status ids (for reload_speed.stacks_of).
+     */
+    public static QuiverDef quiver(Params p, Set<String> statuses) {
+        int size = p.getInt("size", 3);
+        if (size < 1 || size > 9) throw p.error("size", "expected 1-9 bolts");
+        int hotbar = p.getInt("hotbar", 0);
+        if (hotbar < 0 || hotbar > 9) throw p.error("hotbar", "expected a hotbar slot 1-9 (or 0: not shown)");
+        if (hotbar > 0 && hotbar + size - 1 > 9) {
+            throw p.error("hotbar", size + " bolts from slot " + hotbar + " don't fit in the hotbar (slots 1-9)");
+        }
+        QuiverDef.ReloadSpeed speed = null;
+        if (p.has("reload_speed")) {
+            Params r = p.getParams("reload_speed");
+            String stacksOf = r.getString("stacks_of", null);
+            if (stacksOf != null && !statuses.contains(stacksOf)) {
+                throw r.error("stacks_of", "unknown status '" + stacksOf + "' (define it under 'statuses:')");
+            }
+            int max = r.getInt("max", 3);
+            if (max < 0 || max > MAX_RELOAD_SPEED) throw r.error("max", "expected 0-" + MAX_RELOAD_SPEED);
+            Map<String, Integer> whileTags = new java.util.LinkedHashMap<>();
+            Params w = r.getParams("while");
+            for (String tag : w.keys()) {
+                int level = w.requireInt(tag);
+                if (level < 0 || level > MAX_RELOAD_SPEED) throw w.error(tag, "expected 0-" + MAX_RELOAD_SPEED);
+                whileTags.put(tag, level);
+            }
+            speed = new QuiverDef.ReloadSpeed(stacksOf, max, whileTags);
+        }
+        return new QuiverDef(size, hotbar, speed);
     }
 
     /** Default for every ground-targeted ability: at most this far below your feet, else the cliff edge. */

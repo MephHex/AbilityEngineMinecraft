@@ -35,8 +35,15 @@ public final class BukkitWorldQuery implements WorldQuery {
     private static final double TRACE_MIN_LENGTH = 4.0;
 
     private EngineLog log; // set once the engine exists; null = no tracing
+    private final MovementTracker movement = new MovementTracker();
 
     public void setLog(EngineLog log) { this.log = log; }
+
+    /** Register this as a listener: it records which way players walk (for movement-direction dashes). */
+    public MovementTracker movementTracker() { return movement; }
+
+    @Override
+    public Optional<Vec3> movementOf(UUID entity) { return movement.directionOf(entity); }
 
     @Override
     public Optional<Aim> aimOf(UUID entity) {

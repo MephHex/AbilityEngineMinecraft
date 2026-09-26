@@ -1,5 +1,6 @@
 package me.mephisto.ability_engine.engine.graph;
 
+import me.mephisto.ability_engine.engine.quiver.Bolt;
 import me.mephisto.ability_engine.engine.target.Target;
 
 import java.util.Map;
@@ -23,6 +24,8 @@ public final class Keys {
     public static final Key<String> SLOT = register("slot", String.class);
     /** Where a direct hit came from (a projectile's approach). Default: the caster's position. */
     public static final Key<Target> HIT_FROM = register("hit_from", Target.class);
+    /** The bolt a take_bolt node fired; apply_effects with {@code infusions: true} applies its infusions. */
+    public static final Key<Bolt> BOLT = register("bolt", Bolt.class);
 
     public static <T> Key<T> register(String name, Class<T> type) {
         Key<T> key = new Key<>(name, type);

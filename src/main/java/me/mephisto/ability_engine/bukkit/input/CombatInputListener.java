@@ -11,6 +11,7 @@ import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import me.mephisto.ability_engine.engine.target.EntityTarget;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -39,6 +40,10 @@ import java.util.UUID;
  *
  * <p>While AIMING (targeting preview, for anyone): LMB confirms, RMB cancels, the aimed
  * ability's own key does nothing, another ability's key switches.
+ *
+ * <p>Crossbow characters (a CROSSBOW weapon with a quiver): RMB is the vanilla draw while nothing is
+ * loaded (CrossbowListener loads the bolt when it's drawn), and does nothing while loaded; LMB (the
+ * primary) shoots. Their secondary slot is unused.
  */
 public final class CombatInputListener implements Listener {
 
@@ -100,25 +105,51 @@ public final class CombatInputListener implements Listener {
     // NOT ignoreCancelled: Bukkit fires *_CLICK_AIR already marked cancelled.
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent e) {
-        if (e.getHand() != EquipmentSlot.HAND) return;
         Player p = e.getPlayer();
+        if (e.getHand() != EquipmentSlot.HAND) {
+            if (inCombat(p)) e.setCancelled(true); // the offhand holds the ultimate's icon: never "use" it
+            return;
+        }
         Action a = e.getAction();
         boolean left = a == Action.LEFT_CLICK_AIR || a == Action.LEFT_CLICK_BLOCK;
         boolean right = a == Action.RIGHT_CLICK_AIR || a == Action.RIGHT_CLICK_BLOCK;
         if (!left && !right) return;
         if (!inCombat(p) && !aiming(p)) return;
+        if (right && !aiming(p) && hud.usesCrossbow(p)) {
+            crossbowRightClick(p, e);
+            return;
+        }
         e.setCancelled(true); // no block breaking, doors, chests or item use
         if (left) leftClick(p);
         else rightClick(p);
     }
 
+    /**
+     * Nothing loaded (and allowed to reload): let vanilla draw the crossbow, but still no doors or chests.
+     * Loaded: nothing, since vanilla would shoot it (LMB shoots, through the engine).
+     */
+    private void crossbowRightClick(Player p, PlayerInteractEvent e) {
+        if (engine.quivers().canLoad(p.getUniqueId())) {
+            e.setUseInteractedBlock(Event.Result.DENY);
+            e.setUseItemInHand(Event.Result.ALLOW);
+            return;
+        }
+        e.setCancelled(true);
+        p.updateInventory(); // the client may already show the shot; put the loaded crossbow back
+    }
+
     /** Right-clicking a mob/player does NOT fire PlayerInteractEvent. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteractEntity(PlayerInteractEntityEvent e) {
-        if (e.getHand() != EquipmentSlot.HAND) return;
         Player p = e.getPlayer();
+        if (e.getHand() != EquipmentSlot.HAND) {
+            if (inCombat(p)) e.setCancelled(true);
+            return;
+        }
         if (!inCombat(p) && !aiming(p)) return;
         e.setCancelled(true);
+        // Crossbows: the client follows up with a plain "use item" (onInteract), which draws.
+        if (!aiming(p) && hud.usesCrossbow(p)) return;
         rightClick(p);
     }
 

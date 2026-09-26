@@ -37,9 +37,10 @@ class AbilitiesYamlTest {
         TestEngine t = new TestEngine();
         LoadReport report = ShippedContent.loadInto(t.engine);
         assertTrue(report.isClean(), String.join("\n", report.errors()));
-        assertEquals(25, report.abilities());
-        assertEquals(8, report.statuses());
-        assertEquals(6, report.characters());
+        assertEquals(29, report.abilities());
+        assertEquals(12, report.statuses());
+        assertEquals(7, report.characters());
+        assertEquals(2, report.infusions());
     }
 
     private static TestEngine loadShipped() throws IOException {
