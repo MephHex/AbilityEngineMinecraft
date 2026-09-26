@@ -47,15 +47,6 @@ public final class FakeRenderer implements ProjectileRenderer, CuePlayer, Indica
     @Override
     public void clear(java.util.UUID viewer, String reason) { previewEnds.add(reason); }
 
-    /** The tint each projectile was spawned with, in order (null = none). */
-    public final List<String> tints = new ArrayList<>();
-
-    @Override
-    public ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint) {
-        tints.add(tint);
-        return spawn(world, position, spec);
-    }
-
     @Override
     public ProjectileVisual spawn(String world, Vec3 position, ProjectileSpec spec) {
         spawned++;

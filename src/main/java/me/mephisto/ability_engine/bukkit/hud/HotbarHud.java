@@ -266,8 +266,7 @@ public final class HotbarHud {
         List<InfusionDef> infusions = infusionsOf(bolt);
         ItemStack item = new ItemStack(infusions.isEmpty() ? Material.ARROW : Material.TIPPED_ARROW);
         ItemMeta meta = item.getItemMeta();
-        String tint = engine.infusions().tintOf(bolt);
-        if (meta instanceof PotionMeta potion && tint != null) potion.setColor(Color.fromRGB(Integer.parseInt(tint.substring(1), 16)));
+        if (meta instanceof PotionMeta potion && !infusions.isEmpty()) potion.setColor(mix(infusions));
         meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP); // no "No Effects" potion line
         String name = boltName(infusions);
         meta.displayName(next
@@ -294,6 +293,19 @@ public final class HotbarHud {
         List<String> names = new ArrayList<>();
         for (InfusionDef inf : infusions) names.add(inf.name());
         return String.join(" + ", names) + " Bolt";
+    }
+
+    /** Average of the infusions' colors, like mixed potions. */
+    private static Color mix(List<InfusionDef> infusions) {
+        int r = 0, g = 0, b = 0;
+        for (InfusionDef inf : infusions) {
+            int rgb = Integer.parseInt(inf.color().substring(1), 16);
+            r += (rgb >> 16) & 0xFF;
+            g += (rgb >> 8) & 0xFF;
+            b += rgb & 0xFF;
+        }
+        int n = infusions.size();
+        return Color.fromRGB(r / n, g / n, b / n);
     }
 
     // ---- resource gauges -------------------------------------------------------------------
