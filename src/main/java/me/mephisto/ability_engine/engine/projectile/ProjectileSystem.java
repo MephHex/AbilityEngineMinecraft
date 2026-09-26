@@ -70,14 +70,7 @@ public final class ProjectileSystem {
      */
     public ProjectileHandle launch(ProjectileSpec spec, String worldName, Vec3 position, Vec3 velocity, Resumer resumer,
                                    Vec3 sweepFrom) {
-        return launch(spec, worldName, position, velocity, resumer, sweepFrom, null);
-    }
-
-    /** @param tint "#RRGGBB" for the visual (an infused bolt's color), or null */
-    public ProjectileHandle launch(ProjectileSpec spec, String worldName, Vec3 position, Vec3 velocity, Resumer resumer,
-                                   Vec3 sweepFrom, String tint) {
-        Projectile p = new Projectile(spec, worldName, position, velocity, resumer,
-                renderer.spawn(worldName, position, velocity, spec, tint));
+        Projectile p = new Projectile(spec, worldName, position, velocity, resumer, renderer.spawn(worldName, position, spec));
         p.sweepFrom = sweepFrom;
         active.add(p);
         var instance = resumer.context().instance();
@@ -192,7 +185,7 @@ public final class ProjectileSystem {
         p.lastPosition = p.position;
         double moved = pos.distance(p.position);
         p.position = pos;
-        p.visual.moveTo(pos, p.velocity);
+        p.visual.moveTo(pos);
         if (!p.isGuided()) p.unguidedDistance += moved;
     }
 
