@@ -9,6 +9,7 @@ import me.mephisto.ability_engine.bukkit.hud.CastBarHud;
 import me.mephisto.ability_engine.bukkit.hud.HotbarHud;
 import me.mephisto.ability_engine.bukkit.input.AbilityInputListener;
 import me.mephisto.ability_engine.bukkit.input.CombatInputListener;
+import me.mephisto.ability_engine.bukkit.input.CrossbowListener;
 import me.mephisto.ability_engine.bukkit.input.InventoryLock;
 import me.mephisto.ability_engine.bukkit.input.ItemBindings;
 import me.mephisto.ability_engine.bukkit.input.Keybinds;
@@ -76,6 +77,8 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         ItemBindings bindings = new ItemBindings(this);
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(new CombatInputListener(engine, keybinds, hud), this);
+        pm.registerEvents(new CrossbowListener(engine, hud), this);
+        pm.registerEvents(worldQuery.movementTracker(), this);
         pm.registerEvents(new InventoryLock(engine), this);
         pm.registerEvents(new VisualEntities(), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BarrierGuard(engine), this);

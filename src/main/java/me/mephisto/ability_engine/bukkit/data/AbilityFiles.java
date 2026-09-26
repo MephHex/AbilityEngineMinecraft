@@ -94,6 +94,7 @@ public final class AbilityFiles {
         engine.abilities().clear();
         engine.statusDefs().clear();
         engine.characters().clear();
+        engine.infusions().clear();
         LoadReport report = new AbilityLoader(engine).load(sources);
         report.setSource((devFolder != null && !devFolder.isBlank() ? "DEV folder " : "")
                 + nameBase.toAbsolutePath() + " (" + files.size() + " file(s))");

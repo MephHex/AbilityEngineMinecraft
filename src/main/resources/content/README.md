@@ -5,7 +5,7 @@ Every `.yml` file in this folder (and its subfolders) is loaded. Edit, then run 
 
 ## Files
 
-Each file may have any of these sections: `statuses:`, `abilities:`, `characters:`.
+Each file may have any of these sections: `statuses:`, `infusions:`, `abilities:`, `characters:`.
 Split them however you like: one file per character, per role, per anything.
 
 - Files can use each other's content in any order: a character in `duelist.yml` can use an
@@ -25,11 +25,15 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 
 - **Node types:** print, delay, switch, acquire_target, apply_effects, projectile, play_cue, set,
   await_recast, redirect_projectile, construct, steer_projectile,
-  dash `{ speed, range, radius, flat }` -> hit / miss,
+  dash `{ speed, range, radius, flat, direction }` -> hit / miss,
   start_cue `{ cue, at }` (a looping cue on an entity, default the caster, until the cast ends),
   barrier `{ distance, radius }` (a frontal barrier on the caster until the cast ends),
   counter `{ counter, every }` -> trigger / out ("every Nth time", remembered between casts),
-  release_tags (drop the ability's active_tags early, e.g. right after a dash)
+  release_tags (drop the ability's active_tags early, e.g. right after a dash),
+  has_tag `{ tag, target }` -> has / lacks (does the caster, or `target: <key>`, have a tag right now),
+  in_range `{ center, radius, target }` -> inside / outside (is the caster, or `target`, within
+  `radius` of the key `center`; e.g. "was I caught in my own explosion"),
+  reload -> out / full, take_bolt -> out / empty, infuse `{ infusion, count }` (see Quivers)
 - **Query types:** self, key, hitscan, radius, cone, cursor,
   line `{ range, width }` (a beam: everyone within width/2 of the line, stops at the first block
   and at enemy barriers; writes beam_start / beam_end for the visual),
@@ -52,8 +56,12 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Overflow:** with `overflow: true`, healing that doesn't fit becomes a decaying shield
   (absorption hearts). `overflow_max` (default 150) and `overflow_decay` per second (default 25).
 - **Dashes:** `pierce: true` passes through enemies; `store: name` records name_start / name_end.
+  `direction: movement` dashes the way the caster is WALKING (strafe left = dash left, always flat)
+  instead of where they aim; standing still, it goes straight ahead.
 - **Ability options:** `aura: <looping cue>` runs for the whole cast; `cancel_on_repress: true` lets
-  the ability's key end it early; `state.resistant` = 40% less damage taken.
+  the ability's key end it early.
+- **Tags with effects in game:** `state.resistant` = 40% less damage taken, `state.slowed` = -40% speed,
+  `state.hasted` = +30% speed, `state.invisible` = invisible (held items still show, like vanilla).
 - **Projectile visual:** an item Material (`DIAMOND_BLOCK`), or `"entity:<EntityType>"`
   (`"entity:END_CRYSTAL"`).
 
@@ -90,18 +98,41 @@ through allies; allies can't trigger or break your constructs.
   `apply_effects` nodes apply on-hits with `on_hit: true`; by default only casts from the
   primary slot do. `on_hit: false` turns it off anywhere.
 
+## Quivers and infusions
+
+A character with a `quiver:` has a queue of bolts plus one bolt loaded in their weapon.
+
+- **Loading** takes the front (leftmost) bolt into the weapon; the rest shift forward and a plain bolt
+  joins at the back. Only one bolt is loaded at a time.
+- **Infusions** are magic on a bolt, defined like statuses under `infusions:` with a `name`, a
+  `color` ("#RRGGBB", tints the bolt on the hotbar) and the `on_hit` effects it adds. They only ever
+  go onto QUEUED bolts, never the loaded one. One bolt can carry several (colors mix).
+- **Nodes:** `reload` loads the next bolt (-> out, or `full` if already loaded: nothing moves);
+  `infuse { infusion, count }` infuses the next `count` queued bolts; `take_bolt` fires the loaded
+  bolt (-> out, or `empty`: a dry fire) and stores it as "bolt"; then an `apply_effects` with
+  `infusions: true` also applies that bolt's infusions to whoever it hits.
+- **A CROSSBOW weapon** with a quiver is a real crossbow: hold RMB to draw it (vanilla), and when it's
+  drawn the next bolt loads (not while stunned). LMB fires the primary slot, which should `take_bolt`.
+  The secondary slot is unused (RMB is the draw).
+- `quiver: { size, hotbar, reload_speed }`: `size` bolts (default 3) shown from hotbar slot `hotbar`
+  (the leftmost loads next). `reload_speed: { stacks_of: <status>, max, while: { <tag>: <level> } }`
+  makes the crossbow draw faster: each level is Quick Charge (1.25s, 0.25s faster per level, 4 at most).
+  The level is the stacks of `stacks_of` (up to `max`), or more while you have a `while` tag.
+
+See `hunter.yml`.
+
 ## Characters
 
 Which ability sits in which slot:
 `primary` (LMB), `secondary` (RMB), `melee` (LMB on an entity, optional), `ability_1` (1),
-`ability_2` (2), `ability_3` (3), `ultimate` (F or 7). Keys are set in config.yml. Any slot may be
-left out.
+`ability_2` (2), `ability_3` (3), `ultimate` (F; its icon sits in the offhand slot). Keys are set in
+config.yml. Any slot may be left out.
 
 - `resources:` pools with `max`, `regen` (per second), `delay` (regen delay in ticks);
   `hotbar: 1-9` shows the pool as an item whose stack size is the amount.
 - `weapon:` the item locked in the main hand; it also shows the primary fire's tooltip and fire
   rate. Use something with no right-click behaviour of its own (NOT bows, shields, food,
-  tridents). Icons with a cooldown overlay must use different materials from each other and the
+  tridents), except a CROSSBOW together with a `quiver:` (see Quivers). Icons with a cooldown overlay must use different materials from each other and the
   weapon.
 
 Try it: `/ae char archmage`, back to normal: `/ae char none`.

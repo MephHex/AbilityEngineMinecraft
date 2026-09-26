@@ -5,16 +5,16 @@
 #
 # While a player has a character, their held slot is locked to the weapon (slot 5). Keep slots
 # 4 and 6 unbound: the scroll wheel always reports those, and they're ignored on purpose.
-keybinds-version: 3
+keybinds-version: 4
 keybinds:
   left_click: primary
   right_click: secondary # hold: e.g. Arcane Focus (also cancels aim previews)
   hotbar_1: ability_1
   hotbar_2: ability_2
   hotbar_3: ability_3
-  swap_hands: ultimate   # F
-  hotbar_7: ultimate     # the ultimate's icon sits in slot 7, so 7 works too
+  swap_hands: ultimate   # F (the ultimate's icon sits in the offhand slot)
   drop: none             # Q: free
+  # 7, 8, 9: free. They show indicators (resource gauges, a Hunter's quiver).
 
 # Ability damage is written in "design HP". This many design HP = 1 Minecraft health point
 # (half a heart). 10 means a 20-health player has 200 design HP.

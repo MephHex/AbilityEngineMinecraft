@@ -16,8 +16,11 @@ final class MovementLock {
     private static final NamespacedKey JUMP_KEY = new NamespacedKey("ability_engine", "stun_jump");
     private static final NamespacedKey SLOW_KEY = new NamespacedKey("ability_engine", "slow_speed");
     private static final NamespacedKey STEADFAST_KEY = new NamespacedKey("ability_engine", "steadfast");
+    private static final NamespacedKey HASTE_KEY = new NamespacedKey("ability_engine", "haste_speed");
     /** -40% movement speed. One fixed strength for now; per-status magnitudes need stat modifiers. */
     private static final double SLOW_AMOUNT = -0.4;
+    /** +30% movement speed (state.hasted). Stacks multiplicatively-ish with a slow: both apply. */
+    private static final double HASTE_AMOUNT = 0.3;
 
     static void apply(LivingEntity living) {
         add(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), SPEED_KEY, -1.0);
@@ -35,6 +38,14 @@ final class MovementLock {
 
     static void removeSlow(LivingEntity living) {
         strip(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), SLOW_KEY);
+    }
+
+    static void applyHaste(LivingEntity living) {
+        add(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), HASTE_KEY, HASTE_AMOUNT);
+    }
+
+    static void removeHaste(LivingEntity living) {
+        strip(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), HASTE_KEY);
     }
 
     /** Full vanilla knockback resistance (our own knockback effect checks the tag instead). */

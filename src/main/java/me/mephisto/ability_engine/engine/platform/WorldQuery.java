@@ -43,4 +43,10 @@ public interface WorldQuery {
     Optional<Vec3> groundBelow(String world, Vec3 from, double maxDrop);
 
     boolean isAlive(UUID entity);
+
+    /**
+     * Which way the entity is moving right now, horizontally (walking, strafing, backpedalling),
+     * as a unit vector. Empty when standing still. Default: unknown (always empty).
+     */
+    default Optional<Vec3> movementOf(UUID entity) { return Optional.empty(); }
 }

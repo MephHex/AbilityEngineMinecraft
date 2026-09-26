@@ -17,6 +17,13 @@ public final class Ports {
     public static final String STRUCK = "struck";
     public static final String BROKEN = "broken";
     public static final String TRIGGER = "trigger";
+    // Not yes/no: YAML 1.1 reads unquoted yes/no keys as booleans.
+    public static final String HAS = "has";
+    public static final String LACKS = "lacks";
+    public static final String INSIDE = "inside";
+    public static final String OUTSIDE = "outside";
+    public static final String EMPTY = "empty";
+    public static final String FULL = "full";
 
     private Ports() {}
 }

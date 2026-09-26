@@ -1,5 +1,6 @@
 package me.mephisto.ability_engine.engine.loadout;
 
+import me.mephisto.ability_engine.engine.quiver.QuiverDef;
 import me.mephisto.ability_engine.engine.state.ResourceDef;
 
 import java.util.LinkedHashMap;
@@ -10,9 +11,14 @@ import java.util.Map;
  * Named CharacterDef (like StatusDef) to avoid clashing with java.lang.Character.
  *
  * @param weapon platform-specific item id held in the locked main-hand slot; on Bukkit a Material name
+ * @param quiver  a queue of bolts the weapon loads one at a time (null = none)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
-                           Map<String, ResourceDef> resources) {
+                           Map<String, ResourceDef> resources, QuiverDef quiver) {
+
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots, Map<String, ResourceDef> resources) {
+        this(id, name, weapon, slots, resources, null);
+    }
 
     public CharacterDef {
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));

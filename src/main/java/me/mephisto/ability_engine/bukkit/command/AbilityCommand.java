@@ -138,6 +138,12 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
                             + (s.isInfinite() ? " (infinite)" : " " + left + "t"));
                 }
                 player.sendMessage(ChatColor.GOLD + "Running: " + ChatColor.WHITE + engine.instances().of(id));
+                if (engine.quivers().has(id)) {
+                    player.sendMessage(ChatColor.GOLD + "Quiver: " + ChatColor.WHITE + "loaded="
+                            + engine.quivers().loaded(id).map(b -> b.infusions().toString()).orElse("none")
+                            + " queue=" + engine.quivers().queue(id).stream().map(b -> b.infusions().toString()).toList()
+                            + " reload_speed=" + engine.quivers().reloadSpeed(id));
+                }
             }
             case "setres" -> {
                 if (args.length < 3) return false;

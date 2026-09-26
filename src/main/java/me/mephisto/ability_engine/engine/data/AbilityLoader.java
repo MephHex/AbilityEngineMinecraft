@@ -8,6 +8,7 @@ import me.mephisto.ability_engine.engine.graph.GraphNode;
 import me.mephisto.ability_engine.engine.graph.GraphValidationException;
 import me.mephisto.ability_engine.engine.loadout.CharacterDef;
 import me.mephisto.ability_engine.engine.loadout.Slots;
+import me.mephisto.ability_engine.engine.quiver.QuiverDef;
 import me.mephisto.ability_engine.engine.state.ResourceDef;
 import me.mephisto.ability_engine.engine.tag.Tags;
 
@@ -37,6 +38,8 @@ import java.util.Set;
  *         type: acquire_target
  *         ...node params...
  *         on: { hit: other_node, miss: another }   # or  next: other_node  (= on: {out: ...})
+ * infusions:
+ *   poison: { name: "Poison", color: "#4E9331", on_hit: [ { id: status, status: poisoned } ] }
  * characters:
  *   gunner:
  *     name: "Gunner"
@@ -61,7 +64,8 @@ public final class AbilityLoader {
 
     /**
      * Load many files as one. Each phase runs across ALL files before the next starts, so files can
-     * refer to each other in any order: statuses, then status effects, then abilities, then characters.
+     * refer to each other in any order: statuses, then status effects, then infusions, then abilities,
+     * then characters.
      * An id defined in two files is reported (naming both) and the second one is skipped.
      */
     public LoadReport load(List<Source> sources) {
@@ -93,6 +97,20 @@ public final class AbilityLoader {
                 report.status();
             } catch (RuntimeException e) {
                 report.error(e.getMessage());
+            }
+        }
+
+        Map<String, String> infusionOrigin = new HashMap<>(); // after statuses (they apply them), before abilities (infuse nodes)
+        for (Params file : files) {
+            Params infusions = file.getParams("infusions");
+            for (String id : infusions.keys()) {
+                if (!claim(report, "infusion", id, file.path(), infusionOrigin)) continue;
+                try {
+                    engine.infusions().define(Parsers.infusion(id, infusions.requireParams(id), engine.effects()));
+                    report.infusion();
+                } catch (RuntimeException e) {
+                    report.error(e.getMessage());
+                }
             }
         }
 
@@ -157,7 +175,16 @@ public final class AbilityLoader {
             resources.put(name, new ResourceDef(name, r.requireDouble("max"), r.getDouble("regen", 0),
                     r.getInt("delay", 0), hotbar, r.getString("icon", null)));
         }
-        return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources);
+        QuiverDef quiver = p.has("quiver") ? Parsers.quiver(p.getParams("quiver"), engine.statusDefs().ids()) : null;
+        if (quiver != null && quiver.hotbarSlot() > 0) {
+            for (ResourceDef r : resources.values()) {
+                int slot = r.hotbarSlot();
+                if (slot >= quiver.hotbarSlot() && slot < quiver.hotbarSlot() + quiver.size()) {
+                    throw p.error("quiver", "hotbar slot " + slot + " is used by both the quiver and resource '" + r.id() + "'");
+                }
+            }
+        }
+        return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver);
     }
 
     public Ability parseAbility(String id, Params p) {

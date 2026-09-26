@@ -28,6 +28,10 @@ public final class TagBindings implements TagListener {
         b.bind(Tags.BLOCK_MOVE, MovementLock::apply, MovementLock::remove);
         b.bind(Tags.SLOWED, MovementLock::applySlow, MovementLock::removeSlow);
         b.bind(Tags.BLOCK_KNOCKBACK, MovementLock::applySteadfast, MovementLock::removeSteadfast);
+        b.bind(Tags.HASTED, MovementLock::applyHaste, MovementLock::removeHaste);
+        b.bind(Tags.INVISIBLE,   // vanilla invisibility: held items and armor still show
+                e -> e.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0, false, false)),
+                e -> e.removePotionEffect(PotionEffectType.INVISIBILITY));
         // Air Anchor: levitation at level -1 pulls vertical speed to exactly 0, so you hover in place.
         b.bind(Tags.ANCHORED,
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, PotionEffect.INFINITE_DURATION, -1, false, false)),
@@ -70,5 +74,6 @@ public final class TagBindings implements TagListener {
         MovementLock.remove(living);
         MovementLock.removeSlow(living);
         MovementLock.removeSteadfast(living);
+        MovementLock.removeHaste(living);
     }
 }

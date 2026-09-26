@@ -15,7 +15,7 @@ import java.util.logging.Logger;
 public final class Keybinds {
 
     /** Bump when the default scheme changes, so old config.yml files don't silently win. */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     private final Map<InputAction, String> slots = new EnumMap<>(InputAction.class);
 
@@ -30,9 +30,8 @@ public final class Keybinds {
         slots.put(InputAction.HOTBAR_1, Slots.ABILITY_1);
         slots.put(InputAction.HOTBAR_2, Slots.ABILITY_2);
         slots.put(InputAction.HOTBAR_3, Slots.ABILITY_3);
-        slots.put(InputAction.SWAP_HANDS, Slots.ULTIMATE);
-        slots.put(InputAction.HOTBAR_7, Slots.ULTIMATE);
-        // DROP (Q): free.
+        slots.put(InputAction.SWAP_HANDS, Slots.ULTIMATE); // its icon sits in the offhand
+        // DROP (Q) and 7-9 (indicators: resources, a quiver): free.
     }
 
     /** Load from the root of config.yml. An outdated or missing keybinds section keeps the defaults. */

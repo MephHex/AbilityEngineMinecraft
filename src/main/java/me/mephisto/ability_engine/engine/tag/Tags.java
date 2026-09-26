@@ -20,6 +20,10 @@ public final class Tags {
     public static final String ANCHORED = "state.anchored";
     /** Takes reduced damage (on Bukkit: Resistance II, -40%). */
     public static final String RESISTANT = "state.resistant";
+    /** Moves faster (on Bukkit: +30% movement speed). */
+    public static final String HASTED = "state.hasted";
+    /** Can't be seen (on Bukkit: Invisibility, no particles; held items still show, like vanilla). */
+    public static final String INVISIBLE = "state.invisible";
 
     public static final String BLOCK_ABILITY = "block.ability";
     public static final String BLOCK_MOVE = "block.move";

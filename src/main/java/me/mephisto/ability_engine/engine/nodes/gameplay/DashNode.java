@@ -26,7 +26,9 @@ import java.util.Set;
  * Allies are passed through. {@code pierce: true} passes through enemies too (only walls and range end
  * it). {@code store: <name>} writes where it started and ended as "<name>_start" / "<name>_end".
  * {@code flat: true} ignores the vertical part of the aim (ground dash);
- * false follows the aim fully (trident-style). The cast stays running while dashing, so the
+ * false follows the aim fully (trident-style). {@code direction: movement} dashes the way the caster
+ * is WALKING instead of where they look (strafe left = dash left; always flat), or straight ahead
+ * (flat) when they stand still. The cast stays running while dashing, so the
  * ability's active_tags (e.g. block.ability) last exactly as long as the dash.
  */
 public final class DashNode implements GraphNode {
@@ -39,18 +41,26 @@ public final class DashNode implements GraphNode {
     private final boolean flat;
     private final boolean pierce;
     private final String store; // null = don't record the path
+    private final boolean alongMovement;
 
     public DashNode(double speed, double range, double radius, boolean flat) {
         this(speed, range, radius, flat, false, null);
     }
 
     public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store) {
+        this(speed, range, radius, flat, pierce, store, false);
+    }
+
+    /** @param alongMovement dash the way the caster is moving instead of where they aim */
+    public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
+                    boolean alongMovement) {
         this.speed = speed;
         this.range = range;
         this.radius = radius;
         this.flat = flat;
         this.pierce = pierce;
         this.store = store;
+        this.alongMovement = alongMovement;
     }
 
     @Override
@@ -61,7 +71,11 @@ public final class DashNode implements GraphNode {
         if (aim.isEmpty() || start.isEmpty()) return NodeResult.out(Ports.MISS);
 
         Vec3 dir = aim.get().direction();
-        if (flat) dir = new Vec3(dir.x(), 0, dir.z());
+        if (flat || alongMovement) dir = new Vec3(dir.x(), 0, dir.z());
+        if (alongMovement) {
+            Optional<Vec3> moving = engine.world().movementOf(ctx.caster());
+            if (moving.isPresent()) dir = new Vec3(moving.get().x(), 0, moving.get().z());
+        }
         dir = dir.normalize();
         if (dir.isZero()) return NodeResult.out(Ports.MISS);
 

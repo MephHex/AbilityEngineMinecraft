@@ -3,6 +3,7 @@ package me.mephisto.ability_engine.engine.loadout;
 import me.mephisto.ability_engine.engine.ability.activation.AbilityActivator;
 import me.mephisto.ability_engine.engine.ability.activation.ActivationResult;
 import me.mephisto.ability_engine.engine.graph.Keys;
+import me.mephisto.ability_engine.engine.quiver.QuiverManager;
 import me.mephisto.ability_engine.engine.state.ResourceManager;
 
 import java.util.HashMap;
@@ -20,12 +21,15 @@ public final class LoadoutManager {
     private final CharacterRegistry characters;
     private final AbilityActivator activator;
     private final ResourceManager resources;
+    private final QuiverManager quivers;
     private final Map<UUID, String> assigned = new HashMap<>();
 
-    public LoadoutManager(CharacterRegistry characters, AbilityActivator activator, ResourceManager resources) {
+    public LoadoutManager(CharacterRegistry characters, AbilityActivator activator, ResourceManager resources,
+                          QuiverManager quivers) {
         this.characters = characters;
         this.activator = activator;
         this.resources = resources;
+        this.quivers = quivers;
     }
 
     public void assign(UUID player, String characterId) {
@@ -34,9 +38,13 @@ public final class LoadoutManager {
         }
         assigned.put(player, characterId);
         characters.find(characterId).get().resources().values().forEach(def -> resources.define(player, def));
+        quivers.reset(player); // a fresh quiver: plain bolts, nothing loaded
     }
 
-    public void clear(UUID player) { assigned.remove(player); }
+    public void clear(UUID player) {
+        assigned.remove(player);
+        quivers.clear(player);
+    }
 
     /** Empty if unassigned, or if their character no longer exists after a reload. */
     public Optional<CharacterDef> characterOf(UUID player) {

@@ -7,6 +7,7 @@ import me.mephisto.ability_engine.engine.graph.GraphNode;
 import me.mephisto.ability_engine.engine.graph.NodeResult;
 import me.mephisto.ability_engine.engine.graph.Keys;
 import me.mephisto.ability_engine.engine.loadout.Slots;
+import me.mephisto.ability_engine.engine.quiver.Bolt;
 import me.mephisto.ability_engine.engine.status.ActiveStatus;
 import me.mephisto.ability_engine.engine.target.EntityTarget;
 import me.mephisto.ability_engine.engine.target.KeyQuery;
@@ -28,16 +29,23 @@ public final class ApplyEffectsNode implements GraphNode {
     private final Affects affects;
     /** null = inherit: on for casts from the primary slot, off otherwise. */
     private final Boolean onHit;
+    /** Also apply the infusions of the bolt this cast fired (see take_bolt). */
+    private final boolean infusions;
 
     public ApplyEffectsNode(TargetQuery targets, List<EffectConfig> effects) {
         this(targets, effects, Affects.ENEMIES, null);
     }
 
     public ApplyEffectsNode(TargetQuery targets, List<EffectConfig> effects, Affects affects, Boolean onHit) {
+        this(targets, effects, affects, onHit, false);
+    }
+
+    public ApplyEffectsNode(TargetQuery targets, List<EffectConfig> effects, Affects affects, Boolean onHit, boolean infusions) {
         this.targets = targets;
         this.effects = List.copyOf(effects);
         this.affects = affects;
         this.onHit = onHit;
+        this.infusions = infusions;
     }
 
     /**
@@ -69,6 +77,21 @@ public final class ApplyEffectsNode implements GraphNode {
         }
     }
 
+    /** The fired bolt's infusions: each one's on-hit effects, applied to this target. */
+    private static void applyInfusions(ExecutionContext ctx, Target target) {
+        Bolt bolt = ctx.get(Keys.BOLT);
+        if (bolt == null) return;
+        for (String id : bolt.infusions()) {
+            // An infusion removed by /ae reload while the bolt was queued just does nothing.
+            ctx.engine().infusions().find(id).ifPresent(infusion -> {
+                for (EffectConfig config : infusion.onHit()) {
+                    ctx.engine().effects().require(config.effectId())
+                            .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
+                }
+            });
+        }
+    }
+
     private boolean allowed(ExecutionContext ctx, Target target) {
         if (!(target instanceof EntityTarget e) || e.id().equals(ctx.caster())) return true;
         boolean ally = ctx.engine().teams().allies(ctx.caster(), e.id());
@@ -90,7 +113,9 @@ public final class ApplyEffectsNode implements GraphNode {
                         .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
             }
             // On-hits only land on OTHER entities you hit, never on yourself.
-            if (onHitHere && target instanceof EntityTarget e && !e.id().equals(ctx.caster())) applyOnHit(ctx, target);
+            boolean other = target instanceof EntityTarget e && !e.id().equals(ctx.caster());
+            if (onHitHere && other) applyOnHit(ctx, target);
+            if (infusions && other) applyInfusions(ctx, target); // a bolt's magic is for whoever it hits
         }
         return NodeResult.NEXT;
     }

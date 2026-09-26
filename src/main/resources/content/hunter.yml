@@ -1,0 +1,258 @@
+# content: hunter
+# The Hunter: a crossbow marksman who infuses bolts with alchemy.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# How the crossbow works (a real vanilla crossbow):
+#   HOLD RMB  draw it, like in vanilla. When it's drawn, the next bolt from your quiver loads.
+#   LMB       shoot the loaded bolt. Nothing loaded: a dry click.
+# Quiver: your next 3 bolts sit in hotbar slots 7, 8 and 9. The LEFTMOST one loads next; after a
+#   load they all shift left and a plain bolt joins on the right. Infusions only ever go onto bolts
+#   in the quiver, never onto the one already loaded, and one bolt can carry several infusions.
+# Passive (Hunter's Rhythm): every bolt that hits makes your next draws 0.25s faster, up to 3 times
+#   (1.25s -> 0.5s). Stacks last 5s, refreshed by each hit. Shown as Quick Charge on the crossbow.
+
+statuses:
+  hunters_rhythm:                    # the passive: its stacks are the crossbow's reload speed
+    duration: 100                    # 5s, refreshed by every hit
+    stacking: stack
+    max_stacks: 3
+    tags: [buff.hunters_rhythm]
+
+  poisoned:                          # the Poison infusion
+    duration: 80                     # 4s...
+    stacking: refresh
+    tags: [state.poisoned]
+    tick:
+      every: 20                      # ...10 damage per second = 40 total
+      effects:
+        - { id: damage, amount: 10 }
+
+  flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
+    duration: 60                     # 3s
+    stacking: refresh
+    tags: [state.hasted]             # +30% movement speed
+    tick:
+      every: 10
+      effects:
+        - { id: heal, amount: 6 }    # 6 x 6 = 36 over 3s
+
+  camouflaged:                       # Venom Step during Overdrive
+    duration: 50                     # 2.5s
+    stacking: refresh
+    tags: [state.invisible]
+
+# Magic a bolt can carry. When an infused bolt hits, its infusions' on_hit effects land on the target too.
+# color: how bolts carrying it are tinted in the quiver (several infusions mix their colors).
+infusions:
+  poison:
+    name: "Poison"
+    color: "#4E9331"
+    description: ["Poisons: 40 damage over 4s."]
+    on_hit:
+      - { id: status, status: poisoned }
+  slowness:
+    name: "Slowness"
+    color: "#5A6C81"
+    description: ["Slows by 40% for 2s."]
+    on_hit:
+      - { id: status, status: slow, duration: 40 }
+
+abilities:
+
+  # PRIMARY (LMB): shoot whatever is loaded. Hold RMB to draw (reload) first.
+  infused_bolt:
+    cooldown: 5                      # just a guard against double clicks: the draw is the real fire rate
+    display:
+      name: "Infused Bolt"
+      description:
+        - "Hold RMB to draw, LMB to shoot the"
+        - "loaded bolt: 45 damage + its infusions."
+        - "Passive - Hunter's Rhythm: each hit draws"
+        - "0.25s faster (up to 3 times, 5s)."
+    nodes:
+      take:
+        type: take_bolt              # the loaded bolt leaves the crossbow (stored as "bolt")
+        on: { out: shoot, empty: dry }
+      shoot:
+        type: projectile
+        speed: 3.0                   # vanilla crossbow bolts are ~3.15
+        size: 0.35
+        lifetime: 40
+        visual: ARROW
+        motion:
+          - { type: gravity, amount: 0.02 }
+        on: { spawned: twang, hit_entity: strike, hit_block: thunk }
+      twang:
+        type: play_cue
+        cue: crossbow_shot
+      strike:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        infusions: true              # + everything this bolt was infused with
+        effects:
+          - { id: damage, amount: 45 }
+        next: rhythm
+      rhythm:
+        type: apply_effects          # the passive: +1 stack per hit
+        targets: { type: self }
+        effects:
+          - { id: status, status: hunters_rhythm }
+        next: strike_cue
+      strike_cue:
+        type: play_cue
+        cue: hit
+        at: hit
+      thunk:
+        type: play_cue
+        cue: impact
+        at: hit
+      dry:
+        type: play_cue
+        cue: dry_fire
+
+  # 1: dash the way you're MOVING (strafe left = dash left; standing still = forward). Instantly
+  # reloads (if the crossbow is empty) and poisons the next 3 bolts in your quiver.
+  # During Overdrive it also turns you invisible for 2.5s.
+  venom_step:
+    cooldown: 160                    # 8s
+    display:
+      name: "Venom Step"
+      icon: FERMENTED_SPIDER_EYE
+      description:
+        - "Dash the way you're moving. Reloads, and"
+        - "infuses your next 3 bolts with Poison."
+        - "During Overdrive: invisible for 2.5s."
+    active_tags: [state.dashing, block.ability]
+    interrupted_by: [state.stunned]
+    nodes:
+      whoosh:
+        type: play_cue
+        cue: hunter_dash
+        next: reload
+      reload:
+        type: reload                 # load the front bolt, then infuse the 3 behind it
+        on: { out: envenom, full: envenom }   # full = already loaded: nothing to do
+      envenom:
+        type: infuse
+        infusion: poison
+        count: 3
+        next: overdrive
+      overdrive:
+        type: has_tag
+        tag: state.overdrive
+        on: { has: vanish, lacks: step }
+      vanish:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: camouflaged }
+        next: vanish_cue
+      vanish_cue:
+        type: play_cue
+        cue: vanish
+        next: step
+      step:
+        type: dash
+        direction: movement          # where you walk, not where you look
+        speed: 1.5
+        range: 6
+        flat: true
+        pierce: true                 # a repositioning dash: straight through enemies
+
+  # 2: lob an experimental flask. It bounces once, then bursts (or bursts on the first enemy it hits):
+  # damage and a slow to enemies around it. Caught in your own burst: speed, a little healing, and
+  # your next bolt is infused with Slowness.
+  volatile_flask:
+    cooldown: 240                    # 12s
+    display:
+      name: "Volatile Flask"
+      icon: DRAGON_BREATH
+      description:
+        - "Lob a flask. It bounces once, then bursts:"
+        - "50 damage and a 3s slow around it."
+        - "Caught in it yourself: speed, a little"
+        - "healing, and your next bolt gets Slowness."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.3                   # with this gravity: ~30 blocks on a 45 degree lob
+        size: 0.5
+        lifetime: 100
+        bounces: 1
+        restitution: 0.45
+        friction: 0.3
+        visual: SPLASH_POTION
+        motion:
+          - { type: gravity, amount: 0.05 }
+        on: { spawned: toss, hit_entity: burst, hit_block: burst }
+      toss:
+        type: play_cue
+        cue: flask_throw
+      burst:
+        type: apply_effects
+        targets: { type: radius, center: hit, radius: 3.5 }
+        effects:
+          - { id: damage, amount: 50 }
+          - { id: status, status: slow, duration: 60 }
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: flask_burst
+        at: hit
+        next: caught
+      caught:
+        type: in_range               # were YOU in the burst?
+        center: hit
+        radius: 3.5
+        on: { inside: tonic }  # outside: nothing more
+      tonic:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: flask_tonic }
+        next: slow_bolt
+      slow_bolt:
+        type: infuse
+        infusion: slowness
+        count: 1
+
+  # ULTIMATE (F, shown in the offhand slot): 8s of Overdrive. Faster movement, your crossbow draws at
+  # maximum speed (0.25s) no matter your Rhythm, and Venom Step makes you invisible.
+  overdrive:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Overdrive"
+      icon: GLOWSTONE_DUST
+      description:
+        - "8s: +30% speed, your crossbow draws at"
+        - "max speed, and Venom Step makes you"
+        - "invisible."
+    active_tags: [state.overdrive, state.hasted]   # held for the whole cast (the delay below)
+    aura: overdrive                  # sparks around you while it lasts
+    nodes:
+      surge:
+        type: play_cue
+        cue: overdrive_start
+        next: last
+      last:
+        type: delay
+        ticks: 160                   # 8s
+        cast_bar: true               # the XP bar shows how long is left
+
+characters:
+  hunter:
+    name: "Hunter"
+    weapon: CROSSBOW                 # a real crossbow: hold RMB to draw (needs the quiver below)
+    quiver:
+      size: 3                        # the next 3 bolts...
+      hotbar: 7                      # ...shown in slots 7, 8, 9 (leftmost loads next)
+      reload_speed:                  # = Quick Charge level on the crossbow: 0.25s faster each
+        stacks_of: hunters_rhythm    # +1 per stack of the passive
+        max: 3
+        while: { state.overdrive: 4 }   # Overdrive: 0.25s draws (4 is the most a crossbow allows)
+    slots:
+      primary: infused_bolt          # LMB (RMB draws)
+      ability_1: venom_step          # 1
+      ability_2: volatile_flask      # 2
+      # ability_3: not designed yet
+      ultimate: overdrive            # F
