@@ -1,0 +1,16 @@
+name: ${project.name}
+version: ${project.version}
+main: ${main.class}
+author: ${author}
+api-version: '1.21'
+
+commands:
+  ae:
+    description: AbilityEngine commands
+    usage: /ae <cast|bind|unbind|cdclear|list|status|setres|reload|debug> [args]
+    permission: abilityengine.admin
+
+permissions:
+  abilityengine.admin:
+    description: Use /ae
+    default: op

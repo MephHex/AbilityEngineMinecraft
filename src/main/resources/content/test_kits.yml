@@ -1,0 +1,32 @@
+# content: test_kits
+# Older test kits built from shared.yml abilities.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+
+characters:
+  gunner:
+    name: "Gunner"
+    weapon: IRON_SWORD
+    slots:
+      primary: projectile_test
+      ability_1: shotgun
+      ability_2: bounce_test
+      ability_3: stun_hit
+      ultimate: delayed_blast
+
+  pyro:
+    name: "Pyro"
+    weapon: BLAZE_ROD
+    slots:
+      primary: test_blast
+      ability_1: flamethrower
+      ability_2: stun_hit
+      ultimate: homing_orb
+
+  tidecaller:
+    name: "Tidecaller"
+    weapon: NAUTILUS_SHELL
+    slots:
+      primary: test_blast
+      ability_1: tidal_orb           # press 1 again to recast
+      ability_2: foldstep
+      ultimate: delayed_blast

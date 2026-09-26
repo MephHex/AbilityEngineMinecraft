@@ -1,0 +1,172 @@
+# content: essence_reaver
+# Essence Reaver: a sustain fighter that heals by dealing damage and stores extra healing as Overflow.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# Overflow: excess healing becomes a decaying shield (yellow absorption hearts): effects with
+#   overflow: true   (on heal, or on damage with lifesteal). Tune per effect with
+#   overflow_max (design HP, default 150) and overflow_decay (per second, default 25).
+
+abilities:
+
+  # PRIMARY + PASSIVE (Vital Overflow): a short swing in front of you. Every third one is a wide
+  # cleave instead, which heals you for the damage it deals (excess becomes Overflow).
+  reaver_strike:
+    cooldown: 12                     # 0.6s between swings
+    display:
+      name: "Reaver Strike"
+      icon: IRON_HOE
+      description:
+        - "Melee swing. Every 3rd swing cleaves wide"
+        - "and heals you for the damage dealt."
+    nodes:
+      count:
+        type: counter
+        counter: reaver_swings       # remembered between swings (a plain resource)
+        every: 3
+        on: { trigger: cleave, out: swing }
+      swing:
+        type: apply_effects
+        targets: { type: cone, range: 3, angle: 70 }
+        effects:
+          - { id: damage, amount: 35 }
+        next: swing_cue
+      swing_cue:
+        type: play_cue
+        cue: sweep
+      cleave:
+        type: apply_effects
+        targets: { type: cone, range: 4.5, angle: 140 }
+        effects:
+          - { id: damage, amount: 45, lifesteal: 1.0, overflow: true }
+        next: cleave_cue
+      cleave_cue:
+        type: play_cue
+        cue: reaver_cleave
+
+  # 1: a bolt of quintessence that attaches to the first enemy hit. Recast (press 1 again, within
+  # 5s): recall it through them: damage again, pull them toward you, heal for the damage dealt.
+  # The cooldown starts once the recall is used or the 5s run out.
+  essence_absorption:
+    cooldown: 200                    # 10s
+    display:
+      name: "Essence Absorption"
+      icon: GHAST_TEAR
+      description:
+        - "Bolt that attaches to the first enemy hit."
+        - "Recast: recall it: damage, pull them in,"
+        - "and heal yourself (excess: Overflow)."
+    nodes:
+      fire:
+        type: projectile
+        speed: 1.6
+        size: 0.4
+        range: 25
+        lifetime: 40
+        visual: GHAST_TEAR
+        on: { hit_entity: attach }   # a miss just ends it
+      attach:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 30 }
+        next: mark
+      mark:
+        type: start_cue
+        cue: essence_mark            # soul flames on them while it's attached
+        at: hit
+        next: wait
+      wait:
+        type: await_recast
+        window: 100                  # 5s to recall
+        on: { recast: recall }
+      recall:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 40, lifesteal: 1.0, overflow: true }
+          - { id: knockback, from: caster, radius: 30, center: -0.9, edge: -0.9, lift: 0.25 }   # negative = pull
+        next: recall_cue
+      recall_cue:
+        type: play_cue
+        cue: essence_recall
+        at: hit
+        to: caster
+
+  # 2: dash through enemies, leaving a spirit echo where you started. 0.6s later the echo retraces
+  # your path, stunning everyone along it. You're free to act again as soon as the dash ends.
+  lifeline_step:
+    cooldown: 180                    # 9s
+    display:
+      name: "Lifeline Step"
+      icon: PHANTOM_MEMBRANE
+      description:
+        - "Dash through enemies. An echo retraces"
+        - "your path 0.6s later, stunning everyone"
+        - "it passes through."
+    active_tags: [state.dashing, block.ability]   # only during the dash itself (released below)
+    interrupted_by: [state.stunned]
+    nodes:
+      echo_mark:
+        type: play_cue
+        cue: spirit_echo             # where you started
+        next: step
+      step:
+        type: dash
+        speed: 1.6
+        range: 8
+        flat: true
+        pierce: true                 # through enemies; only walls and range stop it
+        store: path                  # writes path_start / path_end
+        on: { miss: free }           # with pierce it always ends as a "miss"
+      free:
+        type: release_tags           # dash over: act again while the echo is still coming
+        next: wait
+      wait:
+        type: delay
+        ticks: 12                    # 0.6s
+        next: echo
+      echo:
+        type: apply_effects
+        targets: { type: path, from: path_start, to: path_end, width: 1.6 }
+        effects:
+          - { id: status, status: stun, duration: 16 }   # 0.8s
+        next: echo_cue
+      echo_cue:
+        type: play_cue
+        cue: echo_path
+        at: path_start
+        to: path_end
+
+  # 3: meditate for up to 3s: heal quickly and take 40% less damage, but you can't move, attack
+  # or use abilities. Press 3 again to stop early. Stun or silence breaks it.
+  meditation:
+    cooldown: 300                    # 15s
+    display:
+      name: "Meditation"
+      icon: SOUL_LANTERN
+      description:
+        - "Up to 3s: heal quickly and take 40% less"
+        - "damage. Can't move, attack or use abilities."
+        - "Press again to stop early."
+    mode: { type: channel, period: 5, duration: 60 }     # a heal every 0.25s for 3s
+    cancel_on_repress: true
+    aura: meditation                 # a looping cue for the whole cast
+    active_tags: [state.meditating, state.resistant, block.move, block.ability]
+    interrupted_by: [state.stunned, state.silenced]      # state.* tags: see the Foldstep note
+    nodes:
+      heal:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: heal, amount: 12 }  # 12 x 12 pulses = 144 over the full 3s
+
+characters:
+  essence_reaver:
+    name: "Essence Reaver"
+    weapon: NETHERITE_HOE
+    slots:
+      primary: reaver_strike         # LMB
+      ability_1: essence_absorption  # 1, press 1 again to recall
+      ability_2: lifeline_step       # 2
+      ability_3: meditation          # 3, press 3 again to stop early
+      # ultimate: Last Standing (next)

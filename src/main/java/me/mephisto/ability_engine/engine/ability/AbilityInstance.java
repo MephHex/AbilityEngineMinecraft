@@ -1,0 +1,215 @@
+package me.mephisto.ability_engine.engine.ability;
+
+import me.mephisto.ability_engine.engine.AbilityEngine;
+import me.mephisto.ability_engine.engine.graph.Blackboard;
+import me.mephisto.ability_engine.engine.graph.ExecutionContext;
+import me.mephisto.ability_engine.engine.graph.Keys;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * One cast of an ability, from activation until everything it started has finished.
+ * The single handle to cancel a cast — including in-flight projectiles, delays and channels.
+ *
+ * <p>Lifetime is tracked by counting open branches: the root run, every forked projectile,
+ * and a running channel each hold one. When the count reaches zero the instance completes.
+ */
+public final class AbilityInstance {
+
+    public enum State { RUNNING, COMPLETED, CANCELLED }
+
+    private static final AtomicLong IDS = new AtomicLong();
+
+    private final long id = IDS.incrementAndGet();
+    private final AbilityEngine engine;
+    private final Ability ability;
+    private final UUID caster;
+    private final long startedAt;
+    private final List<Runnable> onEnd = new ArrayList<>();
+
+    private State state = State.RUNNING;
+    private int openBranches;
+    private String endReason;
+    private boolean started;
+    private Runnable recastHandler;
+    private boolean cooldownPending;
+    private boolean tagsReleased;
+    private Runnable keepAlive;
+    private java.util.function.DoubleSupplier gauge;
+    private CastProgress progress;
+
+    /** A timed phase of this cast the HUD should show as a filling bar (wind-ups, channels). */
+    public record CastProgress(long startTick, long durationTicks) {}
+
+    private final java.util.Map<String, Object> presets;
+
+    public AbilityInstance(AbilityEngine engine, Ability ability, UUID caster) {
+        this(engine, ability, caster, java.util.Map.of());
+    }
+
+    /** @param presets blackboard values every branch starts with (e.g. "aim") */
+    public AbilityInstance(AbilityEngine engine, Ability ability, UUID caster, java.util.Map<String, Object> presets) {
+        this.engine = engine;
+        this.ability = ability;
+        this.caster = caster;
+        this.startedAt = engine.clock().now();
+        this.presets = java.util.Map.copyOf(presets);
+    }
+
+    public long id() { return id; }
+    public AbilityEngine engine() { return engine; }
+    public Ability ability() { return ability; }
+    public UUID caster() { return caster; }
+    public long startedAt() { return startedAt; }
+    public State state() { return state; }
+    public String endReason() { return endReason; }
+    public boolean isActive() { return state == State.RUNNING; }
+
+    /** Grants active tags and hands control to the activation mode. Called once by the activator. */
+    public void start() {
+        if (started) throw new IllegalStateException("instance already started");
+        started = true;
+        engine.tags().grantAll(caster, ability.activeTags());
+        if (ability.aura() != null) {
+            var aura = engine.cues().start(ability.aura(), caster);
+            onEnd(aura::stop);
+        }
+        openBranch(); // guard branch: stops the instance completing while the mode is still starting up
+        ability.mode().start(this);
+        closeBranch();
+    }
+
+    /** A fresh root branch with a new blackboard containing the caster. */
+    public ExecutionContext newBranch() {
+        openBranch();
+        ExecutionContext ctx = new ExecutionContext(this, new Blackboard());
+        ctx.put(Keys.CASTER, caster);
+        presets.forEach(ctx.blackboard()::putRaw);
+        return ctx;
+    }
+
+    public void openBranch() {
+        if (isActive()) openBranches++;
+    }
+
+    public void closeBranch() {
+        if (!isActive()) return;
+        if (--openBranches <= 0) end(State.COMPLETED, "completed");
+    }
+
+    public void cancel(String reason) { end(State.CANCELLED, reason); }
+
+    public boolean tagsReleased() { return tagsReleased; }
+
+    /** Drop the active tags before the cast ends (see ReleaseTagsNode). */
+    public void releaseActiveTags() {
+        if (tagsReleased || !isActive()) return;
+        tagsReleased = true;
+        engine.tags().revokeAll(caster, ability.activeTags());
+    }
+
+    // ---- deferred cooldown (recast abilities) -----------------------------------------------------
+
+    /** The cooldown waits for the recast window to close (see Ability.cooldownAfterRecast). */
+    public void deferCooldown() { cooldownPending = true; }
+
+    /** Start the deferred cooldown now (window closed). Safe to call more than once. */
+    public void startDeferredCooldown() {
+        if (!cooldownPending) return;
+        cooldownPending = false;
+        engine.cooldowns().start(caster, ability.id(), ability.cooldownTicks());
+    }
+
+    // ---- cast bar --------------------------------------------------------------------------------
+
+    /** Start showing a bar that fills over {@code durationTicks}. Returns a token for {@link #clearProgress}. */
+    public CastProgress showProgress(long durationTicks) {
+        progress = new CastProgress(engine.clock().now(), Math.max(1, durationTicks));
+        return progress;
+    }
+
+    /** Hide the bar, but only if {@code token} is still the one showing. */
+    public void clearProgress(CastProgress token) {
+        if (progress == token) progress = null;
+    }
+
+    /** 0..1 while a bar is showing and the cast is running; empty otherwise. */
+    public Optional<Double> progressFraction() {
+        if (!isActive()) return Optional.empty();
+        if (gauge != null) return Optional.of(Math.max(0, Math.min(1, gauge.getAsDouble())));
+        CastProgress p = progress;
+        if (p == null) return Optional.empty();
+        double f = (engine.clock().now() - p.startTick()) / (double) p.durationTicks();
+        return Optional.of(Math.max(0, Math.min(1, f)));
+    }
+
+    /** Show a live value (e.g. a resource draining) on the cast bar instead of timed progress. */
+    public void showGauge(java.util.function.DoubleSupplier gauge) { this.gauge = gauge; }
+
+    // ---- hold (set by a hold activation while it runs) -----------------------------------------
+
+    public void setKeepAlive(Runnable keepAlive) { this.keepAlive = keepAlive; }
+
+    /** The held input is still held. Returns false if this instance isn't a running hold. */
+    public boolean keepAlive() {
+        if (!isActive() || keepAlive == null) return false;
+        keepAlive.run();
+        return true;
+    }
+
+    // ---- recast (set by an await_recast node while it waits) ----------------------------------
+
+    public void setRecastHandler(Runnable handler) { this.recastHandler = handler; }
+
+    /** Clears the handler only if it is still {@code handler}, so a newer waiter isn't removed. */
+    public void clearRecastHandler(Runnable handler) {
+        if (recastHandler == handler) recastHandler = null;
+    }
+
+    public boolean awaitingRecast() { return isActive() && recastHandler != null; }
+
+    /** Deliver a recast press. One-shot: the waiter must re-register to accept another. */
+    public void recast() {
+        Runnable h = recastHandler;
+        recastHandler = null;
+        progress = null;
+        keepAlive = null;
+        gauge = null;
+        if (h != null && isActive()) h.run();
+    }
+
+    /** Run when the instance ends for any reason. Hooks must be safe to run more than once. */
+    public void onEnd(Runnable hook) {
+        if (isActive()) onEnd.add(hook);
+        else hook.run();
+    }
+
+    private void end(State newState, String reason) {
+        if (state != State.RUNNING) return;
+        state = newState;
+        endReason = reason;
+        startDeferredCooldown(); // e.g. stunned during the recast window: no free cast
+        recastHandler = null;
+        progress = null;
+        keepAlive = null;
+        gauge = null;
+        for (Runnable hook : List.copyOf(onEnd)) {
+            try {
+                hook.run();
+            } catch (RuntimeException e) {
+                engine.log().error("end hook failed for " + ability.id(), e);
+            }
+        }
+        onEnd.clear();
+        if (!tagsReleased) engine.tags().revokeAll(caster, ability.activeTags());
+        engine.instances().remove(this);
+        engine.log().debug(() -> ability.id() + "#" + id + " " + newState + " (" + reason + ")");
+    }
+
+    @Override
+    public String toString() { return ability.id() + "#" + id + "[" + state + "]"; }
+}

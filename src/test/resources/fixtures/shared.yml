@@ -1,0 +1,372 @@
+# content: fixture_shared
+# Statuses (incl. burn and the test buffs) and generic/test abilities used by the test kits.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+
+statuses:
+  stun:
+    duration: 40
+    stacking: refresh          # refresh | extend | stack
+    tags: [state.stunned, block.move, block.ability]
+  silence:
+    duration: 60
+    tags: [state.silenced, block.ability]
+  root:
+    duration: 40
+    tags: [state.rooted, block.move]
+  slow:
+    duration: 60
+    tags: [state.slowed]       # -40% movement speed (bukkit/status/MovementLock)
+  glowing:
+    duration: 60
+    tags: [state.glowing]      # Minecraft glowing outline (visible through walls)
+
+  # Damage over time: tick effects run every N ticks, credited to whoever applied the status.
+  burn:
+    duration: 40               # 2s...
+    stacking: refresh
+    tags: [state.burning]      # looks on fire (no vanilla fire damage)
+    tick:
+      every: 10                # ...one tick every 0.5s = 4 ticks
+      effects:
+        - { id: damage, amount: 5 }
+
+  # ---- BUFFS: statuses with on_hit effects -----------------------------------------------
+  # While you have one, every hit from an on-hit ability also applies these to the target.
+  # Primary fire applies on-hits by default; other abilities opt in with  on_hit: true  on the
+  # apply_effects node that should count (and  on_hit: false  turns it off anywhere).
+  burning_touch:
+    duration: 200              # 10s
+    tags: [buff.burning_touch]
+    on_hit:
+      - { id: status, status: burn }
+  empowered:
+    duration: 200
+    tags: [buff.empowered]
+    on_hit:
+      - { id: damage, amount: 20 }
+
+abilities:
+
+  test_blast:
+    cooldown: 60
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 20 }
+        on: { hit: damage, miss: missed }
+      damage:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, amount: 40 }
+        next: hit_cue
+      hit_cue:
+        type: play_cue
+        cue: hit
+        at: target
+      missed:
+        type: print
+        message: "Cast missed"
+
+  self_stun_test:
+    blocked_by: []             # usable even while stunned, so you can test stacking
+    nodes:
+      stun_self:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: stun, duration: 80 }
+
+  stun_hit:
+    display: { name: "Concuss", icon: GOLD_NUGGET, description: ["Hitscan stun, 3s."] }
+    cooldown: 60
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 20 }
+        on: { hit: stun, miss: missed }
+      stun:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: stun, duration: 60 }
+      missed:
+        type: print
+        message: "Cast missed"
+
+  projectile_test:
+    display: { name: "Arc Shot", icon: PRISMARINE_SHARD, description: ["Lobbed shot that drops over distance.", "50 damage."] }
+    cooldown: 60
+    nodes:
+      shoot:
+        type: projectile
+        speed: 1.4
+        size: 1.0
+        motion:
+          - { type: gravity, amount: 0.08 }
+        on: { hit_entity: damage, hit_block: block_hit, expired: expired }
+      damage:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 50 }
+        next: hit_cue
+      hit_cue:
+        type: play_cue
+        cue: hit
+        at: hit
+      block_hit:
+        type: play_cue
+        cue: impact
+        at: hit
+      expired:
+        type: print
+        message: "Projectile expired"
+
+  # Throw it at your feet: it thuds and pops up in place. Lob it low: it skips forward.
+  bounce_test:
+    cooldown: 20
+    nodes:
+      shoot:
+        type: projectile
+        size: 0.6
+        bounces: 3
+        restitution: 0.35          # share of the into-the-ground speed that comes back up
+        friction: 0.4              # hard impacts lose forward speed, skims keep it
+        min_bounce_speed: 0.05     # slower rebounds just land (exit hit_block)
+        motion:
+          - { type: gravity, amount: 0.04 }
+          - { type: drag, amount: 0.01 }
+        on: { hit_entity: damage, hit_block: done }
+      damage:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 50 }
+      done:
+        type: print
+        message: "Bounce test: final block hit (bounces exhausted)"
+
+  # ---- buff tests: /ae cast buff_burn_test, then hit something with primary fire ----------
+  buff_burn_test:
+    blocked_by: []
+    nodes:
+      buff:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: burning_touch }
+
+  buff_damage_test:
+    blocked_by: []
+    nodes:
+      buff:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: empowered }
+
+  # ---- examples of what the new architecture enables ---------------------------------
+
+  # 5 pellets, each its own branch: every pellet that connects deals damage independently.
+  shotgun:
+    display: { name: "Scatter", icon: IRON_NUGGET, description: ["5 pellets, 20 damage each.", "Point blank for full damage."] }
+    cooldown: 30
+    nodes:
+      fire:
+        type: projectile
+        count: 5
+        spread: 8
+        speed: 2.0
+        size: 0.3
+        lifetime: 12
+        visual: IRON_NUGGET
+        on: { spawned: bang, hit_entity: pellet }
+      bang:
+        type: play_cue
+        cue: cast
+      pellet:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 20, ignore_iframes: true }
+
+  # Area around the caster: damage + root everyone within 5 blocks.
+  # Costs mana; give yourself some with:  /ae setres mana 100
+  frost_nova:
+    cooldown: 200
+    cost: { mana: 30 }
+    nodes:
+      nova:
+        type: apply_effects
+        targets: { type: radius, radius: 5 }
+        effects:
+          - { id: damage, amount: 30 }
+          - { id: status, status: root, duration: 40 }
+
+  # Channel: every 4 ticks for 3s, hit everything in a 60 degree cone. Stun/silence interrupts it.
+  # To make it burn a resource, add to mode:  ammo: fuel, ammo_per_pulse: 1   (refill: /ae setres fuel 50)
+  flamethrower:
+    display: { name: "Flamethrower", icon: BLAZE_POWDER, description: ["Hold a 60 degree cone of fire for 3s.", "Stuns and silences interrupt it."] }
+    cooldown: 100
+    mode: { type: channel, period: 4, duration: 60 }
+    nodes:
+      burn:
+        type: apply_effects
+        targets: { type: cone, range: 6, angle: 60 }
+        effects:
+          - { id: damage, amount: 10, ignore_iframes: true }
+
+  # Lock on with a hitscan, then fire a homing orb at whoever you locked.
+  homing_orb:
+    display: { name: "Seeker Orb", icon: ENDER_EYE, description: ["Locks on, then curves into the target.", "60 damage."] }
+    cooldown: 80
+    nodes:
+      lock:
+        type: acquire_target
+        query: { type: hitscan, range: 40, ray_size: 0.6 }
+        store: lock
+        on: { hit: fire, miss: missed }
+      fire:
+        type: projectile
+        speed: 0.8
+        size: 0.5
+        lifetime: 100
+        visual: ENDER_EYE
+        motion:
+          - { type: homing, key: lock, turn: 0.2 }
+        on: { hit_entity: damage }
+      damage:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 60 }
+      missed:
+        type: print
+        message: "homing_orb: no lock"
+
+  # Mark a spot (or a mob), wait 1s, then explode there. A marked mob is silenced first.
+  # Shows delay + point targets + switch.
+  delayed_blast:
+    display: { name: "Mortar Mark", icon: TNT, description: ["Mark a spot. It explodes 1s later.", "Marked enemies are silenced."] }
+    cooldown: 100
+    nodes:
+      mark:
+        type: acquire_target
+        query: { type: hitscan, range: 30, blocks: true }
+        on: { hit: what_did_we_hit }
+      what_did_we_hit:
+        type: switch
+        key: target
+        on: { entity: silence_it, point: wait }
+      silence_it:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: silence, duration: 20 }
+        next: wait
+      wait:
+        type: delay
+        ticks: 20
+        next: boom
+      boom:
+        type: apply_effects
+        targets: { type: radius, center: target, radius: 3 }
+        effects:
+          - { id: damage, amount: 50 }
+        next: boom_cue
+      boom_cue:
+        type: play_cue
+        cue: impact
+        at: target
+
+  # ---- Tidal Orb: two-part ability (recast) ------------------------------------------
+  #  Cast:    a slow orb. Hitting someone slows them.
+  #  Recast:  (press the same key again while the orb flies, within 4s) the orb turns toward
+  #           whatever your crosshair is on and accelerates. If it then hits: stuns the target it
+  #           hits and explodes for AoE damage. Hitting a wall after the recast still explodes.
+  #
+  #  How it works: two branches run at the same time.
+  #   - the orb branch waits for impact (fire.hit_entity / fire.hit_block)
+  #   - the recast branch waits for your second press (fire.spawned -> wait_recast)
+  #  The recast branch writes phase=empowered; the orb branch reads it at impact to decide
+  #  between "slow" and "stun + explode".
+
+  tidal_orb:
+    cooldown: 200                  # starts on the first cast; the recast is free
+    display:
+      name: "Tidal Orb"
+      icon: HEART_OF_THE_SEA
+      description:
+        - "Slow orb that slows on hit."
+        - "Recast: steer it to your crosshair."
+        - "It accelerates, stuns the target and"
+        - "deals 60 damage around the impact."
+    nodes:
+      fire:
+        type: projectile
+        store: orb                 # keep a handle so steer/wait_recast can find it
+        speed: 0.45
+        size: 0.8
+        lifetime: 100
+        visual: "entity:END_CRYSTAL"   # a real end crystal; or an item name like HEART_OF_THE_SEA
+        on: { spawned: wait_recast, hit_entity: on_hit, hit_block: on_block }
+
+      # -- recast branch --
+      wait_recast:
+        type: await_recast
+        window: 80                 # 4s to press again
+        while: orb                 # closes early once the orb has hit or expired
+        on: { recast: empower }    # timeout: unwired -> branch just ends
+      empower:
+        type: set
+        key: phase
+        value: empowered
+        next: steer
+      steer:
+        type: redirect_projectile
+        projectile: orb
+        toward: cursor
+        speed: 0.8                 # speed right after the turn...
+        motion:                    # ...then +0.12/tick up to 2.5 (replaces its old motion)
+          - { type: accelerate, amount: 0.12, max: 2.5 }
+        next: steer_cue
+      steer_cue:
+        type: play_cue
+        cue: cast
+
+      # -- orb branch: impact --
+      on_hit:
+        type: switch
+        key: phase
+        on: { empowered: stun_target, default: slow_target }
+      slow_target:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: status, status: slow, duration: 60 }
+        next: slow_cue
+      slow_cue:
+        type: play_cue
+        cue: hit
+        at: hit
+      stun_target:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: status, status: stun, duration: 30 }
+        next: explode
+      on_block:
+        type: switch
+        key: phase
+        on: { empowered: explode } # an un-recast orb hitting a wall just fizzles
+      explode:
+        type: apply_effects
+        targets: { type: radius, center: hit, radius: 3.5 }   # includes the stunned target
+        effects:
+          - { id: damage, amount: 60 }
+        next: explode_cue
+      explode_cue:
+        type: play_cue
+        cue: impact
+        at: hit

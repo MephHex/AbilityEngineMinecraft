@@ -1,0 +1,94 @@
+package me.mephisto.ability_engine.engine.projectile;
+
+import me.mephisto.ability_engine.engine.math.Vec3;
+
+import java.util.List;
+
+/**
+ * Everything about a projectile type, as data. Values that were hardcoded in ProjectileCast
+ * (speed 1.4, lifetime 1000, bounce damping 0.6, DIAMOND_BLOCK) live here now.
+ *
+ * @param speed         blocks per tick at launch
+ * @param size          hitbox diameter in blocks (also visual scale)
+ * @param visual        platform-specific visual id; on Bukkit a Material name
+ * @param count         projectiles per cast (shotguns); each is its own branch
+ * @param spreadDegrees max random deviation from the crosshair, per projectile
+ * @param restitution    share of the "into the surface" speed that comes back out (0 = dead, 1 = superball)
+ * @param friction       how much a hard impact kills speed along the surface (Coulomb-style, see {@link #bounce})
+ * @param minBounceSpeed rebounds slower than this don't happen: the projectile lands (exits hit_block)
+ * @param range          blocks it may travel UNGUIDED before expiring (0 = only lifetime limits it).
+ *                       Distance flown while guided doesn't count; lifetimeTicks stays a hard cap.
+ */
+public record ProjectileSpec(
+        double speed,
+        double size,
+        int lifetimeTicks,
+        int maxBounces,
+        double restitution,
+        double friction,
+        double minBounceSpeed,
+        List<MotionModifier> motion,
+        String visual,
+        int count,
+        double spreadDegrees,
+        double range
+) {
+    public ProjectileSpec {
+        motion = List.copyOf(motion);
+        if (count < 1) count = 1;
+    }
+
+    public static Builder builder() { return new Builder(); }
+
+    /**
+     * Velocity after hitting a surface with unit normal {@code n}, or null if it's too slow to bounce.
+     * The velocity is split into the part going INTO the surface and the part sliding ALONG it:
+     * <ul>
+     *   <li>into: reversed and scaled by restitution</li>
+     *   <li>along: loses {@code friction * impulse}, so the loss grows with how hard it hit. A throw at
+     *       your feet is almost all "into" and thuds nearly in place; a low skim keeps rolling.</li>
+     * </ul>
+     */
+    public Vec3 bounce(Vec3 v, Vec3 n) {
+        double into = -v.dot(n);                    // speed toward the surface
+        double rebound = into * restitution;
+        if (rebound < minBounceSpeed) return null;  // also covers grazing / moving away
+        Vec3 along = v.add(n.multiply(into));       // v minus its normal component
+        double alongSpeed = along.length();
+        double keep = alongSpeed < 1e-9 ? 0 : Math.max(0, 1 - friction * (1 + restitution) * into / alongSpeed);
+        return along.multiply(keep).add(n.multiply(rebound));
+    }
+
+    public static final class Builder {
+        private double speed = 1.4;
+        private double size = 0.5;
+        private int lifetimeTicks = 200;
+        private int maxBounces = 0;
+        private double restitution = 0.35;
+        private double friction = 0.4;
+        private double minBounceSpeed = 0.05;
+        private List<MotionModifier> motion = List.of();
+        private String visual = "DIAMOND_BLOCK";
+        private int count = 1;
+        private double spreadDegrees = 0;
+        private double range = 0;
+
+        public Builder speed(double v) { speed = v; return this; }
+        public Builder size(double v) { size = v; return this; }
+        public Builder lifetimeTicks(int v) { lifetimeTicks = v; return this; }
+        public Builder maxBounces(int v) { maxBounces = v; return this; }
+        public Builder restitution(double v) { restitution = v; return this; }
+        public Builder friction(double v) { friction = v; return this; }
+        public Builder minBounceSpeed(double v) { minBounceSpeed = v; return this; }
+        public Builder motion(List<MotionModifier> v) { motion = v; return this; }
+        public Builder visual(String v) { visual = v; return this; }
+        public Builder count(int v) { count = v; return this; }
+        public Builder spreadDegrees(double v) { spreadDegrees = v; return this; }
+        public Builder range(double v) { range = v; return this; }
+
+        public ProjectileSpec build() {
+            return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
+                    motion, visual, count, spreadDegrees, range);
+        }
+    }
+}

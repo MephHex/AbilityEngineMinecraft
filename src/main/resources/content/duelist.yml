@@ -1,0 +1,137 @@
+# content: duelist
+# Diver test kit: Royal Lunge, Parasol Guard, and the Sovereign Geyser ultimate.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+
+abilities:
+
+  # Dash where you aim (trident-style thrust). Stops at the first enemy: damage + brief stun.
+  # A miss ends at max range (or at a wall). Allies are passed through. Stun mid-lunge cancels it.
+  royal_lunge:
+    cooldown: 160                    # 8s
+    display:
+      name: "Royal Lunge"
+      icon: PRISMARINE_SHARD
+      description:
+        - "Lunge where you aim, up to 10 blocks."
+        - "Stops at the first enemy: 50 damage"
+        - "and a brief stun."
+    active_tags: [state.dashing, block.ability]   # no other abilities mid-lunge
+    interrupted_by: [state.stunned]
+    nodes:
+      whoosh:
+        type: play_cue
+        cue: cast
+        next: spin
+      spin:
+        type: start_cue              # looping: runs until the cast ends (hit, miss or interrupted)
+        cue: riptide                 # the trident spin pose; swap for another plugin's animation later
+        next: lunge
+      lunge:
+        type: dash
+        speed: 1.4                   # blocks per tick (~7 ticks for the full 10)
+        range: 10
+        radius: 0.6                  # how wide the thrust is for catching enemies
+        flat: false                  # follow the aim up/down too; true = ground-only dash
+        on: { hit: strike }          # miss: just ends where it stopped
+      strike:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 50 }
+          - { id: status, status: stun, duration: 10 }   # 0.5s
+        next: strike_cue
+      strike_cue:
+        type: play_cue
+        cue: hit
+        at: hit
+
+  # Raise the parasol: a frontal water barrier for 2s.
+  # From the FRONT: enemy projectiles are absorbed, enemy hitscans stop like at a wall, enemy dashes
+  # stop, enemy melee (and vanilla mob hits/arrows) is blocked. From behind or the sides: hits land.
+  # Area damage isn't blocked. Allies pass through freely and are covered if they stand behind you.
+  # While guarding: knockback immune, slowed, and NO other actions (primary fire, melee, abilities).
+  # A stun ends it early.
+  parasol_guard:
+    cooldown: 200                    # 10s
+    display:
+      name: "Parasol Guard"
+      icon: HEART_OF_THE_SEA
+      description:
+        - "2s frontal water barrier: absorbs shots,"
+        - "stops rays, dashes and melee from the"
+        - "front. Knockback immune, but no other"
+        - "actions while guarding."
+    active_tags: [state.guarding, state.slowed, block.knockback, block.ability]   # block.ability: no other actions
+    interrupted_by: [state.stunned]
+    nodes:
+      raise:
+        type: barrier                # stands until the cast ends
+        distance: 1.0                # how far in front of your body
+        radius: 1.3                  # disc size: covers you (and someone right behind you)
+        next: water
+      water:
+        type: start_cue
+        cue: parasol                 # a ring of falling water in front of you (everyone sees it)
+        next: pose
+      pose:
+        type: start_cue
+        cue: guard_pose              # your weapon held across your body (a prop; a model later)
+        next: hold
+      hold:
+        type: delay
+        ticks: 40                    # guard duration: 2s
+        cast_bar: true
+
+  # ULTIMATE: brief charge while anchored in the air, then a massive water beam forward.
+  # Hits every enemy in a 2-block-wide beam up to 25 blocks: heavy damage and a huge shove.
+  # The beam stops at the first block (line of sight matters) and at an enemy's Parasol Guard.
+  # Air Anchor: you hover in place (no falling) and can't move or act until it's over.
+  # A stun during the charge cancels it.
+  sovereign_geyser:
+    cooldown: 400                    # placeholder until ults charge from damage
+    display:
+      name: "Sovereign Geyser"
+      icon: NAUTILUS_SHELL
+      description:
+        - "Charge, then a massive water beam:"
+        - "180 damage and huge knockback to all"
+        - "enemies in line. Stops at walls."
+        - "You hover in place while casting."
+    active_tags: [state.anchored, block.move, block.ability]   # Air Anchor + nothing else meanwhile
+    interrupted_by: [state.stunned]
+    nodes:
+      gather:
+        type: start_cue
+        cue: geyser_charge           # water spiralling in while charging
+        next: charge
+      charge:
+        type: delay
+        ticks: 25                    # 0.6s wind-up (aim is taken when it fires)
+        cast_bar: true
+        next: blast
+      blast:
+        type: apply_effects
+        targets: { type: line, range: 25, width: 2.0 }
+        effects:
+          - { id: damage, amount: 180 }
+          - { id: knockback, from: caster, radius: 25, center: 3.0, edge: 2.2, lift: 0.6 }
+        next: beam
+      beam:
+        type: play_cue
+        cue: geyser_beam
+        at: beam_start               # written by the line query: your eyes...
+        to: beam_end                 # ...to where the beam stopped
+        next: hold
+      hold:
+        type: delay
+        ticks: 20                    # still anchored while the beam lingers
+
+characters:
+  duelist:                           # test diver kit
+    name: "Duelist"
+    weapon: DIAMOND_SPEAR
+    slots:
+      primary: test_blast
+      ability_1: royal_lunge
+      ability_2: parasol_guard
+      ultimate: sovereign_geyser

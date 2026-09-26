@@ -1,0 +1,32 @@
+# Which vanilla input fires which character slot:
+#   primary, ability_1, ability_2, ability_3, ultimate, or none.
+# The server only ever sees these actions, never the actual key. Players can move them to any key
+# (or mouse button) in their own Controls menu: "Hotbar Slot 1-9", "Swap Item With Offhand", etc.
+#
+# While a player has a character, their held slot is locked to the weapon (slot 5). Keep slots
+# 4 and 6 unbound: the scroll wheel always reports those, and they're ignored on purpose.
+keybinds-version: 3
+keybinds:
+  left_click: primary
+  right_click: secondary # hold: e.g. Arcane Focus (also cancels aim previews)
+  hotbar_1: ability_1
+  hotbar_2: ability_2
+  hotbar_3: ability_3
+  swap_hands: ultimate   # F
+  hotbar_7: ultimate     # the ultimate's icon sits in slot 7, so 7 works too
+  drop: none             # Q: free
+
+# Ability damage is written in "design HP". This many design HP = 1 Minecraft health point
+# (half a heart). 10 means a 20-health player has 200 design HP.
+damage-scale: 10
+
+# ---- Development helpers -------------------------------------------------------------------
+# Both are read again on every /ae reload. Leave them off on a real server.
+dev:
+  # Read ability content straight from this folder instead of plugins/<this plugin>/content.
+  # Point it at your project, e.g. "C:/dev/AbilityEngine/src/main/resources/content"
+  # (forward slashes work on Windows too). Then: edit in your IDE, /ae reload. No rebuild needed.
+  content-folder: ""
+  # Copy the jar's content/ over plugins/<this plugin>/content on every start and /ae reload.
+  # Anything you edited in that folder on the server is LOST each time.
+  overwrite-content: false

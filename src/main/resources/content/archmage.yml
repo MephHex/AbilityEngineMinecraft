@@ -1,0 +1,262 @@
+# content: archmage
+# The Archmage: primary Arcane Bolt, RMB Arcane Focus, 1 Arcane Missile, 2 Foldstep, 3 Unstable Binding.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+
+abilities:
+
+  # Primary fire (LMB after the input rework; right click in the test kit for now).
+  arcane_bolt:
+    cooldown: 16                     # 0.8s between shots
+    blocked_by: [block.ability, state.guiding]   # can't fire while guiding (Arcane Focus)
+    display:
+      name: "Arcane Bolt"
+      icon: AMETHYST_SHARD
+      description: ["Fast arcane bolt, small burst on impact.", "Shatters your Unstable Binding."]
+    nodes:
+      fire:
+        type: projectile
+        speed: 0.9
+        size: 0.5
+        range: 30                    # blocks it may fly UNGUIDED; guided distance doesn't count
+        lifetime: 120                # hard cap: 6s no matter what
+        visual: AMETHYST_BLOCK
+        on: { hit_entity: burst, hit_block: burst }
+      burst:
+        type: apply_effects
+        targets: { type: radius, center: hit, radius: 1.5 }
+        effects:
+          - { id: damage, amount: 4 }
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: spark
+        at: hit
+
+  # Passive / RMB: hold right click to steer your latest Arcane Bolt toward your crosshair.
+  # Costs Focus fast (40/s: ~2.5s from full); Focus refills slowly (12/s after 1s, see the kit).
+  # While guided, the bolt's 30-block range is paused; release and it resumes where it left off.
+  # You're slowed and can't fire while guiding. No bolt in flight = nothing happens, nothing spent.
+  arcane_focus:
+    display:
+      name: "Arcane Focus"
+      icon: LAPIS_LAZULI
+      description: ["Hold RMB: steer your last Arcane Bolt.", "Drains Focus. Guided bolts fly further."]
+    mode: { type: hold, period: 1, release: 6, ammo: focus, ammo_per_pulse: 2, while_projectile: arcane_bolt }
+    active_tags: [state.guiding, state.slowed]
+    nodes:
+      steer:
+        type: steer_projectile
+        ability: arcane_bolt           # your most recent bolt that's still flying
+        turn: 0.5                 # 0..1, how hard it turns toward the crosshair per tick
+
+  # Slow missile; recast to steer it at your crosshair. Empowered: stun + Glowing + explosion.
+  arcane_missile:
+    cooldown: 240
+    display:
+      name: "Arcane Missile"
+      icon: ECHO_SHARD
+      description: ["Slow missile. Recast: steer it to your", "crosshair; it accelerates, stuns and", "reveals its target, then explodes."]
+    nodes:
+      fire:
+        type: projectile
+        store: missile
+        speed: 0.3
+        size: 0.7
+        lifetime: 100
+        visual: "entity:END_CRYSTAL"
+        on: { spawned: wait_recast, hit_entity: on_hit, hit_block: on_block }
+      wait_recast:
+        type: await_recast
+        window: 80
+        while: missile
+        on: { recast: empower }
+      empower:
+        type: set
+        key: phase
+        value: empowered             # Unstable Binding reads this when the missile strikes it
+        next: steer
+      steer:
+        type: redirect_projectile
+        projectile: missile
+        toward: cursor
+        speed: 0.8
+        motion:
+          - { type: accelerate, amount: 1.5, max: 1.5}
+        next: steer_cue
+      steer_cue:
+        type: play_cue
+        cue: cast
+      on_hit:
+        type: switch
+        key: phase
+        on: { empowered: stun_target, default: plain_hit }
+      plain_hit:
+        type: apply_effects
+        on_hit: true                 # buffs apply to the target hit
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 25 }
+      stun_target:
+        type: apply_effects
+        on_hit: true                 # buffs apply to the main target (not again via the explosion)
+        targets: { type: key, key: hit }
+        effects:
+          - { id: status, status: stun, duration: 12 }
+          - { id: status, status: glowing, duration: 60 }
+        next: explode
+      on_block:
+        type: switch
+        key: phase
+        on: { empowered: explode }
+      explode:
+        type: apply_effects
+        targets: { type: radius, center: hit, radius: 3 }
+        effects:
+          - { id: damage, amount: 50 }
+        next: explode_cue
+      explode_cue:
+        type: play_cue
+        cue: impact
+        at: hit
+
+  # ---- Foldstep: aimed, channeled blink ---------------------------------------------
+  #  Press: a preview circle follows your crosshair (only you see it). Left click confirms,
+  #  right click cancels. Nothing is spent until you confirm. Always lands on the ground straight
+  #  below your crosshair; the preview sits on that spot.
+  #  Then: 0.5s channel (rooted, no other abilities, XP bar fills), then teleport.
+  #  Stun or silence during the channel cancels it (the cooldown is still spent).
+  foldstep:
+    cooldown: 180
+    display:
+      name: "Foldstep"
+      icon: ENDER_PEARL
+      description:
+        - "Aim, then channel 0.5s (rooted) and"
+        - "teleport there, up to 12 blocks."
+    targeting:
+      shape: circle                  # circle | line | cone | point
+      range: 12                      # the confirmed spot arrives as "aim"
+      radius: 0.6                    # size of the preview
+      ground: true                   # lands on the ground straight below where you aim, at most
+                                     # 6 blocks below your feet (default max_drop). Deeper (off a
+                                     # cliff): you land on the cliff edge instead. Entities are ignored.
+    # Held for the whole cast: root + no other abilities.
+    active_tags: [state.casting, block.move, block.ability]
+    # Use the state.* tags here, NOT block.ability: tags are reference-counted, so while the
+    # cast itself holds block.ability, a stun adding it again doesn't count as "newly added".
+    interrupted_by: [state.stunned, state.silenced]
+    nodes:
+      mark:
+        type: play_cue
+        cue: teleport
+        at: aim                      # shows enemies where you're going
+        next: channel
+      channel:
+        type: delay
+        ticks: 10                    # 0.5s
+        cast_bar: true               # fills the XP bar while you wait
+        next: blink
+      blink:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: teleport, to: aim, ground: true }
+        next: arrive
+      arrive:
+        type: play_cue
+        cue: teleport
+
+  # =====================================================================================
+  #  ARCHMAGE
+  #  Arcane magic binds fae energy in geometric shapes; when the shape breaks, the energy is
+  #  released. Visuals are placeholders until the geometry models exist.
+  # =====================================================================================
+
+  # Place unstable geometry. It shatters on its own after 3s (damage + knockback, stronger near
+  # the centre). Enemies can break it harmlessly during the first 1.5s.
+  # Your Arcane Bolt shatters it early; your RECAST Arcane Missile shatters it with stun + Glowing
+  # on everyone in range. Neither of those abilities needs to know about it: whatever hits the
+  # geometry is recorded (struck_by = ability id, struck_phase = that shot's phase) and this
+  # ability decides what it means.
+  unstable_binding:
+    cooldown: 280
+    display:
+      name: "Unstable Binding"
+      icon: AMETHYST_CLUSTER
+      description:
+        - "Place unstable geometry. Shatters after 3s:"
+        - "damage + knockback. Enemies can break it"
+        - "in the first 1.5s. Your Bolt shatters it;"
+        - "your recast Missile makes it stun."
+    targeting: { shape: circle, range: 20, radius: 5, ground: true }   # preview = blast radius;
+                                     # like every ground ability: max 6 below your feet, else the cliff edge
+    nodes:
+      place:
+        type: construct
+        store: binding               # centre of the geometry, used as the blast centre
+        height: 1.5                  # floats 1 block above the ground
+        size: 0.8                    # hitbox radius
+        fragile: 30                  # enemies can break it for 1.5s (raise it to test breaking)
+        fuse: 60                     # shatters by itself after 3s
+        visual: CHORUS_PLANT
+        on: { fuse: shatter, struck: what_struck, broken: fizzle }
+      what_struck:
+        type: switch
+        key: struck_by               # which of YOUR abilities hit it
+        on: { arcane_missile: missile_strike, default: shatter }
+      missile_strike:
+        type: switch
+        key: struck_phase
+        on: { empowered: stun_shatter, default: shatter }
+      shatter:
+        type: apply_effects
+        targets: { type: radius, center: binding, radius: 5 }
+        effects:
+          - { id: damage, amount: 30 }
+          - { id: knockback, from: binding, radius: 5, center: 1.4, edge: 0.4, lift: 0.35 }
+        next: shatter_cue
+      shatter_cue:
+        type: play_cue
+        cue: shatter
+        at: binding
+      stun_shatter:
+        type: apply_effects
+        on_hit: true                 # the recast Missile's shatter carries your buffs to everyone caught
+        targets: { type: radius, center: binding, radius: 5 }
+        effects:
+          - { id: damage, amount: 30 }
+          - { id: knockback, from: binding, radius: 5, center: 1.4, edge: 0.4, lift: 0.35 }
+          - { id: status, status: stun, duration: 10 }
+          - { id: status, status: glowing, duration: 60 }
+        next: stun_cue
+      stun_cue:
+        type: play_cue
+        cue: shatter_stun
+        at: binding
+      fizzle:
+        type: play_cue
+        cue: fizzle
+        at: binding
+
+  # =====================================================================================
+  #  Arcanist
+  # =====================================================================================
+
+characters:
+  arcanist:
+    name: "Arcanist"
+    weapon: BREEZE_ROD
+    resources:
+      focus:
+        max: 100
+        regen: 12                    # per second...
+        delay: 20                    # ...after 1s without spending
+        hotbar: 9                    # shown in slot 9: stack size = Focus (Minecraft caps stacks at 99)
+        icon: LAPIS_LAZULI
+    slots:
+      primary: arcane_bolt           # LMB
+      secondary: arcane_focus        # hold RMB to guide the bolt
+      ability_1: arcane_missile      # 1, press 1 again to recast
+      ability_2: foldstep            # 2, left click to confirm
+      ability_3: unstable_binding    # 3, left click to place
+      # ultimate: Arcane Ascension (not built yet)
