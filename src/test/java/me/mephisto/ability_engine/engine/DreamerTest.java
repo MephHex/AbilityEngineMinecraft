@@ -153,45 +153,120 @@ class DreamerTest {
         assertEquals(0, t.engine.cooldowns().remainingTicks(p, "crescent_rush"), "a player kill does");
     }
 
-    // ---- 3: Dream Echo -----------------------------------------------------------------------------
+    // Regression (in-game): aiming at someone points you slightly DOWN, and the dash used to end
+    // when its path met the ground, a few blocks short of them.
+    @Test
+    void aimingSlightlyDownGlidesAlongTheFloorAndStillHits() throws IOException {
+        setup();
+        t.world.floor(0);
+        t.world.look(p, new Vec3(1, -0.3, 0).normalize());  // the path meets the floor at x ~ 3.3
+        UUID target = enemyAt(6, 0);
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        untilDone();
+        assertEquals(55, t.damage(target), 1e-9);
+        assertTrue(pos(p).x() > 7, "kept going along the floor, x=" + pos(p).x());
+        assertTrue(pos(p).y() > 0, "above the floor");
+    }
+
+    // Regression (in-game): with ping, where the server thinks you are trails behind. Hits land as you
+    // pass each enemy, not by looking back along the path afterwards.
+    @Test
+    void lagDoesntLoseTheHits() throws IOException {
+        setup();
+        t.world.lag(p, 3);
+        UUID near = enemyAt(3, 0);
+        UUID far = enemyAt(8, 0);
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        for (int i = 0; i < 40; i++) t.time.advance(1);
+        assertEquals(55, t.damage(near), 1e-9);
+        assertEquals(55, t.damage(far), 1e-9);
+    }
 
     @Test
-    void theEchoStaysAndRecastSwaps() throws IOException {
+    void eachEnemyIsHitOnce() throws IOException {
         setup();
-        t.engine.loadouts().activate(p, Slots.ABILITY_3);
-        assertEquals(1, t.world.clones.size(), "an echo where she stood");
-        UUID echo = t.world.clones.iterator().next();
-        assertEquals(0, pos(echo).x(), 1e-9);
+        UUID target = enemyAt(4, 0.5);
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        untilDone();
+        assertEquals(55, t.damage(target), 1e-9);
+    }
 
-        t.world.move(p, new Vec3(6, 1, 3));
-        t.engine.loadouts().activate(p, Slots.ABILITY_3);   // recast
-        assertEquals(new Vec3(0, 1, 0), pos(p), "she's where the echo was");
-        assertEquals(new Vec3(6, 1, 3), pos(echo), "and it's where she was");
+    // ---- 3: Dream Echo -----------------------------------------------------------------------------
+
+    /** Aim at the floor ~4 blocks ahead and confirm (left click). Returns the echo. */
+    private UUID placeEcho() {
+        t.world.floor(0);
+        t.world.look(p, new Vec3(1, -0.25, 0).normalize());
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting(), "aim preview first");
+        assertTrue(t.engine.targeting().confirm(p).success(), "placed");
+        t.world.look(p, new Vec3(1, 0, 0));
+        assertEquals(1, t.world.clones.size());
+        return t.world.clones.iterator().next();
+    }
+
+    private UUID summonEchoAt(double x, double z) {
+        return t.engine.summons().summonClone(p, "dream_echo", "world", new Vec3(x, 1, z), 200).orElseThrow();
+    }
+
+    @Test
+    void theEchoIsPlacedWhereSheAims() throws IOException {
+        setup();
+        UUID echo = placeEcho();
+        assertEquals(4, pos(echo).x(), 0.3, "on the spot she aimed at");
+        assertEquals(0.9, pos(echo).y(), 1e-6, "standing on the floor");
+    }
+
+    @Test
+    void recastSwapsPlaces() throws IOException {
+        setup();
+        UUID echo = placeEcho();
+        Vec3 echoWas = pos(echo);
+        t.world.move(p, new Vec3(-3, 1, 3));
+        t.engine.loadouts().activate(p, Slots.ABILITY_3);  // recast
+        assertEquals(echoWas, pos(p), "she's where the echo was");
+        assertEquals(new Vec3(-3, 1, 3), pos(echo), "and it's where she was");
         assertEquals(360, t.engine.cooldowns().remainingTicks(p, "dream_echo"), "cooldown after the swap");
     }
 
     @Test
-    void theEchoRepeatsCrescentRushTowardHerCrosshair() throws IOException {
+    void theEchoDashesTowardWhereSheAimsSoTheyConverge() throws IOException {
         setup();
-        t.engine.loadouts().activate(p, Slots.ABILITY_3);  // echo at (0,1,0)
-        t.world.move(p, new Vec3(0, 1, 10));
-        UUID onHerPath = enemyAt(4, 10);
-        UUID onEchoPath = enemyAt(4, 0);
+        UUID echo = summonEchoAt(4, 6);                 // off to her side
+        // She looks along +x: her cursor is ~40 blocks down that line. The echo heads for that point.
+        UUID onEchoPath = enemyAt(8.9, 5.2);             // ~5 blocks along the echo's line to the cursor
+        UUID onHerPath = enemyAt(4, 0.9);                // in her dash, but not under her crosshair
         t.engine.loadouts().activate(p, Slots.ABILITY_2);
         untilDone();
         assertEquals(55, t.damage(onHerPath), 1e-9);
-        assertEquals(55, t.damage(onEchoPath), 1e-9, "the echo's rush hit too");
-        UUID echo = t.world.clones.iterator().next();
-        assertTrue(pos(echo).x() > 7, "the echo dashed");
+        assertEquals(55, t.damage(onEchoPath), 1e-9, "the echo hit someone on its way to her cursor");
+        assertTrue(pos(echo).z() < 5 && pos(echo).x() > 10, "moved toward her line: " + pos(echo));
+    }
+
+    @Test
+    void crosshairOnAnEnemyBothOfThemCrossThroughIt() throws IOException {
+        setup();
+        summonEchoAt(4, 6);
+        UUID target = enemyAt(6, 0);                     // right under her crosshair
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        untilDone();
+        assertEquals(110, t.damage(target), 1e-9, "her rush and the echo's, converging on it");
+    }
+
+    @Test
+    void theEchoStopsAtHerCursorIfItsCloser() throws IOException {
+        setup();
+        t.world.box(9, 10, -20, 20, 10);                 // a wall 9 blocks ahead: her cursor lands on it
+        UUID echo = summonEchoAt(6, 3);                  // ~4.2 blocks from that point
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        untilDone();
+        assertTrue(pos(echo).x() <= 9.5, "didn't overshoot the cursor point: " + pos(echo));
     }
 
     @Test
     void theEchoIsntHitByAnything() throws IOException {
         setup();
-        t.engine.loadouts().activate(p, Slots.ABILITY_3);
-        UUID echo = t.world.clones.iterator().next();
-        t.world.move(p, new Vec3(-5, 1, 0));               // she steps back; the echo is in front of her
-        t.engine.loadouts().activate(p, Slots.ABILITY_2); // her rush passes through it
+        UUID echo = summonEchoAt(3, 0);                   // right in her path
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
         untilDone();
         assertEquals(0, t.damage(echo), 1e-9);
     }
@@ -199,7 +274,7 @@ class DreamerTest {
     @Test
     void theEchoFadesAfterTenSeconds() throws IOException {
         setup();
-        t.engine.loadouts().activate(p, Slots.ABILITY_3);
+        placeEcho();
         t.time.advance(200);
         assertTrue(t.world.clones.isEmpty());
         assertTrue(t.engine.summons().find(p, "dream_echo").isEmpty());

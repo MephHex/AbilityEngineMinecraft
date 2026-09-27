@@ -21,6 +21,7 @@ public final class Ports {
     public static final String FOUND = "found";
     public static final String NONE = "none";
     public static final String ALSO = "also";
+    public static final String PASSED = "passed";
     // Not yes/no: YAML 1.1 reads unquoted yes/no keys as booleans.
     public static final String HAS = "has";
     public static final String LACKS = "lacks";

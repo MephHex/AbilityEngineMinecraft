@@ -164,7 +164,12 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **Nodes:** fork (-> out / also: run two branches at once, e.g. you and your echo dash together),
   summon_clone `{ summon, store, lifetime }` (a mannequin of you that outlives the cast; a new one
   replaces the old), find_summon `{ summon, store }` -> found / none, swap `{ with }` (trade places).
-- **Dash:** `mover: <key>` makes someone else dash (an echo) along YOUR aim.
+- **Dash:** `mover: <key>` makes someone else dash (an echo); `toward: cursor` sends it toward the
+  point your crosshair is on (stopping there if it's closer than `range`) instead of along your aim.
+  With `pierce: true`, the `passed` port runs once for EACH enemy as the dash reaches them, with
+  `hit` = that enemy: put the damage there. Floors don't stop a dash (a slightly downward dash glides
+  along the ground); walls do.
+- **summon_clone** `at: aim` places it on the spot you confirmed in an aim preview.
 - **Damage:** `backstab: 1.5` multiplies the damage when the hit comes from behind the target
   (outside the front 220 degrees of where they face), with a crit effect.
 - **Statuses:** `break_on_damage: true` ends it when the holder deals damage (stealth);

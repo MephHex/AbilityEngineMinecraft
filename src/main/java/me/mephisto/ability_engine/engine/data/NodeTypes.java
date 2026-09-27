@@ -61,10 +61,11 @@ public final class NodeTypes {
         t.register("dash", (p, e) -> new DashNode(
                 p.getDouble("speed", 1.2), p.requireDouble("range"), p.getDouble("radius", 0.6), p.getBool("flat", false),
                 p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p),
-                p.getString("mover", null)));
+                p.getString("mover", null), towardCursor(p)));
         t.register("fork", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.ForkNode());
         t.register("summon_clone", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
-                p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime")));
+                p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),
+                p.getString("at", null)));
         t.register("find_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindSummonNode(
                 p.requireString("summon"), p.getString("store", "summon")));
         t.register("swap", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SwapNode(p.requireString("with")));
@@ -124,4 +125,11 @@ public final class NodeTypes {
         if (f == null) throw at.error("type", "unknown node type '" + type + "', known: " + factories.keySet());
         return f;
     }
+
+    private static boolean towardCursor(Params p) {
+        String t = p.getString("toward", "aim");
+        if (!t.equals("aim") && !t.equals("cursor")) throw p.error("toward", "expected aim or cursor");
+        return t.equals("cursor");
+    }
+
 }

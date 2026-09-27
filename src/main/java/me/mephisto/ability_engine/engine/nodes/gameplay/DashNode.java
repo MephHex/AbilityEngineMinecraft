@@ -34,7 +34,9 @@ import java.util.Set;
  */
 public final class DashNode implements GraphNode {
 
-    private static final Set<String> OUTPUTS = Set.of(Ports.HIT, Ports.MISS);
+    private static final Set<String> OUTPUTS = Set.of(Ports.HIT, Ports.MISS, Ports.PASSED);
+    /** How far to look for the cursor point with toward: cursor (then capped at the dash's range). */
+    private static final double CURSOR_RANGE = 40;
     /**
      * A player's server-side position only moves when their movement packets arrive, so with ping a tick
      * can show no progress even mid-dash. Only this many ticks IN A ROW without progress mean stuck.
@@ -51,6 +53,7 @@ public final class DashNode implements GraphNode {
     private final String store; // null = don't record the path
     private final boolean alongMovement;
     private final String moverKey; // null = the caster dashes; else whoever is in this key (an echo)
+    private final boolean towardCursor; // dash toward the caster's cursor point instead of along their aim
 
     public DashNode(double speed, double range, double radius, boolean flat) {
         this(speed, range, radius, flat, false, null);
@@ -63,13 +66,23 @@ public final class DashNode implements GraphNode {
     /** @param alongMovement dash the way the caster is moving instead of where they aim */
     public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
                     boolean alongMovement) {
-        this(speed, range, radius, flat, pierce, store, alongMovement, null);
+        this(speed, range, radius, flat, pierce, store, alongMovement, null, false);
     }
 
-    /** @param moverKey who dashes: null = the caster, else the entity in this key, along the CASTER's aim */
     public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
                     boolean alongMovement, String moverKey) {
+        this(speed, range, radius, flat, pierce, store, alongMovement, moverKey, false);
+    }
+
+    /**
+     * @param moverKey     who dashes: null = the caster, else the entity in this key (an echo)
+     * @param towardCursor dash toward the point the CASTER's cursor is on (stopping there if it's closer
+     *                     than range), instead of along their aim. An echo and its owner then converge.
+     */
+    public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
+                    boolean alongMovement, String moverKey, boolean towardCursor) {
         this.moverKey = moverKey;
+        this.towardCursor = towardCursor;
         this.speed = speed;
         this.range = range;
         this.radius = radius;
@@ -98,11 +111,19 @@ public final class DashNode implements GraphNode {
             Optional<Vec3> moving = engine.world().movementOf(ctx.caster());
             if (moving.isPresent()) dir = new Vec3(moving.get().x(), 0, moving.get().z());
         }
+        double maxRange = range;
+        if (towardCursor) {
+            var cursor = me.mephisto.ability_engine.engine.target.CursorQuery.point(engine, ctx.caster(), CURSOR_RANGE, true);
+            if (cursor.isEmpty()) return NodeResult.out(Ports.MISS);
+            dir = cursor.get().position().subtract(start.get().position());
+            if (flat) dir = new Vec3(dir.x(), 0, dir.z());
+            maxRange = Math.min(range, dir.length());
+        }
         dir = dir.normalize();
         if (dir.isZero()) return NodeResult.out(Ports.MISS);
 
         if (store != null) ctx.blackboard().putRaw(store + "_start", start.get());
-        new Dash(ctx, ctx.suspend(), dir, start.get(), mover).begin();
+        new Dash(ctx, ctx.suspend(), dir, start.get(), mover, maxRange).begin();
         return NodeResult.SUSPENDED;
     }
 
@@ -112,7 +133,7 @@ public final class DashNode implements GraphNode {
     private final class Dash {
         private final ExecutionContext ctx;
         private final Resumer resumer;
-        private final Vec3 dir;
+        private Vec3 dir;               // can flatten mid-dash: meeting the floor turns it into a glide
         private final PointTarget start;
         private final int maxTicks;
         private TaskHandle task;
@@ -122,14 +143,17 @@ public final class DashNode implements GraphNode {
         private boolean moving;   // has the caster moved at all yet?
         private boolean done;
         private final UUID mover;
+        private final double maxRange;
+        private final java.util.Set<UUID> passed = new java.util.HashSet<>(); // pierce: each enemy once
 
-        Dash(ExecutionContext ctx, Resumer resumer, Vec3 dir, PointTarget start, UUID mover) {
+        Dash(ExecutionContext ctx, Resumer resumer, Vec3 dir, PointTarget start, UUID mover, double maxRange) {
             this.mover = mover;
+            this.maxRange = maxRange;
             this.ctx = ctx;
             this.resumer = resumer;
             this.dir = dir;
             this.start = start;
-            this.maxTicks = (int) Math.ceil(range / speed) + START_GRACE_TICKS + 5; // safety net, ping included
+            this.maxTicks = (int) Math.ceil(maxRange / speed) + START_GRACE_TICKS + 5; // safety net, ping included
         }
 
         void begin() {
@@ -161,7 +185,7 @@ public final class DashNode implements GraphNode {
                 }
             }
             boolean stuck = stillTicks >= (moving ? STUCK_TICKS : START_GRACE_TICKS);
-            if (here.distance(start.position()) >= range || ++ticks > maxTicks || stuck) {
+            if (here.distance(start.position()) >= maxRange || ++ticks > maxTicks || stuck) {
                 finish(Ports.MISS);
                 return;
             }
@@ -174,18 +198,63 @@ public final class DashNode implements GraphNode {
                 finish(Ports.MISS);
                 return;
             }
+            if (pierce) {
+                // Through enemies: every enemy in the path ahead triggers "passed" (once each), walls stop it.
+                var through = engine.teams().passThroughFor(ctx.caster());
+                for (int i = 0; i < 16; i++) {
+                    Optional<SweepHit> h = engine.world().sweep(pos.get().world(), here, ahead, radius,
+                            id -> passed.contains(id) || id.equals(mover) || through.test(id));
+                    if (h.isEmpty()) break;
+                    if (!(h.get().target() instanceof EntityTarget enemy)) {
+                        if (glideAlongFloor(h.get())) return; // try again next tick, flattened
+                        finish(Ports.MISS); // a wall
+                        return;
+                    }
+                    passed.add(enemy.id());
+                    passedThrough(enemy);
+                    if (done || !ctx.instance().isActive()) return;
+                }
+                engine.movement().setVelocity(mover, dir.multiply(speed));
+                return;
+            }
             Optional<SweepHit> hit = engine.world().sweep(pos.get().world(), here, ahead, radius,
-                    pierce ? id -> true : engine.teams().passThroughFor(ctx.caster()));
+                    engine.teams().passThroughFor(ctx.caster()));
             if (hit.isPresent()) {
                 if (hit.get().target() instanceof EntityTarget enemy) {
                     ctx.put(Keys.HIT, enemy);
                     finish(Ports.HIT);
-                } else {
+                } else if (!glideAlongFloor(hit.get())) {
                     finish(Ports.MISS); // a wall
                 }
                 return;
             }
             engine.movement().setVelocity(mover, dir.multiply(speed));
+        }
+
+        /**
+         * Aiming a little down (at someone's body) sends the dash into the ground. Floors don't stop a
+         * dash, walls do: drop the downward part and keep going along the floor. Returns false for a
+         * wall (or looking straight down), which ends the dash.
+         */
+        private boolean glideAlongFloor(SweepHit block) {
+            if (block.normal() == null || block.normal().y() < 0.6 || dir.y() >= 0) return false;
+            Vec3 flat = new Vec3(dir.x(), 0, dir.z());
+            if (flat.length() < 0.2) return false;
+            dir = flat.normalize();
+            ctx.engine().movement().setVelocity(mover, dir.multiply(speed));
+            return true;
+        }
+
+        /**
+         * A pierced enemy: its own branch out of "passed", with hit = them. The hit counts as coming from
+         * the side the dash is heading to (where the dasher ends up): backstabs, frontal blocks.
+         */
+        private void passedThrough(EntityTarget enemy) {
+            ExecutionContext branch = ctx.fork();
+            branch.put(Keys.HIT, enemy);
+            ctx.engine().world().positionOf(enemy).ifPresent(p -> branch.blackboard().putRaw(Keys.HIT_FROM.name(),
+                    new PointTarget(p.world(), p.position().add(dir.multiply(2)))));
+            branch.suspend().resume(Ports.PASSED);
         }
 
         private void finish(String port) {
