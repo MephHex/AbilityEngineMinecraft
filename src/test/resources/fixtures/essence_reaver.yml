@@ -68,7 +68,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 30 }
+          - { id: damage, amount: 30, knockback: false }   # no vanilla shove
         next: mark
       mark:
         type: start_cue
@@ -83,8 +83,8 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 40, lifesteal: 1.0, overflow: true }
-          - { id: knockback, from: caster, radius: 30, center: -0.9, edge: -0.9, lift: 0.25 }   # negative = pull
+          - { id: damage, amount: 40, lifesteal: 1.0, overflow: true, knockback: false }   # no vanilla shove...
+          - { id: knockback, from: caster, radius: 30, center: -0.9, edge: -0.9, lift: 0.25 }   # ...just the pull
         next: recall_cue
       recall_cue:
         type: play_cue
@@ -92,17 +92,18 @@ abilities:
         at: hit
         to: caster
 
-  # 2: dash through enemies, leaving a spirit echo where you started. 0.6s later the echo retraces
-  # your path, stunning everyone along it. You're free to act again as soon as the dash ends.
+  # 2: dash through enemies, leaving a spirit echo where you started. 0.6s later the echo lashes out
+  # from there to wherever you are THEN (not where the dash ended), stunning everyone along the line.
+  # You're free to act again as soon as the dash ends.
   lifeline_step:
     cooldown: 180                    # 9s
     display:
       name: "Lifeline Step"
       icon: PHANTOM_MEMBRANE
       description:
-        - "Dash through enemies. An echo retraces"
-        - "your path 0.6s later, stunning everyone"
-        - "it passes through."
+        - "Dash through enemies. 0.6s later your echo"
+        - "lashes from where you started to where"
+        - "you are, stunning everyone on the line."
     active_tags: [state.dashing, block.ability]   # only during the dash itself (released below)
     interrupted_by: [state.stunned]
     nodes:
@@ -127,7 +128,7 @@ abilities:
         next: echo
       echo:
         type: apply_effects
-        targets: { type: path, from: path_start, to: path_end, width: 1.6 }
+        targets: { type: path, from: path_start, to: caster, width: 1.6 }   # to where you are now
         effects:
           - { id: status, status: stun, duration: 16 }   # 0.8s
         next: echo_cue
@@ -135,7 +136,7 @@ abilities:
         type: play_cue
         cue: echo_path
         at: path_start
-        to: path_end
+        to: caster
 
   # 3: meditate for up to 3s: heal quickly and take 40% less damage, but you can't move, attack
   # or use abilities. Press 3 again to stop early. Stun or silence breaks it.

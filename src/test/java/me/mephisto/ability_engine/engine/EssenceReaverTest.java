@@ -1,6 +1,7 @@
 package me.mephisto.ability_engine.engine;
 
 import me.mephisto.ability_engine.engine.loadout.Slots;
+import me.mephisto.ability_engine.engine.math.Vec3;
 import me.mephisto.ability_engine.engine.tag.Tags;
 import me.mephisto.ability_engine.engine.target.EntityTarget;
 import me.mephisto.ability_engine.engine.testkit.ShippedContent;
@@ -123,6 +124,21 @@ class EssenceReaverTest {
         assertTrue(t.engine.tags().has(onPath, Tags.STUNNED), "the echo stunned them");
         assertFalse(t.engine.tags().has(aside, Tags.STUNNED), "only along the path");
         assertEquals("echo_path", t.render.lines.get(0)[0]);
+    }
+
+    @Test
+    void theEchoConnectsToWhereSheIsNowNotWhereTheDashEnded() throws IOException {
+        setup();
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        t.time.advance(8); // dash over, ~8 blocks along +x
+        t.world.move(p, new Vec3(8, 1, 6)); // she walked off to the side before the echo
+        UUID onNewLine = enemyAt(4, 3);    // halfway along start (0,0) -> her now (8,6)
+        UUID onOldPath = enemyAt(6, 0);    // on the dash path, but not on the new line
+        for (int i = 0; i < 30 && !t.engine.tags().has(onNewLine, Tags.STUNNED); i++) t.time.advance(1);
+        assertTrue(t.engine.tags().has(onNewLine, Tags.STUNNED), "the line runs to where she is now");
+        assertFalse(t.engine.tags().has(onOldPath, Tags.STUNNED), "not along the old dash path");
+        Vec3 drawnTo = (Vec3) t.render.lines.get(0)[2];
+        assertEquals(new Vec3(8, 1, 6), drawnTo, "the visual ends on her too");
     }
 
     // ---- Meditation -----------------------------------------------------------------------
