@@ -19,6 +19,12 @@ public interface MovementControl {
     /** Put an entity's centre at {@code center}, keeping where it looks (a swap, a blink). */
     void teleport(UUID entity, Vec3 center);
 
+    /** Teleport and look along {@code look} (e.g. down at the arena below). Default: teleport, then face. */
+    default void teleport(UUID entity, Vec3 center, Vec3 look) {
+        teleport(entity, center);
+        if (look != null && !look.isZero()) face(entity, look);
+    }
+
     /** Turn an entity to look along {@code direction} (e.g. a clone about to dash). Default: nothing. */
     default void face(UUID entity, Vec3 direction) {}
 }

@@ -183,6 +183,59 @@ abilities:
         type: play_cue
         cue: echo_swap
 
+  # ULTIMATE (F): Dream Tempest. You vanish into the dream and watch from above: lifted 12 blocks over
+  # the spot you cast it from, looking down, untargetable and unseen. For 3s (a boss bar counts it
+  # down) blades of the dream slash everything within 5 blocks of that spot: 10 damage every 0.2s,
+  # 150 in all. You can't move or use anything meanwhile. Then you're back exactly where you were.
+  dreamer_ult1:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Dream Tempest"
+      icon: ECHO_SHARD
+      description:
+        - "Vanish and watch from above for 3s while"
+        - "blades slash everything within 5 blocks of"
+        - "where you stood: 150 damage in all."
+        - "Then you return to that spot."
+    active_tags: [state.untargetable, state.hidden, state.anchored, block.move, block.ability]
+    nodes:
+      vanish:
+        type: play_cue
+        cue: dream_enter
+        next: rise
+      rise:
+        type: move_to                # the view from above...
+        up: 12
+        look: down
+        store: origin                # ...over the spot you cast it from
+        return: true                 # back there when it ends (also if it's cut short)
+        next: split
+      split:
+        type: fork                   # the 3s timer and the slashing, side by side
+        on: { out: last, also: slash }
+      last:
+        type: delay
+        ticks: 60                    # 3s
+        boss_bar: true
+        next: over
+      over:
+        type: end_cast               # stops the slashing; you're put back
+      slash:
+        type: apply_effects
+        targets: { type: radius, center: origin, radius: 5 }
+        effects:
+          - { id: damage, amount: 10, knockback: false, ignore_iframes: true }
+        next: slash_cue
+      slash_cue:
+        type: play_cue
+        cue: dream_tempest
+        at: origin
+        next: again
+      again:
+        type: delay
+        ticks: 4                     # every 0.2s
+        next: slash
+
 characters:
   dreamer:
     name: "Dreamer"
@@ -195,4 +248,4 @@ characters:
       ability_1: dreamwalk           # 1
       ability_2: crescent_rush       # 2
       ability_3: dream_echo          # 3, press 3 again to swap
-      # ultimate: (not designed yet)
+      ultimate: dreamer_ult1         # F: Dream Tempest

@@ -42,6 +42,20 @@ public final class BukkitMovementControl implements MovementControl {
         e.setFallDistance(0);
     }
 
+    /** One teleport with the new view (players can't be turned without one). */
+    @Override
+    public void teleport(UUID entity, Vec3 center, Vec3 look) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid()) return;
+        Location to = e.getLocation();
+        to.setX(center.x());
+        to.setY(center.y() - e.getBoundingBox().getHeight() / 2);
+        to.setZ(center.z());
+        if (look != null && !look.isZero()) to.setDirection(Convert.bukkit(look));
+        e.teleport(to);
+        e.setFallDistance(0);
+    }
+
     /** Head and body both: a mannequin (no AI) wouldn't turn its body by itself before it moves. */
     @Override
     public void face(UUID entity, Vec3 direction) {

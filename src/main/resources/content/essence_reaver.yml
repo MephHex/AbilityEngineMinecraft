@@ -235,6 +235,14 @@ abilities:
         targets: { type: self }
         effects:
           - { id: remove_status, status: soul_rend_ready }
+        next: strike                 # the hit first: it lands even if the soul can't appear
+      strike:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, amount: 40, knockback: false }
+          - { id: status, status: stun, duration: 20 }   # stunned while flying back (1s)
+          - { id: knockback, from: caster, radius: 6, center: 1.8, edge: 1.8, lift: 0.5 }
         next: tear
       tear:
         type: summon_clone           # their soul, where they stand (a look-alike of them)
@@ -243,16 +251,8 @@ abilities:
         health: 150                  # can be attacked (and killed)
         glowing: true
         lifetime: 120                # 6s
-        store: soul                  # also stores soul_at: where it was torn out
-        next: strike
-      strike:
-        type: apply_effects
-        targets: { type: key, key: target }
-        effects:
-          - { id: damage, amount: 40, knockback: false }
-          - { id: status, status: stun, duration: 20 }   # stunned while flying back (1s)
-          - { id: knockback, from: caster, radius: 6, center: 1.8, edge: 1.8, lift: 0.5 }
-        next: tether
+        store: soul                  # also stores soul_at: where it was torn out (they only start
+        next: tether                 # flying next tick, so that's still where they stood)
       tether:
         type: link                   # owner -> their soul: half of what the soul takes hits them too
         from: target
