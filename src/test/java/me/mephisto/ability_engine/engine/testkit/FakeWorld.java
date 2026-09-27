@@ -64,6 +64,15 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
         if (entities.containsKey(id)) entities.put(id, center);
     }
 
+    @Override
+    public void teleport(UUID id, Vec3 center, Vec3 look) {
+        teleport(id, center);
+        if (look != null && !look.isZero()) looking.put(id, look.normalize());
+    }
+
+    /** Make spawning vulnerable clones fail (like a platform that refuses one), to test what survives it. */
+    public boolean failVulnerableClones;
+
     // ---- clones: exist and move like entities, but queries and sweeps ignore them (like the real ones) ----
     public final java.util.Set<UUID> clones = new java.util.HashSet<>();
 
@@ -88,6 +97,7 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     public Optional<UUID> spawnClone(UUID of, String world, Vec3 center, Vec3 facingDir,
                                      me.mephisto.ability_engine.engine.platform.CloneSpawner.Options options) {
         if (!options.vulnerable()) return spawnClone(of, world, center, facingDir);
+        if (failVulnerableClones) throw new IllegalStateException("clone refused (test)");
         UUID id = UUID.randomUUID(); // a real target: not in "clones", so abilities find it
         entities.put(id, center);
         health.put(id, options.health());

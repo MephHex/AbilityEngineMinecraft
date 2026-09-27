@@ -32,7 +32,8 @@ public final class BukkitCloneSpawner implements CloneSpawner {
 
     /**
      * Vulnerable clones (e.g. a torn-out soul) are real targets: not invulnerable, not an ability visual,
-     * with their own health, optionally glowing, on the team of whoever they copy. They drop nothing.
+     * with their own health, optionally glowing, on the team of whoever they copy. They drop nothing
+     * (DreamListeners clears a summon's loot when it dies).
      */
     @Override
     public Optional<UUID> spawnClone(UUID of, String worldName, Vec3 center, Vec3 facing, Options options) {
@@ -65,7 +66,7 @@ public final class BukkitCloneSpawner implements CloneSpawner {
             if (maxHealth != null) maxHealth.setBaseValue(health);
             m.setHealth(health);
             m.setGlowing(options.glowing());
-            if (m.getEquipment() != null) m.getEquipment().setItemInMainHandDropChance(0f);
+            // (No drop chances here: a mannequin isn't a Mob and refuses them. Its loot is cleared on death.)
             if (options.teamOf() != null) {
                 Entity copied = Bukkit.getEntity(options.teamOf());
                 org.bukkit.scoreboard.Team team = copied == null ? null

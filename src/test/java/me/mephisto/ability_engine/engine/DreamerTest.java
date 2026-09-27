@@ -298,4 +298,47 @@ class DreamerTest {
         assertTrue(t.world.clones.isEmpty());
         assertTrue(t.engine.summons().find(p, "dream_echo").isEmpty());
     }
+
+    // ---- Ultimate: Dream Tempest ------------------------------------------------------------------
+
+    @Test
+    void dreamTempestLiftsYouOutOfReachLookingDown() throws IOException {
+        setup();
+        assertTrue(t.engine.loadouts().activate(p, Slots.ULTIMATE).success());
+        assertEquals(new Vec3(0, 13, 0), pos(p), "12 blocks above where you stood");
+        assertTrue(t.world.aimOf(p).orElseThrow().direction().y() < -0.9, "looking down at the spot");
+        assertTrue(t.engine.tags().has(p, Tags.UNTARGETABLE));
+        assertTrue(t.engine.tags().has(p, Tags.HIDDEN));
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "can't move");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "can't use abilities");
+        assertEquals("dreamer_ult1", t.engine.instances().timer(p).orElseThrow().ability().id(), "boss bar");
+    }
+
+    @Test
+    void dreamTempestSlashesTheCircleForThreeSecondsThenPutsYouBack() throws IOException {
+        setup();
+        UUID inside = enemyAt(3, 2);
+        UUID outside = enemyAt(8, 0);
+        t.engine.loadouts().activate(p, Slots.ULTIMATE);
+        t.time.advance(30);
+        double half = t.damage(inside);
+        assertTrue(half > 0 && half < 150, "slashing over time: " + half);
+        t.time.advance(31);
+        assertEquals(150, t.damage(inside), 1e-9, "10 every 0.2s for 3s");
+        assertEquals(0, t.damage(outside), 1e-9, "only within 5 blocks");
+        assertEquals(new Vec3(0, 1, 0), pos(p), "back where you were");
+        assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE));
+        assertTrue(t.engine.instances().timer(p).isEmpty());
+        t.time.advance(20);
+        assertEquals(150, t.damage(inside), 1e-9, "stopped");
+    }
+
+    @Test
+    void cutShortYouStillComeBack() throws IOException {
+        setup();
+        t.engine.loadouts().activate(p, Slots.ULTIMATE);
+        t.time.advance(10);
+        t.engine.instances().cancelAll(p, "character_change");
+        assertEquals(new Vec3(0, 1, 0), pos(p));
+    }
 }

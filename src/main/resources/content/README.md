@@ -262,3 +262,11 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
   it replaced by the new roll instead of piling up another.
 - **Cues:** thrust_windup, umbrella_thrust (line), soul_rend_ready, soul_rend, soul_tether (line),
   soul_return (line).
+
+## Added for Dream Tempest
+
+- **move_to** `{ to, up, look, store, return }`: put the caster at `to` (a key, default where they are)
+  raised by `up` blocks; `look: down` turns their view to the ground below (a view from above);
+  `store` keeps the spot they were at; `return: true` puts them back there when the cast ends, however it
+  ends.
+- **Cues:** dream_tempest (slashes somewhere in a 5-block circle).

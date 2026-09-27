@@ -66,6 +66,16 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 40, 0.3, 0.6, 0.3, 0.1);
             loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1.4f);
         });
+        c.register("dream_tempest", loc -> { // a few slashes somewhere in the 5-block circle
+            var rng = java.util.concurrent.ThreadLocalRandom.current();
+            for (int i = 0; i < 3; i++) {
+                double angle = rng.nextDouble(Math.PI * 2), r = Math.sqrt(rng.nextDouble()) * 5;
+                Location at = loc.clone().add(Math.cos(angle) * r, rng.nextDouble(-0.4, 0.6), Math.sin(angle) * r);
+                loc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, at, 1, 0.2, 0.1, 0.2, 0);
+                loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, at, 6, 0.3, 0.3, 0.3, 0.05);
+            }
+            if (rng.nextBoolean()) loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, rng.nextFloat(0.8f, 1.4f));
+        });
         c.registerLine("crescent", (w, from, to) -> {
             Vector d = to.clone().subtract(from);
             double len = d.length();

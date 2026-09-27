@@ -103,6 +103,12 @@ public final class NodeTypes {
                     p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),
                     p.getString("at", null), p.getString("of", null), health, p.getBool("glowing", false));
         });
+        t.register("move_to", (p, e) -> {
+            String look = p.getString("look", null);
+            if (look != null && !look.equals("down")) throw p.error("look", "expected down (or leave it out)");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.MoveToNode(p.getString("to", "caster"),
+                    p.getDouble("up", 0), look != null, p.getString("store", null), p.getBool("return", false));
+        });
         t.register("await_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.AwaitSummonNode(
                 p.requireString("summon")));
         t.register("dismiss_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.DismissSummonNode(

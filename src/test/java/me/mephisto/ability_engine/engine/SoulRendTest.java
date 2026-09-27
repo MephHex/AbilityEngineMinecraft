@@ -136,4 +136,13 @@ class SoulRendTest {
         assertTrue(t.engine.links().onTarget(soul).isEmpty(), "tether gone too");
         assertEquals(0, t.healed.getOrDefault(p, 0.0), 1e-9);
     }
+
+    @Test
+    void theHitLandsEvenIfTheSoulCantAppear() throws IOException {
+        setup();
+        t.world.failVulnerableClones = true;
+        rend();
+        assertEquals(40, t.damage(victim), 1e-9, "damage first");
+        assertTrue(t.engine.tags().has(victim, Tags.STUNNED));
+    }
 }
