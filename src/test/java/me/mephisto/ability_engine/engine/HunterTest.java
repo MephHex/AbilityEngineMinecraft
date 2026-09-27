@@ -250,6 +250,45 @@ class HunterTest {
     }
 
     @Test
+    void cantVenomStepWhileRootedAndNothingIsSpent() throws IOException {
+        setup();
+        t.engine.statuses().apply(p, "root", 40, null);
+        var result = t.engine.loadouts().activate(p, "ability_1");
+        assertFalse(result.success());
+        assertEquals("blocked:" + Tags.BLOCK_MOVE, result.reason());
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "venom_step"), "no cooldown spent");
+        assertEquals(List.of(PLAIN, PLAIN, PLAIN), queue(), "no poison either");
+        t.time.advance(10);
+        assertEquals(0, pos(p).x(), 1e-9, "didn't move");
+
+        t.time.advance(31); // root over
+        assertTrue(t.engine.loadouts().activate(p, "ability_1").success());
+    }
+
+    @Test
+    void aRootMidDashStopsIt() throws IOException {
+        setup();
+        t.engine.loadouts().activate(p, "ability_1");
+        t.time.advance(1);
+        double stoppedAt = pos(p).x();
+        t.engine.statuses().apply(p, "root", 40, null);
+        t.time.advance(10);
+        assertEquals(stoppedAt, pos(p).x(), 1e-9, "no more pushing once rooted");
+        assertTrue(stoppedAt < 5.5);
+    }
+
+    @Test
+    void theOtherKitsDashesAndBlinksRespectRootsToo() throws IOException {
+        setup();
+        UUID other = t.spawn(0, 1, 20);
+        t.engine.statuses().apply(other, "root", 40, null);
+        for (String ability : List.of("royal_lunge", "lifeline_step", "foldstep")) {
+            assertEquals("blocked:" + Tags.BLOCK_MOVE, t.engine.activator().activate(other, ability).reason(), ability);
+        }
+        assertFalse(t.engine.abilities().find("infused_bolt").orElseThrow().movement(), "shooting isn't movement");
+    }
+
+    @Test
     void venomStepGoesForwardWhenStandingStill() throws IOException {
         setup();
         t.world.look(p, new Vec3(1, 1, 0)); // looking up: still a ground dash
