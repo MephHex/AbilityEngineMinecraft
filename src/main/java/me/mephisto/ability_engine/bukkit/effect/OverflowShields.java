@@ -32,7 +32,7 @@ public final class OverflowShields {
     /** Add shield (Minecraft health units), capped at {@code cap}, decaying {@code decayPerSecond}. */
     public void add(LivingEntity e, double amount, double cap, double decayPerSecond) {
         if (amount <= 0) return;
-        AttributeInstance max = e.getAttribute(Attribute.GENERIC_MAX_ABSORPTION);
+        AttributeInstance max = e.getAttribute(Attribute.MAX_ABSORPTION);
         if (max != null) {
             AttributeModifier old = max.getModifier(CAP_KEY);
             if (old != null) max.removeModifier(old);
@@ -58,7 +58,7 @@ public final class OverflowShields {
     public void clear(LivingEntity living) {
         decayPerTick.remove(living.getUniqueId());
         living.setAbsorptionAmount(0);
-        AttributeInstance max = living.getAttribute(Attribute.GENERIC_MAX_ABSORPTION);
+        AttributeInstance max = living.getAttribute(Attribute.MAX_ABSORPTION);
         if (max != null) {
             AttributeModifier mod = max.getModifier(CAP_KEY);
             if (mod != null) max.removeModifier(mod);
@@ -71,7 +71,7 @@ public final class OverflowShields {
      */
     public void heal(LivingEntity e, double amount, boolean overflow, double cap, double decayPerSecond) {
         if (amount <= 0 || e.isDead()) return;
-        AttributeInstance maxHealth = e.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        AttributeInstance maxHealth = e.getAttribute(Attribute.MAX_HEALTH);
         double max = maxHealth != null ? maxHealth.getValue() : 20;
         double total = e.getHealth() + amount;
         e.setHealth(Math.min(max, total));
