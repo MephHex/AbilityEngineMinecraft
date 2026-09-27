@@ -21,13 +21,15 @@ import java.util.UUID;
 public final class BukkitCloneSpawner implements CloneSpawner {
 
     @Override
-    public Optional<UUID> spawnClone(UUID of, String worldName, Vec3 center) {
+    public Optional<UUID> spawnClone(UUID of, String worldName, Vec3 center, Vec3 facing) {
         World world = Bukkit.getWorld(worldName);
         if (world == null) return Optional.empty();
         Entity owner = Bukkit.getEntity(of);
         double halfHeight = owner != null ? owner.getBoundingBox().getHeight() / 2 : 0.9;
         Location feet = new Location(world, center.x(), center.y() - halfHeight, center.z());
-        if (owner != null) {
+        if (facing != null && !facing.isZero()) {
+            feet.setDirection(Convert.bukkit(facing)); // e.g. toward its owner
+        } else if (owner != null) {
             feet.setYaw(owner.getLocation().getYaw());
             feet.setPitch(owner.getLocation().getPitch());
         }

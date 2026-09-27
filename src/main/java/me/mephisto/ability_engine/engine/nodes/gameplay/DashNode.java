@@ -123,6 +123,8 @@ public final class DashNode implements GraphNode {
         if (dir.isZero()) return NodeResult.out(Ports.MISS);
 
         if (store != null) ctx.blackboard().putRaw(store + "_start", start.get());
+        // Someone else dashing (an echo) turns to face where it's going first. Never the caster's own camera.
+        if (!mover.equals(ctx.caster())) engine.movement().face(mover, dir);
         new Dash(ctx, ctx.suspend(), dir, start.get(), mover, maxRange).begin();
         return NodeResult.SUSPENDED;
     }
