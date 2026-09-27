@@ -22,14 +22,16 @@ public final class LoadoutManager {
     private final AbilityActivator activator;
     private final ResourceManager resources;
     private final QuiverManager quivers;
+    private final me.mephisto.ability_engine.engine.tag.TagManager tags;
     private final Map<UUID, String> assigned = new HashMap<>();
 
     public LoadoutManager(CharacterRegistry characters, AbilityActivator activator, ResourceManager resources,
-                          QuiverManager quivers) {
+                          QuiverManager quivers, me.mephisto.ability_engine.engine.tag.TagManager tags) {
         this.characters = characters;
         this.activator = activator;
         this.resources = resources;
         this.quivers = quivers;
+        this.tags = tags;
     }
 
     public void assign(UUID player, String characterId) {
@@ -46,10 +48,20 @@ public final class LoadoutManager {
         quivers.clear(player);
     }
 
-    /** Empty if unassigned, or if their character no longer exists after a reload. */
+    /**
+     * The player's character as it is right now: with a form applied while they have its tag (e.g. an
+     * ultimate's other primary and weapon). Empty if unassigned, or if their character no longer exists
+     * after a reload.
+     */
     public Optional<CharacterDef> characterOf(UUID player) {
         String id = assigned.get(player);
-        return id == null ? Optional.empty() : characters.find(id);
+        if (id == null) return Optional.empty();
+        return characters.find(id).map(c -> {
+            for (CharacterDef.Form form : c.forms()) {
+                if (tags.has(player, form.tag())) return c.in(form);
+            }
+            return c;
+        });
     }
 
     public boolean has(UUID player) { return characterOf(player).isPresent(); }

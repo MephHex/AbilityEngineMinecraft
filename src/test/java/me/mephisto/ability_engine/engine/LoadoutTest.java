@@ -113,7 +113,7 @@ class LoadoutTest {
         assertEquals("arcane_missile", t.engine.loadouts().abilityIn(p, Slots.ABILITY_1).orElseThrow());
         assertEquals("foldstep", t.engine.loadouts().abilityIn(p, Slots.ABILITY_2).orElseThrow());
         assertEquals("unstable_binding", t.engine.loadouts().abilityIn(p, Slots.ABILITY_3).orElseThrow());
-        assertEquals("empty_slot:ultimate", t.engine.loadouts().activate(p, Slots.ULTIMATE).reason());
+        assertEquals("arcanist_ult1", t.engine.loadouts().abilityIn(p, Slots.ULTIMATE).orElseThrow());
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "LMB fires the bolt");
     }
 }

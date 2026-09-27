@@ -56,7 +56,8 @@ public final class TestEngine {
                 if (ctx.target() instanceof EntityTarget e) {
                     // Same rules as the real damage effect: backstab crits, and report it (stealth breaks).
                     double raw = ctx.params().requireDouble("amount")
-                            * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx);
+                            * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx)
+                            * me.mephisto.ability_engine.engine.combat.DamageScale.multiplier(ctx);
                     // Strength, damage taken, tethers: the same pipeline as the real damage effect.
                     var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(), raw);
                     double amount = result.amount();

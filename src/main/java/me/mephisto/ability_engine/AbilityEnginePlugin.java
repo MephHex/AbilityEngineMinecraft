@@ -39,6 +39,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     private Keybinds keybinds;
     private HotbarHud hud;
     private CastBarHud castBar;
+    private me.mephisto.ability_engine.bukkit.hud.BossBarHud bossBar;
     private DamageEffect damage;
 
     @Override
@@ -84,11 +85,15 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new VisualEntities(), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BarrierGuard(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DamageModifierListener(engine), this);
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.FrostAndFlight(engine), this);
         pm.registerEvents(constructRenderer, this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DreamListeners(engine, this), this);
         castBar = new CastBarHud(engine);
         pm.registerEvents(castBar, this);
         castBar.start();
+        bossBar = new me.mephisto.ability_engine.bukkit.hud.BossBarHud(engine);
+        pm.registerEvents(bossBar, this);
+        bossBar.start();
         pm.registerEvents(new AbilityInputListener(engine, bindings), this); // debug: /ae bind items
         pm.registerEvents(new PlayerLifecycleListener(engine, tagBindings, hud), this);
 
@@ -125,6 +130,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     public void onDisable() {
         if (engine == null) return;
         for (Player p : getServer().getOnlinePlayers()) hud.clear(p); // don't save HUD items to disk
+        if (bossBar != null) bossBar.stop();
         if (castBar != null) castBar.stop();                        // give players their real XP back
         engine.shutdown(); // cancels casts, removes projectiles, undoes stuns
         engine = null;

@@ -40,7 +40,8 @@ public final class NodeTypes {
     public static NodeTypes withBuiltins() {
         NodeTypes t = new NodeTypes();
         t.register("print", (p, e) -> new PrintNode(p.requireString("message")));
-        t.register("delay", (p, e) -> new DelayNode(p.requireInt("ticks"), p.getBool("cast_bar", false)));
+        t.register("delay", (p, e) -> new DelayNode(p.requireInt("ticks"), p.getBool("cast_bar", false),
+                p.getBool("boss_bar", false)));
         t.register("switch", (p, e) -> {
             Set<String> cases = new LinkedHashSet<>(p.getParams("on").keys());
             cases.remove(Ports.DEFAULT);
@@ -101,7 +102,18 @@ public final class NodeTypes {
         t.register("find_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindSummonNode(
                 p.requireString("summon"), p.getString("store", "summon")));
         t.register("swap", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SwapNode(p.requireString("with")));
-        t.register("counter", (p, e) -> new CounterNode(p.requireString("counter"), p.requireInt("every")));
+        t.register("counter", (p, e) -> new CounterNode(p.requireString("counter"), p.requireInt("every"),
+                p.getBool("peek", false)));
+        t.register("charge", (p, e) -> {
+            double from = p.getDouble("from", 0);
+            if (from < 0 || from > 1) throw p.error("from", "must be between 0 and 1");
+            return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
+                    p.getString("store", "charge"));
+        });
+        t.register("await_kill", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.AwaitKillNode(
+                p.getBool("players_only", false), p.getString("store", "victim")));
+        t.register("cancel_ability", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.CancelAbilityNode(
+                p.requireString("ability")));
         t.register("release_tags", (p, e) -> new ReleaseTagsNode());
         t.register("steer_projectile", (p, e) -> new SteerProjectileNode(
                 p.requireString("ability"), p.getDouble("turn", 0.25), p.getDouble("range", 60)));
@@ -127,13 +139,18 @@ public final class NodeTypes {
         t.register("reload", (p, e) -> new ReloadNode());
         t.register("take_bolt", (p, e) -> new TakeBoltNode());
         t.register("infuse", (p, e) -> {
-            String infusion = p.requireString("infusion");
-            if (e.infusions().find(infusion).isEmpty()) {
-                throw p.error("infusion", "unknown infusion '" + infusion + "' (define it under 'infusions:')");
+            if (p.has("infusion") == p.has("random")) throw p.error("infusion", "give either infusion: <id> or random: [ids]");
+            String key = p.has("random") ? "random" : "infusion";
+            java.util.List<String> choices = p.has("random") ? p.getStringList("random") : java.util.List.of(p.requireString("infusion"));
+            if (choices.isEmpty()) throw p.error("random", "list at least one infusion");
+            for (String infusion : choices) {
+                if (e.infusions().find(infusion).isEmpty()) {
+                    throw p.error(key, "unknown infusion '" + infusion + "' (define it under 'infusions:')");
+                }
             }
             int count = p.getInt("count", 1);
             if (count < 1) throw p.error("count", "must be at least 1");
-            return new InfuseNode(infusion, count);
+            return new InfuseNode(choices, count);
         });
         t.register("has_tag", (p, e) -> new HasTagNode(p.requireString("tag"), p.getString("target", null)));
         t.register("in_range", (p, e) -> new InRangeNode(p.requireString("center"), p.getString("target", null),

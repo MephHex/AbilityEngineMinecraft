@@ -29,6 +29,7 @@ public final class Ports {
     public static final String OUTSIDE = "outside";
     public static final String EMPTY = "empty";
     public static final String FULL = "full";
+    public static final String KILL = "kill";
 
     private Ports() {}
 }

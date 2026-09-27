@@ -31,6 +31,10 @@ public final class Tags {
     /** Abilities ignore them: projectiles, rays and dashes pass through, area effects skip them. */
     public static final String UNTARGETABLE = "state.untargetable";
     public static final String BLINDED = "state.blinded";
+    /** Frozen (on Bukkit: frozen, blue hearts and the powder-snow slow; no vanilla freeze damage). */
+    public static final String FROZEN = "state.frozen";
+    /** Can fly (on Bukkit: creative-style flight; no fall damage from the landing after it ends). */
+    public static final String FLYING = "state.flying";
 
     public static final String BLOCK_ABILITY = "block.ability";
     public static final String BLOCK_MOVE = "block.move";

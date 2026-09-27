@@ -4,24 +4,39 @@ import me.mephisto.ability_engine.engine.graph.ExecutionContext;
 import me.mephisto.ability_engine.engine.graph.GraphNode;
 import me.mephisto.ability_engine.engine.graph.NodeResult;
 
+import java.util.List;
+
 /**
  * Infuse the caster's next {@code count} QUEUED bolts with an infusion (front of the queue first).
  * The bolt already loaded in the weapon is never infused. Bolts keep every infusion they get.
+ * With {@code random: [a, b, c]} instead, each of those bolts gets one of them, picked at random.
  */
 public final class InfuseNode implements GraphNode {
 
-    private final String infusion;
+    private final List<String> choices;
     private final int count;
 
     public InfuseNode(String infusion, int count) {
-        this.infusion = infusion;
+        this(List.of(infusion), count);
+    }
+
+    /** @param choices one infusion (always that one), or several (each bolt gets a random one) */
+    public InfuseNode(List<String> choices, int count) {
+        this.choices = List.copyOf(choices);
         this.count = Math.max(1, count);
     }
 
     @Override
     public NodeResult execute(ExecutionContext ctx) {
-        int changed = ctx.engine().quivers().infuse(ctx.caster(), infusion, count);
-        ctx.engine().log().debug(() -> "infuse " + infusion + ": " + changed + " bolt(s)");
+        var quivers = ctx.engine().quivers();
+        int changed = 0;
+        int queued = quivers.queue(ctx.caster()).size();
+        for (int i = 0; i < Math.min(count, queued); i++) {
+            String infusion = choices.get(ctx.engine().random().nextInt(choices.size()));
+            changed += quivers.infuseAt(ctx.caster(), i, infusion) ? 1 : 0;
+        }
+        int total = changed;
+        ctx.engine().log().debug(() -> "infuse " + choices + ": " + total + " bolt(s)");
         return NodeResult.NEXT;
     }
 }

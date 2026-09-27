@@ -19,6 +19,9 @@ import org.bukkit.util.Vector;
  * {@code overflow: true} (and optional overflow_max / overflow_decay) to turn excess into a shield.
  * {@code knockback: false} deals it as magic damage (like vanilla poison): no knockback, but the kill
  * is still credited to the caster. Meant for damage over time.
+ * {@code damage_type: freeze | fire | magic} deals it as that vanilla damage (no knockback either):
+ * freeze = ice damage (frozen hurt sound), fire = burning. {@code scale_by: <key>} multiplies the amount
+ * by a number the cast stored (a charged shot's power).
  * With /ae debug on, every hit logs the target's health before/after, so a hit that the game
  * silently refused (PvP off, creative target, armor stand, protection plugin) is visible.
  */
@@ -57,18 +60,20 @@ public final class DamageEffect implements Effect {
 
         // Backstab crits (backstab: 1.5): from behind the target, multiply.
         double design = ctx.params().requireDouble("amount")
-                * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx);
+                * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx)
+                * me.mephisto.ability_engine.engine.combat.DamageScale.multiplier(ctx);
         double amount = design / scale;
         // Vanilla ignores a hit landing within ~10 ticks of the last one. Rapid channels need this.
         if (ctx.params().getBool("ignore_iframes", false)) living.setNoDamageTicks(0);
 
         double before = living.getHealth();
         Entity damager = Bukkit.getEntity(ctx.caster());
-        boolean knockback = ctx.params().getBool("knockback", true);
+        DamageType type = typeOf(ctx.params().getString("damage_type", null));
+        boolean knockback = type == null && ctx.params().getBool("knockback", true);
         Vector velocityBefore = living.getVelocity();
         applying++;
         try {
-            if (!knockback) living.damage(amount, magic(damager, living));
+            if (!knockback) living.damage(amount, typed(type != null ? type : DamageType.MAGIC, damager, living));
             else if (damager != null && !damager.equals(living)) living.damage(amount, damager);
             else living.damage(amount);
         } finally {
@@ -91,9 +96,20 @@ public final class DamageEffect implements Effect {
                 after < before ? "" : "   <-- NOT APPLIED (cancelled event / invulnerable / armor stand)"));
     }
 
-    /** Magic damage (no knockback), still credited to the caster for kills. */
-    private static DamageSource magic(Entity damager, LivingEntity target) {
-        DamageSource.Builder source = DamageSource.builder(DamageType.MAGIC);
+    /** damage_type: null (normal) or a vanilla type. */
+    private static DamageType typeOf(String name) {
+        if (name == null) return null;
+        return switch (name.toLowerCase(java.util.Locale.ROOT)) {
+            case "freeze" -> DamageType.FREEZE;
+            case "fire" -> DamageType.ON_FIRE;
+            case "magic" -> DamageType.MAGIC;
+            default -> null;
+        };
+    }
+
+    /** Damage of a vanilla type without knockback (magic, freeze, fire), still credited to the caster for kills. */
+    private static DamageSource typed(DamageType type, Entity damager, LivingEntity target) {
+        DamageSource.Builder source = DamageSource.builder(type);
         if (damager != null && !damager.equals(target)) source.withCausingEntity(damager).withDirectEntity(damager);
         return source.build();
     }
@@ -101,5 +117,7 @@ public final class DamageEffect implements Effect {
     @Override
     public void validate(Params params) {
         if (params.requireDouble("amount") < 0) throw params.error("amount", "must be >= 0");
+        String type = params.getString("damage_type", null);
+        if (type != null && typeOf(type) == null) throw params.error("damage_type", "expected freeze, fire or magic");
     }
 }

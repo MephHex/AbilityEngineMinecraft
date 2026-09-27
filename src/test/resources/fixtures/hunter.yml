@@ -48,6 +48,28 @@ statuses:
     stacking: refresh
     tags: [state.invisible]
 
+  # ---- Volatile Flask's random infusions (see infusions below) ----
+  frozen:                            # Frost: ice damage, frozen (blue) hearts, and the powder-snow slow
+    duration: 60                     # 3s...
+    stacking: refresh
+    tags: [state.frozen]
+    tick:
+      every: 20                      # ...10 ice damage per second = 30 total
+      effects:
+        - { id: damage, amount: 10, damage_type: freeze }   # no knockback
+  scorched:                          # Flame: on fire, no knockback
+    duration: 60                     # 3s...
+    stacking: refresh
+    tags: [state.burning]            # looks on fire (no vanilla fire damage)
+    tick:
+      every: 10                      # ...6 fire damage every 0.5s = 36 total
+      effects:
+        - { id: damage, amount: 6, damage_type: fire }
+  paralyzed:                         # Paralysis: slowed and silenced (no abilities)
+    duration: 40                     # 2s
+    stacking: refresh
+    tags: [state.slowed, state.silenced, block.ability]
+
 # Magic a bolt can carry. When an infused bolt hits, its infusions' on_hit effects land on the target too.
 # color: how bolts carrying it are tinted in the quiver (several infusions mix their colors).
 infusions:
@@ -57,12 +79,31 @@ infusions:
     description: ["Poisons: 40 damage over 4s."]
     on_hit:
       - { id: status, status: poisoned }
-  slowness:
-    name: "Slowness"
-    color: "#5A6C81"
-    description: ["Slows by 40% for 2s."]
+  # Volatile Flask: each of your 3 queued bolts gets ONE of these, at random.
+  frost:
+    name: "Frost"
+    color: "#8FD8FF"
+    description: ["Freezes: 30 ice damage over 3s, slowed."]
     on_hit:
-      - { id: status, status: slow, duration: 40 }
+      - { id: status, status: frozen }
+  flame:
+    name: "Flame"
+    color: "#F0672B"
+    description: ["Burns: 36 fire damage over 3s."]
+    on_hit:
+      - { id: status, status: scorched }
+  paralysis:
+    name: "Paralysis"
+    color: "#F4E04D"
+    description: ["Paralyzes: slowed and silenced for 2s."]
+    on_hit:
+      - { id: status, status: paralyzed }
+  vitality:
+    name: "Vitality"
+    color: "#FF6FAE"
+    description: ["Heals you for 30 when it hits."]
+    on_hit:
+      - { id: heal, amount: 30, self: true }   # self: on you, not on whoever it hit
 
 abilities:
 
@@ -81,7 +122,14 @@ abilities:
     nodes:
       take:
         type: take_bolt              # the loaded bolt leaves the crossbow (stored as "bolt")
-        on: { out: overdrive, empty: dry }
+        on: { out: overdrive, empty: rapid }
+      rapid:
+        type: has_tag                # Overdrive: no drawing, bolts come straight from the quiver
+        tag: state.overdrive
+        on: { has: autoload, lacks: dry }
+      autoload:
+        type: reload
+        on: { out: take }
       overdrive:
         type: has_tag                # Overdrive: the bolt pierces
         tag: state.overdrive
@@ -173,15 +221,15 @@ abilities:
       whoosh:
         type: play_cue
         cue: hunter_dash
-        next: reload
-      reload:
-        type: reload                 # load the front bolt, then infuse the 3 behind it
-        on: { out: envenom, full: envenom }   # full = already loaded: nothing to do
+        next: envenom
       envenom:
-        type: infuse
+        type: infuse                 # poison the 3 queued bolts first...
         infusion: poison
         count: 3
-        next: overdrive
+        next: reload
+      reload:
+        type: reload                 # ...then load the front one (a poisoned bolt)
+        on: { out: overdrive, full: overdrive }   # full = already loaded: nothing to do
       overdrive:
         type: has_tag
         tag: state.overdrive
@@ -255,11 +303,11 @@ abilities:
         targets: { type: self }
         effects:
           - { id: status, status: flask_tonic }
-        next: slow_bolt
-      slow_bolt:
+        next: alchemy
+      alchemy:
         type: infuse
-        infusion: slowness
-        count: 1
+        random: [frost, flame, paralysis, vitality]   # each bolt rolls its own
+        count: 3
 
   # 3: toss a trap a short way. It hops once, slides a little, and arms where it stops. The first enemy
   # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
@@ -344,7 +392,8 @@ abilities:
         next: last
       last:
         type: delay
-        ticks: 160                   # 8s (no cast bar: the XP bar keeps showing the Rhythm; a boss bar timer later)
+        ticks: 160                   # 8s
+        boss_bar: true               # counts down on the boss bar (the XP bar keeps showing the Rhythm)
 
 characters:
   hunter:
@@ -359,6 +408,7 @@ characters:
         first: 2                     # ...give Quick Charge 2/3/4
         max: 4
         while: { state.overdrive: 4 }   # Overdrive: 0.25s draws (4 is the most a crossbow allows)
+      rapid_fire_while: [state.overdrive]   # Overdrive: no drawing at all, shoots straight from the quiver
     slots:
       primary: infused_bolt          # RMB on a loaded crossbow (hold RMB to draw)
       ability_1: venom_step          # 1

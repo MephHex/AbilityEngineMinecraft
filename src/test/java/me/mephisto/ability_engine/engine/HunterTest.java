@@ -56,9 +56,9 @@ class HunterTest {
     void loadingTakesTheLeftmostBoltShiftsTheRestAndAddsAPlainOneOnTheRight() throws IOException {
         setup();
         t.engine.quivers().infuse(p, "poison", 1);
-        t.engine.quivers().infuse(p, "slowness", 2);
-        Bolt both = new Bolt(List.of("poison", "slowness"));
-        Bolt slow = new Bolt(List.of("slowness"));
+        t.engine.quivers().infuse(p, "paralysis", 2);
+        Bolt both = new Bolt(List.of("poison", "paralysis"));
+        Bolt slow = new Bolt(List.of("paralysis"));
         assertEquals(List.of(both, slow, PLAIN), queue(), "one bolt can carry several infusions");
 
         assertTrue(t.engine.quivers().tryLoad(p));
@@ -127,11 +127,12 @@ class HunterTest {
         setup();
         UUID target = t.spawn(10, 1, 0);
         t.engine.quivers().infuse(p, "poison", 1);
-        t.engine.quivers().infuse(p, "slowness", 1);
+        t.engine.quivers().infuse(p, "paralysis", 1);
         t.engine.quivers().tryLoad(p);
         shoot();
         assertTrue(t.engine.statuses().has(target, "poisoned"));
-        assertTrue(t.engine.tags().has(target, Tags.SLOWED), "slowness infusion");
+        assertTrue(t.engine.tags().has(target, Tags.SLOWED), "paralysis: slowed...");
+        assertTrue(t.engine.tags().has(target, Tags.BLOCK_ABILITY), "...and silenced");
         double onImpact = t.damage(target);
         t.time.advance(80);
         assertEquals(40, t.damage(target) - onImpact, 1e-9, "poison: 40 over 4s");
@@ -155,13 +156,13 @@ class HunterTest {
     void aFiredBoltIsTintedByItsInfusions() throws IOException {
         setup();
         t.engine.quivers().infuse(p, "poison", 1);
-        t.engine.quivers().infuse(p, "slowness", 2);
+        t.engine.quivers().infuse(p, "paralysis", 2);
         for (int i = 0; i < 3; i++) {
             t.engine.quivers().tryLoad(p);
             shoot();
         }
-        // poison + slowness mixed (#4E9331 and #5A6C81 averaged), then slowness alone, then a plain bolt
-        assertEquals(java.util.Arrays.asList("#547F59", "#5A6C81", null), t.render.tints);
+        // poison + paralysis mixed (#4E9331 and #F4E04D averaged), then paralysis alone, then a plain bolt
+        assertEquals(java.util.Arrays.asList("#A1B93F", "#F4E04D", null), t.render.tints);
     }
 
     @Test
@@ -302,11 +303,11 @@ class HunterTest {
     }
 
     @Test
-    void venomStepReloadsThenPoisonsTheNextThreeQueuedBolts() throws IOException {
+    void venomStepPoisonsTheNextThreeQueuedBoltsThenReloadsAPoisonedOne() throws IOException {
         setup();
         t.engine.loadouts().activate(p, "ability_1");
-        assertEquals(PLAIN, t.engine.quivers().loaded(p).orElseThrow(), "reloaded with the bolt that was next");
-        assertEquals(List.of(POISON, POISON, POISON), queue());
+        assertEquals(POISON, t.engine.quivers().loaded(p).orElseThrow(), "poisoned first, then loaded");
+        assertEquals(List.of(POISON, POISON, PLAIN), queue());
     }
 
     @Test
@@ -359,7 +360,7 @@ class HunterTest {
     }
 
     @Test
-    void burstingItOnYourselfBuffsYouAndInfusesSlownessIntoTheNextBolt() throws IOException {
+    void burstingItOnYourselfBuffsYouAndGivesEachQueuedBoltARandomInfusion() throws IOException {
         setup();
         t.world.floor(0);
         t.world.look(p, new Vec3(0.05, -1, 0)); // straight at your feet
@@ -369,8 +370,58 @@ class HunterTest {
         assertTrue(t.engine.tags().has(p, Tags.HASTED), "speed");
         t.time.advance(60);
         assertTrue(t.healed.getOrDefault(p, 0.0) > 0, "a little regen");
-        assertEquals(new Bolt(List.of("slowness")), queue().get(0));
-        assertEquals(PLAIN, queue().get(1), "only the next one");
+        for (Bolt bolt : queue()) {
+            assertEquals(1, bolt.infusions().size(), "one each: " + queue());
+            assertTrue(List.of("frost", "flame", "paralysis", "vitality").contains(bolt.infusions().get(0)));
+        }
+        assertFalse(t.engine.quivers().isLoaded(p), "the loaded bolt (none here) is never infused");
+    }
+
+    @Test
+    void eachBoltRollsItsOwnInfusion() throws IOException {
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (int seed = 0; seed < 20; seed++) {
+            setup();
+            t.engine.setRandom(new java.util.Random(seed));
+            t.world.floor(0);
+            t.world.look(p, new Vec3(0.05, -1, 0));
+            t.engine.loadouts().activate(p, "ability_2");
+            t.time.advance(40);
+            queue().forEach(b -> seen.addAll(b.infusions()));
+        }
+        assertEquals(java.util.Set.of("frost", "flame", "paralysis", "vitality"), seen, "all four come up");
+    }
+
+    @Test
+    void theFlaskInfusionsDoWhatTheySay() throws IOException {
+        setup();
+        UUID a = t.spawn(10, 1, 0);
+        UUID b = t.spawn(10, 1, 3);
+        UUID c = t.spawn(10, 1, -3);
+        t.engine.quivers().infuse(p, "frost", 1);
+        t.engine.quivers().tryLoad(p);
+        shoot();
+        assertTrue(t.engine.tags().has(a, "state.frozen"), "frost: frozen");
+        double hit = t.damage(a);
+        t.time.advance(60);
+        assertEquals(30, t.damage(a) - hit, 1e-9, "frost: 30 ice damage over 3s");
+
+        t.engine.quivers().infuse(p, "flame", 1);
+        t.engine.quivers().tryLoad(p);
+        t.world.look(p, pos(b).subtract(pos(p)));
+        shoot();
+        assertTrue(t.engine.tags().has(b, Tags.BURNING), "flame: on fire");
+        hit = t.damage(b);
+        t.time.advance(60);
+        assertEquals(36, t.damage(b) - hit, 1e-9, "flame: 36 fire damage over 3s");
+
+        t.engine.quivers().infuse(p, "vitality", 1);
+        t.engine.quivers().tryLoad(p);
+        t.world.look(p, pos(c).subtract(pos(p)));
+        double healedBefore = t.healed.getOrDefault(p, 0.0);
+        shoot();
+        assertEquals(30, t.healed.getOrDefault(p, 0.0) - healedBefore, 1e-9, "vitality heals YOU");
+        assertEquals(0, t.healed.getOrDefault(c, 0.0), 1e-9, "not them");
     }
 
     @Test
@@ -395,6 +446,51 @@ class HunterTest {
         t.time.advance(161);
         assertEquals(0, t.engine.quivers().reloadSpeed(p));
         assertFalse(t.engine.tags().has(p, Tags.HASTED));
+    }
+
+    @Test
+    void overdriveIsRapidFireNoDrawingJustShootStraightFromTheQuiver() throws IOException {
+        setup();
+        UUID target = t.spawn(10, 1, 0);
+        t.engine.quivers().infuse(p, "poison", 1);
+        t.engine.loadouts().activate(p, "ultimate");
+        assertTrue(t.engine.quivers().rapidFire(p));
+        assertFalse(t.engine.quivers().canLoad(p), "no drawing the crossbow");
+        assertFalse(t.engine.quivers().isLoaded(p));
+
+        shoot(); // nothing loaded: it loads the next bolt itself and shoots it
+        assertEquals(45, t.damage(target), 1e-9);
+        assertTrue(t.engine.statuses().has(target, "poisoned"), "the bolt that was next, infusions and all");
+        assertEquals(List.of(PLAIN, PLAIN, PLAIN), queue());
+        t.engine.statuses().clear(target); // no more poison ticks
+        double first = t.damage(target);
+        shoot();
+        shoot();
+        assertEquals(90, t.damage(target) - first, 1e-9, "shot after shot, only the primary's cooldown in between");
+
+        t.time.advance(161);
+        assertFalse(t.engine.quivers().rapidFire(p), "over after 8s");
+        assertEquals("dry", dryShot(), "back to drawing: nothing loaded, nothing shot");
+    }
+
+    /** Fire the primary with nothing loaded: which branch ran (a dry click, or a shot). */
+    private String dryShot() {
+        double before = t.render.cues.stream().filter("dry_fire"::equals).count();
+        t.engine.loadouts().activate(p, "primary");
+        return t.render.cues.stream().filter("dry_fire"::equals).count() > before ? "dry" : "shot";
+    }
+
+    @Test
+    void overdriveCountsDownOnTheBossBar() throws IOException {
+        setup();
+        t.engine.loadouts().activate(p, "ultimate");
+        var timer = t.engine.instances().timer(p).orElseThrow();
+        assertEquals("overdrive", timer.ability().id());
+        assertEquals(1.0, timer.left(), 1e-9);
+        t.time.advance(80);
+        assertEquals(0.5, t.engine.instances().timer(p).orElseThrow().left(), 0.01, "half of the 8s left");
+        t.time.advance(81);
+        assertTrue(t.engine.instances().timer(p).isEmpty(), "gone when it ends");
     }
 
     // ---- basic attack: cooldown cut ---------------------------------------------------------------

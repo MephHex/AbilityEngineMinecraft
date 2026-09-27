@@ -52,6 +52,36 @@ public final class AbilityInstanceRegistry implements TagListener {
                 .anyMatch(i -> i.ability().id().equals(abilityId) && i.awaitingRecast());
     }
 
+    /** Is one of the caster's casts charging (a charge node waiting for the input to be let go)? */
+    public boolean charging(UUID caster) {
+        return of(caster).stream().anyMatch(AbilityInstance::charging);
+    }
+
+    /** The held input was let go: fire every charge the caster is holding. False if none was. */
+    public boolean release(UUID caster) {
+        boolean any = false;
+        for (AbilityInstance i : of(caster)) {
+            if (!i.charging()) continue;
+            i.release();
+            any = true;
+        }
+        return any;
+    }
+
+    /** A timer (boss bar) of one of the caster's casts: which ability, and how much is left (1..0). */
+    public record Timer(Ability ability, double left) {}
+
+    /** The most recently started cast showing a timer. */
+    public java.util.Optional<Timer> timer(UUID caster) {
+        List<AbilityInstance> mine = byCaster.getOrDefault(caster, List.of());
+        for (int i = mine.size() - 1; i >= 0; i--) {
+            AbilityInstance instance = mine.get(i);
+            var left = instance.timerLeft();
+            if (left.isPresent()) return java.util.Optional.of(new Timer(instance.ability(), left.get()));
+        }
+        return java.util.Optional.empty();
+    }
+
     public int count() {
         return byCaster.values().stream().mapToInt(List::size).sum();
     }

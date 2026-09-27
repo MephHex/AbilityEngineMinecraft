@@ -212,3 +212,35 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **Tags:** `state.sturdy` halves knockback.
 - **Cues:** leap_off, leap_slam, radiant_bond, radiant_tether (line), tether_break, heroic_launch,
   heroic_impact, and the looping `bulwark` (a shield held in front of you).
+
+## Added for Arcane Barrage, Overdrive and Volatile Flask
+
+- **Nodes:**
+  charge `{ ticks, from, store }` (charge while the input is held: continues when it's let go, or by
+  itself at full charge after `ticks`; stores the power, `from` (let go at once, default 0) up to 1.0.
+  Fills the XP bar while charging),
+  await_kill `{ players_only, store }` -> kill (waits for the caster's next elimination, the victim in
+  `store`; chain two for "up to 2"), cancel_ability `{ ability }` (end the caster's running casts of
+  another ability, e.g. the last shot ends the ultimate).
+- **delay:** `boss_bar: true` shows the wait as a boss bar with the ability's name, running out (an
+  ultimate's duration).
+- **Damage:** `scale_by: <key>` multiplies it by the number stored there (a charge's power);
+  `damage_type: freeze | fire | magic` deals it as that vanilla damage, without knockback.
+- **Effects:** `self: true` on any effect puts it on the caster instead of whoever was hit (an infusion
+  or on-hit that heals the shooter).
+- **remove_status:** `stacks: N` only takes N stacks off.
+- **counter:** `peek: true` only looks (trigger if counting now would trigger); count separately, e.g.
+  only swings that hit something.
+- **switch:** `on: { "0": ~ }` - `~` wires a case to nothing (that case just ends).
+- **infuse:** `random: [a, b, c]` instead of `infusion:`: each of the `count` bolts gets one, at random.
+- **Quiver:** `rapid_fire_while: [tags]` - with one of these tags, no drawing: RMB (or holding it)
+  shoots straight from the quiver, as fast as the primary's cooldown allows (the primary needs a
+  `reload` node for the empty case, see hunter.yml).
+- **Characters:** `forms:` change the kit while the player has a tag (first match wins):
+  `- { while: <tag>, weapon, slots: { ... }, status_bar }`. A SPYGLASS weapon: hold RMB to zoom in and
+  charge the primary (a charge node), let go to fire; LMB does nothing.
+- **Statuses:** `duration: 0` lasts until removed.
+- **Tags:** `state.frozen` (blue hearts, frost overlay and vanilla's powder-snow slow; no vanilla freeze
+  damage), `state.flying` (creative-style flight; no fall damage on the landing after it ends).
+- **Visuals:** `"block:<Material>"` shows a real block (e.g. `"block:EXPOSED_COPPER_TRAPDOOR"`, flat).
+- **Cues:** barrage_rise, barrage_shot, barrage_hit, barrage_blast, barrage_reload.
