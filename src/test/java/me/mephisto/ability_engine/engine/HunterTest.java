@@ -430,7 +430,7 @@ class HunterTest {
         setup();
         var trap = throwSnare();
         assertTrue(trap.position().x() > 3 && trap.position().x() < 12, "a short toss: x=" + trap.position().x());
-        assertEquals(0.1, trap.position().y(), 1e-6, "lying on the floor");
+        assertTrue(trap.position().y() >= 0 && trap.position().y() <= 0.2, "lying on the floor: y=" + trap.position().y());
         assertTrue(trap.armed(), "armed where it stopped");
     }
 

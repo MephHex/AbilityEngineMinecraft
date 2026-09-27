@@ -23,41 +23,41 @@ final class MovementLock {
     private static final double HASTE_AMOUNT = 0.3;
 
     static void apply(LivingEntity living) {
-        add(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), SPEED_KEY, -1.0);
-        add(living.getAttribute(Attribute.GENERIC_JUMP_STRENGTH), JUMP_KEY, -1.0);
+        add(living.getAttribute(Attribute.MOVEMENT_SPEED), SPEED_KEY, -1.0);
+        add(living.getAttribute(Attribute.JUMP_STRENGTH), JUMP_KEY, -1.0);
     }
 
     static void remove(LivingEntity living) {
-        strip(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), SPEED_KEY);
-        strip(living.getAttribute(Attribute.GENERIC_JUMP_STRENGTH), JUMP_KEY);
+        strip(living.getAttribute(Attribute.MOVEMENT_SPEED), SPEED_KEY);
+        strip(living.getAttribute(Attribute.JUMP_STRENGTH), JUMP_KEY);
     }
 
     static void applySlow(LivingEntity living) {
-        add(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), SLOW_KEY, SLOW_AMOUNT);
+        add(living.getAttribute(Attribute.MOVEMENT_SPEED), SLOW_KEY, SLOW_AMOUNT);
     }
 
     static void removeSlow(LivingEntity living) {
-        strip(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), SLOW_KEY);
+        strip(living.getAttribute(Attribute.MOVEMENT_SPEED), SLOW_KEY);
     }
 
     static void applyHaste(LivingEntity living) {
-        add(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), HASTE_KEY, HASTE_AMOUNT);
+        add(living.getAttribute(Attribute.MOVEMENT_SPEED), HASTE_KEY, HASTE_AMOUNT);
     }
 
     static void removeHaste(LivingEntity living) {
-        strip(living.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED), HASTE_KEY);
+        strip(living.getAttribute(Attribute.MOVEMENT_SPEED), HASTE_KEY);
     }
 
     /** Full vanilla knockback resistance (our own knockback effect checks the tag instead). */
     static void applySteadfast(LivingEntity living) {
-        AttributeInstance attr = living.getAttribute(Attribute.GENERIC_KNOCKBACK_RESISTANCE);
+        AttributeInstance attr = living.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
         if (attr != null && attr.getModifier(STEADFAST_KEY) == null) {
             attr.addModifier(new AttributeModifier(STEADFAST_KEY, 1.0, AttributeModifier.Operation.ADD_NUMBER));
         }
     }
 
     static void removeSteadfast(LivingEntity living) {
-        strip(living.getAttribute(Attribute.GENERIC_KNOCKBACK_RESISTANCE), STEADFAST_KEY);
+        strip(living.getAttribute(Attribute.KNOCKBACK_RESISTANCE), STEADFAST_KEY);
     }
 
     private static void add(AttributeInstance attr, NamespacedKey key, double amount) {

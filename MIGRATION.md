@@ -123,8 +123,9 @@ Nothing new for the plugin: SnakeYAML, Adventure and JOML come with `paper-api`.
 ```
 and make sure `maven-surefire-plugin` is 3.x (older ones don't find JUnit 5 tests). Run with `mvn test`.
 
-Java 21. Uses `Attribute.GENERIC_MOVEMENT_SPEED` / `GENERIC_JUMP_STRENGTH` like your old code;
-if you move to Paper 1.21.3+, they're renamed to `MOVEMENT_SPEED` / `JUMP_STRENGTH` (only in `bukkit/status/MovementLock`).
+Java 21. Built against Paper 1.21.10 (1.21.9+ is needed for Mannequins), so attributes use the 1.21.3+
+names: `MOVEMENT_SPEED`, `JUMP_STRENGTH`, `KNOCKBACK_RESISTANCE`, `MAX_ABSORPTION`, `MAX_HEALTH`
+(`bukkit/status/MovementLock`, `bukkit/effect/OverflowShields`).
 
 ## Using it
 
