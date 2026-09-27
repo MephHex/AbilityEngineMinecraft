@@ -279,13 +279,13 @@ abilities:
       toss:
         type: projectile
         speed: 0.65                  # a short lob: ~7 blocks looking straight ahead
-        size: 0.4
+        size: 1
         lifetime: 100
         bounces: 1                   # one small hop...
         restitution: 0.3
         friction: 0.2
         slide: 0.6                   # ...then it skids a little (keeps 60% of its speed per tick)
-        visual: TRIPWIRE_HOOK
+        visual: LIGHTNING_ROD
         motion:
           - { type: gravity, amount: 0.06 }
         on: { spawned: toss_cue, hit_block: place, hit_entity: spring }   # hit_block = where it stopped
@@ -303,7 +303,7 @@ abilities:
         trigger: 1.5                 # an enemy this close (blocks) springs it
         arm: 0                       # armed the moment it stops
         limit: 5                     # a 6th trap removes your oldest
-        visual: TRIPWIRE_HOOK
+        visual: "block:EXPOSED_COPPER_TRAPDOOR"
         on: { triggered: spring, fuse: expire }
       spring:
         type: apply_effects

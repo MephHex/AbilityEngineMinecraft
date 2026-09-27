@@ -2,12 +2,8 @@ package me.mephisto.ability_engine.bukkit.platform;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.entity.EnderCrystal;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.ItemDisplay;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Mob;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
@@ -24,6 +20,7 @@ import java.util.logging.Logger;
 final class VisualSpawner {
 
     private static final String ENTITY_PREFIX = "entity:";
+    private static final String BLOCK_PREFIX = "block:";
 
     record Spawned(Entity entity, double yOffset) {}
 
@@ -33,7 +30,35 @@ final class VisualSpawner {
             if (s != null) return s;
             visual = null;
         }
+        if (visual != null && visual.regionMatches(true, 0, BLOCK_PREFIX, 0, BLOCK_PREFIX.length())) {
+            Spawned s = block(loc, visual.substring(BLOCK_PREFIX.length()), size, log);
+            if (s != null) return s;
+            visual = null;
+        }
         return item(loc, visual, size);
+    }
+
+    /**
+     * A real block model (e.g. a closed trapdoor, which is already flat). Block displays grow from their
+     * corner, so it's shifted to be centred on the point horizontally, with its BOTTOM on the point.
+     */
+    private static Spawned block(Location loc, String name, float s, Logger log) {
+        Material material = Material.matchMaterial(name.trim());
+        if (material == null || !material.isBlock()) {
+            log.warning("Unknown visual block '" + name + "' (use a block Material, e.g. EXPOSED_COPPER_TRAPDOOR)");
+            return null;
+        }
+        BlockData data = material.createBlockData(); // defaults: a trapdoor is closed and bottom-half = flat
+        BlockDisplay display = loc.getWorld().spawn(loc, BlockDisplay.class, d -> {
+            d.setBlock(data);
+            d.setPersistent(false);          // never saved to disk: no orphans after a crash
+            d.setInterpolationDuration(0);
+            d.setTeleportDuration(0);
+            d.setTransformation(new Transformation(new Vector3f(-s / 2, 0, -s / 2), new Quaternionf(),
+                    new Vector3f(s, s, s), new Quaternionf()));
+            VisualEntities.mark(d);
+        });
+        return new Spawned(display, 0);
     }
 
     private static Spawned item(Location loc, String visual, float s) {
