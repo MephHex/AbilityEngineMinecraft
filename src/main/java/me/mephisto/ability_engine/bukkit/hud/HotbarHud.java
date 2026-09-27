@@ -366,6 +366,8 @@ public final class HotbarHud {
                     if (!isHudItem(item)) return;
                     long remaining = engine.cooldowns().remainingTicks(id, a.id());
                     int seconds = remaining <= 0 ? 1 : (int) Math.min(MAX_COUNT, Math.ceil(remaining / 20.0));
+                    // Charges: while any are left, the stack shows how many (the sweep only shows with none).
+                    if (a.charges() > 1 && remaining <= 0) seconds = engine.cooldowns().charges(id, a.id());
                     if (item.getAmount() != seconds) {
                         item.setAmount(seconds);
                         inv.setItem(pos, item);
@@ -464,7 +466,9 @@ public final class HotbarHud {
         List<Component> lore = new ArrayList<>();
         for (String line : a.display().description()) lore.add(plain(line, NamedTextColor.GRAY));
         if (a.cooldownTicks() > 0) {
-            lore.add(plain(String.format("Cooldown: %.1fs", a.cooldownTicks() / 20.0), NamedTextColor.DARK_GRAY));
+            lore.add(plain(a.charges() > 1
+                    ? String.format("%d charges, %.1fs each", a.charges(), a.cooldownTicks() / 20.0)
+                    : String.format("Cooldown: %.1fs", a.cooldownTicks() / 20.0), NamedTextColor.DARK_GRAY));
         }
         meta.lore(lore);
         return tag(item, meta);

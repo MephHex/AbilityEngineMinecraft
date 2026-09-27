@@ -27,6 +27,8 @@ import java.util.Set;
  * @param movement        it moves the caster (dash, blink): can't be used while they can't move
  *                        ({@code block.move}: rooted, stunned), and a cast in progress stops if they lose
  *                        the ability to move. Already folded into blockedBy / interruptedBy.
+ * @param charges         uses stored up (default 1). With 2+, each use spends one and they come back one
+ *                        at a time, {@code cooldownTicks} each; it's only "on cooldown" with none left.
  */
 public record Ability(
         String id,
@@ -45,7 +47,8 @@ public record Ability(
         boolean survivesDeath,
         boolean movement,
         String refreshOnKill,
-        boolean manualCooldown
+        boolean manualCooldown,
+        int charges
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -53,6 +56,7 @@ public record Ability(
         interruptedBy = Set.copyOf(interruptedBy);
         activeTags = Set.copyOf(activeTags);
         if (display == null) display = AbilityDisplay.of(id);
+        charges = Math.max(1, charges);
     }
 
     public static Builder builder(String id, AbilityGraph graph) { return new Builder(id, graph); }
@@ -75,6 +79,7 @@ public record Ability(
         private boolean movement;
         private String refreshOnKill = "none";
         private boolean manualCooldown;
+        private int charges = 1;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -98,6 +103,7 @@ public record Ability(
         public Builder movement(boolean v) { this.movement = v; return this; }
         /** The cooldown only starts when a start_cooldown node runs (e.g. only if the cast succeeded). */
         public Builder manualCooldown(boolean v) { this.manualCooldown = v; return this; }
+        public Builder charges(int n) { this.charges = n; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -112,7 +118,7 @@ public record Ability(
             }
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
                     cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
-                    refreshOnKill, manualCooldown);
+                    refreshOnKill, manualCooldown, charges);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

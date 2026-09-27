@@ -35,8 +35,17 @@ public final class SummonManager {
 
     /** @param facing the way the clone looks (horizontal); null = the way its owner looks */
     public Optional<UUID> summonClone(UUID owner, String name, String world, Vec3 center, int lifetime, Vec3 facing) {
+        return summonClone(owner, name, owner, world, center, lifetime, facing, CloneSpawner.Options.DECOY);
+    }
+
+    /**
+     * @param of      whose look-alike it is (e.g. an enemy's soul); the summon still belongs to {@code owner}
+     * @param options decoy, or vulnerable (can be hit and killed)
+     */
+    public Optional<UUID> summonClone(UUID owner, String name, UUID of, String world, Vec3 center, int lifetime,
+                                      Vec3 facing, CloneSpawner.Options options) {
         dismiss(owner, name);
-        Optional<UUID> spawned = spawner.spawnClone(owner, world, center, facing);
+        Optional<UUID> spawned = spawner.spawnClone(of, world, center, facing, options);
         spawned.ifPresent(entity -> {
             Summon[] self = new Summon[1];
             TaskHandle expiry = scheduler.after(lifetime, () -> remove(self[0]));
@@ -49,6 +58,11 @@ public final class SummonManager {
     public Optional<UUID> find(UUID owner, String name) {
         return active.stream().filter(s -> s.owner().equals(owner) && s.name().equals(name))
                 .map(Summon::entity).findFirst();
+    }
+
+    /** Is this entity someone's summon (a clone, a soul)? Its death is no one's kill. */
+    public boolean isSummon(UUID entity) {
+        return active.stream().anyMatch(s -> s.entity().equals(entity));
     }
 
     public void dismiss(UUID owner, String name) {

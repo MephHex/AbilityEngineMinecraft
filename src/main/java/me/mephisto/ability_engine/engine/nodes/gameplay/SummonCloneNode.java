@@ -11,6 +11,10 @@ import me.mephisto.ability_engine.engine.target.EntityTarget;
  * {@code store}. It outlives the cast: it lasts {@code lifetime} ticks, and a new one with the same
  * {@code summon} name replaces the old. Other abilities find it with find_summon.
  * It spawns facing its owner (placed where they stand: looking the way they look).
+ * <p>{@code of: <key>} makes it a look-alike of someone else (placed where THEY stand unless {@code at}
+ * says otherwise), e.g. an enemy's soul; it still belongs to the caster. {@code health: N} (design HP)
+ * makes it vulnerable: it can be hit and killed (it's on {@code of}'s team, so their allies can't), see
+ * await_summon; {@code glowing: true} outlines it. Also stores where it was placed as {@code <store>_at}.
  */
 public final class SummonCloneNode implements GraphNode {
 
@@ -21,27 +25,52 @@ public final class SummonCloneNode implements GraphNode {
     /** A clone's half height: a ground point is its feet, so its centre is this far above. */
     private static final double HALF_HEIGHT = 0.9;
 
+    private final String ofKey;  // null = the caster
+    private final double health;
+    private final boolean glowing;
+
     public SummonCloneNode(String name, String store, int lifetime, String atKey) {
+        this(name, store, lifetime, atKey, null, 0, false);
+    }
+
+    public SummonCloneNode(String name, String store, int lifetime, String atKey, String ofKey, double health,
+                           boolean glowing) {
         this.name = name;
         this.store = store;
         this.lifetime = lifetime;
         this.atKey = atKey;
+        this.ofKey = ofKey;
+        this.health = health;
+        this.glowing = glowing;
     }
 
     @Override
     public NodeResult execute(ExecutionContext ctx) {
         var world = ctx.engine().world();
+        java.util.UUID of = ctx.caster();
+        if (ofKey != null) {
+            if (!(me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, ofKey).orElse(null) instanceof EntityTarget e)) {
+                return NodeResult.NEXT; // nobody to copy
+            }
+            of = e.id();
+        }
         java.util.Optional<me.mephisto.ability_engine.engine.target.PointTarget> center;
         if (atKey == null) {
-            center = world.positionOf(new EntityTarget(ctx.caster()));
+            center = world.positionOf(new EntityTarget(of));
         } else {
             var at = me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, atKey);
             center = at.flatMap(world::positionOf).map(p -> at.get() instanceof EntityTarget ? p
                     : new me.mephisto.ability_engine.engine.target.PointTarget(p.world(), p.position().add(0, HALF_HEIGHT, 0)));
         }
+        var options = new me.mephisto.ability_engine.engine.platform.CloneSpawner.Options(health, glowing,
+                health > 0 ? of : null);
+        java.util.UUID copyOf = of;
         center.ifPresent(p -> ctx.engine().summons()
-                .summonClone(ctx.caster(), name, p.world(), p.position(), lifetime, towardOwner(ctx, p.position()))
-                .ifPresent(id -> ctx.blackboard().putRaw(store, new EntityTarget(id))));
+                .summonClone(ctx.caster(), name, copyOf, p.world(), p.position(), lifetime, towardOwner(ctx, p.position()), options)
+                .ifPresent(id -> {
+                    ctx.blackboard().putRaw(store, new EntityTarget(id));
+                    ctx.blackboard().putRaw(store + "_at", p);
+                }));
         return NodeResult.NEXT;
     }
 

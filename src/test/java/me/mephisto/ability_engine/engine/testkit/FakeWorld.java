@@ -79,6 +79,33 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
         return Optional.of(id);
     }
 
+    /** Health left of vulnerable clones (design HP); the test damage effect kills them at 0. */
+    public final Map<UUID, Double> health = new HashMap<>();
+    /** Glowing vulnerable clones. */
+    public final java.util.Set<UUID> glowing = new java.util.HashSet<>();
+
+    @Override
+    public Optional<UUID> spawnClone(UUID of, String world, Vec3 center, Vec3 facingDir,
+                                     me.mephisto.ability_engine.engine.platform.CloneSpawner.Options options) {
+        if (!options.vulnerable()) return spawnClone(of, world, center, facingDir);
+        UUID id = UUID.randomUUID(); // a real target: not in "clones", so abilities find it
+        entities.put(id, center);
+        health.put(id, options.health());
+        if (options.glowing()) glowing.add(id);
+        if (options.teamOf() != null) teamOf(options.teamOf()).ifPresent(t -> team(id, t));
+        if (facingDir != null) facing.put(id, facingDir.normalize());
+        return Optional.of(id);
+    }
+
+    /** A vulnerable clone takes damage: dies at 0. */
+    public void hurt(UUID id, double amount) {
+        Double left = health.get(id);
+        if (left == null) return;
+        left -= amount;
+        health.put(id, left);
+        if (left <= 0) kill(id);
+    }
+
     @Override
     public void face(UUID id, Vec3 direction) { facing.put(id, direction.normalize()); }
 

@@ -7,7 +7,8 @@ abilities:
   # Dash where you aim (trident-style thrust). Stops at the first enemy: damage + brief stun.
   # A miss ends at max range (or at a wall). Allies are passed through. Stun mid-lunge cancels it.
   royal_lunge:
-    cooldown: 160                    # 8s
+    cooldown: 160                    # 8s per charge
+    charges: 2
     display:
       name: "Royal Lunge"
       icon: PRISMARINE_SHARD
@@ -126,12 +127,50 @@ abilities:
         type: delay
         ticks: 10                    # still anchored while the beam lingers
 
+  # 3: a 0.3s wind-up, then a long thrust straight ahead: everyone in a 7-block line (1.4 wide) takes
+  # damage and is slowed. Stops at the first block. A stun during the wind-up cancels it.
+  piercing_thrust:
+    cooldown: 160                    # 8s
+    display:
+      name: "Piercing Thrust"
+      icon: TRIDENT
+      description:
+        - "0.3s wind-up, then a thrust 7 blocks"
+        - "straight ahead: 55 damage to everyone in"
+        - "line, slowed for 2s."
+    active_tags: [block.ability]     # nothing else during the wind-up
+    interrupted_by: [state.stunned]
+    nodes:
+      windup_cue:
+        type: play_cue
+        cue: thrust_windup
+        next: windup
+      windup:
+        type: delay
+        ticks: 6                     # 0.3s (aim is taken when it fires)
+        cast_bar: true
+        next: thrust
+      thrust:
+        type: apply_effects
+        targets: { type: line, range: 7, width: 1.4 }
+        effects:
+          - { id: damage, amount: 55 }
+          - { id: status, status: slow, duration: 40 }   # 2s
+        next: thrust_cue
+      thrust_cue:
+        type: play_cue
+        cue: umbrella_thrust
+        at: beam_start               # written by the line query
+        to: beam_end
+
 characters:
   duelist:                           # test diver kit
     name: "Duelist"
     weapon: IRON_SWORD
+    traits: [sneak_slow_fall]
     slots:
       primary: test_blast
       ability_1: royal_lunge
       ability_2: parasol_guard
+      ability_3: piercing_thrust
       ultimate: sovereign_geyser

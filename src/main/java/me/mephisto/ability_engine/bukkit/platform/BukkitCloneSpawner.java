@@ -20,8 +20,22 @@ import java.util.UUID;
  */
 public final class BukkitCloneSpawner implements CloneSpawner {
 
+    /** Design HP per Minecraft health point (config damage-scale), for vulnerable clones' health. */
+    private java.util.function.DoubleSupplier damageScale = () -> 10;
+
+    public void setDamageScale(java.util.function.DoubleSupplier damageScale) { this.damageScale = damageScale; }
+
     @Override
     public Optional<UUID> spawnClone(UUID of, String worldName, Vec3 center, Vec3 facing) {
+        return spawnClone(of, worldName, center, facing, Options.DECOY);
+    }
+
+    /**
+     * Vulnerable clones (e.g. a torn-out soul) are real targets: not invulnerable, not an ability visual,
+     * with their own health, optionally glowing, on the team of whoever they copy. They drop nothing.
+     */
+    @Override
+    public Optional<UUID> spawnClone(UUID of, String worldName, Vec3 center, Vec3 facing, Options options) {
         World world = Bukkit.getWorld(worldName);
         if (world == null) return Optional.empty();
         Entity owner = Bukkit.getEntity(of);
@@ -38,11 +52,26 @@ public final class BukkitCloneSpawner implements CloneSpawner {
             if (owner instanceof LivingEntity living && living.getEquipment() != null && m.getEquipment() != null) {
                 m.getEquipment().setItemInMainHand(living.getEquipment().getItemInMainHand().clone());
             }
-            m.setInvulnerable(true);
             m.setPersistent(false);
-            m.setSilent(true);
             m.setCollidable(false);
-            VisualEntities.mark(m);
+            if (!options.vulnerable()) {
+                m.setInvulnerable(true);
+                m.setSilent(true);
+                VisualEntities.mark(m);
+                return;
+            }
+            double health = Math.max(1, options.health() / damageScale.getAsDouble());
+            var maxHealth = m.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            if (maxHealth != null) maxHealth.setBaseValue(health);
+            m.setHealth(health);
+            m.setGlowing(options.glowing());
+            if (m.getEquipment() != null) m.getEquipment().setItemInMainHandDropChance(0f);
+            if (options.teamOf() != null) {
+                Entity copied = Bukkit.getEntity(options.teamOf());
+                org.bukkit.scoreboard.Team team = copied == null ? null
+                        : Bukkit.getScoreboardManager().getMainScoreboard().getEntityTeam(copied);
+                if (team != null) team.addEntity(m);
+            }
         });
         return Optional.of(clone.getUniqueId());
     }

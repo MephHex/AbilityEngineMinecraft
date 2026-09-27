@@ -23,7 +23,7 @@ public final class FindSummonNode implements GraphNode {
 
     @Override
     public NodeResult execute(ExecutionContext ctx) {
-        var found = ctx.engine().summons().find(ctx.caster(), name);
+        var found = ctx.engine().summons().find(ctx.caster(), name).filter(ctx.engine().world()::isAlive); // not killed
         if (found.isEmpty()) return NodeResult.out(Ports.NONE);
         ctx.blackboard().putRaw(store, new EntityTarget(found.get()));
         return NodeResult.out(Ports.FOUND);

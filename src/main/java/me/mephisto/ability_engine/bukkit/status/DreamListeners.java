@@ -29,6 +29,11 @@ public final class DreamListeners implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
         Player killer = event.getEntity().getKiller();
+        if (engine.summons().isSummon(event.getEntity().getUniqueId())) { // a destroyed soul: no one's kill, no loot
+            event.getDrops().clear();
+            event.setDroppedExp(0);
+            return;
+        }
         if (killer == null) return;
         engine.notifyKill(killer.getUniqueId(), event.getEntity().getUniqueId(), event.getEntity() instanceof Player);
     }

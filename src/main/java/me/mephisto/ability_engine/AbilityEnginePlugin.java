@@ -46,6 +46,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     public void onEnable() {
         BukkitWorldQuery worldQuery = new BukkitWorldQuery();
         BukkitConstructRenderer constructRenderer = new BukkitConstructRenderer(getLogger());
+        var cloneSpawner = new me.mephisto.ability_engine.bukkit.platform.BukkitCloneSpawner();
         Platform platform = new Platform(
                 new PaperClock(),
                 new PaperTaskScheduler(this),
@@ -55,7 +56,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
                 BukkitCuePlayer.withDefaults(this, getLogger()),
                 new BukkitIndicatorRenderer(this),
                 constructRenderer,
-                new me.mephisto.ability_engine.bukkit.platform.BukkitCloneSpawner(),
+                cloneSpawner,
                 getLogger());
         engine = new AbilityEngine(platform);
         worldQuery.setLog(engine.log()); // ray traces under /ae debug
@@ -64,6 +65,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         OverflowShields shields = new OverflowShields();
         shields.start(this);
         damage = BukkitEffects.registerBuiltins(engine.effects(), shields); // before loading: effects are validated at load time
+        cloneSpawner.setDamageScale(() -> damage.scale()); // a soul's health is in design HP, like damage
         TagBindings tagBindings = TagBindings.withDefaults();
         engine.tags().addListener(tagBindings);
 
@@ -86,6 +88,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BarrierGuard(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DamageModifierListener(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.FrostAndFlight(engine), this);
+        var traits = new me.mephisto.ability_engine.bukkit.status.Traits(engine);
+        pm.registerEvents(traits, this);
+        traits.start();
         pm.registerEvents(constructRenderer, this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DreamListeners(engine, this), this);
         castBar = new CastBarHud(engine);

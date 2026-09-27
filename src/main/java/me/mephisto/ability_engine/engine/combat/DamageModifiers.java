@@ -15,7 +15,8 @@ import java.util.UUID;
  *   <li>x the attacker's {@code damage_dealt} statuses (Strength)</li>
  *   <li>x the victim's {@code damage_taken} statuses</li>
  *   <li>each tether on the victim takes off its share ({@code damage_taken}), and {@code redirect} of what
- *       it took off goes to the tether's owner instead</li>
+ *       it took off goes to the tether's owner instead; {@code mirror} of what's left ALSO hits the owner
+ *       (a soul: hurting it hurts its owner)</li>
  * </ol>
  * Redirected damage is final: it isn't modified again.
  */
@@ -37,6 +38,7 @@ public final class DamageModifiers {
             double prevented = amount * (1 - link.damageTaken());
             amount -= prevented;
             if (link.redirect() > 0 && prevented > 0) redirects.add(new Redirect(link.owner(), prevented * link.redirect()));
+            if (link.mirror() > 0 && amount > 0) redirects.add(new Redirect(link.owner(), amount * link.mirror()));
         }
         return new Result(Math.max(0, amount), redirects);
     }

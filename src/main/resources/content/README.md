@@ -244,3 +244,21 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
   damage), `state.flying` (creative-style flight; no fall damage on the landing after it ends).
 - **Visuals:** `"block:<Material>"` shows a real block (e.g. `"block:EXPOSED_COPPER_TRAPDOOR"`, flat).
 - **Cues:** barrage_rise, barrage_shot, barrage_hit, barrage_blast, barrage_reload.
+
+## Added for Soul Rend, Umbrella and the flask reroll
+
+- **Abilities:** `charges: N` - N uses stored up; each comes back `cooldown` after the last one used.
+  It only counts as on cooldown with none left (the hotbar stack shows the charges left).
+- **Characters:** `traits: [sneak_slow_fall]` - always-on behaviours: hold SHIFT while falling to float
+  down (Slow Falling).
+- **summon_clone:** `of: <key>` makes it a look-alike of someone else, where THEY stand (it's still your
+  summon); `health: N` (design HP) makes it a real target that can be hit and killed, on `of`'s team;
+  `glowing: true`. It also stores where it was placed as `<store>_at`.
+- **Nodes:** await_summon `{ summon }` -> destroyed / gone (killed, or expired / dismissed),
+  dismiss_summon `{ summon }`. find_summon only finds summons that are still alive.
+- **link:** `from: <key>` - the tether's owner is someone else (e.g. an enemy tied to their soul);
+  `mirror: 0.5` - half the damage the target takes ALSO hits the owner.
+- **infuse:** `reroll: true` (with `random:`) - a bolt that already has one of the listed infusions gets
+  it replaced by the new roll instead of piling up another.
+- **Cues:** thrust_windup, umbrella_thrust (line), soul_rend_ready, soul_rend, soul_tether (line),
+  soul_return (line).

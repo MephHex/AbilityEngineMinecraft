@@ -308,6 +308,7 @@ abilities:
         type: infuse
         random: [frost, flame, paralysis, vitality]   # each bolt rolls its own
         count: 3
+        reroll: true                 # a bolt that already has one gets a new roll instead (no stacking up)
 
   # 3: toss a trap a short way. It hops once, slides a little, and arms where it stops. The first enemy
   # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.

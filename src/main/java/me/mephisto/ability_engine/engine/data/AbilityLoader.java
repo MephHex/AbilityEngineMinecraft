@@ -155,6 +155,12 @@ public final class AbilityLoader {
         return false;
     }
 
+    private static int charges(Params p) {
+        int n = p.getInt("charges", 1);
+        if (n < 1) throw p.error("charges", "must be at least 1");
+        return n;
+    }
+
     private static String refreshOnKill(Params p) {
         String v = p.getString("refresh_on_kill", "none");
         if (!v.equals("none") && !v.equals("players") && !v.equals("all")) {
@@ -174,6 +180,15 @@ public final class AbilityLoader {
             slots.put(slot, abilityId);
         }
         return slots;
+    }
+
+    /** {@code traits: [sneak_slow_fall]}: always-on behaviours the platform provides. */
+    private static Set<String> traits(Params p) {
+        Set<String> traits = p.getStringSet("traits", Set.of());
+        for (String t : traits) {
+            if (!CharacterDef.TRAITS.contains(t)) throw p.error("traits", "unknown trait '" + t + "', known: " + CharacterDef.TRAITS);
+        }
+        return traits;
     }
 
     /** {@code forms: [ { while: <tag>, weapon, slots: {...}, status_bar } ]}: kit changes while a tag is on. */
@@ -208,7 +223,7 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p));
+                statusBar, forms(p), traits(p));
     }
 
     /**
@@ -274,6 +289,7 @@ public final class AbilityLoader {
                 .cancelOnRepress(p.getBool("cancel_on_repress", false))
                 .survivesDeath(p.getBool("survives_death", false))
                 .refreshOnKill(refreshOnKill(p))
+                .charges(charges(p))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))

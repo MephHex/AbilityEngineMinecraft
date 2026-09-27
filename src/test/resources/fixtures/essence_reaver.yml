@@ -6,6 +6,11 @@
 #   overflow: true   (on heal, or on damage with lifesteal). Tune per effect with
 #   overflow_max (design HP, default 150) and overflow_decay (per second, default 25).
 
+statuses:
+  soul_rend_ready:                   # Soul Rend: your next basic attack rends (see forms)
+    duration: 200                    # 10s to land it
+    tags: [buff.soul_rend]
+
 abilities:
 
   # PRIMARY + PASSIVE (Vital Overflow): a short swing in front of you. Swings that HIT something charge
@@ -179,6 +184,143 @@ abilities:
         effects:
           - { id: heal, amount: 12 }  # 12 x 12 pulses = 144 over the full 3s
 
+  # ULTIMATE 2 (F): Soul Rend. Your next basic attack (within 10s) is a rend: the enemy you strike is
+  # knocked back and stunned while flying, and their SOUL is torn out where they stood.
+  #   - The soul glows and can be attacked (150 health). Half the damage it takes also hits its owner.
+  #   - Its owner is tethered to it for 6s: they can stay near it, or flee past 12 blocks, which snaps
+  #     the tether: the soul vanishes, but they're slowed for 3s.
+  #   - Destroy the soul and it slams back into its owner: 90 damage to them, and you heal 150
+  #     (excess becomes Overflow).
+  # A swing that misses keeps the rend ready.
+  essence_reaver_ult2:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Soul Rend"
+      icon: SOUL_LANTERN
+      description:
+        - "Your next basic attack tears the enemy's"
+        - "soul out and knocks them back, stunned."
+        - "Hurt the soul: half hits them too. Kill it:"
+        - "90 damage to them, you heal 150."
+    nodes:
+      ready:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: soul_rend_ready }
+        next: ready_cue
+      ready_cue:
+        type: play_cue
+        cue: soul_rend_ready
+
+  # Soul Rend's strike: the primary while it's ready (see forms). Aimed at ONE enemy in reach.
+  essence_reaver_rend:
+    cooldown: 12
+    display:
+      name: "Soul Rend"
+      icon: SOUL_LANTERN
+      description:
+        - "Rend the enemy you strike: knocked back and"
+        - "stunned, their soul left behind."
+    nodes:
+      aim:
+        type: acquire_target         # the enemy you swing at (a generous melee reach)
+        query: { type: hitscan, range: 4, ray_size: 1.2 }
+        on: { hit: spend, miss: whiff }
+      whiff:
+        type: play_cue               # missed: the rend stays ready
+        cue: sweep
+      spend:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: remove_status, status: soul_rend_ready }
+        next: tear
+      tear:
+        type: summon_clone           # their soul, where they stand (a look-alike of them)
+        summon: rent_soul
+        of: target
+        health: 150                  # can be attacked (and killed)
+        glowing: true
+        lifetime: 120                # 6s
+        store: soul                  # also stores soul_at: where it was torn out
+        next: strike
+      strike:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, amount: 40, knockback: false }
+          - { id: status, status: stun, duration: 20 }   # stunned while flying back (1s)
+          - { id: knockback, from: caster, radius: 6, center: 1.8, edge: 1.8, lift: 0.5 }
+        next: tether
+      tether:
+        type: link                   # owner -> their soul: half of what the soul takes hits them too
+        from: target
+        name: soul_tether
+        target: soul
+        range: 14
+        mirror: 0.5
+        cue: soul_tether
+        next: rend_cue
+      rend_cue:
+        type: play_cue
+        cue: soul_rend
+        at: soul
+        next: split
+      split:
+        type: fork                   # watch the distance, and wait for the soul's fate, side by side
+        on: { out: watch, also: fate }
+      fate:
+        type: await_summon
+        summon: rent_soul
+        on: { destroyed: shatter }   # gone (6s over, or fled): nothing more
+      shatter:
+        type: play_cue               # it slams back into its owner
+        cue: soul_return
+        at: soul_at
+        to: target
+        next: backlash
+      backlash:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, amount: 90, knockback: false }
+        next: feast
+      feast:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: heal, amount: 150, overflow: true, overflow_max: 200 }
+      watch:
+        type: delay
+        ticks: 5
+        next: still_there
+      still_there:
+        type: find_summon
+        summon: rent_soul
+        store: soul
+        on: { found: near }          # none: destroyed or gone, stop watching
+      near:
+        type: in_range
+        center: soul
+        target: target
+        radius: 12
+        on: { inside: watch, outside: fled }
+      fled:
+        type: dismiss_summon         # they ran: the soul vanishes...
+        summon: rent_soul
+        next: fled_slow
+      fled_slow:
+        type: apply_effects          # ...and they're slowed
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: slow, duration: 60 }
+        next: fled_cue
+      fled_cue:
+        type: play_cue
+        cue: tether_break
+        at: target
+
 characters:
   essence_reaver:
     name: "Essence Reaver"
@@ -188,4 +330,7 @@ characters:
       ability_1: essence_absorption  # 1, press 1 again to recall
       ability_2: lifeline_step       # 2
       ability_3: meditation          # 3, press 3 again to stop early
-      # ultimate: Last Standing (next)
+      ultimate: essence_reaver_ult2  # F: Soul Rend
+    forms:
+      - while: buff.soul_rend        # Soul Rend is ready: your basic attack rends
+        slots: { primary: essence_reaver_rend }

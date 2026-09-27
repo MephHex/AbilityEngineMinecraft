@@ -89,16 +89,24 @@ public final class NodeTypes {
         t.register("link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.LinkNode(
                 p.requireString("name"), p.requireString("target"), p.requireDouble("range"),
                 p.getDouble("damage_taken", 1.0), p.getDouble("redirect", 0), p.getBool("copy_positive", false),
-                p.getString("cue", null)));
+                p.getString("cue", null), p.getDouble("mirror", 0), p.getString("from", null)));
         t.register("find_link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindLinkNode(
                 p.requireString("name"), p.getString("store", "linked")));
         t.register("unlink", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.UnlinkNode(p.requireString("name")));
         t.register("start_cooldown", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.StartCooldownNode());
         t.register("end_cast", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.EndCastNode());
         t.register("fork", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.ForkNode());
-        t.register("summon_clone", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
-                p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),
-                p.getString("at", null)));
+        t.register("summon_clone", (p, e) -> {
+            double health = p.getDouble("health", 0);
+            if (health < 0) throw p.error("health", "must be >= 0 (0 = can't be hurt)");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
+                    p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),
+                    p.getString("at", null), p.getString("of", null), health, p.getBool("glowing", false));
+        });
+        t.register("await_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.AwaitSummonNode(
+                p.requireString("summon")));
+        t.register("dismiss_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.DismissSummonNode(
+                p.requireString("summon")));
         t.register("find_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindSummonNode(
                 p.requireString("summon"), p.getString("store", "summon")));
         t.register("swap", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SwapNode(p.requireString("with")));
@@ -150,7 +158,7 @@ public final class NodeTypes {
             }
             int count = p.getInt("count", 1);
             if (count < 1) throw p.error("count", "must be at least 1");
-            return new InfuseNode(choices, count);
+            return new InfuseNode(choices, count, p.getBool("reroll", false));
         });
         t.register("has_tag", (p, e) -> new HasTagNode(p.requireString("tag"), p.getString("target", null)));
         t.register("in_range", (p, e) -> new InRangeNode(p.requireString("center"), p.getString("target", null),

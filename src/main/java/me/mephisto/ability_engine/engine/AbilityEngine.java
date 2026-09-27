@@ -69,7 +69,9 @@ public final class AbilityEngine {
         teams.setTags(tags);
         this.summons = new me.mephisto.ability_engine.engine.summon.SummonManager(platform.clones(), platform.scheduler());
         this.barriers = new me.mephisto.ability_engine.engine.barrier.BarrierSystem(platform.world(), teams, platform.cues());
-        this.cooldowns = new CooldownManager(platform.clock());
+        this.cooldowns = new CooldownManager(platform.clock(), id -> abilities.find(id)
+                .map(a -> new CooldownManager.Charges(a.charges(), a.cooldownTicks()))
+                .orElse(CooldownManager.Charges.SINGLE));
         this.resources = new ResourceManager(platform.clock());
         this.statuses = new StatusManager(platform.clock(), platform.scheduler(), tags, statusDefs, log);
         this.links = new me.mephisto.ability_engine.engine.link.LinkManager(platform.world(), platform.cues(),
