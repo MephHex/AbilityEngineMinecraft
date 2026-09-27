@@ -1,20 +1,23 @@
 # content: umbrella
-# Diver test kit: Royal Lunge, Parasol Guard, and the Sovereign Geyser ultimate.
+# Diver test kit: Royal Lunge (2 charges), Parasol Guard, Piercing Thrust, and the Sovereign Geyser ultimate.
+# Passive (Parasol Drift): hold SHIFT while falling to float down slowly (slow falling).
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 
 abilities:
 
   # Dash where you aim (trident-style thrust). Stops at the first enemy: damage + brief stun.
   # A miss ends at max range (or at a wall). Allies are passed through. Stun mid-lunge cancels it.
+  # 2 charges: each comes back 8s after the last one used.
   umbrella_ab1:
-    cooldown: 160                    # 8s
+    cooldown: 160                    # 8s per charge
+    charges: 2
     display:
       name: "Royal Lunge"
       icon: PRISMARINE_SHARD
       description:
         - "Lunge where you aim, up to 10 blocks."
         - "Stops at the first enemy: 50 damage"
-        - "and a brief stun."
+        - "and a brief stun. 2 charges."
     active_tags: [state.dashing, block.ability]   # no other abilities mid-lunge
     interrupted_by: [state.stunned]
     nodes:
@@ -82,6 +85,42 @@ abilities:
         ticks: 40                    # guard duration: 2s
         cast_bar: true
 
+  # 3: a 0.3s wind-up, then a long thrust straight ahead: everyone in a 7-block line (1.4 wide) takes
+  # damage and is slowed. Stops at the first block. A stun during the wind-up cancels it.
+  umbrella_ab3:
+    cooldown: 160                    # 8s
+    display:
+      name: "Piercing Thrust"
+      icon: TRIDENT
+      description:
+        - "0.3s wind-up, then a thrust 7 blocks"
+        - "straight ahead: 55 damage to everyone in"
+        - "line, slowed for 2s."
+    active_tags: [block.ability]     # nothing else during the wind-up
+    interrupted_by: [state.stunned]
+    nodes:
+      windup_cue:
+        type: play_cue
+        cue: thrust_windup
+        next: windup
+      windup:
+        type: delay
+        ticks: 6                     # 0.3s (aim is taken when it fires)
+        cast_bar: true
+        next: thrust
+      thrust:
+        type: apply_effects
+        targets: { type: line, range: 7, width: 1.4 }
+        effects:
+          - { id: damage, amount: 55 }
+          - { id: status, status: slow, duration: 40 }   # 2s
+        next: thrust_cue
+      thrust_cue:
+        type: play_cue
+        cue: umbrella_thrust
+        at: beam_start               # written by the line query
+        to: beam_end
+
   # ULTIMATE: brief charge while anchored in the air, then a massive water beam forward.
   # Hits every enemy in a 2-block-wide beam up to 25 blocks: heavy damage and a huge shove.
   # The beam stops at the first block (line of sight matters) and at an enemy's Parasol Guard.
@@ -130,8 +169,10 @@ characters:
   umbrella:                          # diver kit
     name: "Umbrella"
     weapon: DIAMOND_SPEAR
+    traits: [sneak_slow_fall]        # passive: hold SHIFT while falling to float down
     slots:
       primary: test_blast
-      ability_1: umbrella_ab1
-      ability_2: umbrella_ab2
+      ability_1: umbrella_ab1        # 1: Royal Lunge (2 charges)
+      ability_2: umbrella_ab2        # 2: Parasol Guard
+      ability_3: umbrella_ab3        # 3: Piercing Thrust
       ultimate: umbrella_ult1

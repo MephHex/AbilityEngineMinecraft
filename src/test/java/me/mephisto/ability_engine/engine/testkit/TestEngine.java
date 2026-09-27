@@ -63,6 +63,7 @@ public final class TestEngine {
                     double amount = result.amount();
                     ctx.engine().notifyDamageDealt(ctx.caster(), e.id());
                     damageTaken.merge(e.id(), amount, Double::sum);
+                    world.hurt(e.id(), amount); // vulnerable clones (souls) die at 0
                     for (var r : result.redirects()) damageTaken.merge(r.to(), r.amount(), Double::sum);
                     double ls = ctx.params().getDouble("lifesteal", 0);
                     if (ls > 0) lifesteal.merge(ctx.caster(), amount * ls, Double::sum);

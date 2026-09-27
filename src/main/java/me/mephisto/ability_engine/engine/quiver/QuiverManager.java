@@ -127,12 +127,17 @@ public final class QuiverManager {
 
     /** Infuse the queued bolt at {@code index} (0 = next to load). False if it already had it (or there's none). */
     public boolean infuseAt(UUID owner, int index, String infusion) {
+        return infuseAt(owner, index, infusion, List.of());
+    }
+
+    /** Like {@link #infuseAt(UUID, int, String)}, first taking {@code replacing} off the bolt (a reroll). */
+    public boolean infuseAt(UUID owner, int index, String infusion, java.util.Collection<String> replacing) {
         Optional<State> found = state(owner);
         if (found.isEmpty() || index < 0 || index >= found.get().queue.size()) return false;
         State s = found.get();
         List<Bolt> bolts = new ArrayList<>(s.queue);
-        Bolt infused = bolts.get(index).with(infusion);
-        if (infused == bolts.get(index)) return false;
+        Bolt infused = bolts.get(index).without(replacing).with(infusion);
+        if (infused.equals(bolts.get(index))) return false;
         bolts.set(index, infused);
         s.queue.clear();
         s.queue.addAll(bolts);

@@ -9,6 +9,7 @@ import me.mephisto.ability_engine.engine.target.EntityTarget;
 import me.mephisto.ability_engine.engine.target.KeyQuery;
 
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Tether the caster to the entity in {@code target} (a key) under {@code name}, replacing their tether of
@@ -25,9 +26,19 @@ public final class LinkNode implements GraphNode {
     private final double redirect;
     private final boolean copyPositive;
     private final String cue;
+    private final double mirror;
+    private final String fromKey; // null = the caster
 
     public LinkNode(String name, String targetKey, double range, double damageTaken, double redirect,
                     boolean copyPositive, String cue) {
+        this(name, targetKey, range, damageTaken, redirect, copyPositive, cue, 0, null);
+    }
+
+    /** @param fromKey the link's owner (e.g. "target": tie an enemy to their soul); null = the caster */
+    public LinkNode(String name, String targetKey, double range, double damageTaken, double redirect,
+                    boolean copyPositive, String cue, double mirror, String fromKey) {
+        this.mirror = mirror;
+        this.fromKey = fromKey;
         this.name = name;
         this.targetKey = targetKey;
         this.range = range;
@@ -39,12 +50,17 @@ public final class LinkNode implements GraphNode {
 
     @Override
     public NodeResult execute(ExecutionContext ctx) {
+        UUID owner = ctx.caster();
+        if (fromKey != null) {
+            if (!(KeyQuery.read(ctx, fromKey).orElse(null) instanceof EntityTarget from)) return NodeResult.out(Ports.NONE);
+            owner = from.id();
+        }
         var target = KeyQuery.read(ctx, targetKey);
-        if (target.isEmpty() || !(target.get() instanceof EntityTarget e) || e.id().equals(ctx.caster())) {
+        if (target.isEmpty() || !(target.get() instanceof EntityTarget e) || e.id().equals(owner)) {
             return NodeResult.out(Ports.NONE);
         }
-        ctx.engine().links().link(new LinkManager.Link(ctx.caster(), name, e.id(), range, damageTaken, redirect,
-                copyPositive, cue));
+        ctx.engine().links().link(new LinkManager.Link(owner, name, e.id(), range, damageTaken, redirect,
+                copyPositive, cue, mirror));
         return NodeResult.NEXT;
     }
 

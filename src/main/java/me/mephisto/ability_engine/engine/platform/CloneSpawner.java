@@ -20,5 +20,24 @@ public interface CloneSpawner {
      */
     Optional<UUID> spawnClone(UUID of, String world, Vec3 center, Vec3 facing);
 
+    /**
+     * How a clone behaves.
+     *
+     * @param health  0: a decoy, invulnerable and untargetable (a Dream Echo). Above 0: it can be hit and
+     *                killed, with this much health (design HP, like damage), e.g. a torn-out soul
+     * @param glowing outlined through walls
+     * @param teamOf  put it on this entity's team (null = none), so its allies can't hit it
+     */
+    record Options(double health, boolean glowing, UUID teamOf) {
+        public static final Options DECOY = new Options(0, false, null);
+
+        public boolean vulnerable() { return health > 0; }
+    }
+
+    /** Spawn a clone with {@link Options}. Platforms that don't support them spawn a decoy. */
+    default Optional<UUID> spawnClone(UUID of, String world, Vec3 center, Vec3 facing, Options options) {
+        return spawnClone(of, world, center, facing);
+    }
+
     void despawn(UUID clone);
 }

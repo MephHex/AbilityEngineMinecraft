@@ -109,7 +109,7 @@ abilities:
 
   # PRIMARY (RMB on a loaded crossbow): shoot whatever is loaded. Hold RMB to draw (reload) first.
   hunter_primary:
-    cooldown: 4                      # the draw is the real fire rate; during Overdrive (no draw) 5 shots/s
+    cooldown: 8                      # the draw is the real fire rate; during Overdrive (no draw) 2.5 shots/s
     display:
       name: "Infused Bolt"
       description:
@@ -254,7 +254,8 @@ abilities:
 
   # 2: lob an experimental flask. It bounces once, then bursts (or bursts on the first enemy it hits):
   # damage and a slow to enemies around it. Caught in your own burst: speed, a little healing, and
-  # each of your 3 queued bolts gets a random infusion: Frost, Flame, Paralysis or Vitality.
+  # each of your 3 queued bolts gets a random infusion: Frost, Flame, Paralysis or Vitality. Bursting
+  # it again rerolls them (a bolt keeps one of these at most), so they can't be stacked up.
   hunter_ab2:
     cooldown: 240                    # 12s
     display:
@@ -309,6 +310,7 @@ abilities:
         type: infuse
         random: [frost, flame, paralysis, vitality]   # each bolt rolls its own
         count: 3
+        reroll: true                 # a bolt that already has one gets a new roll instead (no stacking up)
 
   # 3: toss a trap a short way. It hops once, slides a little, and arms where it stops. The first enemy
   # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
@@ -373,8 +375,8 @@ abilities:
         at: trap
 
   # ULTIMATE (F, shown in the offhand slot): 8s of Overdrive (a boss bar counts it down). Faster
-  # movement, RAPID FIRE: no drawing, RMB (or holding it) shoots straight from the quiver, 5 bolts a
-  # second, your bolts pierce 3 enemies, and Venom Step makes you invisible.
+  # movement, RAPID FIRE: no drawing, RMB (or holding it) shoots straight from the quiver, 2.5 bolts
+  # a second, your bolts pierce 3 enemies, and Venom Step makes you invisible.
   hunter_ult1:
     cooldown: 900                    # placeholder until ults charge from damage
     display:

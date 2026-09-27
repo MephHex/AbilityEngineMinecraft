@@ -30,6 +30,7 @@ public final class Ports {
     public static final String EMPTY = "empty";
     public static final String FULL = "full";
     public static final String KILL = "kill";
+    public static final String DESTROYED = "destroyed";
 
     private Ports() {}
 }

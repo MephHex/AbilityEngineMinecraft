@@ -20,6 +20,12 @@ public record Bolt(List<String> infusions) {
 
     public boolean has(String infusion) { return infusions.contains(infusion); }
 
+    /** This bolt without any of {@code infusions}. */
+    public Bolt without(java.util.Collection<String> removed) {
+        if (infusions.stream().noneMatch(removed::contains)) return this;
+        return new Bolt(infusions.stream().filter(i -> !removed.contains(i)).toList());
+    }
+
     /** This bolt plus {@code infusion} (appended, so the HUD lists them in the order they were added). */
     public Bolt with(String infusion) {
         if (has(infusion)) return this;

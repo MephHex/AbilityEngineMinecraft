@@ -163,6 +163,44 @@ public final class BukkitCuePlayer implements CuePlayer {
         });
         c.register("barrage_reload", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 1f, 1.8f));
 
+        // ---- Umbrella ----
+        c.register("thrust_windup", loc -> loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_RETURN, 1f, 1.4f));
+        c.registerLine("umbrella_thrust", (w, from, to) -> {
+            Vector d = to.clone().subtract(from);
+            double len = d.length();
+            if (len < 0.1) return;
+            for (double t = 0; t <= len; t += 0.4) {
+                Vector p = from.clone().add(d.clone().multiply(t / len));
+                w.spawnParticle(Particle.CRIT, p.getX(), p.getY(), p.getZ(), 1, 0.05, 0.05, 0.05, 0);
+                w.spawnParticle(Particle.BUBBLE_POP, p.getX(), p.getY(), p.getZ(), 1, 0.1, 0.1, 0.1, 0.02);
+            }
+            w.playSound(new Location(w, from.getX(), from.getY(), from.getZ()), Sound.ITEM_TRIDENT_THROW, 1f, 1.2f);
+        });
+
+        // ---- Essence Reaver: Soul Rend ----
+        c.register("soul_rend_ready", loc -> {
+            loc.getWorld().spawnParticle(Particle.SOUL, loc, 25, 0.4, 0.8, 0.4, 0.03);
+            loc.getWorld().playSound(loc, Sound.PARTICLE_SOUL_ESCAPE, 1f, 0.6f);
+        });
+        c.register("soul_rend", loc -> {
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 30, 0.3, 0.7, 0.3, 0.05);
+            loc.getWorld().playSound(loc, Sound.ENTITY_WARDEN_SONIC_CHARGE, 0.8f, 1.6f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_STRONG, 1f, 0.6f);
+        });
+        c.registerLine("soul_tether", (w, from, to) -> {
+            Vector d = to.clone().subtract(from);
+            double len = d.length();
+            if (len < 0.1) return;
+            for (double t = 0; t <= len; t += 0.7) {
+                Vector p = from.clone().add(d.clone().multiply(t / len));
+                w.spawnParticle(Particle.SOUL_FIRE_FLAME, p.getX(), p.getY(), p.getZ(), 1, 0.02, 0.02, 0.02, 0);
+            }
+        });
+        c.registerLine("soul_return", (w, from, to) -> {
+            soulStreak(plugin, w, from, to, 4);
+            w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 1.4f);
+        });
+
         // ---- Vanguard ----
         c.register("leap_off", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);

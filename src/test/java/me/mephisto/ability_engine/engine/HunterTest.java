@@ -393,6 +393,36 @@ class HunterTest {
     }
 
     @Test
+    void burstingItAgainRerollsInsteadOfStacking() throws IOException {
+        setup();
+        t.world.floor(0);
+        t.world.look(p, new Vec3(0.05, -1, 0));
+        for (int i = 0; i < 4; i++) {
+            t.engine.cooldowns().clear(p, "volatile_flask");
+            t.engine.loadouts().activate(p, "ability_2");
+            t.time.advance(40);
+            for (Bolt bolt : queue()) assertEquals(1, bolt.infusions().size(), "never more than one: " + queue());
+        }
+    }
+
+    @Test
+    void aRerollKeepsOtherInfusionsLikePoison() throws IOException {
+        setup();
+        t.engine.quivers().infuse(p, "poison", 3);
+        t.world.floor(0);
+        t.world.look(p, new Vec3(0.05, -1, 0));
+        for (int i = 0; i < 2; i++) {
+            t.engine.cooldowns().clear(p, "volatile_flask");
+            t.engine.loadouts().activate(p, "ability_2");
+            t.time.advance(40);
+        }
+        for (Bolt bolt : queue()) {
+            assertTrue(bolt.has("poison"), "Venom Step's poison stays: " + queue());
+            assertEquals(2, bolt.infusions().size(), "poison + one flask roll: " + queue());
+        }
+    }
+
+    @Test
     void theFlaskInfusionsDoWhatTheySay() throws IOException {
         setup();
         UUID a = t.spawn(10, 1, 0);

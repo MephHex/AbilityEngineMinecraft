@@ -34,8 +34,17 @@ public final class LinkManager {
     /** Cue played at the target when a link breaks. */
     public static final String BREAK_CUE = "tether_break";
 
+    /**
+     * @param mirror share of the damage the TARGET takes that the owner takes as well (a soul tether:
+     *               hurting the soul hurts its owner); 0 = none
+     */
     public record Link(UUID owner, String name, UUID target, double range, double damageTaken, double redirect,
-                       boolean copyPositive, String cue) {}
+                       boolean copyPositive, String cue, double mirror) {
+        public Link(UUID owner, String name, UUID target, double range, double damageTaken, double redirect,
+                    boolean copyPositive, String cue) {
+            this(owner, name, target, range, damageTaken, redirect, copyPositive, cue, 0);
+        }
+    }
 
     private final WorldQuery world;
     private final CuePlayer cues;
