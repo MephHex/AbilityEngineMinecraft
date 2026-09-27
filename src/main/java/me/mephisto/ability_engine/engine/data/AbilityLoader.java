@@ -242,15 +242,17 @@ public final class AbilityLoader {
         boolean hasRecast = built.nodeIds().stream()
                 .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.control.AwaitRecastNode);
         String cdStart = p.getString("cooldown_starts", hasRecast ? "after_recast" : "cast");
-        if (!cdStart.equals("cast") && !cdStart.equals("after_recast")) {
-            throw p.error("cooldown_starts", "expected cast or after_recast");
+        if (!cdStart.equals("cast") && !cdStart.equals("after_recast") && !cdStart.equals("manual")) {
+            throw p.error("cooldown_starts", "expected cast, after_recast or manual");
         }
         // Abilities that dash are movement abilities (blocked while rooted) unless they say movement: false.
         boolean dashes = built.nodeIds().stream()
-                .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.DashNode);
+                .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.DashNode
+                        || built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode);
         Ability.Builder b = Ability.builder(id, built)
                 .movement(p.getBool("movement", dashes))
                 .cooldownAfterRecast(cdStart.equals("after_recast"))
+                .manualCooldown(cdStart.equals("manual"))
                 .aura(p.getString("aura", null))
                 .cancelOnRepress(p.getBool("cancel_on_repress", false))
                 .survivesDeath(p.getBool("survives_death", false))

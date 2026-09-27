@@ -44,7 +44,8 @@ public record Ability(
         boolean cancelOnRepress,
         boolean survivesDeath,
         boolean movement,
-        String refreshOnKill
+        String refreshOnKill,
+        boolean manualCooldown
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -73,6 +74,7 @@ public record Ability(
         private boolean survivesDeath;
         private boolean movement;
         private String refreshOnKill = "none";
+        private boolean manualCooldown;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -94,6 +96,8 @@ public record Ability(
         /** "none", "players" (reset the cooldown on player kills) or "all" (any kill). */
         public Builder refreshOnKill(String v) { this.refreshOnKill = v; return this; }
         public Builder movement(boolean v) { this.movement = v; return this; }
+        /** The cooldown only starts when a start_cooldown node runs (e.g. only if the cast succeeded). */
+        public Builder manualCooldown(boolean v) { this.manualCooldown = v; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -108,7 +112,7 @@ public record Ability(
             }
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
                     cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
-                    refreshOnKill);
+                    refreshOnKill, manualCooldown);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

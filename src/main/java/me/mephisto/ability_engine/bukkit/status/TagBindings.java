@@ -36,6 +36,7 @@ public final class TagBindings implements TagListener {
         b.bind(Tags.SLOWED, MovementLock::applySlow, MovementLock::removeSlow);
         b.bind(Tags.BLOCK_KNOCKBACK, MovementLock::applySteadfast, MovementLock::removeSteadfast);
         b.bind(Tags.HASTED, MovementLock::applyHaste, MovementLock::removeHaste);
+        b.bind(Tags.STURDY, MovementLock::applySturdy, MovementLock::removeSturdy);
         b.bind(Tags.INVISIBLE,   // vanilla invisibility: held items and armor still show
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, PotionEffect.INFINITE_DURATION, 0, false, false)),
                 e -> e.removePotionEffect(PotionEffectType.INVISIBILITY));
@@ -88,5 +89,6 @@ public final class TagBindings implements TagListener {
         MovementLock.removeSlow(living);
         MovementLock.removeSteadfast(living);
         MovementLock.removeHaste(living);
+        MovementLock.removeSturdy(living);
     }
 }

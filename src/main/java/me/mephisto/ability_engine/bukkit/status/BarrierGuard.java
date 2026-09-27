@@ -34,7 +34,7 @@ public final class BarrierGuard implements Listener {
         UUID attacker = damager instanceof Projectile p && p.getShooter() instanceof Entity shooter
                 ? shooter.getUniqueId() : damager.getUniqueId();
         var from = Convert.vec(damager.getLocation());
-        if (!engine.barriers().blocksDirectHit(victim, from, attacker)) return;
+        if (!engine.barriers().blocksDirectHit(victim, from, attacker, damager instanceof Projectile)) return;
 
         event.setCancelled(true);
         engine.barriers().blocked(event.getEntity().getWorld().getName(), Convert.vec(event.getEntity().getLocation()).add(0, 1, 0));

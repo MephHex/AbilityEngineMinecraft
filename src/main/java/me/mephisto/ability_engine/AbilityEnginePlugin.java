@@ -83,6 +83,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new InventoryLock(engine), this);
         pm.registerEvents(new VisualEntities(), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BarrierGuard(engine), this);
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DamageModifierListener(engine), this);
         pm.registerEvents(constructRenderer, this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DreamListeners(engine, this), this);
         castBar = new CastBarHud(engine);

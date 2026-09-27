@@ -53,7 +53,22 @@ public final class StatusManager {
         apply(target, registry.require(statusId), durationTicks, source);
     }
 
+    /** Told after every status application (new or stacked/refreshed). */
+    @FunctionalInterface
+    public interface ApplyListener {
+        void applied(UUID target, StatusDef def, int durationTicks, UUID source);
+    }
+
+    private final List<ApplyListener> applyListeners = new ArrayList<>();
+
+    public void addApplyListener(ApplyListener listener) { applyListeners.add(listener); }
+
     public void apply(UUID target, StatusDef def, int durationTicks, UUID source) {
+        applyInternal(target, def, durationTicks, source);
+        for (ApplyListener l : List.copyOf(applyListeners)) l.applied(target, def, durationTicks, source);
+    }
+
+    private void applyInternal(UUID target, StatusDef def, int durationTicks, UUID source) {
         long now = clock.now();
         long newExpiry = durationTicks <= 0 ? Long.MAX_VALUE : now + durationTicks;
         Map<String, ActiveStatus> mine = active.computeIfAbsent(target, k -> new HashMap<>());

@@ -54,6 +54,7 @@ public final class DashNode implements GraphNode {
     private final boolean alongMovement;
     private final String moverKey; // null = the caster dashes; else whoever is in this key (an echo)
     private final boolean towardCursor; // dash toward the caster's cursor point instead of along their aim
+    private String toKey;               // dash to the point in this key (stopping there), e.g. a chosen landing spot
 
     public DashNode(double speed, double range, double radius, boolean flat) {
         this(speed, range, radius, flat, false, null);
@@ -79,6 +80,12 @@ public final class DashNode implements GraphNode {
      * @param towardCursor dash toward the point the CASTER's cursor is on (stopping there if it's closer
      *                     than range), instead of along their aim. An echo and its owner then converge.
      */
+    public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
+                    boolean alongMovement, String moverKey, boolean towardCursor, String toKey) {
+        this(speed, range, radius, flat, pierce, store, alongMovement, moverKey, towardCursor);
+        this.toKey = toKey;
+    }
+
     public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
                     boolean alongMovement, String moverKey, boolean towardCursor) {
         this.moverKey = moverKey;
@@ -116,6 +123,13 @@ public final class DashNode implements GraphNode {
             var cursor = me.mephisto.ability_engine.engine.target.CursorQuery.point(engine, ctx.caster(), CURSOR_RANGE, true);
             if (cursor.isEmpty()) return NodeResult.out(Ports.MISS);
             dir = cursor.get().position().subtract(start.get().position());
+            if (flat) dir = new Vec3(dir.x(), 0, dir.z());
+            maxRange = Math.min(range, dir.length());
+        }
+        if (toKey != null) { // straight to a stored point (e.g. a landing spot), stopping there
+            var point = me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, toKey).flatMap(engine.world()::positionOf);
+            if (point.isEmpty()) return NodeResult.out(Ports.MISS);
+            dir = point.get().position().subtract(start.get().position());
             if (flat) dir = new Vec3(dir.x(), 0, dir.z());
             maxRange = Math.min(range, dir.length());
         }
@@ -239,6 +253,7 @@ public final class DashNode implements GraphNode {
          * wall (or looking straight down), which ends the dash.
          */
         private boolean glideAlongFloor(SweepHit block) {
+            if (toKey != null) return false; // heading for a point on the ground: touching down is arriving
             if (block.normal() == null || block.normal().y() < 0.6 || dir.y() >= 0) return false;
             Vec3 flat = new Vec3(dir.x(), 0, dir.z());
             if (flat.length() < 0.2) return false;

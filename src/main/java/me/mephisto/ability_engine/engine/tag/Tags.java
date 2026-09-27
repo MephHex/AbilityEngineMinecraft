@@ -24,6 +24,8 @@ public final class Tags {
     public static final String HASTED = "state.hasted";
     /** Can't be seen (on Bukkit: Invisibility, no particles; held items still show, like vanilla). */
     public static final String INVISIBLE = "state.invisible";
+    /** Half as much knockback (e.g. behind a raised shield). block.knockback is full immunity. */
+    public static final String STURDY = "state.sturdy";
     /** Truly hidden from other players (armor and held items too), not just the invisibility potion. */
     public static final String HIDDEN = "state.hidden";
     /** Abilities ignore them: projectiles, rays and dashes pass through, area effects skip them. */

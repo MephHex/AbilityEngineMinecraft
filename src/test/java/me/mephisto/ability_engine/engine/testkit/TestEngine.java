@@ -39,6 +39,8 @@ public final class TestEngine {
     public final Map<UUID, Vec3> knockbackVec = new HashMap<>();
     /** Total healing received per entity (design HP), and how much of it asked for overflow. */
     public final Map<UUID, Double> healed = new HashMap<>();
+    /** Absorption shields received per entity (design HP, summed). */
+    public final Map<UUID, Double> shields = new HashMap<>();
     /** Lifesteal requested by damage effects: caster -> summed lifesteal share of the damage. */
     public final Map<UUID, Double> lifesteal = new HashMap<>();
 
@@ -53,13 +55,26 @@ public final class TestEngine {
                 hits.add(ctx.target());
                 if (ctx.target() instanceof EntityTarget e) {
                     // Same rules as the real damage effect: backstab crits, and report it (stealth breaks).
-                    double amount = ctx.params().requireDouble("amount")
+                    double raw = ctx.params().requireDouble("amount")
                             * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx);
+                    // Strength, damage taken, tethers: the same pipeline as the real damage effect.
+                    var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(), raw);
+                    double amount = result.amount();
                     ctx.engine().notifyDamageDealt(ctx.caster(), e.id());
                     damageTaken.merge(e.id(), amount, Double::sum);
+                    for (var r : result.redirects()) damageTaken.merge(r.to(), r.amount(), Double::sum);
                     double ls = ctx.params().getDouble("lifesteal", 0);
                     if (ls > 0) lifesteal.merge(ctx.caster(), amount * ls, Double::sum);
                 }
+            }
+
+            @Override
+            public void validate(Params params) { params.requireDouble("amount"); }
+        });
+        engine.effects().register("shield", new Effect() {
+            @Override
+            public void apply(EffectContext ctx) {
+                if (ctx.target() instanceof EntityTarget e) shields.merge(e.id(), ctx.params().requireDouble("amount"), Double::sum);
             }
 
             @Override
@@ -78,7 +93,8 @@ public final class TestEngine {
             @Override
             public void apply(EffectContext ctx) {
                 if (!(ctx.target() instanceof EntityTarget e) || ctx.execution() == null) return;
-                if (ctx.engine().tags().has(e.id(), "block.knockback")) return; // same rule as the real effect
+                if (ctx.engine().tags().has(e.id(), "block.knockback")) return; // same rules as the real effect
+                double scale = ctx.engine().tags().has(e.id(), "state.sturdy") ? 0.5 : 1;
                 var center = me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx.execution(), ctx.params().requireString("from"))
                         .flatMap(world::positionOf);
                 var pos = world.positionOf(e);
@@ -86,6 +102,7 @@ public final class TestEngine {
                 Vec3 v = me.mephisto.ability_engine.engine.effect.Knockback.impulse(center.get().position(), pos.get().position(),
                         ctx.params().requireDouble("radius"), ctx.params().getDouble("center", 1.2),
                         ctx.params().getDouble("edge", 0.3), ctx.params().getDouble("lift", 0.3));
+                v = v.multiply(scale);
                 knockback.put(e.id(), new Vec3(v.x(), 0, v.z()).length());
                 knockbackVec.put(e.id(), v);
             }

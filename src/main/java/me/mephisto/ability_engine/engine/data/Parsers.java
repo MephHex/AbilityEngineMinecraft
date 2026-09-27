@@ -43,7 +43,8 @@ public final class Parsers {
         return switch (type) {
             case "self" -> SelfQuery.INSTANCE;
             case "key" -> new KeyQuery(p.requireString("key"));
-            case "hitscan" -> new HitscanQuery(p.requireDouble("range"), p.getDouble("ray_size", 0.2), p.getBool("blocks", false));
+            case "hitscan" -> new HitscanQuery(p.requireDouble("range"), p.getDouble("ray_size", 0.2), p.getBool("blocks", false),
+                    hitscanAllies(p));
             case "radius" -> new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
                     p.getInt("max", 0), p.getBool("include_caster", false));
             case "cone" -> new ConeQuery(p.requireDouble("range"), p.requireDouble("angle"), p.getInt("max", 0));
@@ -52,6 +53,13 @@ public final class Parsers {
             case "path" -> new PathQuery(p.requireString("from"), p.requireString("to"), p.getDouble("width", 1.0));
             default -> throw p.error("type", "unknown query type '" + type + "' (self, key, hitscan, radius, cone, cursor, line, path)");
         };
+    }
+
+    /** {@code targets: enemies} (default) or {@code allies} for a hitscan. */
+    private static boolean hitscanAllies(Params p) {
+        String t = p.getString("targets", "enemies");
+        if (!t.equals("enemies") && !t.equals("allies")) throw p.error("targets", "expected enemies or allies");
+        return t.equals("allies");
     }
 
     /** Each list entry is {@code {id: <effect>, ...params}}. Validated against the effect now, not mid-fight. */
@@ -237,9 +245,14 @@ public final class Parsers {
         List<EffectConfig> tickEffects = optionalEffects(tick, "effects", registry);
         if (every > 0 && tickEffects.isEmpty()) throw tick.error("effects", "tick needs effects");
         if (every <= 0 && !tickEffects.isEmpty()) throw tick.error("every", "tick needs every: <ticks>");
+        double dealt = p.getDouble("damage_dealt", 1);
+        double taken = p.getDouble("damage_taken", 1);
+        if (dealt < 0) throw p.error("damage_dealt", "must be >= 0 (1.2 = 20% more damage)");
+        if (taken < 0) throw p.error("damage_taken", "must be >= 0 (0.8 = 20% less damage taken)");
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
-                p.getBool("break_on_damage", false), p.getBool("once", false));
+                p.getBool("break_on_damage", false), p.getBool("once", false),
+                p.getBool("positive", false), dealt, taken);
     }
 
     private Parsers() {}

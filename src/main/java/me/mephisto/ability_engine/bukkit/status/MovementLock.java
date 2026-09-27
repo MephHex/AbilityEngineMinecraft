@@ -16,6 +16,7 @@ final class MovementLock {
     private static final NamespacedKey JUMP_KEY = new NamespacedKey("ability_engine", "stun_jump");
     private static final NamespacedKey SLOW_KEY = new NamespacedKey("ability_engine", "slow_speed");
     private static final NamespacedKey STEADFAST_KEY = new NamespacedKey("ability_engine", "steadfast");
+    private static final NamespacedKey STURDY_KEY = new NamespacedKey("ability_engine", "sturdy");
     private static final NamespacedKey HASTE_KEY = new NamespacedKey("ability_engine", "haste_speed");
     /** -40% movement speed. One fixed strength for now; per-status magnitudes need stat modifiers. */
     private static final double SLOW_AMOUNT = -0.4;
@@ -58,6 +59,18 @@ final class MovementLock {
 
     static void removeSteadfast(LivingEntity living) {
         strip(living.getAttribute(Attribute.KNOCKBACK_RESISTANCE), STEADFAST_KEY);
+    }
+
+    /** state.sturdy: half knockback from vanilla hits (ability knockback is halved by KnockbackEffect). */
+    static void applySturdy(LivingEntity living) {
+        AttributeInstance attr = living.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
+        if (attr != null && attr.getModifier(STURDY_KEY) == null) {
+            attr.addModifier(new AttributeModifier(STURDY_KEY, 0.5, AttributeModifier.Operation.ADD_NUMBER));
+        }
+    }
+
+    static void removeSturdy(LivingEntity living) {
+        strip(living.getAttribute(Attribute.KNOCKBACK_RESISTANCE), STURDY_KEY);
     }
 
     private static void add(AttributeInstance attr, NamespacedKey key, double amount) {
