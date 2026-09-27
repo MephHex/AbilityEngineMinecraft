@@ -76,7 +76,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   the ability's key end it early; `survives_death: true` keeps its casts running when the caster dies
   (thrown traps stay armed; logging out or changing character still ends them).
 - **Tags with effects in game:** `state.resistant` = 40% less damage taken, `state.slowed` = -40% speed,
-  `state.hasted` = +30% speed, `state.invisible` = invisible (held items still show, like vanilla).
+  `state.hasted` = +30% speed, `state.sturdy` = half knockback, `state.invisible` = invisible (held items
+  still show, like vanilla).
 - **Projectile visual:** an item Material (`DIAMOND_BLOCK`), or `"entity:<EntityType>"`
   (`"entity:END_CRYSTAL"`). Arrow types (`"entity:ARROW"`, `SPECTRAL_ARROW`, `TRIDENT`) are real arrows
   flown by the game itself (vanilla drop and drag: `motion` and `bounces` don't apply, `speed` is the
@@ -153,7 +154,8 @@ config.yml. Any slot may be left out.
   `hotbar: 1-9` shows the pool as an item whose stack size is the amount.
 - `status_bar: <status>` shows a status on the XP bar: the level number is its stacks, the bar drains
   with its time left (e.g. a passive's stacks). A cast bar takes over while one is running.
-  `status_bar: { status: <status>, level: reload_speed }` shows the quiver's reload speed as the number.
+  `status_bar: { status: <status>, level: reload_speed }` shows the quiver's reload speed as the number;
+  `level: none` shows no number at all (a plain countdown bar).
 - `weapon:` the item locked in the main hand; it also shows the primary fire's tooltip and fire
   rate. Use something with no right-click behaviour of its own (NOT bows, shields, food,
   tridents), except a CROSSBOW together with a `quiver:` (see Quivers). Icons with a cooldown overlay must use different materials from each other and the
@@ -179,3 +181,34 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **Abilities:** `refresh_on_kill: players` (or `all`) resets the cooldown on kills.
 - **Tags:** `state.hidden` (other players can't see you at all), `state.untargetable` (abilities
   ignore you: shots, rays and dashes pass through, areas skip you), `state.blinded`.
+
+## Added for the Vanguard
+
+- **Nodes:**
+  leap `{ direction: aim|movement|up, speed, up, gravity, until: land|apex, store }` (a jump arc the
+  engine flies: forward `speed` per tick, `up` launch speed, pulled down by `gravity`; ends on landing,
+  or at the top of the arc with `until: apex`),
+  choose_spot `{ range, radius, timeout, ground, max_drop, store }` -> out / none (mid-cast aim
+  preview: LMB picks the spot; on timeout or RMB it uses where you look; `none` if that's nothing),
+  link `{ name, target, range, damage_taken, redirect, copy_positive, cue }` (a tether from the caster
+  to someone; see below), find_link `{ name, store }` -> found / none, unlink `{ name }`,
+  start_cooldown (start the cooldown now; for `cooldown_starts: manual`), end_cast (end the whole
+  cast right away, e.g. from one branch of a fork).
+- **Tethers (link):** one per caster and `name` (linking someone else moves it). While it holds, the
+  target takes `damage_taken` x damage (0.7 = 30% less) and `redirect` of what that prevented hits the
+  caster instead; `copy_positive: true` copies statuses marked `positive: true` that the caster gets
+  onto the target. `cue` is a line drawn between them. It breaks beyond `range`, or when either dies.
+- **Abilities:** `cooldown_starts: manual` only starts the cooldown at a `start_cooldown` node (a cast
+  that never reaches one is free).
+- **apply_effects:** `count: <key>` stores how many it hit; `times: <key>` applies the effects that
+  many times per target (0 if the key is missing), e.g. a shield per enemy hit.
+- **Hitscan:** `targets: allies` aims at allies instead of enemies (with `ray_size` for a generous hitbox).
+- **Dash:** `to: <key>` dashes straight to a stored spot and stops there (or where it touches the ground).
+- **Barrier:** `projectiles_only: true` only stops projectiles (rays, dashes and melee pass).
+- **Statuses:** `positive: true` (a buff, copied by tethers), `damage_dealt: 1.25` (+25% damage dealt),
+  `damage_taken: 0.8` (20% less damage taken). They apply to every hit, vanilla ones too.
+- **Effects:** shield `{ amount, max, decay }` gives absorption (design HP; `decay` per second,
+  default 0 = until it's broken).
+- **Tags:** `state.sturdy` halves knockback.
+- **Cues:** leap_off, leap_slam, radiant_bond, radiant_tether (line), tether_break, heroic_launch,
+  heroic_impact, and the looping `bulwark` (a shield held in front of you).

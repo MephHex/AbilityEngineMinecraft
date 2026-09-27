@@ -18,11 +18,18 @@ public final class HitscanQuery implements TargetQuery {
     private final double range;
     private final double raySize;
     private final boolean includeBlocks;
+    private final boolean allies; // aim at allies instead of enemies (enemies are passed through)
 
     public HitscanQuery(double range, double raySize, boolean includeBlocks) {
+        this(range, raySize, includeBlocks, false);
+    }
+
+    /** @param allies hit the first ALLY on the ray (enemies and the caster are passed through), e.g. a bond */
+    public HitscanQuery(double range, double raySize, boolean includeBlocks, boolean allies) {
         this.range = range;
         this.raySize = raySize;
         this.includeBlocks = includeBlocks;
+        this.allies = allies;
     }
 
     @Override
@@ -32,8 +39,12 @@ public final class HitscanQuery implements TargetQuery {
         if (aim.isEmpty()) return List.of();
 
         Aim a = aim.get();
-        Optional<SweepHit> hit = world.sweep(a.world(), a.eye(), a.eye().add(a.direction().multiply(range)), raySize,
-                ctx.engine().teams().passThroughFor(ctx.caster()));
+        var teams = ctx.engine().teams();
+        java.util.function.Predicate<java.util.UUID> through = allies
+                ? id -> id.equals(ctx.caster()) || !teams.allies(ctx.caster(), id)
+                        || ctx.engine().tags().has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE)
+                : teams.passThroughFor(ctx.caster());
+        Optional<SweepHit> hit = world.sweep(a.world(), a.eye(), a.eye().add(a.direction().multiply(range)), raySize, through);
         // An enemy's frontal barrier stops the ray like a wall.
         Vec3 end = hit.map(SweepHit::position).orElse(a.eye().add(a.direction().multiply(range)));
         var barrier = ctx.engine().barriers().cross(a.world(), a.eye(), end, raySize, ctx.caster());

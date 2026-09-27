@@ -58,6 +58,7 @@ public final class AbilityEngine {
     private final me.mephisto.ability_engine.engine.barrier.BarrierSystem barriers;
     private final InfusionRegistry infusions = new InfusionRegistry();
     private final QuiverManager quivers;
+    private final me.mephisto.ability_engine.engine.link.LinkManager links;
 
     public AbilityEngine(Platform platform) {
         this.platform = platform;
@@ -70,6 +71,9 @@ public final class AbilityEngine {
         this.cooldowns = new CooldownManager(platform.clock());
         this.resources = new ResourceManager(platform.clock());
         this.statuses = new StatusManager(platform.clock(), platform.scheduler(), tags, statusDefs, log);
+        this.links = new me.mephisto.ability_engine.engine.link.LinkManager(platform.world(), platform.cues(),
+                platform.scheduler(), log);
+        links.attach(statuses);
         this.activator = new AbilityActivator(this);
         this.constructs = new ConstructSystem(platform.constructRenderer(), platform.scheduler(), teams, platform.world(), log);
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
@@ -121,10 +125,12 @@ public final class AbilityEngine {
     public me.mephisto.ability_engine.engine.barrier.BarrierSystem barriers() { return barriers; }
     public InfusionRegistry infusions() { return infusions; }
     public QuiverManager quivers() { return quivers; }
+    public me.mephisto.ability_engine.engine.link.LinkManager links() { return links; }
 
     /** Cancel casts, clear statuses and tags. For death, logout, or mobs despawning. Keeps cooldowns, resources and character. */
     public void resetEntity(UUID entity, String reason) {
         summons.dismissAll(entity);
+        links.breakAll(entity);
         targeting.cancel(entity, reason);
         instances.cancelAll(entity, reason);
         statuses.clear(entity);
@@ -134,6 +140,7 @@ public final class AbilityEngine {
     /** Like {@link #resetEntity}, for a death: casts of abilities that survive death keep running (traps). */
     public void resetOnDeath(UUID entity) {
         summons.dismissAll(entity); // echoes go with you
+        links.breakAll(entity);     // and tethers break
         targeting.cancel(entity, "death");
         for (var instance : instances.of(entity)) {
             if (!instance.ability().survivesDeath()) instance.cancel("death");
@@ -149,6 +156,7 @@ public final class AbilityEngine {
         projectiles.shutdown();
         constructs.shutdown();
         summons.shutdown();
+        links.shutdown();
         statuses.clearAll();
     }
 

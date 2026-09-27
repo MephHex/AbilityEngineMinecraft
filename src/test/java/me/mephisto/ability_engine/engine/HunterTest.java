@@ -185,7 +185,8 @@ class HunterTest {
         setup();
         var statusBar = t.engine.loadouts().characterOf(p).orElseThrow().statusBar();
         assertEquals("hunters_rhythm", statusBar.status());
-        assertTrue(statusBar.reloadSpeedLevel(), "the number shows the Quick Charge level");
+        assertEquals(me.mephisto.ability_engine.engine.loadout.CharacterDef.StatusBar.Level.STACKS, statusBar.level(),
+                "the number shows the stacks (0-3)");
         String bar = statusBar.status();
         assertTrue(t.engine.statuses().gauge(p, bar).isEmpty(), "nothing before the first hit");
 

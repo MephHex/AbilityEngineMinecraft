@@ -10,8 +10,8 @@
 #   in the quiver, never onto the one already loaded, and one bolt can carry several infusions.
 # Passive (Hunter's Rhythm): the first bolt that hits jumps your crossbow to Quick Charge 2, the next
 #   hits to 3 and 4 (draw time 1.25s -> 0.75s -> 0.5s -> 0.25s). Stacks last 5s, refreshed by each
-#   hit. Shown on the XP bar (the number = the Quick Charge level, the bar drains as the stacks run
-#   out) and as Quick Charge on the crossbow.
+#   hit. Shown on the XP bar (the number = the stacks, the bar drains as they run out) and as Quick
+#   Charge on the crossbow.
 
 statuses:
   hunters_rhythm:                    # the passive: its stacks are the crossbow's reload speed
@@ -350,9 +350,7 @@ characters:
   hunter:
     name: "Hunter"
     weapon: CROSSBOW                 # a real crossbow: hold RMB to draw (needs the quiver below)
-    status_bar:                      # XP bar: the Rhythm's time left...
-      status: hunters_rhythm
-      level: reload_speed            # ...and the crossbow's Quick Charge level as the number (2-4)
+    status_bar: hunters_rhythm       # XP bar: number = Rhythm stacks (0-3), bar = their time left
     quiver:
       size: 3                        # the next 3 bolts...
       hotbar: 7                      # ...shown in slots 7, 8, 9 (leftmost loads next)

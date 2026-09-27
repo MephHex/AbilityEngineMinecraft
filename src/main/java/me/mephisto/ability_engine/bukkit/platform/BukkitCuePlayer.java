@@ -139,6 +139,46 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 20, 0.3, 0.4, 0.3, 0.2);
             loc.getWorld().playSound(loc, Sound.ENTITY_ARROW_HIT_PLAYER, 1f, 0.6f);
         });
+        // ---- Vanguard ----
+        c.register("leap_off", loc -> {
+            loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GOAT_LONG_JUMP, 1f, 0.8f);
+        });
+        c.register("leap_slam", loc -> {
+            loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 3, 1.2, 0.2, 1.2, 0);
+            loc.getWorld().spawnParticle(Particle.CRIT, loc, 40, 2.5, 0.3, 2.5, 0.3);
+            loc.getWorld().playSound(loc, Sound.ENTITY_IRON_GOLEM_ATTACK, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.4f);
+        });
+        c.register("radiant_bond", loc -> {
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 25, 0.4, 0.7, 0.4, 0.05);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.6f);
+        });
+        c.registerLine("radiant_tether", (w, from, to) -> {
+            Vector d = to.clone().subtract(from);
+            double len = d.length();
+            if (len < 0.1) return;
+            var gold = new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 215, 90), 0.8f);
+            for (double t = 0; t <= len; t += 0.6) {
+                Vector p = from.clone().add(d.clone().multiply(t / len));
+                w.spawnParticle(Particle.DUST, p.getX(), p.getY(), p.getZ(), 1, 0.02, 0.02, 0.02, 0, gold);
+            }
+        });
+        c.register("tether_break", loc -> {
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 12, 0.3, 0.5, 0.3, 0.08);
+            loc.getWorld().playSound(loc, Sound.BLOCK_CHAIN_BREAK, 1f, 1.2f);
+        });
+        c.registerLoop("bulwark", e -> shieldUp(plugin, e));
+        c.register("heroic_launch", loc -> {
+            loc.getWorld().spawnParticle(Particle.FIREWORK, loc, 30, 0.4, 0.2, 0.4, 0.15);
+            loc.getWorld().playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1f, 0.7f);
+        });
+        c.register("heroic_impact", loc -> {
+            loc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1, 0, 0, 0, 0);
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 60, 3, 0.4, 3, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1f, 0.7f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_ANVIL_LAND, 0.8f, 0.6f);
+        });
 
         c.register("hit", loc -> {
             loc.getWorld().spawnParticle(Particle.CRIT, loc, 12, 0.2, 0.2, 0.2, 0.2);
@@ -345,12 +385,24 @@ public final class BukkitCuePlayer implements CuePlayer {
         living.swingMainHand();
         ItemStack held = living.getEquipment() == null ? null : living.getEquipment().getItemInMainHand().clone();
         ItemStack shown = held == null || held.getType().isAir() ? new ItemStack(Material.IRON_SWORD) : held;
+        return heldProp(plugin, living, shown, 50);
+    }
+
+    /** Bulwark: a shield held up in front of you. */
+    private static CueHandle shieldUp(Plugin plugin, Entity entity) {
+        if (!(entity instanceof LivingEntity living)) return CueHandle.NONE;
+        living.getWorld().playSound(living.getLocation(), Sound.ITEM_ARMOR_EQUIP_IRON, 1f, 0.8f);
+        return heldProp(plugin, living, new ItemStack(Material.SHIELD), 0);
+    }
+
+    /** An item shown in front of the entity, following where it faces, until stopped. */
+    private static CueHandle heldProp(Plugin plugin, LivingEntity living, ItemStack shown, float tiltDegrees) {
         Location start = living.getLocation();
         ItemDisplay prop = living.getWorld().spawn(start, ItemDisplay.class, d -> {
             d.setItemStack(shown);
             d.setPersistent(false);
             d.setTeleportDuration(1); // glides with the player
-            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateZ((float) Math.toRadians(50)),
+            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateZ((float) Math.toRadians(tiltDegrees)),
                     new Vector3f(0.9f, 0.9f, 0.9f), new Quaternionf()));
             VisualEntities.mark(d);
         });

@@ -199,28 +199,28 @@ public final class AbilityLoader {
 
     /**
      * {@code status_bar: <status>} (level = its stacks), or
-     * {@code status_bar: { status: <status>, level: stacks | reload_speed }}.
+     * {@code status_bar: { status: <status>, level: stacks | reload_speed | none }}.
      */
     private CharacterDef.StatusBar statusBar(Params p) {
         if (!p.has("status_bar")) return null;
         Object raw = p.raw("status_bar");
         String status;
-        boolean reload = false;
+        CharacterDef.StatusBar.Level level = CharacterDef.StatusBar.Level.STACKS;
         if (raw instanceof Map<?, ?>) {
             Params bar = p.getParams("status_bar");
             status = bar.requireString("status");
-            String level = bar.getString("level", "stacks");
-            if (!level.equals("stacks") && !level.equals("reload_speed")) {
-                throw bar.error("level", "expected stacks or reload_speed");
+            try {
+                level = CharacterDef.StatusBar.Level.valueOf(bar.getString("level", "stacks").toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw bar.error("level", "expected stacks, reload_speed or none");
             }
-            reload = level.equals("reload_speed");
         } else {
             status = p.getString("status_bar", null);
         }
         if (engine.statusDefs().find(status).isEmpty()) {
             throw p.error("status_bar", "unknown status '" + status + "' (define it under 'statuses:')");
         }
-        return new CharacterDef.StatusBar(status, reload);
+        return new CharacterDef.StatusBar(status, level);
     }
 
     public Ability parseAbility(String id, Params p) {
@@ -242,15 +242,17 @@ public final class AbilityLoader {
         boolean hasRecast = built.nodeIds().stream()
                 .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.control.AwaitRecastNode);
         String cdStart = p.getString("cooldown_starts", hasRecast ? "after_recast" : "cast");
-        if (!cdStart.equals("cast") && !cdStart.equals("after_recast")) {
-            throw p.error("cooldown_starts", "expected cast or after_recast");
+        if (!cdStart.equals("cast") && !cdStart.equals("after_recast") && !cdStart.equals("manual")) {
+            throw p.error("cooldown_starts", "expected cast, after_recast or manual");
         }
         // Abilities that dash are movement abilities (blocked while rooted) unless they say movement: false.
         boolean dashes = built.nodeIds().stream()
-                .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.DashNode);
+                .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.DashNode
+                        || built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode);
         Ability.Builder b = Ability.builder(id, built)
                 .movement(p.getBool("movement", dashes))
                 .cooldownAfterRecast(cdStart.equals("after_recast"))
+                .manualCooldown(cdStart.equals("manual"))
                 .aura(p.getString("aura", null))
                 .cancelOnRepress(p.getBool("cancel_on_repress", false))
                 .survivesDeath(p.getBool("survives_death", false))

@@ -18,13 +18,26 @@ import java.util.Set;
  */
 public record StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                         List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
-                        boolean breakOnDamage, boolean once) {
+                        boolean breakOnDamage, boolean once,
+                        boolean positive, double damageDealt, double damageTaken) {
 
     public StatusDef {
         grantedTags = Set.copyOf(grantedTags);
         onHit = List.copyOf(onHit);
         tickEffects = List.copyOf(tickEffects);
         if (maxStacks < 1) maxStacks = 1;
+    }
+
+    /**
+     * @param positive    a boon (copied to a tethered ally, see LinkManager)
+     * @param damageDealt the holder's damage is multiplied by this (Strength: 1.2)
+     * @param damageTaken damage to the holder is multiplied by this (0.8 = 20% less)
+     */
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                false, 1, 1);
     }
 
     /** Without break_on_damage / once. */

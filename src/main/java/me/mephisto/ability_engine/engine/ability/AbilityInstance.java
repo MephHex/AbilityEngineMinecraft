@@ -117,6 +117,14 @@ public final class AbilityInstance {
     /** The cooldown waits for the recast window to close (see Ability.cooldownAfterRecast). */
     public void deferCooldown() { cooldownPending = true; }
 
+    private boolean cooldownOnEnd = true;
+
+    /** The cooldown waits for a start_cooldown node; a cast that ends without one costs no cooldown. */
+    public void deferCooldownManually() {
+        cooldownPending = true;
+        cooldownOnEnd = false;
+    }
+
     /** Start the deferred cooldown now (window closed). Safe to call more than once. */
     public void startDeferredCooldown() {
         if (!cooldownPending) return;
@@ -192,7 +200,7 @@ public final class AbilityInstance {
         if (state != State.RUNNING) return;
         state = newState;
         endReason = reason;
-        startDeferredCooldown(); // e.g. stunned during the recast window: no free cast
+        if (cooldownOnEnd) startDeferredCooldown(); // e.g. stunned during the recast window: no free cast
         recastHandler = null;
         progress = null;
         keepAlive = null;

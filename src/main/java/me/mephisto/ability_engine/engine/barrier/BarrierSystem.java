@@ -25,7 +25,8 @@ public final class BarrierSystem {
     private static final double FRONT_HALF_ANGLE = Math.toRadians(70);
     public static final String BLOCK_CUE = "barrier_block";
 
-    private record Barrier(UUID owner, double distance, double radius) {}
+    /** @param projectilesOnly it only stops projectiles (not rays, dashes or melee) */
+    private record Barrier(UUID owner, double distance, double radius, boolean projectilesOnly) {}
 
     /** Where a crossing path hits a barrier, and how far along the path that is. */
     public record Crossing(Vec3 position, double distance) {}
@@ -43,7 +44,11 @@ public final class BarrierSystem {
 
     /** Raise a barrier; returns how to lower it (idempotent). */
     public Runnable raise(UUID owner, double distance, double radius) {
-        Barrier b = new Barrier(owner, distance, radius);
+        return raise(owner, distance, radius, false);
+    }
+
+    public Runnable raise(UUID owner, double distance, double radius, boolean projectilesOnly) {
+        Barrier b = new Barrier(owner, distance, radius, projectilesOnly);
         active.add(b);
         return () -> active.remove(b);
     }
@@ -57,9 +62,19 @@ public final class BarrierSystem {
      * crosses while moving toward its front. {@code attacker} is whose shot/dash it is.
      */
     public Optional<Crossing> cross(String worldName, Vec3 from, Vec3 to, double thickness, UUID attacker) {
+        return cross(worldName, from, to, thickness, attacker, false);
+    }
+
+    /** Like {@link #cross}, for a projectile: projectile-only barriers count too. */
+    public Optional<Crossing> crossProjectile(String worldName, Vec3 from, Vec3 to, double thickness, UUID attacker) {
+        return cross(worldName, from, to, thickness, attacker, true);
+    }
+
+    private Optional<Crossing> cross(String worldName, Vec3 from, Vec3 to, double thickness, UUID attacker, boolean projectile) {
         Vec3 d = to.subtract(from);
         Crossing best = null;
         for (Barrier b : List.copyOf(active)) {
+            if (b.projectilesOnly() && !projectile) continue;
             if (!teams.enemies(attacker, b.owner())) continue;
             Optional<Plane> plane = plane(b);
             if (plane.isEmpty() || !plane.get().world.equals(worldName)) continue;
@@ -78,9 +93,14 @@ public final class BarrierSystem {
 
     /** Would a direct hit (melee) on {@code target} coming from {@code origin} be blocked by its barrier? */
     public boolean blocksDirectHit(UUID target, Vec3 origin, UUID attacker) {
+        return blocksDirectHit(target, origin, attacker, false);
+    }
+
+    /** {@code projectile}: the hit is a projectile (a vanilla arrow), so projectile-only barriers count too. */
+    public boolean blocksDirectHit(UUID target, Vec3 origin, UUID attacker, boolean projectile) {
         if (!teams.enemies(attacker, target)) return false;
         for (Barrier b : List.copyOf(active)) {
-            if (!b.owner().equals(target)) continue;
+            if (!b.owner().equals(target) || (b.projectilesOnly() && !projectile)) continue;
             Optional<Plane> plane = plane(b);
             if (plane.isEmpty()) continue;
             Vec3 toOrigin = origin.subtract(plane.get().ownerCenter);

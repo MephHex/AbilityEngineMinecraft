@@ -180,7 +180,8 @@ public final class AbilityActivator {
     private ActivationResult start(UUID caster, Ability ability, Map<String, Object> presets) {
         ability.costs().forEach((resource, amount) -> engine.resources().consume(caster, resource, amount));
         AbilityInstance instance = new AbilityInstance(engine, ability, caster, presets);
-        if (ability.cooldownAfterRecast()) instance.deferCooldown();
+        if (ability.manualCooldown()) instance.deferCooldownManually();
+        else if (ability.cooldownAfterRecast()) instance.deferCooldown();
         else engine.cooldowns().start(caster, ability.id(), ability.cooldownTicks());
         engine.instances().add(instance);
         instance.start();

@@ -177,7 +177,7 @@ public final class ProjectileSystem {
 
             // Constructs and barriers are engine objects the world doesn't know about: check them too, nearest wins.
             double worldDist = hit.map(h -> h.position().distance(p.position)).orElse(Double.MAX_VALUE);
-            var barrier = barriers.cross(p.world, from, next, p.spec.size() / 2, ctx.caster());
+            var barrier = barriers.crossProjectile(p.world, from, next, p.spec.size() / 2, ctx.caster());
             if (barrier.isPresent() && barrier.get().distance() <= worldDist) {
                 // Absorbed by an enemy's frontal barrier: no hit logic, no explosion.
                 moveTo(p, barrier.get().position());

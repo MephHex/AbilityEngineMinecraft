@@ -1,0 +1,328 @@
+# content: vanguard
+# The Vanguard: a tank / support who leaps into fights and bonds with an ally to protect them.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Inspiration): every ability he uses gives allies within 8 blocks Inspiration for 2s
+#   (+30% movement speed). Each ability starts (or, for Radiant Bond, ends) with an "inspire" node.
+# Absorption: "shield" effects give absorption hearts (design HP, like damage: 10 = half a heart).
+
+statuses:
+  inspiration:
+    duration: 40                     # 2s
+    stacking: refresh
+    positive: true
+    tags: [state.hasted]             # +30% movement speed
+  strength:                          # Radiant Bond's empower
+    duration: 100                    # 5s
+    stacking: refresh
+    positive: true
+    damage_dealt: 1.25               # +25% damage
+    tags: [buff.strength]
+  hovering:                          # Hero's Descent: hanging in the sky while choosing where to land
+    duration: 100                    # safety cap; removed when the descent starts
+    stacking: refresh
+    tags: [state.anchored]
+
+abilities:
+
+  # PRIMARY: a heavy sword sweep in front of you.
+  vanguard_primary:
+    cooldown: 14                     # 0.7s
+    display:
+      name: "Valiant Strike"
+      description:
+        - "A heavy sweep in front of you: 45 damage."
+        - "Passive - Inspiration: your abilities give"
+        - "nearby allies +30% speed for 2s."
+    nodes:
+      swing:
+        type: apply_effects
+        targets: { type: cone, range: 3.2, angle: 90 }
+        effects:
+          - { id: damage, amount: 45 }
+        next: swing_cue
+      swing_cue:
+        type: play_cue
+        cue: sweep
+
+  # 1: leap where you look. Landing slams enemies within 4 blocks (damage + knocked up) and gives you
+  # 20 absorption per enemy hit. If Radiant Bond is up, your bonded ally gets the same absorption.
+  vanguard_ab1:
+    cooldown: 200                    # 10s
+    display:
+      name: "Heroic Leap"
+      icon: RABBIT_FOOT
+      description:
+        - "Leap where you look. Landing: 50 damage and"
+        - "knocks up enemies nearby. +20 absorption"
+        - "per enemy hit (your bonded ally too)."
+    active_tags: [state.leaping]
+    interrupted_by: [state.stunned]
+    nodes:
+      inspire:
+        type: apply_effects
+        targets: { type: radius, radius: 8 }   # allies around you (not yourself)
+        affects: allies
+        effects:
+          - { id: status, status: inspiration }
+        next: take_off
+      take_off:
+        type: play_cue
+        cue: leap_off
+        next: leap
+      leap:
+        type: leap
+        direction: aim               # flattened: always a forward arc
+        speed: 0.5                   # ~10 blocks
+        up: 0.85
+        next: slam
+      slam:
+        type: apply_effects
+        targets: { type: radius, radius: 4 }
+        count: leap_hits             # how many enemies it hit
+        effects:
+          - { id: damage, amount: 50, knockback: false }
+          - { id: knockback, from: caster, radius: 4, center: 0.15, edge: 0.15, lift: 0.9 }   # knocked UP
+        next: slam_cue
+      slam_cue:
+        type: play_cue
+        cue: leap_slam
+        next: guard
+      guard:
+        type: apply_effects
+        targets: { type: self }
+        times: leap_hits             # once per enemy hit
+        effects:
+          - { id: shield, amount: 20, decay: 5 }
+        next: bond
+      bond:
+        type: find_link
+        name: radiant_bond
+        store: bonded
+        on: { found: guard_ally }
+      guard_ally:
+        type: apply_effects
+        targets: { type: key, key: bonded }
+        affects: allies
+        times: leap_hits
+        effects:
+          - { id: shield, amount: 20, decay: 5 }
+
+  # 2: aim at an ally (a generous hitbox) to bond with them: they gain Strength (+25% damage, 5s).
+  # While bonded: they take 30% less damage and half of what that prevents hits you instead; positive
+  # effects you receive are copied to them. Breaks beyond 20 blocks.
+  # Already bonded: aiming at nothing re-empowers your ally, aiming at another ally moves the bond.
+  # Only goes on cooldown when it did something (a total miss is free).
+  vanguard_ab2:
+    cooldown: 240                    # 12s
+    cooldown_starts: manual          # at "spent" below, i.e. only on success
+    display:
+      name: "Radiant Bond"
+      icon: LEAD
+      description:
+        - "Bond with an ally: Strength (+25% dmg)."
+        - "They take 30% less damage, half of it hits"
+        - "you instead; your buffs copy to them."
+        - "Bonded: aim at nothing to empower again."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 25, ray_size: 0.9, targets: allies }   # allies only, easy to hit
+        store: ally
+        on: { hit: bond, miss: existing }
+      bond:
+        type: link                   # a new bond (or moved to this ally)
+        name: radiant_bond
+        target: ally
+        range: 20
+        damage_taken: 0.7            # they take 30% less...
+        redirect: 0.5                # ...and half of that prevented damage hits you
+        copy_positive: true
+        cue: radiant_tether
+        next: bond_cue
+      bond_cue:
+        type: play_cue
+        cue: radiant_bond
+        at: ally
+        next: empower
+      existing:
+        type: find_link              # aimed at nothing: already bonded?
+        name: radiant_bond
+        store: ally
+        on: { found: empower }       # none: a total miss, nothing spent
+      empower:
+        type: apply_effects
+        targets: { type: key, key: ally }
+        affects: allies
+        effects:
+          - { id: status, status: strength }
+        next: spent
+      spent:
+        type: start_cooldown
+        next: inspire
+      inspire:
+        type: apply_effects
+        targets: { type: radius, radius: 8 }
+        affects: allies
+        effects:
+          - { id: status, status: inspiration }
+
+  # 3: raise your shield for 4s: it destroys projectiles hitting its front, you take half knockback,
+  # and you move slower. Press 3 again (Shield Rush): charge forward, stun the first enemy you hit,
+  # and the shield comes down.
+  vanguard_ab3:
+    cooldown: 240                    # 12s, once the shield is down
+    movement: false                  # raising a shield works while rooted (the rush checks for itself)
+    display:
+      name: "Bulwark"
+      icon: SHIELD
+      description:
+        - "4s: your shield destroys projectiles from"
+        - "the front; half knockback, slower."
+        - "Press again: Shield Rush - charge, stun the"
+        - "first enemy hit, lower the shield."
+    active_tags: [state.shielding, state.slowed, state.sturdy]
+    nodes:
+      inspire:
+        type: apply_effects
+        targets: { type: radius, radius: 8 }
+        affects: allies
+        effects:
+          - { id: status, status: inspiration }
+        next: raise
+      raise:
+        type: barrier                # stands until the cast ends
+        distance: 1.0
+        radius: 1.4
+        projectiles_only: true       # destroys projectiles; rays, dashes and melee aren't stopped
+        next: pose
+      pose:
+        type: start_cue
+        cue: bulwark                 # a shield held up in front of you
+        next: split
+      split:
+        type: fork                   # the 4s timer and the recast window run side by side
+        on: { out: hold, also: wait_rush }
+      hold:
+        type: delay
+        ticks: 80                    # 4s
+        cast_bar: true
+        next: lower
+      wait_rush:
+        type: await_recast
+        window: 80
+        on: { recast: can_rush }
+      can_rush:
+        type: has_tag                # rooted: no rush (the shield stays up)
+        tag: block.move
+        on: { lacks: rush }
+      rush:
+        type: dash
+        speed: 1.5
+        range: 8
+        flat: true
+        on: { hit: bash, miss: lower }
+      bash:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: status, status: stun, duration: 30 }   # 1.5s
+        next: bash_cue
+      bash_cue:
+        type: play_cue
+        cue: hit
+        at: hit
+        next: lower
+      lower:
+        type: end_cast               # the shield comes down (and the 4s timer stops)
+
+  # ULTIMATE (F): launch into the sky, choose where to land (LMB; or you land where you look after 3s),
+  # then crash down: a shockwave throws enemies away (harder the closer they are) and gives you and
+  # allies nearby a large absorption shield.
+  vanguard_ult1:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Hero's Descent"
+      icon: FIREWORK_STAR
+      description:
+        - "Launch into the sky, pick a spot (LMB),"
+        - "crash down: 60 damage, enemies thrown away,"
+        - "you and nearby allies get 120 absorption."
+    active_tags: [state.descending, block.ability]
+    nodes:
+      inspire:
+        type: apply_effects
+        targets: { type: radius, radius: 8 }
+        affects: allies
+        effects:
+          - { id: status, status: inspiration }
+        next: launch_cue
+      launch_cue:
+        type: play_cue
+        cue: heroic_launch
+        next: launch
+      launch:
+        type: leap
+        direction: up
+        up: 1.3                      # ~10 blocks up
+        until: apex
+        next: hover
+      hover:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: hovering }
+        next: choose
+      choose:
+        type: choose_spot            # a preview circle follows your crosshair: LMB to land there
+        range: 40
+        radius: 6
+        timeout: 60                  # 3s, then: wherever you're looking
+        store: landing
+        on: { out: descend, none: give_up }
+      descend:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: remove_status, status: hovering }
+        next: dive
+      dive:
+        type: dash
+        to: landing                  # straight down onto the spot
+        speed: 2.2
+        range: 60
+        pierce: true
+        on: { miss: impact }
+      impact:
+        type: apply_effects
+        targets: { type: radius, radius: 7 }
+        effects:
+          - { id: damage, amount: 60, knockback: false }
+          - { id: knockback, from: caster, radius: 7, center: 2.2, edge: 0.5, lift: 0.5 }   # closer = harder
+        next: rally
+      rally:
+        type: apply_effects
+        targets: { type: radius, radius: 8, include_caster: true }
+        affects: allies              # you and your allies
+        effects:
+          - { id: shield, amount: 120, decay: 10 }
+        next: impact_cue
+      impact_cue:
+        type: play_cue
+        cue: heroic_impact
+      give_up:
+        type: apply_effects          # no valid spot at all (looking at the sky): just drop down
+        targets: { type: self }
+        effects:
+          - { id: remove_status, status: hovering }
+
+characters:
+  vanguard:
+    name: "Vanguard"
+    weapon: IRON_SWORD
+    slots:
+      primary: vanguard_primary      # LMB
+      ability_1: vanguard_ab1        # 1: Heroic Leap
+      ability_2: vanguard_ab2        # 2: Radiant Bond
+      ability_3: vanguard_ab3        # 3: Bulwark (press again: Shield Rush)
+      ultimate: vanguard_ult1        # F: Hero's Descent

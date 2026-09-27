@@ -187,7 +187,9 @@ characters:
   dreamer:
     name: "Dreamer"
     weapon: GOLDEN_SWORD
-    status_bar: dreamwalking
+    status_bar:                      # XP bar: drains over Dreamwalk's 5s, no number
+      status: dreamwalking
+      level: none
     slots:
       primary: dream_blade           # LMB
       ability_1: dreamwalk           # 1

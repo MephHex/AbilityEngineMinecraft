@@ -54,14 +54,46 @@ public final class NodeTypes {
                 Parsers.effects(p, "effects", e.effects()),
                 Parsers.affects(p),
                 p.has("on_hit") ? p.getBool("on_hit", false) : null,
-                p.getBool("infusions", false)));
+                p.getBool("infusions", false),
+                p.getString("count", null),
+                p.getString("times", null)));
         t.register("projectile", (p, e) -> new ProjectileNode(Parsers.projectile(p), p.getString("store", null)));
-        t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3)));
+        t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3),
+                p.getBool("projectiles_only", false)));
         t.register("start_cue", (p, e) -> new StartCueNode(p.requireString("cue"), p.getString("at", null)));
         t.register("dash", (p, e) -> new DashNode(
                 p.getDouble("speed", 1.2), p.requireDouble("range"), p.getDouble("radius", 0.6), p.getBool("flat", false),
                 p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p),
-                p.getString("mover", null), towardCursor(p)));
+                p.getString("mover", null), towardCursor(p), p.getString("to", null)));
+        // ---- Vanguard: leaps, tethers, mid-cast aiming, manual cooldowns ----
+        t.register("leap", (p, e) -> {
+            me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode.Direction dir;
+            try {
+                dir = me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode.Direction.valueOf(
+                        p.getString("direction", "aim").toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                throw p.error("direction", "expected aim, movement or up");
+            }
+            String until = p.getString("until", "land");
+            if (!until.equals("land") && !until.equals("apex")) throw p.error("until", "expected land or apex");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode(dir, p.getDouble("speed", 0.6),
+                    p.requireDouble("up"), p.getDouble("gravity", 0.08), until.equals("apex"), p.getString("store", null));
+        });
+        t.register("choose_spot", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.ChooseSpotNode(
+                new me.mephisto.ability_engine.engine.targeting.Targeting(
+                        me.mephisto.ability_engine.engine.targeting.Targeting.Shape.CIRCLE, p.requireDouble("range"),
+                        p.getDouble("radius", 1.0), 1.0, 60, p.getInt("timeout", 100), p.getBool("ground", true),
+                        p.getDouble("max_drop", 40)),
+                p.getString("store", "aim")));
+        t.register("link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.LinkNode(
+                p.requireString("name"), p.requireString("target"), p.requireDouble("range"),
+                p.getDouble("damage_taken", 1.0), p.getDouble("redirect", 0), p.getBool("copy_positive", false),
+                p.getString("cue", null)));
+        t.register("find_link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindLinkNode(
+                p.requireString("name"), p.getString("store", "linked")));
+        t.register("unlink", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.UnlinkNode(p.requireString("name")));
+        t.register("start_cooldown", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.StartCooldownNode());
+        t.register("end_cast", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.EndCastNode());
         t.register("fork", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.ForkNode());
         t.register("summon_clone", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
                 p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),

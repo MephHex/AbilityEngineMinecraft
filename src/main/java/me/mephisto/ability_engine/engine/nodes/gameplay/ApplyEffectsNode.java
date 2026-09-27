@@ -41,6 +41,22 @@ public final class ApplyEffectsNode implements GraphNode {
     }
 
     public ApplyEffectsNode(TargetQuery targets, List<EffectConfig> effects, Affects affects, Boolean onHit, boolean infusions) {
+        this(targets, effects, affects, onHit, infusions, null, null);
+    }
+
+    /** Where to store how many targets were affected (null = don't). */
+    private String countKey;
+    /** Apply the effects this many times per target: the number stored under this key (null = once). */
+    private String timesKey;
+
+    /**
+     * @param countKey store how many targets it affected under this key (e.g. enemies hit by a landing)
+     * @param timesKey apply the effects as many times as the number under this key (e.g. a shield per enemy hit)
+     */
+    public ApplyEffectsNode(TargetQuery targets, List<EffectConfig> effects, Affects affects, Boolean onHit, boolean infusions,
+                            String countKey, String timesKey) {
+        this.countKey = countKey;
+        this.timesKey = timesKey;
         this.targets = targets;
         this.effects = List.copyOf(effects);
         this.affects = affects;
@@ -111,10 +127,14 @@ public final class ApplyEffectsNode implements GraphNode {
         List<Target> found = targets.find(ctx).stream().filter(t -> allowed(ctx, t)).filter(t -> !blockedFromFront(ctx, t)).toList();
         ctx.engine().log().debug(() -> "apply_effects: " + found.size() + " target(s)");
         boolean onHitHere = appliesOnHit(ctx);
+        if (countKey != null) ctx.blackboard().putRaw(countKey, found.size());
+        int times = timesKey == null ? 1 : ctx.blackboard().raw(timesKey) instanceof Number n ? n.intValue() : 0;
         for (Target target : found) {
-            for (EffectConfig config : effects) {
-                ctx.engine().effects().require(config.effectId())
-                        .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
+            for (int i = 0; i < times; i++) {
+                for (EffectConfig config : effects) {
+                    ctx.engine().effects().require(config.effectId())
+                            .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
+                }
             }
             // On-hits only land on OTHER entities you hit, never on yourself.
             boolean other = target instanceof EntityTarget e && !e.id().equals(ctx.caster());

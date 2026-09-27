@@ -38,6 +38,7 @@ public final class KnockbackEffect implements Effect {
         Params p = ctx.params();
         Vec3 impulse = Knockback.impulse(center.get().position(), pos.get().position(), p.requireDouble("radius"),
                 p.getDouble("center", 1.2), p.getDouble("edge", 0.3), p.getDouble("lift", 0.3));
+        if (ctx.engine().tags().has(target.id(), Tags.STURDY)) impulse = impulse.multiply(0.5); // e.g. Bulwark
         entity.setVelocity(entity.getVelocity().add(Convert.bukkit(impulse)));
     }
 

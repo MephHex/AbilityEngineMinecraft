@@ -12,15 +12,22 @@ public final class BarrierNode implements GraphNode {
 
     private final double distance;
     private final double radius;
+    private final boolean projectilesOnly;
 
     public BarrierNode(double distance, double radius) {
+        this(distance, radius, false);
+    }
+
+    /** @param projectilesOnly it only destroys projectiles (rays, dashes and melee pass) */
+    public BarrierNode(double distance, double radius, boolean projectilesOnly) {
         this.distance = distance;
         this.radius = radius;
+        this.projectilesOnly = projectilesOnly;
     }
 
     @Override
     public NodeResult execute(ExecutionContext ctx) {
-        Runnable lower = ctx.engine().barriers().raise(ctx.caster(), distance, radius);
+        Runnable lower = ctx.engine().barriers().raise(ctx.caster(), distance, radius, projectilesOnly);
         ctx.instance().onEnd(lower);
         return NodeResult.NEXT;
     }
