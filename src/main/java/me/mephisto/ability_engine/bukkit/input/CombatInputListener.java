@@ -41,9 +41,10 @@ import java.util.UUID;
  * <p>While AIMING (targeting preview, for anyone): LMB confirms, RMB cancels, the aimed
  * ability's own key does nothing, another ability's key switches.
  *
- * <p>Crossbow characters (a CROSSBOW weapon with a quiver): RMB is the vanilla draw while nothing is
- * loaded (CrossbowListener loads the bolt when it's drawn), and does nothing while loaded; LMB (the
- * primary) shoots. Their secondary slot is unused.
+ * <p>Crossbow characters (a CROSSBOW weapon with a quiver) handle it like vanilla: hold RMB to draw
+ * (CrossbowListener loads the next bolt when it's drawn), then press RMB again to shoot, which fires the
+ * primary slot. LMB doesn't shoot (it still confirms aim previews and uses a melee slot). Their secondary
+ * slot is unused.
  */
 public final class CombatInputListener implements Listener {
 
@@ -126,16 +127,25 @@ public final class CombatInputListener implements Listener {
 
     /**
      * Nothing loaded (and allowed to reload): let vanilla draw the crossbow, but still no doors or chests.
-     * Loaded: nothing, since vanilla would shoot it (LMB shoots, through the engine).
+     * Loaded: a fresh press shoots, through the engine (the primary slot), never vanilla's own shot.
      */
     private void crossbowRightClick(Player p, PlayerInteractEvent e) {
+        boolean freshPress = sinceLast(p, InputAction.RIGHT_CLICK) > RIGHT_CLICK_HOLD_GAP;
         if (engine.quivers().canLoad(p.getUniqueId())) {
             e.setUseInteractedBlock(Event.Result.DENY);
             e.setUseItemInHand(Event.Result.ALLOW);
             return;
         }
         e.setCancelled(true);
-        p.updateInventory(); // the client may already show the shot; put the loaded crossbow back
+        p.updateInventory(); // the client may already show vanilla's shot; the HUD redraws the real state
+        if (freshPress && engine.quivers().isLoaded(p.getUniqueId())) shoot(p);
+    }
+
+    /** Crossbow characters: fire the primary slot (it takes the loaded bolt). */
+    private void shoot(Player p) {
+        ActivationResult result = engine.loadouts().activate(p.getUniqueId(), Slots.PRIMARY, true);
+        if (result.success()) hud.refresh(p);
+        else if (!result.reason().startsWith("on_cooldown")) p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));
     }
 
     /** Right-clicking a mob/player does NOT fire PlayerInteractEvent. */
@@ -175,7 +185,7 @@ public final class CombatInputListener implements Listener {
             ActivationResult r = engine.loadouts().activateOn(id, Slots.MELEE, new EntityTarget(e.getAttacked().getUniqueId()));
             if (r.success()) hud.refresh(p);
             else if (!r.reason().startsWith("on_cooldown")) p.sendActionBar(Component.text(r.reason(), NamedTextColor.RED));
-        } else {
+        } else if (!hud.usesCrossbow(p)) { // crossbows shoot with RMB
             fire(p, InputAction.LEFT_CLICK, true);
         }
     }
@@ -196,6 +206,7 @@ public final class CombatInputListener implements Listener {
             confirm(p);
             return;
         }
+        if (hud.usesCrossbow(p)) return; // crossbows shoot with RMB
         fire(p, InputAction.LEFT_CLICK, true);
     }
 

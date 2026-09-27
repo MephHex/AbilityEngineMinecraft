@@ -48,6 +48,11 @@ public final class FakeTime implements GameClock, TaskScheduler {
         return t;
     }
 
+    private final List<Runnable> entityTicks = new ArrayList<>();
+
+    /** Runs every tick AFTER the scheduled tasks, like the server ticking entities after the scheduler. */
+    public void onEntityTick(Runnable r) { entityTicks.add(r); }
+
     public void advance(int ticks) {
         for (int i = 0; i < ticks; i++) {
             now++;
@@ -62,6 +67,7 @@ public final class FakeTime implements GameClock, TaskScheduler {
                 else t.cancelled = true;
             }
             tasks.removeIf(t -> t.cancelled);
+            for (Runnable r : List.copyOf(entityTicks)) r.run();
         }
     }
 

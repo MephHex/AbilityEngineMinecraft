@@ -36,10 +36,13 @@ public final class VisualEntities implements Listener {
         if (event instanceof EntityDamageByEntityEvent byEntity && isVisual(byEntity.getDamager())) event.setCancelled(true);
     }
 
-    /** Arrow visuals fly through everything: the engine decides what a projectile hits. */
+    /**
+     * Arrow projectiles fly through entities: the engine decides what they hit (allies, barriers...), and
+     * removes them there. Blocks it doesn't prevent: an arrow that lands tells the engine it landed.
+     */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onProjectileHit(ProjectileHitEvent event) {
-        if (isVisual(event.getEntity())) event.setCancelled(true);
+        if (isVisual(event.getEntity()) && event.getHitEntity() != null) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

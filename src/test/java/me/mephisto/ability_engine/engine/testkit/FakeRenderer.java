@@ -50,9 +50,56 @@ public final class FakeRenderer implements ProjectileRenderer, CuePlayer, Indica
     /** The tint each projectile was spawned with, in order (null = none). */
     public final List<String> tints = new ArrayList<>();
 
+    /** Set to fly "entity:" projectiles as self-flying arrows (see FakeArrow). Needs {@link #time}. */
+    public boolean realArrows;
+    public FakeTime time;
+    public final List<FakeArrow> arrows = new ArrayList<>();
+
+    /**
+     * A vanilla-like arrow that flies itself in the entity tick (after the engine's scheduled tick):
+     * moves by its velocity, then drag 0.99 and gravity 0.05. Records every spot it reached.
+     */
+    public final class FakeArrow implements me.mephisto.ability_engine.engine.platform.FlyingVisual {
+        public Vec3 pos;
+        public Vec3 vel;
+        public boolean removed;
+        public final List<Vec3> path = new ArrayList<>();
+
+        FakeArrow(Vec3 pos, Vec3 vel) {
+            this.pos = pos;
+            this.vel = vel;
+            time.onEntityTick(this::tick);
+        }
+
+        private void tick() {
+            if (removed) return;
+            pos = pos.add(vel);
+            path.add(pos);
+            vel = vel.multiply(0.99).add(0, -0.05, 0);
+        }
+
+        @Override public java.util.Optional<Vec3> position() { return removed ? java.util.Optional.empty() : java.util.Optional.of(pos); }
+        @Override public Vec3 velocity() { return vel; }
+        @Override public void setVelocity(Vec3 v) { vel = v; }
+        @Override public boolean landed() { return false; }
+
+        @Override
+        public void remove() {
+            if (!removed) alive--;
+            removed = true;
+        }
+    }
+
     @Override
     public ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint) {
         tints.add(tint);
+        if (realArrows && spec.visual().startsWith("entity:")) {
+            spawned++;
+            alive++;
+            FakeArrow arrow = new FakeArrow(position, velocity);
+            arrows.add(arrow);
+            return arrow;
+        }
         return spawn(world, position, spec);
     }
 

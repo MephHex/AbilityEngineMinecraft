@@ -22,6 +22,7 @@ final class Projectile implements ProjectileHandle {
     Vec3 lastPosition;          // where it was the tick before (its approach, for hit direction)
     int bouncesLeft;
     boolean done;
+    boolean redirected;         // velocity was set from outside: a self-flying visual must be told
 
     Projectile(ProjectileSpec spec, String world, Vec3 position, Vec3 velocity, Resumer resumer, ProjectileVisual visual) {
         this.spec = spec;
@@ -41,7 +42,9 @@ final class Projectile implements ProjectileHandle {
 
     @Override
     public void redirect(Vec3 newVelocity) {
-        if (!done) velocity = newVelocity;
+        if (done) return;
+        velocity = newVelocity;
+        redirected = true;
     }
 
     @Override

@@ -14,8 +14,8 @@ import java.util.logging.Logger;
 
 /**
  * Draws projectiles. {@code visual:} in YAML is an item Material or {@code "entity:<EntityType>"}
- * (see VisualSpawner). Arrow-like entities ({@code entity:ARROW}, SPECTRAL_ARROW, TRIDENT) fly as real
- * arrows instead (see ArrowVisual), tinted when the bolt is infused. Purely cosmetic: collision is the
+ * (see VisualSpawner). Arrow-like entities ({@code entity:ARROW}, SPECTRAL_ARROW, TRIDENT) are real arrows
+ * flown by the game itself (see ArrowVisual), tinted when the bolt is infused. Collision is always the
  * engine's ray sweep.
  */
 public final class BukkitProjectileRenderer implements ProjectileRenderer {
