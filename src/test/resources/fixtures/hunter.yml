@@ -8,9 +8,10 @@
 # Quiver: your next 3 bolts sit in hotbar slots 7, 8 and 9. The LEFTMOST one loads next; after a
 #   load they all shift left and a plain bolt joins on the right. Infusions only ever go onto bolts
 #   in the quiver, never onto the one already loaded, and one bolt can carry several infusions.
-# Passive (Hunter's Rhythm): every bolt that hits makes your next draws 0.25s faster, up to 3 times
-#   (1.25s -> 0.5s). Stacks last 5s, refreshed by each hit. Shown on the XP bar (level = stacks, the
-#   bar drains as they run out) and as Quick Charge on the crossbow.
+# Passive (Hunter's Rhythm): the first bolt that hits jumps your crossbow to Quick Charge 2, the next
+#   hits to 3 and 4 (draw time 1.25s -> 0.75s -> 0.5s -> 0.25s). Stacks last 5s, refreshed by each
+#   hit. Shown on the XP bar (the number = the Quick Charge level, the bar drains as the stacks run
+#   out) and as Quick Charge on the crossbow.
 
 statuses:
   hunters_rhythm:                    # the passive: its stacks are the crossbow's reload speed
@@ -75,8 +76,8 @@ abilities:
         - "loaded bolt: 45 damage + its infusions."
         - "Each hit: Venom Step's cooldown -1s."
         - "Marked enemies take +40 (uses the mark)."
-        - "Passive - Hunter's Rhythm: each hit draws"
-        - "0.25s faster (up to 3 times, 5s)."
+        - "Passive - Hunter's Rhythm: hits raise your"
+        - "Quick Charge to 2, 3, then 4 (5s)."
     nodes:
       take:
         type: take_bolt              # the loaded bolt leaves the crossbow (stored as "bolt")
@@ -349,13 +350,16 @@ characters:
   hunter:
     name: "Hunter"
     weapon: CROSSBOW                 # a real crossbow: hold RMB to draw (needs the quiver below)
-    status_bar: hunters_rhythm       # XP bar: level = Rhythm stacks, bar = time left
+    status_bar:                      # XP bar: the Rhythm's time left...
+      status: hunters_rhythm
+      level: reload_speed            # ...and the crossbow's Quick Charge level as the number (2-4)
     quiver:
       size: 3                        # the next 3 bolts...
       hotbar: 7                      # ...shown in slots 7, 8, 9 (leftmost loads next)
       reload_speed:                  # = Quick Charge level on the crossbow: 0.25s faster each
-        stacks_of: hunters_rhythm    # +1 per stack of the passive
-        max: 3
+        stacks_of: hunters_rhythm    # Rhythm stacks 1/2/3...
+        first: 2                     # ...give Quick Charge 2/3/4
+        max: 4
         while: { state.overdrive: 4 }   # Overdrive: 0.25s draws (4 is the most a crossbow allows)
     slots:
       primary: infused_bolt          # RMB on a loaded crossbow (hold RMB to draw)

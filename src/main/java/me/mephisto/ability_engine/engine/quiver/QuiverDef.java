@@ -21,10 +21,11 @@ public record QuiverDef(int size, int hotbarSlot, ReloadSpeed reloadSpeed) {
      * (vanilla: 1.25s to draw, 0.25s faster per level).
      *
      * @param stacksOf  +1 level per stack of this status on the owner (null = none)
+     * @param first     the level the first stack gives (default 1): with 2, stacks 1/2/3 give 2/3/4
      * @param max       cap for the level from stacks
      * @param whileTags while the owner has one of these tags, at least this level (the highest applies)
      */
-    public record ReloadSpeed(String stacksOf, int max, Map<String, Integer> whileTags) {
+    public record ReloadSpeed(String stacksOf, int first, int max, Map<String, Integer> whileTags) {
         public ReloadSpeed {
             whileTags = Map.copyOf(whileTags);
         }

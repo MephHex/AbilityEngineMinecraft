@@ -138,6 +138,7 @@ A character with a `quiver:` has a queue of bolts plus one bolt loaded in their 
   (the leftmost loads next). `reload_speed: { stacks_of: <status>, max, while: { <tag>: <level> } }`
   makes the crossbow draw faster: each level is Quick Charge (1.25s, 0.25s faster per level, 4 at most).
   The level is the stacks of `stacks_of` (up to `max`), or more while you have a `while` tag.
+  `first: 2` makes the first stack worth level 2 (stacks 1/2/3 give 2/3/4).
 
 See `hunter.yml`.
 
@@ -152,6 +153,7 @@ config.yml. Any slot may be left out.
   `hotbar: 1-9` shows the pool as an item whose stack size is the amount.
 - `status_bar: <status>` shows a status on the XP bar: the level number is its stacks, the bar drains
   with its time left (e.g. a passive's stacks). A cast bar takes over while one is running.
+  `status_bar: { status: <status>, level: reload_speed }` shows the quiver's reload speed as the number.
 - `weapon:` the item locked in the main hand; it also shows the primary fire's tooltip and fire
   rate. Use something with no right-click behaviour of its own (NOT bows, shields, food,
   tridents), except a CROSSBOW together with a `quiver:` (see Quivers). Icons with a cooldown overlay must use different materials from each other and the
