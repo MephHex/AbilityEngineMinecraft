@@ -265,8 +265,9 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 
 ## Added for Dream Tempest
 
-- **move_to** `{ to, up, look, store, return }`: put the caster at `to` (a key, default where they are)
-  raised by `up` blocks; `look: down` turns their view to the ground below (a view from above);
-  `store` keeps the spot they were at; `return: true` puts them back there when the cast ends, however it
-  ends.
-- **Cues:** dream_tempest (slashes somewhere in a 5-block circle).
+- **move_to** `{ to, up, back, look, store, return }`: put the caster at `to` (a key, default where they
+  are) raised by `up` blocks and `back` blocks behind them (negative = ahead); `look: down` turns their
+  view to the ground below, `look: spot` at the spot they left (a view from the side); `store` keeps the
+  spot they were at; `return: true` puts them back there when the cast ends, however it ends.
+- **Cues:** dream_tempest (slashes somewhere in a 5-block circle), dream_tempest_ring (that circle's edge
+  on the ground, 5 blocks: keep it in step with the ability's radius).

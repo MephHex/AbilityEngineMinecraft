@@ -76,6 +76,15 @@ public final class BukkitCuePlayer implements CuePlayer {
             }
             if (rng.nextBoolean()) loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, rng.nextFloat(0.8f, 1.4f));
         });
+        c.register("dream_tempest_ring", loc -> { // Dream Tempest's edge (5 blocks), on the ground, for everyone
+            var dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(170, 90, 255), 1.3f);
+            double y = loc.getY() - 0.8; // the spot is a body's centre: its feet are a little lower
+            for (int i = 0; i < 48; i++) {
+                double a = Math.PI * 2 * i / 48;
+                loc.getWorld().spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * 5, y, loc.getZ() + Math.sin(a) * 5,
+                        1, 0, 0, 0, 0, dust);
+            }
+        });
         c.registerLine("crescent", (w, from, to) -> {
             Vector d = to.clone().subtract(from);
             double len = d.length();

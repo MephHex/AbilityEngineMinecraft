@@ -183,10 +183,11 @@ abilities:
         type: play_cue
         cue: echo_swap
 
-  # ULTIMATE (F): Dream Tempest. You vanish into the dream and watch from above: lifted 12 blocks over
-  # the spot you cast it from, looking down, untargetable and unseen. For 3s (a boss bar counts it
-  # down) blades of the dream slash everything within 5 blocks of that spot: 10 damage every 0.2s,
-  # 150 in all. You can't move or use anything meanwhile. Then you're back exactly where you were.
+  # ULTIMATE (F): Dream Tempest. You vanish into the dream and watch from above: lifted 10 blocks up and
+  # 8 back from the spot you cast it from, looking down at it, untargetable and unseen. For 3s (a boss
+  # bar counts it down) blades of the dream slash everything within 5 blocks of that spot: 10 damage
+  # every 0.2s, 150 in all. A ring on the ground shows everyone the edge. You can't move or use anything
+  # meanwhile. Then you're back exactly where you were.
   dreamer_ult1:
     cooldown: 900                    # placeholder until ults charge from damage
     display:
@@ -204,9 +205,10 @@ abilities:
         cue: dream_enter
         next: rise
       rise:
-        type: move_to                # the view from above...
-        up: 12
-        look: down
+        type: move_to                # the view from above, off to the side...
+        up: 10
+        back: 8                      # behind you (the way you faced)
+        look: spot                   # looking at the spot
         store: origin                # ...over the spot you cast it from
         return: true                 # back there when it ends (also if it's cut short)
         next: split
@@ -229,6 +231,11 @@ abilities:
       slash_cue:
         type: play_cue
         cue: dream_tempest
+        at: origin
+        next: ring
+      ring:
+        type: play_cue               # the edge of the area, on the ground, for everyone to see
+        cue: dream_tempest_ring      # (drawn at 5 blocks: keep it in step with the radius above)
         at: origin
         next: again
       again:
