@@ -279,13 +279,13 @@ abilities:
       toss:
         type: projectile
         speed: 0.65                  # a short lob: ~7 blocks looking straight ahead
-        size: 1
+        size: 0.8
         lifetime: 100
         bounces: 1                   # one small hop...
         restitution: 0.3
         friction: 0.2
         slide: 0.6                   # ...then it skids a little (keeps 60% of its speed per tick)
-        visual: LIGHTNING_ROD
+        visual: "block:EXPOSED_COPPER_TRAPDOOR"
         motion:
           - { type: gravity, amount: 0.06 }
         on: { spawned: toss_cue, hit_block: place, hit_entity: spring }   # hit_block = where it stopped
@@ -296,7 +296,7 @@ abilities:
         type: construct
         at: hit                      # where it came to rest
         store: trap
-        height: 0.1                  # lying on the ground
+        height: 0                  # lying on the ground
         size: 0.5
         fuse: 600                    # gone after 30s
         solid: false                 # bolts and punches pass through it
