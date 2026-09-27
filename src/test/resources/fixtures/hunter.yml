@@ -4,7 +4,7 @@
 #
 # How the crossbow works (a real vanilla crossbow):
 #   HOLD RMB  draw it, like in vanilla. When it's drawn, the next bolt from your quiver loads.
-#   LMB       shoot the loaded bolt. Nothing loaded: a dry click.
+#   RMB       (again, once loaded) shoot the loaded bolt, like in vanilla. LMB does nothing.
 # Quiver: your next 3 bolts sit in hotbar slots 7, 8 and 9. The LEFTMOST one loads next; after a
 #   load they all shift left and a plain bolt joins on the right. Infusions only ever go onto bolts
 #   in the quiver, never onto the one already loaded, and one bolt can carry several infusions.
@@ -25,7 +25,7 @@ statuses:
     tick:
       every: 20                      # ...10 damage per second = 40 total
       effects:
-        - { id: damage, amount: 10 }
+        - { id: damage, amount: 10, knockback: false }   # just damage: no knockback
 
   flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
     duration: 60                     # 3s
@@ -59,13 +59,13 @@ infusions:
 
 abilities:
 
-  # PRIMARY (LMB): shoot whatever is loaded. Hold RMB to draw (reload) first.
+  # PRIMARY (RMB on a loaded crossbow): shoot whatever is loaded. Hold RMB to draw (reload) first.
   infused_bolt:
     cooldown: 5                      # just a guard against double clicks: the draw is the real fire rate
     display:
       name: "Infused Bolt"
       description:
-        - "Hold RMB to draw, LMB to shoot the"
+        - "Hold RMB to draw, RMB again to shoot the"
         - "loaded bolt: 45 damage + its infusions."
         - "Passive - Hunter's Rhythm: each hit draws"
         - "0.25s faster (up to 3 times, 5s)."
@@ -78,8 +78,8 @@ abilities:
         speed: 3.0                   # vanilla crossbow bolts are ~3.15
         size: 0.35
         lifetime: 40
-        visual: ARROW
-        motion:
+        visual: "entity:ARROW"      # a real arrow flown by the game (vanilla drop), tinted by its infusions
+        motion:                      # only if no real arrow could spawn (a real one drops like vanilla)
           - { type: gravity, amount: 0.02 }
         on: { spawned: twang, hit_entity: strike, hit_block: thunk }
       twang:
@@ -251,7 +251,7 @@ characters:
         max: 3
         while: { state.overdrive: 4 }   # Overdrive: 0.25s draws (4 is the most a crossbow allows)
     slots:
-      primary: infused_bolt          # LMB (RMB draws)
+      primary: infused_bolt          # RMB on a loaded crossbow (hold RMB to draw)
       ability_1: venom_step          # 1
       ability_2: volatile_flask      # 2
       # ability_3: not designed yet

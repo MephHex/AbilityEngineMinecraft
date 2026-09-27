@@ -6,14 +6,19 @@ import me.mephisto.ability_engine.engine.effect.Effect;
 import me.mephisto.ability_engine.engine.effect.EffectContext;
 import me.mephisto.ability_engine.engine.target.EntityTarget;
 import org.bukkit.Bukkit;
+import org.bukkit.damage.DamageSource;
+import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.util.Vector;
 
 /**
  * Effect id "damage". Params: {@code amount} (required, in design HP), {@code ignore_iframes} (default false).
  * Minecraft health dealt = amount / damage-scale (config.yml, default 10: 20 health = 200 design HP).
  * {@code lifesteal: 1.0} heals the caster for that share of the damage actually dealt; add
  * {@code overflow: true} (and optional overflow_max / overflow_decay) to turn excess into a shield.
+ * {@code knockback: false} deals it as magic damage (like vanilla poison): no knockback, but the kill
+ * is still credited to the caster. Meant for damage over time.
  * With /ae debug on, every hit logs the target's health before/after, so a hit that the game
  * silently refused (PvP off, creative target, armor stand, protection plugin) is visible.
  */
@@ -57,13 +62,18 @@ public final class DamageEffect implements Effect {
 
         double before = living.getHealth();
         Entity damager = Bukkit.getEntity(ctx.caster());
+        boolean knockback = ctx.params().getBool("knockback", true);
+        Vector velocityBefore = living.getVelocity();
         applying++;
         try {
-            if (damager != null && !damager.equals(living)) living.damage(amount, damager);
+            if (!knockback) living.damage(amount, magic(damager, living));
+            else if (damager != null && !damager.equals(living)) living.damage(amount, damager);
             else living.damage(amount);
         } finally {
             applying--;
         }
+        // Magic damage has no knockback in vanilla; if anything pushed them anyway, undo it.
+        if (!knockback && !living.getVelocity().equals(velocityBefore)) living.setVelocity(velocityBefore);
         double after = living.getHealth();
 
         double lifesteal = ctx.params().getDouble("lifesteal", 0);
@@ -76,6 +86,13 @@ public final class DamageEffect implements Effect {
         log.debug(() -> String.format("damage: %s %.0f design HP = %.1f health, health %.1f -> %.1f%s",
                 living.getType(), design, amount, before, after,
                 after < before ? "" : "   <-- NOT APPLIED (cancelled event / invulnerable / armor stand)"));
+    }
+
+    /** Magic damage (no knockback), still credited to the caster for kills. */
+    private static DamageSource magic(Entity damager, LivingEntity target) {
+        DamageSource.Builder source = DamageSource.builder(DamageType.MAGIC);
+        if (damager != null && !damager.equals(target)) source.withCausingEntity(damager).withDirectEntity(damager);
+        return source.build();
     }
 
     @Override

@@ -11,6 +11,7 @@ import me.mephisto.ability_engine.engine.graph.Keys;
 import me.mephisto.ability_engine.engine.graph.Ports;
 import me.mephisto.ability_engine.engine.graph.Resumer;
 import me.mephisto.ability_engine.engine.math.Vec3;
+import me.mephisto.ability_engine.engine.platform.FlyingVisual;
 import me.mephisto.ability_engine.engine.platform.ProjectileRenderer;
 import me.mephisto.ability_engine.engine.platform.SweepHit;
 import me.mephisto.ability_engine.engine.platform.TaskHandle;
@@ -29,7 +30,9 @@ import java.util.List;
 /**
  * Simulates every projectile with ONE repeating task (the old code started a task per
  * projectile and never cancelled it). Physics and collision are engine-side; the platform
- * only renders. The ticker stops itself when nothing is in flight.
+ * only renders. The ticker stops itself when nothing is in flight. Exception: a {@link FlyingVisual}
+ * (a real arrow) flies itself; then only collision is engine-side, and motion modifiers and bounces
+ * don't apply (redirects do).
  */
 public final class ProjectileSystem {
 
@@ -70,7 +73,14 @@ public final class ProjectileSystem {
      */
     public ProjectileHandle launch(ProjectileSpec spec, String worldName, Vec3 position, Vec3 velocity, Resumer resumer,
                                    Vec3 sweepFrom) {
-        Projectile p = new Projectile(spec, worldName, position, velocity, resumer, renderer.spawn(worldName, position, spec));
+        return launch(spec, worldName, position, velocity, resumer, sweepFrom, null);
+    }
+
+    /** @param tint "#RRGGBB" for the visual (an infused bolt's color), or null */
+    public ProjectileHandle launch(ProjectileSpec spec, String worldName, Vec3 position, Vec3 velocity, Resumer resumer,
+                                   Vec3 sweepFrom, String tint) {
+        Projectile p = new Projectile(spec, worldName, position, velocity, resumer,
+                renderer.spawn(worldName, position, velocity, spec, tint));
         p.sweepFrom = sweepFrom;
         active.add(p);
         var instance = resumer.context().instance();
@@ -124,8 +134,28 @@ public final class ProjectileSystem {
             return;
         }
 
-        for (MotionModifier m : p.motion) p.velocity = m.apply(p.position, p.velocity, ctx);
-        Vec3 next = p.position.add(p.velocity);
+        FlyingVisual flying = p.visual instanceof FlyingVisual f ? f : null;
+        Vec3 next;
+        if (flying != null) {
+            // It flies itself: read where it is and where it's about to go (the game moves it after this).
+            Optional<Vec3> at = flying.position();
+            if (at.isEmpty()) {
+                finish(p, Ports.EXPIRED, null);
+                return;
+            }
+            if (p.redirected) flying.setVelocity(p.velocity);
+            p.position = at.get();
+            if (flying.landed()) {
+                finish(p, Ports.HIT_BLOCK, new PointTarget(p.world, p.position));
+                return;
+            }
+            p.velocity = flying.velocity();
+            next = p.position.add(p.velocity);
+        } else {
+            for (MotionModifier m : p.motion) p.velocity = m.apply(p.position, p.velocity, ctx);
+            next = p.position.add(p.velocity);
+        }
+        p.redirected = false;
 
         if (!world.isLoaded(p.world, next)) {
             finish(p, Ports.EXPIRED, null);
@@ -171,7 +201,7 @@ public final class ProjectileSystem {
         if (h.target() instanceof EntityTarget) {
             moveTo(p, h.position());
             finish(p, Ports.HIT_ENTITY, h.target());
-        } else if (p.bouncesLeft > 0 && h.normal() != null && p.spec.bounce(p.velocity, h.normal()) != null) {
+        } else if (flying == null && p.bouncesLeft > 0 && h.normal() != null && p.spec.bounce(p.velocity, h.normal()) != null) {
             p.bouncesLeft--;
             p.velocity = p.spec.bounce(p.velocity, h.normal());
             moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
@@ -185,7 +215,7 @@ public final class ProjectileSystem {
         p.lastPosition = p.position;
         double moved = pos.distance(p.position);
         p.position = pos;
-        p.visual.moveTo(pos);
+        p.visual.moveTo(pos, p.velocity);
         if (!p.isGuided()) p.unguidedDistance += moved;
     }
 

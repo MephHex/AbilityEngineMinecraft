@@ -5,7 +5,10 @@ import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.player.PlayerPickupArrowEvent;
 import org.bukkit.persistence.PersistentDataType;
 
 /**
@@ -29,5 +32,21 @@ public final class VisualEntities implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDamage(EntityDamageEvent event) {
         if (isVisual(event.getEntity())) event.setCancelled(true);
+        // A visual can't hurt anything either (an arrow visual flying through a mob).
+        if (event instanceof EntityDamageByEntityEvent byEntity && isVisual(byEntity.getDamager())) event.setCancelled(true);
+    }
+
+    /**
+     * Arrow projectiles fly through entities: the engine decides what they hit (allies, barriers...), and
+     * removes them there. Blocks it doesn't prevent: an arrow that lands tells the engine it landed.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onProjectileHit(ProjectileHitEvent event) {
+        if (isVisual(event.getEntity()) && event.getHitEntity() != null) event.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPickup(PlayerPickupArrowEvent event) {
+        if (isVisual(event.getArrow())) event.setCancelled(true);
     }
 }

@@ -38,7 +38,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   line `{ range, width }` (a beam: everyone within width/2 of the line, stops at the first block
   and at enemy barriers; writes beam_start / beam_end for the visual),
   path `{ from, to, width }` (everyone along the segment between two keys, e.g. a dash's path)
-- **Effects:** damage `{amount, ignore_iframes, lifesteal, overflow}`, heal `{amount, overflow}`,
+- **Effects:** damage `{amount, ignore_iframes, lifesteal, overflow, knockback}` (`knockback: false`:
+  magic damage like vanilla poison, no knockback; for damage over time), heal `{amount, overflow}`,
   status `{status, duration}`,
   teleport `{to, ground}`, knockback `{from, radius, center, edge, lift}`
 - **Damage** is in "design HP": 10 design HP = 1 Minecraft health point (half a heart), so a
@@ -63,7 +64,11 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Tags with effects in game:** `state.resistant` = 40% less damage taken, `state.slowed` = -40% speed,
   `state.hasted` = +30% speed, `state.invisible` = invisible (held items still show, like vanilla).
 - **Projectile visual:** an item Material (`DIAMOND_BLOCK`), or `"entity:<EntityType>"`
-  (`"entity:END_CRYSTAL"`).
+  (`"entity:END_CRYSTAL"`). Arrow types (`"entity:ARROW"`, `SPECTRAL_ARROW`, `TRIDENT`) are real arrows
+  flown by the game itself (vanilla drop and drag: `motion` and `bounces` don't apply, `speed` is the
+  launch speed). The engine still checks their path every tick, so enemies, allies, barriers and
+  constructs work as usual; they can't hurt anything by themselves or be picked up. An infused bolt's
+  `ARROW` is tinted in its infusions' colors.
 
 ### Targeting (aim previews)
 
@@ -112,7 +117,8 @@ A character with a `quiver:` has a queue of bolts plus one bolt loaded in their 
   bolt (-> out, or `empty`: a dry fire) and stores it as "bolt"; then an `apply_effects` with
   `infusions: true` also applies that bolt's infusions to whoever it hits.
 - **A CROSSBOW weapon** with a quiver is a real crossbow: hold RMB to draw it (vanilla), and when it's
-  drawn the next bolt loads (not while stunned). LMB fires the primary slot, which should `take_bolt`.
+  drawn the next bolt loads (not while stunned). RMB again fires the primary slot, which should
+  `take_bolt`; LMB doesn't shoot.
   The secondary slot is unused (RMB is the draw).
 - `quiver: { size, hotbar, reload_speed }`: `size` bolts (default 3) shown from hotbar slot `hotbar`
   (the leftmost loads next). `reload_speed: { stacks_of: <status>, max, while: { <tag>: <level> } }`

@@ -45,6 +45,7 @@ public final class TestEngine {
     public TestEngine() {
         Logger logger = Logger.getLogger("test");
         logger.setLevel(Level.WARNING);
+        render.time = time;
         engine = new AbilityEngine(new Platform(time, time, world, world, render, render, render, render, logger));
         engine.effects().register("damage", new Effect() {
             @Override
