@@ -35,6 +35,7 @@ public final class CastBarHud implements Listener {
     }
 
     public void start() {
+
         task = engine.scheduler().every(1, 1, this::tick);
     }
 

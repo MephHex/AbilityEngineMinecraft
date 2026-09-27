@@ -9,7 +9,7 @@ statuses:
   dreamwalking:                      # Dreamwalk: gone from sight, ignored by every ability
     duration: 100                    # 5s...
     stacking: refresh
-    tags: [state.hidden, state.invisible, state.untargetable, state.hasted]
+    tags: [ state.hidden, state.invisible, state.hasted ]
     break_on_damage: true            # ...or until you deal damage
   dream_touch:                       # your next primary fire blinds
     duration: 200                    # 10s to use it
@@ -187,6 +187,7 @@ characters:
   dreamer:
     name: "Dreamer"
     weapon: GOLDEN_SWORD
+    status_bar: dreamwalking
     slots:
       primary: dream_blade           # LMB
       ability_1: dreamwalk           # 1
