@@ -74,7 +74,8 @@ public final class NodeTypes {
                 p.getInt("fragile", 0),
                 p.requireInt("fuse"),
                 p.getString("visual", "AMETHYST_CLUSTER"),
-                new ConstructSystem.Options(p.getBool("solid", true), p.getDouble("trigger", 0), p.getInt("arm", 0))));
+                new ConstructSystem.Options(p.getBool("solid", true), p.getDouble("trigger", 0), p.getInt("arm", 0),
+                        p.getInt("limit", 0))));
         t.register("await_recast", (p, e) -> new AwaitRecastNode(p.requireInt("window"), p.getString("while", null)));
         t.register("redirect_projectile", (p, e) -> new RedirectProjectileNode(
                 p.requireString("projectile"),

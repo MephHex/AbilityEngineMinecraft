@@ -63,9 +63,11 @@ public final class ConstructSystem {
      * @param solid         projectiles and punches hit it (false: they pass through)
      * @param triggerRadius a trap: an enemy within this many blocks sets it off (0 = not a trap)
      * @param armTicks      a trap can't be set off for this long after it's placed
+     * @param limit         at most this many from the same owner and ability at once: placing one more
+     *                      ends the oldest (its "fuse"). 0 = no limit
      */
-    public record Options(boolean solid, double triggerRadius, int armTicks) {
-        public static final Options DEFAULT = new Options(true, 0, 0);
+    public record Options(boolean solid, double triggerRadius, int armTicks, int limit) {
+        public static final Options DEFAULT = new Options(true, 0, 0, 0);
     }
 
     /** A trap is sprung by an entity whose centre is at most this far above or below it. */
@@ -80,12 +82,23 @@ public final class ConstructSystem {
 
     public ConstructHandle place(UUID owner, String world, Vec3 position, double size, int fragileTicks, int fuseTicks,
                                  String visual, Resumer resumer, Options options) {
+        if (options.limit() > 0) makeRoom(owner, abilityOf(resumer), options.limit());
         Construct c = new Construct(IDS.incrementAndGet(), owner, world, position, size, fragileTicks, fuseTicks, resumer,
                 options);
         c.visual = renderer.spawn(c, visual);
         active.add(c);
         if (ticker == null) ticker = scheduler.every(1, 1, this::tick);
         return c;
+    }
+
+    private static String abilityOf(Resumer resumer) { return resumer.context().instance().ability().id(); }
+
+    /** Over the limit with one more: the oldest ones end, as if their fuse ran out. */
+    private void makeRoom(UUID owner, String ability, int limit) {
+        List<Construct> mine = active.stream()
+                .filter(c -> !c.done && c.owner.equals(owner) && abilityOf(c.resumer).equals(ability))
+                .toList(); // placement order: oldest first
+        for (int i = 0; i <= mine.size() - limit; i++) finish(mine.get(i), Ports.FUSE, null);
     }
 
     /** Constructs still standing (ended ones are dropped from the list on the next tick). */

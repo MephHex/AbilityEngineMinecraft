@@ -354,22 +354,34 @@ class HunterTest {
 
     // ---- Hunter's Snare ------------------------------------------------------------------------------
 
-    /** Aim at the floor 10 blocks ahead and confirm: a trap at x=10. */
-    private void placeSnare() {
+    /** Toss a trap straight ahead onto a floor and let it settle. Returns it. */
+    private me.mephisto.ability_engine.engine.construct.ConstructHandle throwSnare() {
         t.world.floor(0);
-        t.world.look(p, new Vec3(1, -0.1, 0));
-        assertTrue(t.engine.loadouts().activate(p, "ability_3").openedTargeting());
-        assertTrue(t.engine.targeting().confirm(p).success());
         t.world.look(p, new Vec3(1, 0, 0));
+        int before = t.engine.constructs().activeCount();
+        t.engine.cooldowns().clear(p, "hunters_snare");
+        assertTrue(t.engine.loadouts().activate(p, "ability_3").success());
+        t.time.advance(40);
+        assertEquals(before + 1, t.engine.constructs().activeCount(), "landed and set");
+        var all = t.engine.constructs().all();
+        return all.get(all.size() - 1);
+    }
+
+    @Test
+    void theSnareIsTossedAShortWayAndLiesOnTheGround() throws IOException {
+        setup();
+        var trap = throwSnare();
+        assertTrue(trap.position().x() > 3 && trap.position().x() < 12, "a short toss: x=" + trap.position().x());
+        assertEquals(0.1, trap.position().y(), 1e-6, "lying on the floor");
+        assertTrue(trap.armed(), "armed where it stopped");
     }
 
     @Test
     void theSnareRootsRevealsAndMarksTheFirstEnemyToStepOnIt() throws IOException {
         setup();
-        placeSnare();
-        UUID enemy = t.spawn(20, 1, 0);
-        t.time.advance(25); // armed
-        t.world.move(enemy, new Vec3(10.5, 1, 0.5));
+        var trap = throwSnare();
+        UUID enemy = t.spawn(30, 1, 0);
+        t.world.move(enemy, trap.position().add(0.5, 0.9, 0.5));
         t.time.advance(1);
         assertTrue(t.engine.tags().has(enemy, Tags.ROOTED));
         assertTrue(t.engine.tags().has(enemy, Tags.GLOWING));
@@ -379,25 +391,67 @@ class HunterTest {
     }
 
     @Test
-    void theSnareIgnoresAlliesAndIsntArmedAtOnce() throws IOException {
+    void theSnareIgnoresAllies() throws IOException {
         setup();
-        placeSnare();
-        UUID ally = t.spawn(10, 1, 0);
+        var trap = throwSnare();
+        UUID ally = t.spawn(30, 1, 0);
         t.world.team(p, "blue");
         t.world.team(ally, "blue");
-        UUID enemy = t.spawn(10.5, 1, 0); // already standing there
-        t.time.advance(10);
-        assertFalse(t.engine.tags().has(enemy, Tags.ROOTED), "not armed for 1s");
-        t.time.advance(15);
-        assertTrue(t.engine.tags().has(enemy, Tags.ROOTED), "armed: springs");
-        assertFalse(t.engine.tags().has(ally, Tags.ROOTED), "allies never set it off");
+        t.world.move(ally, trap.position().add(0, 0.9, 0));
+        t.time.advance(5);
+        assertFalse(t.engine.tags().has(ally, Tags.ROOTED));
+        assertEquals(1, t.engine.constructs().activeCount(), "still waiting");
+    }
+
+    @Test
+    void aDirectHitWithTheThrowSnaresAtOnce() throws IOException {
+        setup();
+        UUID enemy = t.spawn(3, 1, 0);
+        t.engine.loadouts().activate(p, "ability_3");
+        t.time.advance(20);
+        assertTrue(t.engine.tags().has(enemy, Tags.ROOTED));
+        assertTrue(t.engine.statuses().has(enemy, "hunters_mark"));
+        assertEquals(0, t.engine.constructs().activeCount(), "no trap left behind");
+    }
+
+    @Test
+    void atMostFiveTrapsAThrowingASixthRemovesTheOldest() throws IOException {
+        setup();
+        var first = throwSnare();
+        for (int i = 0; i < 4; i++) throwSnare();
+        assertEquals(5, t.engine.constructs().activeCount());
+        assertTrue(first.isAlive());
+        t.engine.cooldowns().clear(p, "hunters_snare");
+        t.engine.loadouts().activate(p, "ability_3");
+        t.time.advance(40);
+        assertEquals(5, t.engine.constructs().activeCount(), "still 5");
+        assertFalse(first.isAlive(), "the oldest went");
+        assertTrue(t.render.cues.contains("fizzle"));
+    }
+
+    @Test
+    void trapsStayArmedWhenYouDieButNotWhenYouLeave() throws IOException {
+        setup();
+        var trap = throwSnare();
+        t.engine.resetOnDeath(p);
+        t.time.advance(5);
+        assertTrue(trap.isAlive(), "still out after death");
+        UUID enemy = t.spawn(30, 1, 0);
+        t.world.move(enemy, trap.position().add(0, 0.9, 0));
+        t.time.advance(1);
+        assertTrue(t.engine.tags().has(enemy, Tags.ROOTED), "and still springs");
+        t.world.kill(enemy); // out of the way of the next trap
+
+        var second = throwSnare();
+        t.engine.resetEntity(p, "quit");
+        t.time.advance(2);
+        assertFalse(second.isAlive(), "logging out clears them");
     }
 
     @Test
     void projectilesAndPunchesPassThroughTheSnare() throws IOException {
         setup();
-        placeSnare();
-        var trap = t.engine.constructs().all().get(0);
+        var trap = throwSnare();
         assertFalse(trap.solid());
         // A shot straight through its centre doesn't touch it (a solid construct would absorb it)...
         Vec3 c = trap.position();
@@ -406,6 +460,27 @@ class HunterTest {
         assertFalse(t.engine.constructs().strike(trap,
                 new me.mephisto.ability_engine.engine.construct.Strike(p, "infused_bolt", "none")));
         assertEquals(1, t.engine.constructs().activeCount(), "still waiting");
+    }
+
+    @Test
+    void slidingCarriesAProjectileFurtherThanLandingFlat() {
+        java.util.function.DoubleUnaryOperator landsAt = slide -> {
+            TestEngine e = new TestEngine();
+            e.world.floor(0);
+            UUID thrower = e.spawn(0, 1, 0);
+            e.load(me.mephisto.ability_engine.engine.testkit.Yml.abilities("toss", map("nodes", map(
+                    "throw", map("type", "projectile", "speed", 0.65, "bounces", 1, "restitution", 0.3,
+                            "friction", 0.2, "slide", slide, "motion", list(map("type", "gravity", "amount", 0.06)),
+                            "on", map("hit_block", "mark")),
+                    "mark", map("type", "construct", "at", "hit", "fuse", 100, "height", 0, "solid", false)))));
+            e.engine.activator().activate(thrower, "toss");
+            e.time.advance(60);
+            return e.engine.constructs().all().get(0).position().x();
+        };
+        double flat = landsAt.applyAsDouble(0);
+        double slid = landsAt.applyAsDouble(0.6);
+        assertTrue(slid > flat + 0.2, "slid on: " + flat + " -> " + slid);
+        assertTrue(slid < flat + 2, "only a bit: " + flat + " -> " + slid);
     }
 
     @Test

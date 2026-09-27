@@ -38,6 +38,10 @@ public final class ProjectileSystem {
 
     /** Pushes a bounced projectile off the surface so it doesn't re-hit the same face. */
     private static final double BOUNCE_NUDGE = 0.05;
+    /** A sliding projectile slower than this (blocks per tick) has stopped. */
+    private static final double MIN_SLIDE_SPEED = 0.03;
+    /** Surfaces facing up at least this much count as ground to slide on (not walls). */
+    private static final double GROUND_NORMAL_Y = 0.7;
 
     private final WorldQuery world;
     private final ConstructSystem constructs;
@@ -218,12 +222,23 @@ public final class ProjectileSystem {
                 p.bouncesLeft--;
                 p.velocity = p.spec.bounce(p.velocity, h.normal());
                 moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
+            } else if (flying == null && slides(p, h)) { // out of bounces, on the ground: skid along it
+                Vec3 flat = new Vec3(p.velocity.x(), 0, p.velocity.z()).multiply(p.spec.slide());
+                p.velocity = flat;
+                moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
             } else { // out of bounces, or too slow to bounce: it lands
                 moveTo(p, h.position());
                 finish(p, Ports.HIT_BLOCK, h.target());
             }
             return;
         }
+    }
+
+    /** Keeps sliding: has slide, touched ground (not a wall), and still has some speed along it. */
+    private static boolean slides(Projectile p, SweepHit h) {
+        if (p.spec.slide() <= 0 || h.normal() == null || h.normal().y() < GROUND_NORMAL_Y) return false;
+        double along = Math.hypot(p.velocity.x(), p.velocity.z()) * p.spec.slide();
+        return along >= MIN_SLIDE_SPEED;
     }
 
     /** A pierced enemy: run "hit_entity" for it in a branch of its own, while the projectile keeps flying. */

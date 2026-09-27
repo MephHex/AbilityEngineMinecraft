@@ -260,40 +260,54 @@ abilities:
         infusion: slowness
         count: 1
 
-  # 3: place a trap on the ground (aim, then LMB). It arms after 1s and lasts 30s. The first enemy to
-  # step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
-  # Your own bolts and punches pass through it; allies can't set it off.
+  # 3: toss a trap a short way. It hops once, slides a little, and arms where it stops. The first enemy
+  # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
+  # A direct hit on an enemy mid-throw snaps shut on them at once. Traps stay armed when you die (not
+  # when you log out); at most 5 at a time, a 6th removes your oldest. Your bolts pass through them.
   hunters_snare:
     cooldown: 300                    # 15s
+    survives_death: true             # thrown traps stay out when you die
     display:
       name: "Hunter's Snare"
       icon: TRIPWIRE_HOOK
       description:
-        - "Place a trap (arms after 1s, lasts 30s)."
+        - "Toss a trap: it hops, slides and arms."
         - "The first enemy to step on it is rooted"
         - "for 2s, glows, and is marked: your next"
-        - "bolt on them deals +40."
-    targeting: { shape: circle, range: 15, radius: 1.5, ground: true }   # preview = trigger area
+        - "bolt on them deals +40. Max 5 traps."
     nodes:
-      set:
+      toss:
+        type: projectile
+        speed: 0.65                  # a short lob: ~7 blocks looking straight ahead
+        size: 0.4
+        lifetime: 100
+        bounces: 1                   # one small hop...
+        restitution: 0.3
+        friction: 0.2
+        slide: 0.6                   # ...then it skids a little (keeps 60% of its speed per tick)
+        visual: TRIPWIRE_HOOK
+        motion:
+          - { type: gravity, amount: 0.06 }
+        on: { spawned: toss_cue, hit_block: place, hit_entity: spring }   # hit_block = where it stopped
+      toss_cue:
         type: play_cue
         cue: trap_set
-        at: aim
-        next: place
       place:
         type: construct
+        at: hit                      # where it came to rest
         store: trap
         height: 0.1                  # lying on the ground
         size: 0.5
         fuse: 600                    # gone after 30s
         solid: false                 # bolts and punches pass through it
         trigger: 1.5                 # an enemy this close (blocks) springs it
-        arm: 20                      # not before 1s
+        arm: 0                       # armed the moment it stops
+        limit: 5                     # a 6th trap removes your oldest
         visual: TRIPWIRE_HOOK
         on: { triggered: spring, fuse: expire }
       spring:
         type: apply_effects
-        targets: { type: key, key: hit }   # whoever stepped on it
+        targets: { type: key, key: hit }   # whoever stepped on it (or was hit by the throw)
         effects:
           - { id: status, status: root, duration: 40 }
           - { id: status, status: glowing, duration: 100 }
@@ -347,5 +361,5 @@ characters:
       primary: infused_bolt          # RMB on a loaded crossbow (hold RMB to draw)
       ability_1: venom_step          # 1
       ability_2: volatile_flask      # 2
-      ability_3: hunters_snare       # 3, then LMB to place
+      ability_3: hunters_snare       # 3: toss a trap
       ultimate: overdrive            # F

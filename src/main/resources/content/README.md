@@ -60,14 +60,18 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   (absorption hearts). `overflow_max` (default 150) and `overflow_decay` per second (default 25).
 - **Traps:** a `construct` with `trigger: <radius>` is a trap: once armed (`arm: <ticks>`), the first
   enemy that comes that close sets it off (-> `triggered`, the enemy stored as "hit"). Add
-  `solid: false` so projectiles and punches pass through it. Allies never set it off.
+  `solid: false` so projectiles and punches pass through it. Allies never set it off. `limit: N`: at most
+  N from the same caster and ability at once; one more ends the oldest.
+- **Sliding:** a `projectile` with `slide: 0.6` doesn't stop when it lands (out of bounces): it skids
+  along the ground keeping that share of its speed each tick, and exits `hit_block` where it stops.
 - **Piercing:** a `projectile` with `pierce: N` passes through N enemies, running `hit_entity` for each
   (like vanilla Piercing), and stops at the next one.
 - **Dashes:** `pierce: true` passes through enemies; `store: name` records name_start / name_end.
   `direction: movement` dashes the way the caster is WALKING (strafe left = dash left, always flat)
   instead of where they aim; standing still, it goes straight ahead.
 - **Ability options:** `aura: <looping cue>` runs for the whole cast; `cancel_on_repress: true` lets
-  the ability's key end it early.
+  the ability's key end it early; `survives_death: true` keeps its casts running when the caster dies
+  (thrown traps stay armed; logging out or changing character still ends them).
 - **Tags with effects in game:** `state.resistant` = 40% less damage taken, `state.slowed` = -40% speed,
   `state.hasted` = +30% speed, `state.invisible` = invisible (held items still show, like vanilla).
 - **Projectile visual:** an item Material (`DIAMOND_BLOCK`), or `"entity:<EntityType>"`

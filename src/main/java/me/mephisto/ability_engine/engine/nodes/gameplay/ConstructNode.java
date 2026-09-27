@@ -18,6 +18,7 @@ import java.util.Set;
  * blast centre. Exits fuse / struck / broken, or triggered for a trap (see ConstructSystem).
  * Trap options: {@code trigger: <radius>} (an enemy this close sets it off; stored as "hit"),
  * {@code arm: <ticks>} (not before this), {@code solid: false} (projectiles and punches pass through).
+ * {@code limit: N}: at most N from this caster and ability at once; one more ends the oldest.
  */
 public final class ConstructNode implements GraphNode {
 

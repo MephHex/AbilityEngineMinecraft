@@ -218,6 +218,7 @@ public final class AbilityLoader {
                 .cooldownAfterRecast(cdStart.equals("after_recast"))
                 .aura(p.getString("aura", null))
                 .cancelOnRepress(p.getBool("cancel_on_repress", false))
+                .survivesDeath(p.getBool("survives_death", false))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))

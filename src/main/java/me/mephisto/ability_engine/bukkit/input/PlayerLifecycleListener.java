@@ -39,7 +39,7 @@ public final class PlayerLifecycleListener implements Listener {
     /** Covers players (PlayerDeathEvent extends this) and mobs. The character is kept through death. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
-        engine.resetEntity(event.getEntity().getUniqueId(), "death");
+        engine.resetOnDeath(event.getEntity().getUniqueId()); // traps and the like stay out
         if (event.getEntity() instanceof Player) event.getDrops().removeIf(hud::isHudItem);
     }
 

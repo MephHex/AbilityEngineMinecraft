@@ -20,6 +20,9 @@ import java.util.List;
  *                       Distance flown while guided doesn't count; lifetimeTicks stays a hard cap.
  * @param pierce         enemies it passes through, each hit on its own (like vanilla Piercing); it stops
  *                       at the next one after that
+ * @param slide          out of bounces, landing on the ground doesn't stop it: it slides, keeping this
+ *                       share (0..1) of its speed each tick on the ground, and stops (hit_block) when it's
+ *                       nearly still or hits a wall. 0 = it stops where it lands
  */
 public record ProjectileSpec(
         double speed,
@@ -34,7 +37,8 @@ public record ProjectileSpec(
         int count,
         double spreadDegrees,
         double range,
-        int pierce
+        int pierce,
+        double slide
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
@@ -76,6 +80,7 @@ public record ProjectileSpec(
         private double spreadDegrees = 0;
         private double range = 0;
         private int pierce = 0;
+        private double slide = 0;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -90,10 +95,11 @@ public record ProjectileSpec(
         public Builder spreadDegrees(double v) { spreadDegrees = v; return this; }
         public Builder range(double v) { range = v; return this; }
         public Builder pierce(int v) { pierce = v; return this; }
+        public Builder slide(double v) { slide = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
-                    motion, visual, count, spreadDegrees, range, pierce);
+                    motion, visual, count, spreadDegrees, range, pierce, slide);
         }
     }
 }

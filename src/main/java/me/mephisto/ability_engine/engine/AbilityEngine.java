@@ -127,6 +127,16 @@ public final class AbilityEngine {
         tags.clear(entity);
     }
 
+    /** Like {@link #resetEntity}, for a death: casts of abilities that survive death keep running (traps). */
+    public void resetOnDeath(UUID entity) {
+        targeting.cancel(entity, "death");
+        for (var instance : instances.of(entity)) {
+            if (!instance.ability().survivesDeath()) instance.cancel("death");
+        }
+        statuses.clear(entity);
+        tags.clear(entity);
+    }
+
     /** Stop everything. Statuses are cleared so their tag listeners undo any Bukkit side effects. */
     public void shutdown() {
         targeting.cancelAll("shutdown");
