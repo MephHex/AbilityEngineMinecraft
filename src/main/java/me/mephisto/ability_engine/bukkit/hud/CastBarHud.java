@@ -16,6 +16,9 @@ import java.util.UUID;
 
 /**
  * Shows cast/channel progress on the XP bar (the boss bar stays free for ult timers etc.).
+ * Characters with a {@code status_bar} otherwise show that status there: the level number is its
+ * stacks, the bar the time it has left (empty and no number while they don't have it); a cast bar
+ * still takes over while one is running.
  * The player's real XP is saved when a bar starts and put back when it ends, so nothing is lost.
  * Note: the XP bar is hidden in creative mode.
  */
@@ -43,14 +46,22 @@ public final class CastBarHud implements Listener {
 
     private void tick() {
         for (Player p : Bukkit.getOnlinePlayers()) {
-            Optional<Double> fill = engine.instances().castProgress(p.getUniqueId());
-            if (fill.isEmpty()) {
+            UUID id = p.getUniqueId();
+            Optional<Double> fill = engine.instances().castProgress(id);
+            Optional<String> statusBar = engine.loadouts().characterOf(id).map(c -> c.statusBar());
+            if (fill.isEmpty() && statusBar.isEmpty()) {
                 restore(p);
                 continue;
             }
-            showing.computeIfAbsent(p.getUniqueId(), id -> new SavedXp(p.getExp(), p.getLevel()));
-            p.setLevel(0); // hides the level number while the bar is up
-            p.setExp((float) Math.min(0.999, fill.get()));
+            showing.computeIfAbsent(id, k -> new SavedXp(p.getExp(), p.getLevel()));
+            if (fill.isPresent()) {
+                p.setLevel(0); // hides the level number while the bar is up
+                p.setExp((float) Math.min(0.999, fill.get()));
+            } else {
+                var gauge = engine.statuses().gauge(id, statusBar.get());
+                p.setLevel(gauge.map(g -> g.stacks()).orElse(0)); // 0 shows no number
+                p.setExp((float) Math.min(0.999, gauge.map(g -> g.fraction()).orElse(0.0)));
+            }
         }
     }
 

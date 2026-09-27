@@ -182,6 +182,33 @@ class HunterTest {
     }
 
     @Test
+    void theRhythmBarShowsTheLevelAndDrainsWithTheTimeLeft() throws IOException {
+        setup();
+        String bar = t.engine.loadouts().characterOf(p).orElseThrow().statusBar();
+        assertEquals("hunters_rhythm", bar);
+        assertTrue(t.engine.statuses().gauge(p, bar).isEmpty(), "nothing before the first hit");
+
+        t.spawn(10, 1, 0);
+        t.engine.quivers().tryLoad(p);
+        shoot(); // hits, then 10 ticks pass
+        var g = t.engine.statuses().gauge(p, bar).orElseThrow();
+        assertEquals(1, g.stacks(), "level 1");
+        assertTrue(g.fraction() > 0.85 && g.fraction() <= 1, "nearly full: " + g.fraction());
+
+        t.time.advance(40);
+        assertEquals(0.5, t.engine.statuses().gauge(p, bar).orElseThrow().fraction(), 0.1, "drains over 5s");
+
+        t.engine.quivers().tryLoad(p);
+        shoot();
+        g = t.engine.statuses().gauge(p, bar).orElseThrow();
+        assertEquals(2, g.stacks(), "level 2");
+        assertTrue(g.fraction() > 0.85, "refilled by the hit: " + g.fraction());
+
+        t.time.advance(101);
+        assertTrue(t.engine.statuses().gauge(p, bar).isEmpty(), "ran out: bar empty again");
+    }
+
+    @Test
     void missesDontCountForTheRhythm() throws IOException {
         setup();
         t.engine.quivers().tryLoad(p);

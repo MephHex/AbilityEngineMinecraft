@@ -9,7 +9,8 @@
 #   load they all shift left and a plain bolt joins on the right. Infusions only ever go onto bolts
 #   in the quiver, never onto the one already loaded, and one bolt can carry several infusions.
 # Passive (Hunter's Rhythm): every bolt that hits makes your next draws 0.25s faster, up to 3 times
-#   (1.25s -> 0.5s). Stacks last 5s, refreshed by each hit. Shown as Quick Charge on the crossbow.
+#   (1.25s -> 0.5s). Stacks last 5s, refreshed by each hit. Shown on the XP bar (level = stacks, the
+#   bar drains as they run out) and as Quick Charge on the crossbow.
 
 statuses:
   hunters_rhythm:                    # the passive: its stacks are the crossbow's reload speed
@@ -236,13 +237,13 @@ abilities:
         next: last
       last:
         type: delay
-        ticks: 160                   # 8s
-        cast_bar: true               # the XP bar shows how long is left
+        ticks: 160                   # 8s (no cast bar: the XP bar keeps showing the Rhythm; a boss bar timer later)
 
 characters:
   hunter:
     name: "Hunter"
     weapon: CROSSBOW                 # a real crossbow: hold RMB to draw (needs the quiver below)
+    status_bar: hunters_rhythm       # XP bar: level = Rhythm stacks, bar = time left
     quiver:
       size: 3                        # the next 3 bolts...
       hotbar: 7                      # ...shown in slots 7, 8, 9 (leftmost loads next)

@@ -184,7 +184,12 @@ public final class AbilityLoader {
                 }
             }
         }
-        return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver);
+        String statusBar = p.getString("status_bar", null);
+        if (statusBar != null && engine.statusDefs().find(statusBar).isEmpty()) {
+            throw p.error("status_bar", "unknown status '" + statusBar + "' (define it under 'statuses:')");
+        }
+        return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
+                statusBar);
     }
 
     public Ability parseAbility(String id, Params p) {

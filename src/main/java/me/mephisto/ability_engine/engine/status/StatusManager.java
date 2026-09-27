@@ -131,6 +131,21 @@ public final class StatusManager {
         return find(target, statusId).map(s -> s.isInfinite() ? Long.MAX_VALUE : Math.max(0, s.expiresAt - clock.now())).orElse(0L);
     }
 
+    /**
+     * A status as a gauge: its stacks, and how much of its duration is left (0..1, measured against its
+     * default duration; 1 for infinite). Empty if the target doesn't have it.
+     */
+    public record Gauge(int stacks, double fraction) {}
+
+    public Optional<Gauge> gauge(UUID target, String statusId) {
+        return find(target, statusId).map(s -> {
+            if (s.isInfinite()) return new Gauge(s.stacks(), 1);
+            double full = Math.max(1, s.def().defaultDurationTicks());
+            double left = Math.max(0, s.expiresAt() - clock.now());
+            return new Gauge(s.stacks(), Math.min(1, left / full));
+        });
+    }
+
     public List<ActiveStatus> on(UUID target) {
         return List.copyOf(active.getOrDefault(target, Map.of()).values());
     }
