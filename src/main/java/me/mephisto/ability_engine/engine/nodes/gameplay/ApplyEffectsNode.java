@@ -87,10 +87,7 @@ public final class ApplyEffectsNode implements GraphNode {
     private static void applyOnHit(ExecutionContext ctx, Target target) {
         java.util.List<String> usedUp = new java.util.ArrayList<>();
         for (ActiveStatus buff : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
-            for (EffectConfig config : buff.def().onHit()) {
-                ctx.engine().effects().require(config.effectId())
-                        .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
-            }
+            for (EffectConfig config : buff.def().onHit()) apply(ctx, config, target);
             if (buff.def().once() && !buff.def().onHit().isEmpty()) usedUp.add(buff.def().id());
         }
         usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id)); // "your NEXT hit" buffs
@@ -103,12 +100,19 @@ public final class ApplyEffectsNode implements GraphNode {
         for (String id : bolt.infusions()) {
             // An infusion removed by /ae reload while the bolt was queued just does nothing.
             ctx.engine().infusions().find(id).ifPresent(infusion -> {
-                for (EffectConfig config : infusion.onHit()) {
-                    ctx.engine().effects().require(config.effectId())
-                            .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
-                }
+                for (EffectConfig config : infusion.onHit()) apply(ctx, config, target);
             });
         }
+    }
+
+    /**
+     * One effect on one target. {@code self: true} puts it on the caster instead (e.g. an infusion or
+     * on-hit that heals the shooter whenever it hits someone).
+     */
+    static void apply(ExecutionContext ctx, EffectConfig config, Target target) {
+        Target to = config.params().getBool("self", false) ? new EntityTarget(ctx.caster()) : target;
+        ctx.engine().effects().require(config.effectId())
+                .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), to, config.params()));
     }
 
     private boolean allowed(ExecutionContext ctx, Target target) {
@@ -131,10 +135,7 @@ public final class ApplyEffectsNode implements GraphNode {
         int times = timesKey == null ? 1 : ctx.blackboard().raw(timesKey) instanceof Number n ? n.intValue() : 0;
         for (Target target : found) {
             for (int i = 0; i < times; i++) {
-                for (EffectConfig config : effects) {
-                    ctx.engine().effects().require(config.effectId())
-                            .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
-                }
+                for (EffectConfig config : effects) apply(ctx, config, target);
             }
             // On-hits only land on OTHER entities you hit, never on yourself.
             boolean other = target instanceof EntityTarget e && !e.id().equals(ctx.caster());

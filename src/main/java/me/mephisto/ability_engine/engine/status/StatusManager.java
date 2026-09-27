@@ -126,6 +126,15 @@ public final class StatusManager {
         log.debug(() -> "status -" + statusId + " on " + target);
     }
 
+    /** Take {@code count} stacks off a status; it ends when none are left. */
+    public void removeStacks(UUID target, String statusId, int count) {
+        Map<String, ActiveStatus> mine = active.get(target);
+        ActiveStatus s = mine == null ? null : mine.get(statusId);
+        if (s == null) return;
+        if (s.stacks <= count) remove(target, statusId);
+        else s.stacks -= count;
+    }
+
     public void clear(UUID target) {
         Map<String, ActiveStatus> mine = active.get(target);
         if (mine == null) return;

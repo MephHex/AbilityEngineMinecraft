@@ -59,6 +59,7 @@ public final class AbilityEngine {
     private final InfusionRegistry infusions = new InfusionRegistry();
     private final QuiverManager quivers;
     private final me.mephisto.ability_engine.engine.link.LinkManager links;
+    private java.util.random.RandomGenerator random = new java.util.Random();
 
     public AbilityEngine(Platform platform) {
         this.platform = platform;
@@ -79,7 +80,7 @@ public final class AbilityEngine {
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
         this.quivers = new QuiverManager(tags, statuses,
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
-        this.loadouts = new LoadoutManager(characters, activator, resources, quivers);
+        this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags);
         this.targeting = new TargetingManager(this);
 
         tags.addListener(instances); // interrupts
@@ -126,6 +127,9 @@ public final class AbilityEngine {
     public InfusionRegistry infusions() { return infusions; }
     public QuiverManager quivers() { return quivers; }
     public me.mephisto.ability_engine.engine.link.LinkManager links() { return links; }
+    /** Randomness for gameplay rolls (random infusions...). Tests swap in a seeded one. */
+    public java.util.random.RandomGenerator random() { return random; }
+    public void setRandom(java.util.random.RandomGenerator random) { this.random = random; }
 
     /** Cancel casts, clear statuses and tags. For death, logout, or mobs despawning. Keeps cooldowns, resources and character. */
     public void resetEntity(UUID entity, String reason) {
@@ -173,8 +177,12 @@ public final class AbilityEngine {
         }
     }
 
-    /** Someone got a kill: reset the killer's abilities that refresh on kills (refresh_on_kill). */
+    /**
+     * Someone got a kill: wakes the killer's await_kill nodes and resets their abilities that refresh on
+     * kills (refresh_on_kill).
+     */
     public void notifyKill(UUID killer, UUID victim, boolean victimIsPlayer) {
+        for (var instance : instances.of(killer)) instance.kill(victim, victimIsPlayer); // await_kill nodes
         loadouts.characterOf(killer).ifPresent(c -> c.slots().values().forEach(id -> abilities.find(id).ifPresent(a -> {
             if (a.refreshOnKill().equals("all") || (victimIsPlayer && a.refreshOnKill().equals("players"))) {
                 cooldowns.clear(killer, id);

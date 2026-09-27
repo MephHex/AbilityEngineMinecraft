@@ -23,14 +23,19 @@ final class MovementLock {
     /** +30% movement speed (state.hasted). Stacks multiplicatively-ish with a slow: both apply. */
     private static final double HASTE_AMOUNT = 0.3;
 
+    /** Vanilla's flying speed (players): creative-style flight ignores the movement attribute. */
+    private static final float DEFAULT_FLY_SPEED = 0.1f;
+
     static void apply(LivingEntity living) {
         add(living.getAttribute(Attribute.MOVEMENT_SPEED), SPEED_KEY, -1.0);
         add(living.getAttribute(Attribute.JUMP_STRENGTH), JUMP_KEY, -1.0);
+        if (living instanceof org.bukkit.entity.Player p) p.setFlySpeed(0f); // flying (state.flying) too
     }
 
     static void remove(LivingEntity living) {
         strip(living.getAttribute(Attribute.MOVEMENT_SPEED), SPEED_KEY);
         strip(living.getAttribute(Attribute.JUMP_STRENGTH), JUMP_KEY);
+        if (living instanceof org.bukkit.entity.Player p) p.setFlySpeed(DEFAULT_FLY_SPEED);
     }
 
     static void applySlow(LivingEntity living) {

@@ -8,31 +8,49 @@
 
 abilities:
 
-  # PRIMARY + PASSIVE (Vital Overflow): a short swing in front of you. Every third one is a wide
-  # cleave instead, which heals you for the damage it deals (excess becomes Overflow).
+  # PRIMARY + PASSIVE (Vital Overflow): a short swing in front of you. Swings that HIT something charge
+  # the passive (swinging at the air doesn't): after two, your next swing is a wide cleave instead,
+  # which heals you for the damage it deals (excess becomes Overflow).
   essence_reaver_primary:
     cooldown: 12                     # 0.6s between swings
     display:
       name: "Reaver Strike"
       icon: IRON_HOE
       description:
-        - "Melee swing. Every 3rd swing cleaves wide"
-        - "and heals you for the damage dealt."
+        - "Melee swing. After 2 swings that hit, the"
+        - "next one cleaves wide and heals you for"
+        - "the damage dealt."
     nodes:
-      count:
-        type: counter
+      ready:
+        type: counter                # is the cleave charged? (only looks, doesn't count)
         counter: reaver_swings       # remembered between swings (a plain resource)
         every: 3
-        on: { trigger: cleave, out: swing }
+        peek: true
+        on: { trigger: use_up, out: swing }
+      use_up:
+        type: counter                # counts to 3 and resets: the charge is spent
+        counter: reaver_swings
+        every: 3
+        on: { trigger: cleave }
       swing:
         type: apply_effects
         targets: { type: cone, range: 3, angle: 70 }
+        count: swing_hits            # how many it hit
         effects:
           - { id: damage, amount: 35 }
         next: swing_cue
       swing_cue:
         type: play_cue
         cue: sweep
+        next: landed
+      landed:
+        type: switch                 # hit nobody: the passive doesn't charge
+        key: swing_hits
+        on: { "0": ~, default: charge }   # ~ = nothing
+      charge:
+        type: counter                # a swing that hit: +1 (never reaches 3 here, the peek saw to that)
+        counter: reaver_swings
+        every: 3
       cleave:
         type: apply_effects
         targets: { type: cone, range: 4.5, angle: 140 }

@@ -64,6 +64,37 @@ class EssenceReaverTest {
         assertEquals(70 + 45 + 35, t.damage(front), 1e-9);
     }
 
+    @Test
+    void onlySwingsThatHitChargeTheCleave() throws IOException {
+        setup();
+        swing();                                  // air
+        swing();                                  // air
+        swing();                                  // air: would have been the 3rd swing
+        UUID front = enemyAt(2, 0);
+        UUID wide = enemyAt(1, 2);
+        assertEquals(0, t.damage(front), 1e-9);
+        swing();                                  // hit 1
+        assertEquals(0, t.damage(wide), 1e-9, "still a normal swing: the misses didn't count");
+        swing();                                  // hit 2
+        swing();                                  // now the cleave
+        assertEquals(35 + 35 + 45, t.damage(front), 1e-9);
+        assertEquals(45, t.damage(wide), 1e-9, "the cleave");
+    }
+
+    @Test
+    void aWhiffInBetweenDoesntResetTheCharge() throws IOException {
+        setup();
+        UUID front = enemyAt(2, 0);
+        swing();                                  // hit 1
+        t.world.look(p, new Vec3(-1, 0, 0));
+        swing();                                  // air
+        t.world.look(p, new Vec3(1, 0, 0));
+        swing();                                  // hit 2
+        swing();                                  // cleave
+        assertEquals(35 + 35 + 45, t.damage(front), 1e-9);
+        assertTrue(t.lifesteal.containsKey(p), "the cleave healed");
+    }
+
     // ---- Essence Absorption ---------------------------------------------------------------
 
     @Test

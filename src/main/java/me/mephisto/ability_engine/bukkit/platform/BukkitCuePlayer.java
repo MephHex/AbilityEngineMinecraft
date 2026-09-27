@@ -139,6 +139,30 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 20, 0.3, 0.4, 0.3, 0.2);
             loc.getWorld().playSound(loc, Sound.ENTITY_ARROW_HIT_PLAYER, 1f, 0.6f);
         });
+        // ---- Arcanist: Arcane Barrage ----
+        c.register("barrage_rise", loc -> {
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 50, 0.4, 0.2, 0.4, 0.2);
+            loc.getWorld().playSound(loc, Sound.ENTITY_BREEZE_JUMP, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.6f);
+        });
+        c.register("barrage_shot", loc -> {
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 12, 0.1, 0.1, 0.1, 0.08);
+            loc.getWorld().playSound(loc, Sound.ENTITY_BREEZE_SHOOT, 1f, 1.4f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1.8f);
+        });
+        c.register("barrage_hit", loc -> {
+            loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 30, 0.3, 0.4, 0.3, 0.3);
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 15, 0.2, 0.3, 0.2, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ARROW_HIT_PLAYER, 1f, 0.5f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1f, 0.7f);
+        });
+        c.register("barrage_blast", loc -> {
+            loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 0.5, 0.3, 0.5, 0);
+            loc.getWorld().spawnParticle(Particle.WITCH, loc, 40, 1.6, 0.6, 1.6, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.5f);
+        });
+        c.register("barrage_reload", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 1f, 1.8f));
+
         // ---- Vanguard ----
         c.register("leap_off", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);

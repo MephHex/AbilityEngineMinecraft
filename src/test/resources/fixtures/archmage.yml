@@ -2,6 +2,13 @@
 # The Archmage: primary Arcane Bolt, RMB Arcane Focus, 1 Arcane Missile, 2 Foldstep, 3 Unstable Binding.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 
+statuses:
+  barrage_charges:                   # Arcane Barrage: shots left (the XP bar number during the ultimate)
+    duration: 0                      # until used (the ultimate clears leftovers when it starts)
+    stacking: stack
+    max_stacks: 5                    # 3, plus up to 2 from eliminations
+    tags: [state.barrage_charged]
+
 abilities:
 
   # Primary fire (LMB after the input rework; right click in the test kit for now).
@@ -243,6 +250,163 @@ abilities:
   #  DIVER
   # =====================================================================================
 
+  # ULTIMATE (F): Arcane Barrage. Rise into the air and fly for 12s (a boss bar counts it down) with 3
+  # shots; each elimination gives one more (up to 2 more). Your weapon becomes a spyglass and your
+  # primary fire becomes Arcane Barrage (below). It ends when the time or the shots run out.
+  arcanist_ult1:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Arcane Barrage"
+      icon: NETHER_STAR
+      description:
+        - "Rise and fly for 12s with 3 shots of"
+        - "Arcane Barrage (hold RMB: zoom and charge)."
+        - "Eliminations: +1 shot (up to 2)."
+    active_tags: [state.barrage, state.flying]   # the whole ultimate: flight, and the spyglass kit (see forms)
+    movement: false                  # charging a shot roots you: that mustn't end the ultimate...
+    blocked_by: [block.ability, block.move]   # ...but you can't START it while rooted
+    nodes:
+      rise_cue:
+        type: play_cue
+        cue: barrage_rise
+        next: rise
+      rise:
+        type: leap
+        direction: up
+        up: 1.0                      # ~6 blocks up
+        until: apex
+        next: arm
+      arm:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: remove_status, status: barrage_charges }   # nothing left over from last time
+          - { id: status, status: barrage_charges }          # +1...
+          - { id: status, status: barrage_charges }          # +1...
+          - { id: status, status: barrage_charges }          # +1 = 3 shots
+        next: split
+      split:
+        type: fork                   # the timer and the kill rewards run side by side
+        on: { out: last, also: bounty }
+      last:
+        type: delay
+        ticks: 240                   # 12s
+        boss_bar: true
+        next: unused
+      unused:
+        type: apply_effects          # time's up: shots you didn't fire are gone
+        targets: { type: self }
+        effects:
+          - { id: remove_status, status: barrage_charges }
+        next: over
+      over:
+        type: end_cast               # (also stops waiting for kills)
+      bounty:
+        type: await_kill             # an elimination: +1 shot...
+        on: { kill: reward }
+      reward:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: barrage_charges }
+        next: reward_cue
+      reward_cue:
+        type: play_cue
+        cue: barrage_reload
+        next: bounty_2
+      bounty_2:
+        type: await_kill             # ...and one more for a second one (then no more)
+        on: { kill: reward_2 }
+      reward_2:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: barrage_charges }
+        next: reward_2_cue
+      reward_2_cue:
+        type: play_cue
+        cue: barrage_reload
+
+  # Arcane Barrage's shot: the primary fire DURING the ultimate (the spyglass). Hold RMB: zoom in and
+  # charge (you can't move or use abilities meanwhile); let go, or reach full charge, to fire a very fast
+  # bolt. On a player (or mob): massive damage, no explosion. On terrain: it explodes. The damage grows
+  # with the charge (40% when let go at once). The last shot ends the ultimate.
+  arcanist_barrage:
+    cooldown: 10                     # 0.5s between shots
+    display:
+      name: "Arcane Barrage"
+      icon: SPYGLASS
+      description:
+        - "Hold RMB: zoom in and charge (you can't"
+        - "move). Let go or fully charged: fire."
+        - "Direct hit: up to 220 damage."
+        - "Terrain: explodes, up to 90 around it."
+    active_tags: [state.charging, block.move, block.ability]   # while charging (released when it fires)
+    nodes:
+      loaded:
+        type: has_tag                # any shots left?
+        tag: state.barrage_charged
+        on: { has: charge }          # none: nothing happens
+      charge:
+        type: charge
+        ticks: 30                    # 1.5s to full power (the XP bar fills, level 0)
+        from: 0.4                    # let go at once: 40% power
+        store: power
+        next: still_loaded
+      still_loaded:
+        type: has_tag                # the ultimate ran out while charging: no shot
+        tag: state.barrage_charged
+        on: { has: steady }
+      steady:
+        type: release_tags           # fired: move again
+        next: shoot
+      shoot:
+        type: projectile
+        speed: 4.0                   # very fast, but a real projectile: it travels (not hitscan)
+        size: 0.3
+        range: 120
+        lifetime: 40
+        visual: END_ROD
+        on: { spawned: spend, hit_entity: snipe, hit_block: blast }
+      spend:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: remove_status, status: barrage_charges, stacks: 1 }   # one shot used
+        next: shot_cue
+      shot_cue:
+        type: play_cue
+        cue: barrage_shot
+        next: any_left
+      any_left:
+        type: has_tag
+        tag: state.barrage_charged
+        on: { lacks: out_of_shots }
+      out_of_shots:
+        type: cancel_ability         # that was the last one: the ultimate ends
+        ability: arcanist_ult1
+      snipe:
+        type: apply_effects          # a direct hit: no explosion, just a lot of damage
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 220, scale_by: power }
+        next: snipe_cue
+      snipe_cue:
+        type: play_cue
+        cue: barrage_hit
+        at: hit
+      blast:
+        type: apply_effects          # terrain: explodes
+        targets: { type: radius, center: hit, radius: 3.5 }
+        effects:
+          - { id: damage, amount: 90, scale_by: power }
+          - { id: knockback, from: hit, radius: 3.5, center: 1.0, edge: 0.3, lift: 0.4 }
+        next: blast_cue
+      blast_cue:
+        type: play_cue
+        cue: barrage_blast
+        at: hit
+
 characters:
   archmage:
     name: "Archmage"
@@ -260,4 +424,9 @@ characters:
       ability_1: arcane_missile      # 1, press 1 again to recast
       ability_2: foldstep            # 2, left click to confirm
       ability_3: unstable_binding    # 3, left click to place
-      # ultimate: Arcane Ascension (not built yet)
+      ultimate: arcanist_ult1        # F: Arcane Barrage
+    forms:
+      - while: state.barrage         # during Arcane Barrage:
+        weapon: SPYGLASS             # hold RMB to zoom in and charge a shot (LMB does nothing)
+        slots: { primary: arcanist_barrage }
+        status_bar: barrage_charges  # XP bar: shots left (level 0 and filling while charging one)

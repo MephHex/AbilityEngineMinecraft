@@ -190,6 +190,65 @@ public final class AbilityInstance {
         if (h != null && isActive()) h.run();
     }
 
+    // ---- charge (set by a charge node while it charges) -----------------------------------------
+
+    private Runnable releaseHandler;
+
+    public void setReleaseHandler(Runnable handler) { this.releaseHandler = handler; }
+
+    public void clearReleaseHandler(Runnable handler) {
+        if (releaseHandler == handler) releaseHandler = null;
+    }
+
+    public boolean charging() { return isActive() && releaseHandler != null; }
+
+    /** The held input was let go: fire the charge. One-shot. */
+    public void release() {
+        Runnable h = releaseHandler;
+        releaseHandler = null;
+        if (h != null && isActive()) h.run();
+    }
+
+    // ---- kills (set by an await_kill node while it waits) ---------------------------------------
+
+    /** Called with (victim, victim is a player). */
+    private java.util.function.BiConsumer<UUID, Boolean> killHandler;
+
+    public void setKillHandler(java.util.function.BiConsumer<UUID, Boolean> handler) { this.killHandler = handler; }
+
+    public void clearKillHandler(java.util.function.BiConsumer<UUID, Boolean> handler) {
+        if (killHandler == handler) killHandler = null;
+    }
+
+    /** The caster got a kill. One-shot: the waiter must re-register to hear another. */
+    public void kill(UUID victim, boolean victimIsPlayer) {
+        var h = killHandler;
+        killHandler = null;
+        if (h != null && isActive()) h.accept(victim, victimIsPlayer);
+    }
+
+    // ---- timer (a boss bar counting down, e.g. an ultimate's duration) --------------------------
+
+    private CastProgress timer;
+
+    /** Show a timer running out over {@code durationTicks}. Returns a token for {@link #clearTimer}. */
+    public CastProgress showTimer(long durationTicks) {
+        timer = new CastProgress(engine.clock().now(), Math.max(1, durationTicks));
+        return timer;
+    }
+
+    public void clearTimer(CastProgress token) {
+        if (timer == token) timer = null;
+    }
+
+    /** 1..0: how much of the timer is left, while one is showing and the cast is running. */
+    public Optional<Double> timerLeft() {
+        CastProgress t = timer;
+        if (!isActive() || t == null) return Optional.empty();
+        double f = 1 - (engine.clock().now() - t.startTick()) / (double) t.durationTicks();
+        return Optional.of(Math.max(0, Math.min(1, f)));
+    }
+
     /** Run when the instance ends for any reason. Hooks must be safe to run more than once. */
     public void onEnd(Runnable hook) {
         if (isActive()) onEnd.add(hook);
@@ -202,6 +261,9 @@ public final class AbilityInstance {
         endReason = reason;
         if (cooldownOnEnd) startDeferredCooldown(); // e.g. stunned during the recast window: no free cast
         recastHandler = null;
+        releaseHandler = null;
+        killHandler = null;
+        timer = null;
         progress = null;
         keepAlive = null;
         gauge = null;

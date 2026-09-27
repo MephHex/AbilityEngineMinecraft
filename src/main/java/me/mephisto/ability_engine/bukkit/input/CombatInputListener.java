@@ -27,6 +27,7 @@ import org.bukkit.inventory.EquipmentSlot;
 
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -44,7 +45,12 @@ import java.util.UUID;
  * <p>Crossbow characters (a CROSSBOW weapon with a quiver) handle it like vanilla: hold RMB to draw
  * (CrossbowListener loads the next bolt when it's drawn), then press RMB again to shoot, which fires the
  * primary slot. LMB doesn't shoot (it still confirms aim previews and uses a melee slot). Their secondary
- * slot is unused.
+ * slot is unused. During rapid fire (the quiver's rapid_fire_while) there's no drawing: every RMB, and
+ * holding it, shoots.
+ *
+ * <p>A SPYGLASS weapon (a form, e.g. Arcane Barrage): hold RMB to zoom in (vanilla's spyglass) and charge
+ * the primary; letting go fires it (the engine's charge node), and a shot that fired by itself at full
+ * charge ends the zoom. LMB does nothing.
  */
 public final class CombatInputListener implements Listener {
 
@@ -72,10 +78,14 @@ public final class CombatInputListener implements Listener {
     private final Map<UUID, Map<InputAction, Long>> lastPress = new HashMap<>();
     private final Map<UUID, Long> scrollIgnoreUntil = new HashMap<>();
 
+    /** Players who started a charge with the spyglass: watched every tick for letting go. */
+    private final java.util.Set<UUID> scoping = new java.util.HashSet<>();
+
     public CombatInputListener(AbilityEngine engine, Keybinds keybinds, HotbarHud hud) {
         this.engine = engine;
         this.keybinds = keybinds;
         this.hud = hud;
+        engine.scheduler().every(1, 1, this::watchScopes);
     }
 
     private boolean inCombat(Player p) { return engine.loadouts().has(p.getUniqueId()); }
@@ -120,6 +130,10 @@ public final class CombatInputListener implements Listener {
             crossbowRightClick(p, e);
             return;
         }
+        if (right && !aiming(p) && hud.usesScope(p)) {
+            scopeRightClick(p, e);
+            return;
+        }
         e.setCancelled(true); // no block breaking, doors, chests or item use
         if (left) leftClick(p);
         else rightClick(p);
@@ -131,6 +145,13 @@ public final class CombatInputListener implements Listener {
      */
     private void crossbowRightClick(Player p, PlayerInteractEvent e) {
         boolean freshPress = sinceLast(p, InputAction.RIGHT_CLICK) > RIGHT_CLICK_HOLD_GAP;
+        if (engine.quivers().rapidFire(p.getUniqueId())) { // no drawing: every press, and holding, shoots
+            e.setCancelled(true);
+            if (p.isHandRaised()) p.clearActiveItem(); // the client started a draw: stop it
+            p.updateInventory();
+            shoot(p);
+            return;
+        }
         if (engine.quivers().canLoad(p.getUniqueId())) {
             e.setUseInteractedBlock(Event.Result.DENY);
             e.setUseItemInHand(Event.Result.ALLOW);
@@ -139,6 +160,49 @@ public final class CombatInputListener implements Listener {
         e.setCancelled(true);
         p.updateInventory(); // the client may already show vanilla's shot; the HUD redraws the real state
         if (freshPress && engine.quivers().isLoaded(p.getUniqueId())) shoot(p);
+    }
+
+    /**
+     * Spyglass: start charging the primary and let vanilla zoom in. Already charging: keep zooming.
+     * Can't fire (no shots, cooldown): no zoom either.
+     */
+    private void scopeRightClick(Player p, PlayerInteractEvent e) {
+        UUID id = p.getUniqueId();
+        e.setUseInteractedBlock(Event.Result.DENY); // no doors or chests
+        if (engine.instances().charging(id)) {
+            e.setUseItemInHand(Event.Result.ALLOW);
+            return;
+        }
+        ActivationResult result = engine.loadouts().activate(id, Slots.PRIMARY, true);
+        if (result.success() && engine.instances().charging(id)) {
+            e.setUseItemInHand(Event.Result.ALLOW);
+            scoping.add(id);
+            hud.refresh(p);
+            return;
+        }
+        e.setUseItemInHand(Event.Result.DENY);
+        if (!result.success() && !result.reason().startsWith("on_cooldown")) {
+            p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));
+        }
+    }
+
+    /** Every tick: a charging player who let go of RMB fires; a shot that fired by itself ends the zoom. */
+    private void watchScopes() {
+        for (UUID id : List.copyOf(scoping)) {
+            Player p = Bukkit.getPlayer(id);
+            if (p == null) {
+                scoping.remove(id);
+                continue;
+            }
+            boolean holding = p.isHandRaised() && p.getActiveItem().getType() == org.bukkit.Material.SPYGLASS;
+            boolean charging = engine.instances().charging(id);
+            if (charging && !holding) engine.instances().release(id); // let go: fire
+            if (!charging && holding) p.clearActiveItem();             // fired at full charge: stop zooming
+            if (!charging || !holding) {
+                scoping.remove(id);
+                hud.refresh(p);
+            }
+        }
     }
 
     /** Crossbow characters: fire the primary slot (it takes the loaded bolt). */
@@ -159,7 +223,7 @@ public final class CombatInputListener implements Listener {
         if (!inCombat(p) && !aiming(p)) return;
         e.setCancelled(true);
         // Crossbows: the client follows up with a plain "use item" (onInteract), which draws.
-        if (!aiming(p) && hud.usesCrossbow(p)) return;
+        if (!aiming(p) && (hud.usesCrossbow(p) || hud.usesScope(p))) return;
         rightClick(p);
     }
 
@@ -185,7 +249,7 @@ public final class CombatInputListener implements Listener {
             ActivationResult r = engine.loadouts().activateOn(id, Slots.MELEE, new EntityTarget(e.getAttacked().getUniqueId()));
             if (r.success()) hud.refresh(p);
             else if (!r.reason().startsWith("on_cooldown")) p.sendActionBar(Component.text(r.reason(), NamedTextColor.RED));
-        } else if (!hud.usesCrossbow(p)) { // crossbows shoot with RMB
+        } else if (!hud.usesCrossbow(p) && !hud.usesScope(p)) { // crossbows shoot with RMB, spyglasses charge with it
             fire(p, InputAction.LEFT_CLICK, true);
         }
     }
@@ -206,7 +270,7 @@ public final class CombatInputListener implements Listener {
             confirm(p);
             return;
         }
-        if (hud.usesCrossbow(p)) return; // crossbows shoot with RMB
+        if (hud.usesCrossbow(p) || hud.usesScope(p)) return; // crossbows shoot with RMB, spyglasses charge with it
         fire(p, InputAction.LEFT_CLICK, true);
     }
 

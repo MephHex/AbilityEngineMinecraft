@@ -163,8 +163,7 @@ public final class AbilityLoader {
         return v;
     }
 
-    public CharacterDef parseCharacter(String id, Params p) {
-        Params slotsSection = p.requireParams("slots");
+    private Map<String, String> slots(Params slotsSection) {
         Map<String, String> slots = new LinkedHashMap<>();
         for (String slot : slotsSection.keys()) {
             if (!Slots.ALL.contains(slot)) throw slotsSection.error(slot, "unknown slot, expected one of " + Slots.ALL);
@@ -174,6 +173,21 @@ public final class AbilityLoader {
             }
             slots.put(slot, abilityId);
         }
+        return slots;
+    }
+
+    /** {@code forms: [ { while: <tag>, weapon, slots: {...}, status_bar } ]}: kit changes while a tag is on. */
+    private java.util.List<CharacterDef.Form> forms(Params p) {
+        java.util.List<CharacterDef.Form> forms = new java.util.ArrayList<>();
+        for (Params f : p.getParamsList("forms")) {
+            forms.add(new CharacterDef.Form(f.requireString("while"), f.getString("weapon", null),
+                    slots(f.getParams("slots")), statusBar(f)));
+        }
+        return forms;
+    }
+
+    public CharacterDef parseCharacter(String id, Params p) {
+        Map<String, String> slots = slots(p.requireParams("slots"));
         Map<String, ResourceDef> resources = new LinkedHashMap<>();
         Params res = p.getParams("resources");
         for (String name : res.keys()) {
@@ -194,7 +208,7 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar);
+                statusBar, forms(p));
     }
 
     /**
@@ -234,7 +248,10 @@ public final class AbilityLoader {
 
             if (np.has("next")) graph.next(nodeId, np.requireString("next"));
             Params on = np.getParams("on");
-            for (String port : on.keys()) graph.edge(nodeId, port, on.requireString(port));
+            for (String port : on.keys()) {
+                if (on.raw(port) == null) continue; // "port: ~" = that case just ends (e.g. a switch case)
+                graph.edge(nodeId, port, on.requireString(port));
+            }
         }
         if (p.has("start")) graph.start(p.requireString("start"));
 

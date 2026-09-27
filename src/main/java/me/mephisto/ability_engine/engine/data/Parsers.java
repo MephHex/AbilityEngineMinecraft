@@ -193,7 +193,7 @@ public final class Parsers {
             }
             speed = new QuiverDef.ReloadSpeed(stacksOf, first, max, whileTags);
         }
-        return new QuiverDef(size, hotbar, speed);
+        return new QuiverDef(size, hotbar, speed, p.getStringSet("rapid_fire_while", java.util.Set.of()));
     }
 
     /** Default for every ground-targeted ability: at most this far below your feet, else the cliff edge. */

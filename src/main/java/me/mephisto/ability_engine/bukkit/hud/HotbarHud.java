@@ -78,8 +78,13 @@ public final class HotbarHud {
     /** Per player: what the quiver HUD last showed, so it's only redrawn when something changed. */
     private final Map<UUID, QuiverShown> quiverShown = new HashMap<>();
 
-    /** @param revision the quiver's revision (queue + loaded bolt) @param reloadSpeed the weapon's Quick Charge */
-    private record QuiverShown(long revision, int reloadSpeed) {}
+    /**
+     * @param revision the quiver's revision (queue + loaded bolt) @param reloadSpeed the weapon's Quick Charge
+     * @param rapid    rapid fire (no drawing: the crossbow always shows the next bolt ready)
+     */
+    private record QuiverShown(long revision, int reloadSpeed, boolean rapid) {}
+    /** Per player: the kit last drawn (with any form applied), so a form starting or ending redraws it. */
+    private final Map<UUID, CharacterDef> renderedAs = new HashMap<>();
 
     public HotbarHud(Plugin plugin, AbilityEngine engine, Keybinds keybinds) {
         this.engine = engine;
@@ -111,6 +116,7 @@ public final class HotbarHud {
         clear(p);
         Optional<CharacterDef> character = engine.loadouts().characterOf(p.getUniqueId());
         if (character.isEmpty()) return;
+        renderedAs.put(p.getUniqueId(), character.get());
 
         PlayerInventory inv = p.getInventory();
         inv.setItem(WEAPON_SLOT, weapon(p, character.get()));
@@ -174,7 +180,10 @@ public final class HotbarHud {
         });
         engine.scheduler().every(2, 2, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) {
-                if (!engine.loadouts().has(p.getUniqueId())) continue;
+                Optional<CharacterDef> now = engine.loadouts().characterOf(p.getUniqueId());
+                if (now.isEmpty()) continue;
+                // A form started or ended (e.g. an ultimate that swaps the weapon and primary): redraw the kit.
+                if (!now.get().equals(renderedAs.get(p.getUniqueId()))) render(p);
                 updateGauges(p);
                 updateGlints(p);
                 syncQuiver(p); // reload speed follows statuses that expire on their own
@@ -219,9 +228,14 @@ public final class HotbarHud {
                 .filter(c -> c.quiver() != null && weaponMaterial(c) == Material.CROSSBOW).isPresent();
     }
 
+    /** A SPYGLASS weapon (e.g. during Arcane Barrage): hold RMB to zoom in and charge the primary, let go to fire. */
+    public boolean usesScope(Player p) {
+        return engine.loadouts().characterOf(p.getUniqueId()).filter(c -> weaponMaterial(c) == Material.SPYGLASS).isPresent();
+    }
+
     private QuiverShown quiverState(Player p) {
         UUID id = p.getUniqueId();
-        return new QuiverShown(engine.quivers().revision(id), engine.quivers().reloadSpeed(id));
+        return new QuiverShown(engine.quivers().revision(id), engine.quivers().reloadSpeed(id), engine.quivers().rapidFire(id));
     }
 
     /**
@@ -365,6 +379,7 @@ public final class HotbarHud {
     public void clear(Player p) {
         sweepEnds.remove(p.getUniqueId()); // next refresh re-sends every sweep
         quiverShown.remove(p.getUniqueId());
+        renderedAs.remove(p.getUniqueId());
         PlayerInventory inv = p.getInventory();
         ItemStack[] contents = inv.getContents();
         for (int i = 0; i < contents.length; i++) {
@@ -424,12 +439,15 @@ public final class HotbarHud {
     private void crossbowState(Player p, ItemMeta meta, List<Component> lore) {
         UUID id = p.getUniqueId();
         Optional<Bolt> loaded = engine.quivers().loaded(id);
+        boolean rapid = engine.quivers().rapidFire(id);
+        if (rapid && loaded.isEmpty()) loaded = engine.quivers().queue(id).stream().findFirst(); // shot straight from the quiver
         if (meta instanceof CrossbowMeta crossbow) {
             crossbow.setChargedProjectiles(loaded.map(b -> List.of(boltItem(b, false))).orElse(List.of()));
         }
         int speed = engine.quivers().reloadSpeed(id);
         if (speed > 0) meta.addEnchant(Enchantment.QUICK_CHARGE, speed, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_ADDITIONAL_TOOLTIP); // our own lines below
+        if (rapid) lore.add(plain("Rapid fire: RMB (or hold it) to shoot", NamedTextColor.GOLD));
         lore.add(loaded.isPresent()
                 ? plain("Loaded: ", NamedTextColor.GRAY).append(plain(boltName(infusionsOf(loaded.get())), NamedTextColor.GREEN))
                 : plain("Not loaded (hold RMB to draw)", NamedTextColor.RED));

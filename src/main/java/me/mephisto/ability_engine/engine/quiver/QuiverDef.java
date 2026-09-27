@@ -9,12 +9,22 @@ import java.util.Map;
  *   size: 3            # queued bolts (the loaded one is extra)
  *   hotbar: 7          # shown in slots 7, 8, 9: the leftmost is the next to load
  *   reload_speed: { stacks_of: hunters_rhythm, max: 3, while: { state.overdrive: 4 } }
+ *   rapid_fire_while: [state.overdrive]
  * </pre>
  *
- * @param hotbarSlot  1-9: first hotbar slot the queue is drawn in (0 = not shown)
- * @param reloadSpeed how much faster than normal the weapon reloads; null = never faster
+ * @param hotbarSlot     1-9: first hotbar slot the queue is drawn in (0 = not shown)
+ * @param reloadSpeed    how much faster than normal the weapon reloads; null = never faster
+ * @param rapidFireWhile while the owner has one of these tags: no drawing, it shoots straight from the quiver
  */
-public record QuiverDef(int size, int hotbarSlot, ReloadSpeed reloadSpeed) {
+public record QuiverDef(int size, int hotbarSlot, ReloadSpeed reloadSpeed, java.util.Set<String> rapidFireWhile) {
+
+    public QuiverDef {
+        rapidFireWhile = java.util.Set.copyOf(rapidFireWhile);
+    }
+
+    public QuiverDef(int size, int hotbarSlot, ReloadSpeed reloadSpeed) {
+        this(size, hotbarSlot, reloadSpeed, java.util.Set.of());
+    }
 
     /**
      * Reload speed level, 0 = normal. On Bukkit each level is one level of Quick Charge on the crossbow

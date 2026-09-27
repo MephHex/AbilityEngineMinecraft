@@ -81,9 +81,9 @@ public final class QuiverManager {
         return true;
     }
 
-    /** Would a manual reload (drawing the weapon) be allowed right now? Not while blocked (stunned, casting). */
+    /** Would a manual reload (drawing the weapon) be allowed right now? Not while blocked (stunned, casting) or rapid firing. */
     public boolean canLoad(UUID owner) {
-        return has(owner) && !isLoaded(owner) && !tags.has(owner, Tags.BLOCK_ABILITY);
+        return has(owner) && !isLoaded(owner) && !tags.has(owner, Tags.BLOCK_ABILITY) && !rapidFire(owner);
     }
 
     /** A manual reload finished (the platform saw the weapon drawn): load, unless that isn't allowed. */
@@ -123,6 +123,29 @@ public final class QuiverManager {
             s.revision++;
         }
         return changed;
+    }
+
+    /** Infuse the queued bolt at {@code index} (0 = next to load). False if it already had it (or there's none). */
+    public boolean infuseAt(UUID owner, int index, String infusion) {
+        Optional<State> found = state(owner);
+        if (found.isEmpty() || index < 0 || index >= found.get().queue.size()) return false;
+        State s = found.get();
+        List<Bolt> bolts = new ArrayList<>(s.queue);
+        Bolt infused = bolts.get(index).with(infusion);
+        if (infused == bolts.get(index)) return false;
+        bolts.set(index, infused);
+        s.queue.clear();
+        s.queue.addAll(bolts);
+        s.revision++;
+        return true;
+    }
+
+    /**
+     * Rapid fire (the quiver's {@code rapid_fire_while} tags): no drawing, the weapon shoots straight from
+     * the quiver (the primary loads the next bolt itself, see ReloadNode), as fast as its cooldown allows.
+     */
+    public boolean rapidFire(UUID owner) {
+        return definitions.apply(owner).map(d -> d.rapidFireWhile().stream().anyMatch(t -> tags.has(owner, t))).orElse(false);
     }
 
     /** Reload speed level right now (0 = normal), see {@link QuiverDef.ReloadSpeed}. */
