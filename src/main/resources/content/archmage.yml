@@ -5,7 +5,7 @@
 abilities:
 
   # Primary fire (LMB after the input rework; right click in the test kit for now).
-  arcane_bolt:
+  arcanist_primary:
     cooldown: 16                     # 0.8s between shots
     blocked_by: [block.ability, state.guiding]   # can't fire while guiding (Arcane Focus)
     display:
@@ -36,21 +36,21 @@ abilities:
   # Costs Focus fast (40/s: ~2.5s from full); Focus refills slowly (12/s after 1s, see the kit).
   # While guided, the bolt's 30-block range is paused; release and it resumes where it left off.
   # You're slowed and can't fire while guiding. No bolt in flight = nothing happens, nothing spent.
-  arcane_focus:
+  arcanist_secondary:
     display:
       name: "Arcane Focus"
       icon: LAPIS_LAZULI
       description: ["Hold RMB: steer your last Arcane Bolt.", "Drains Focus. Guided bolts fly further."]
-    mode: { type: hold, period: 1, release: 6, ammo: focus, ammo_per_pulse: 2, while_projectile: arcane_bolt }
+    mode: { type: hold, period: 1, release: 6, ammo: focus, ammo_per_pulse: 2, while_projectile: arcanist_primary }
     active_tags: [state.guiding, state.slowed]
     nodes:
       steer:
         type: steer_projectile
-        ability: arcane_bolt           # your most recent bolt that's still flying
+        ability: arcanist_primary           # your most recent bolt that's still flying
         turn: 0.5                 # 0..1, how hard it turns toward the crosshair per tick
 
   # Slow missile; recast to steer it at your crosshair. Empowered: stun + Glowing + explosion.
-  arcane_missile:
+  arcanist_ab1:
     cooldown: 240
     display:
       name: "Arcane Missile"
@@ -125,7 +125,7 @@ abilities:
   #  below your crosshair; the preview sits on that spot.
   #  Then: 0.5s channel (rooted, no other abilities, XP bar fills), then teleport.
   #  Stun or silence during the channel cancels it (the cooldown is still spent).
-  foldstep:
+  arcanist_ab2:
     cooldown: 180
     movement: true                   # a blink: not while rooted (dashes count automatically)
     display:
@@ -179,7 +179,7 @@ abilities:
   # on everyone in range. Neither of those abilities needs to know about it: whatever hits the
   # geometry is recorded (struck_by = ability id, struck_phase = that shot's phase) and this
   # ability decides what it means.
-  unstable_binding:
+  arcanist_ab3:
     cooldown: 280
     display:
       name: "Unstable Binding"
@@ -204,7 +204,7 @@ abilities:
       what_struck:
         type: switch
         key: struck_by               # which of YOUR abilities hit it
-        on: { arcane_missile: missile_strike, default: shatter }
+        on: { arcanist_ab1: missile_strike, default: shatter }
       missile_strike:
         type: switch
         key: struck_phase
@@ -255,9 +255,9 @@ characters:
         hotbar: 9                    # shown in slot 9: stack size = Focus (Minecraft caps stacks at 99)
         icon: LAPIS_LAZULI
     slots:
-      primary: arcane_bolt           # LMB
-      secondary: arcane_focus        # hold RMB to guide the bolt
-      ability_1: arcane_missile      # 1, press 1 again to recast
-      ability_2: foldstep            # 2, left click to confirm
-      ability_3: unstable_binding    # 3, left click to place
+      primary: arcanist_primary      # LMB
+      secondary: arcanist_secondary  # hold RMB to guide the bolt
+      ability_1: arcanist_ab1        # 1, press 1 again to recast
+      ability_2: arcanist_ab2        # 2, left click to confirm
+      ability_3: arcanist_ab3        # 3, left click to place
       # ultimate: Arcane Ascension (not built yet)

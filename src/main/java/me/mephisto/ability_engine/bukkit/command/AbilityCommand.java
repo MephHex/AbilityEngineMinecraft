@@ -176,7 +176,7 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
     private void castAs(CommandSender sender, String[] args) {
         if (args.length < 3) {
             sender.sendMessage(ChatColor.RED + "/ae castas <selector> <ability> [recast <ticks>] [hold <ticks>]");
-            sender.sendMessage(ChatColor.GRAY + "e.g. /ae castas @e[type=minecraft:mannequin,limit=1,sort=nearest] arcane_missile recast 10");
+            sender.sendMessage(ChatColor.GRAY + "e.g. /ae castas @e[type=minecraft:mannequin,limit=1,sort=nearest] arcanist_ab1 recast 10");
             return;
         }
         String ability = args[2];

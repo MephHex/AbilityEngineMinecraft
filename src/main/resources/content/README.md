@@ -8,7 +8,7 @@ Every `.yml` file in this folder (and its subfolders) is loaded. Edit, then run 
 Each file may have any of these sections: `statuses:`, `infusions:`, `abilities:`, `characters:`.
 Split them however you like: one file per character, per role, per anything.
 
-- Files can use each other's content in any order: a character in `duelist.yml` can use an
+- Files can use each other's content in any order: a character in `umbrella.yml` can use an
   ability from `archmage.yml`, and any ability can apply a status from `shared.yml`.
 - The same id in two files is an error naming both files.
 - A YAML syntax error in any file cancels the whole reload and keeps what was loaded before.

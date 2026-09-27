@@ -1,4 +1,4 @@
-# content: duelist
+# content: umbrella
 # Diver test kit: Royal Lunge, Parasol Guard, and the Sovereign Geyser ultimate.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 
@@ -6,7 +6,7 @@ abilities:
 
   # Dash where you aim (trident-style thrust). Stops at the first enemy: damage + brief stun.
   # A miss ends at max range (or at a wall). Allies are passed through. Stun mid-lunge cancels it.
-  royal_lunge:
+  umbrella_ab1:
     cooldown: 160                    # 8s
     display:
       name: "Royal Lunge"
@@ -51,7 +51,7 @@ abilities:
   # Area damage isn't blocked. Allies pass through freely and are covered if they stand behind you.
   # While guarding: knockback immune, slowed, and NO other actions (primary fire, melee, abilities).
   # A stun ends it early.
-  parasol_guard:
+  umbrella_ab2:
     cooldown: 200                    # 10s
     display:
       name: "Parasol Guard"
@@ -87,7 +87,7 @@ abilities:
   # The beam stops at the first block (line of sight matters) and at an enemy's Parasol Guard.
   # Air Anchor: you hover in place (no falling) and can't move or act until it's over.
   # A stun during the charge cancels it.
-  sovereign_geyser:
+  umbrella_ult1:
     cooldown: 400                    # placeholder until ults charge from damage
     display:
       name: "Sovereign Geyser"
@@ -127,11 +127,11 @@ abilities:
         ticks: 20                    # still anchored while the beam lingers
 
 characters:
-  duelist:                           # test diver kit
-    name: "Duelist"
+  umbrella:                          # diver kit
+    name: "Umbrella"
     weapon: DIAMOND_SPEAR
     slots:
       primary: test_blast
-      ability_1: royal_lunge
-      ability_2: parasol_guard
-      ultimate: sovereign_geyser
+      ability_1: umbrella_ab1
+      ability_2: umbrella_ab2
+      ultimate: umbrella_ult1

@@ -5,7 +5,7 @@ import me.mephisto.ability_engine.engine.graph.GraphNode;
 import me.mephisto.ability_engine.engine.graph.NodeResult;
 
 /**
- * Take {@code ticks} off one of the caster's cooldowns: an ability by id ({@code ability: venom_step}),
+ * Take {@code ticks} off one of the caster's cooldowns: an ability by id ({@code ability: hunter_ab1}),
  * or whatever sits in one of their character's slots ({@code slot: ability_1}). E.g. "hits refresh your
  * dash faster". A cooldown that isn't running is left alone.
  */
