@@ -29,7 +29,14 @@ final class ArrowVisual implements FlyingVisual {
     static ArrowVisual spawn(Location at, Vec3 velocity, Class<? extends AbstractArrow> type, String tint) {
         World world = at.getWorld();
         if (world == null) return null;
-        AbstractArrow arrow = world.spawn(at, type, a -> {
+        // Face the flight direction from the very first tick, like vanilla's shoot(). Spawned any other
+        // way, an arrow starts at yaw/pitch 0 and only eases toward its flight (20% a tick): it flies
+        // sideways. Arrows use their own convention: yaw = atan2(x, z), pitch = atan2(y, horizontal).
+        Location facing = at.clone();
+        double horizontal = Math.sqrt(velocity.x() * velocity.x() + velocity.z() * velocity.z());
+        facing.setYaw((float) Math.toDegrees(Math.atan2(velocity.x(), velocity.z())));
+        facing.setPitch((float) Math.toDegrees(Math.atan2(velocity.y(), horizontal)));
+        AbstractArrow arrow = world.spawn(facing, type, a -> {
             VisualEntities.mark(a);
             a.setPersistent(false);
             a.setSilent(true);
@@ -37,6 +44,7 @@ final class ArrowVisual implements FlyingVisual {
             a.setCritical(false);
             a.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
             a.setVelocity(Convert.bukkit(velocity));
+            a.setRotation(facing.getYaw(), facing.getPitch()); // in case spawning normalized the location's
             if (tint != null && a instanceof Arrow tipped) {
                 tipped.setColor(Color.fromRGB(Integer.parseInt(tint.substring(1), 16))); // tipped look + colored trail
             }
