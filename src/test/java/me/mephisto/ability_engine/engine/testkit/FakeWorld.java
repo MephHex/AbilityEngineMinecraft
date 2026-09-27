@@ -35,11 +35,24 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     public void move(UUID id, Vec3 center) { entities.put(id, center); }
     public void kill(UUID id) { entities.remove(id); }
 
-    /** Fake physics: each push moves the entity by one tick of that velocity right away. */
+    private final Map<UUID, Integer> lag = new HashMap<>();
+    private final Map<UUID, java.util.ArrayDeque<Vec3>> inFlight = new HashMap<>();
+
+    /**
+     * Simulate ping for a player: a push only shows up in their position {@code ticks} pushes later (the
+     * velocity has to reach their client, and their moved position has to come back).
+     */
+    public void lag(UUID id, int ticks) { lag.put(id, ticks); }
+
+    /** Fake physics: each push moves the entity by one tick of that velocity right away (or later, with lag). */
     @Override
     public void setVelocity(UUID id, Vec3 velocity) {
         Vec3 pos = entities.get(id);
-        if (pos != null) entities.put(id, pos.add(velocity));
+        if (pos == null) return;
+        int delay = lag.getOrDefault(id, 0);
+        var queue = inFlight.computeIfAbsent(id, k -> new java.util.ArrayDeque<>());
+        queue.addLast(velocity);
+        while (queue.size() > delay) entities.put(id, entities.get(id).add(queue.pollFirst()));
     }
 
     @Override
