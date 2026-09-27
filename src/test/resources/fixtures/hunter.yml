@@ -237,8 +237,7 @@ abilities:
         next: last
       last:
         type: delay
-        ticks: 160                   # 8s
-        cast_bar: true               # the XP bar shows how long is left
+        ticks: 160                   # 8s (no cast bar: the XP bar keeps showing the Rhythm; a boss bar timer later)
 
 characters:
   hunter:
