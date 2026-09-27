@@ -33,14 +33,16 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   has_tag `{ tag, target }` -> has / lacks (does the caster, or `target: <key>`, have a tag right now),
   in_range `{ center, radius, target }` -> inside / outside (is the caster, or `target`, within
   `radius` of the key `center`; e.g. "was I caught in my own explosion"),
-  reload -> out / full, take_bolt -> out / empty, infuse `{ infusion, count }` (see Quivers)
+  reload -> out / full, take_bolt -> out / empty, infuse `{ infusion, count }` (see Quivers),
+  reduce_cooldown `{ ability | slot, ticks }` (take time off one of the caster's cooldowns, e.g.
+  `slot: ability_1` on every hit)
 - **Query types:** self, key, hitscan, radius, cone, cursor,
   line `{ range, width }` (a beam: everyone within width/2 of the line, stops at the first block
   and at enemy barriers; writes beam_start / beam_end for the visual),
   path `{ from, to, width }` (everyone along the segment between two keys, e.g. a dash's path)
 - **Effects:** damage `{amount, ignore_iframes, lifesteal, overflow, knockback}` (`knockback: false`:
   magic damage like vanilla poison, no knockback; for damage over time), heal `{amount, overflow}`,
-  status `{status, duration}`,
+  status `{status, duration}`, remove_status `{status}` (e.g. use up a mark),
   teleport `{to, ground}`, knockback `{from, radius, center, edge, lift}`
 - **Damage** is in "design HP": 10 design HP = 1 Minecraft health point (half a heart), so a
   normal 20-health player is 200. The ratio is `damage-scale` in config.yml.
@@ -56,6 +58,11 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Air Anchor:** the `state.anchored` tag makes the holder hover in place (no falling).
 - **Overflow:** with `overflow: true`, healing that doesn't fit becomes a decaying shield
   (absorption hearts). `overflow_max` (default 150) and `overflow_decay` per second (default 25).
+- **Traps:** a `construct` with `trigger: <radius>` is a trap: once armed (`arm: <ticks>`), the first
+  enemy that comes that close sets it off (-> `triggered`, the enemy stored as "hit"). Add
+  `solid: false` so projectiles and punches pass through it. Allies never set it off.
+- **Piercing:** a `projectile` with `pierce: N` passes through N enemies, running `hit_entity` for each
+  (like vanilla Piercing), and stops at the next one.
 - **Dashes:** `pierce: true` passes through enemies; `store: name` records name_start / name_end.
   `direction: movement` dashes the way the caster is WALKING (strafe left = dash left, always flat)
   instead of where they aim; standing still, it goes straight ahead.

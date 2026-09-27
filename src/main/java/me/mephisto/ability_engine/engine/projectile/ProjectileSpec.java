@@ -18,6 +18,8 @@ import java.util.List;
  * @param minBounceSpeed rebounds slower than this don't happen: the projectile lands (exits hit_block)
  * @param range          blocks it may travel UNGUIDED before expiring (0 = only lifetime limits it).
  *                       Distance flown while guided doesn't count; lifetimeTicks stays a hard cap.
+ * @param pierce         enemies it passes through, each hit on its own (like vanilla Piercing); it stops
+ *                       at the next one after that
  */
 public record ProjectileSpec(
         double speed,
@@ -31,7 +33,8 @@ public record ProjectileSpec(
         String visual,
         int count,
         double spreadDegrees,
-        double range
+        double range,
+        int pierce
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
@@ -72,6 +75,7 @@ public record ProjectileSpec(
         private int count = 1;
         private double spreadDegrees = 0;
         private double range = 0;
+        private int pierce = 0;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -85,10 +89,11 @@ public record ProjectileSpec(
         public Builder count(int v) { count = v; return this; }
         public Builder spreadDegrees(double v) { spreadDegrees = v; return this; }
         public Builder range(double v) { range = v; return this; }
+        public Builder pierce(int v) { pierce = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
-                    motion, visual, count, spreadDegrees, range);
+                    motion, visual, count, spreadDegrees, range, pierce);
         }
     }
 }

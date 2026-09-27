@@ -91,6 +91,7 @@ public final class Parsers {
                 .count(p.getInt("count", 1))
                 .spreadDegrees(p.getDouble("spread", 0))
                 .range(p.getDouble("range", 0))
+                .pierce(p.getInt("pierce", 0))
                 .build();
     }
 

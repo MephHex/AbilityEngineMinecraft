@@ -37,6 +37,11 @@ statuses:
       effects:
         - { id: heal, amount: 6 }    # 6 x 6 = 36 over 3s
 
+  hunters_mark:                      # sprung Hunter's Snare: your next bolt on them hits harder
+    duration: 100                    # 5s, or until a bolt uses it up
+    stacking: refresh
+    tags: [state.marked]
+
   camouflaged:                       # Venom Step during Overdrive
     duration: 50                     # 2.5s
     stacking: refresh
@@ -68,12 +73,18 @@ abilities:
       description:
         - "Hold RMB to draw, RMB again to shoot the"
         - "loaded bolt: 45 damage + its infusions."
+        - "Each hit: Venom Step's cooldown -1s."
+        - "Marked enemies take +40 (uses the mark)."
         - "Passive - Hunter's Rhythm: each hit draws"
         - "0.25s faster (up to 3 times, 5s)."
     nodes:
       take:
         type: take_bolt              # the loaded bolt leaves the crossbow (stored as "bolt")
-        on: { out: shoot, empty: dry }
+        on: { out: overdrive, empty: dry }
+      overdrive:
+        type: has_tag                # Overdrive: the bolt pierces
+        tag: state.overdrive
+        on: { has: shoot_piercing, lacks: shoot }
       shoot:
         type: projectile
         speed: 3.0                   # vanilla crossbow bolts are ~3.15
@@ -83,6 +94,16 @@ abilities:
         motion:                      # only if no real arrow could spawn (a real one drops like vanilla)
           - { type: gravity, amount: 0.02 }
         on: { spawned: twang, hit_entity: strike, hit_block: thunk }
+      shoot_piercing:                # the same bolt, through 3 enemies (hits up to 4), like Piercing III
+        type: projectile
+        speed: 3.0
+        size: 0.35
+        lifetime: 40
+        pierce: 3
+        visual: "entity:ARROW"
+        motion:
+          - { type: gravity, amount: 0.02 }
+        on: { spawned: twang, hit_entity: strike, hit_block: thunk }   # every enemy hit runs "strike"
       twang:
         type: play_cue
         cue: crossbow_shot
@@ -98,6 +119,28 @@ abilities:
         targets: { type: self }
         effects:
           - { id: status, status: hunters_rhythm }
+        next: quicken
+      quicken:
+        type: reduce_cooldown        # every hit: Venom Step comes back 1s sooner
+        slot: ability_1
+        ticks: 20
+        next: marked
+      marked:
+        type: has_tag                # a Hunter's Snare mark on them?
+        target: hit
+        tag: state.marked
+        on: { has: mark_bonus, lacks: strike_cue }
+      mark_bonus:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 40 }
+          - { id: remove_status, status: hunters_mark }   # used up
+        next: mark_cue
+      mark_cue:
+        type: play_cue
+        cue: mark_pop
+        at: hit
         next: strike_cue
       strike_cue:
         type: play_cue
@@ -217,8 +260,57 @@ abilities:
         infusion: slowness
         count: 1
 
+  # 3: place a trap on the ground (aim, then LMB). It arms after 1s and lasts 30s. The first enemy to
+  # step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
+  # Your own bolts and punches pass through it; allies can't set it off.
+  hunters_snare:
+    cooldown: 300                    # 15s
+    display:
+      name: "Hunter's Snare"
+      icon: TRIPWIRE_HOOK
+      description:
+        - "Place a trap (arms after 1s, lasts 30s)."
+        - "The first enemy to step on it is rooted"
+        - "for 2s, glows, and is marked: your next"
+        - "bolt on them deals +40."
+    targeting: { shape: circle, range: 15, radius: 1.5, ground: true }   # preview = trigger area
+    nodes:
+      set:
+        type: play_cue
+        cue: trap_set
+        at: aim
+        next: place
+      place:
+        type: construct
+        store: trap
+        height: 0.1                  # lying on the ground
+        size: 0.5
+        fuse: 600                    # gone after 30s
+        solid: false                 # bolts and punches pass through it
+        trigger: 1.5                 # an enemy this close (blocks) springs it
+        arm: 20                      # not before 1s
+        visual: TRIPWIRE_HOOK
+        on: { triggered: spring, fuse: expire }
+      spring:
+        type: apply_effects
+        targets: { type: key, key: hit }   # whoever stepped on it
+        effects:
+          - { id: status, status: root, duration: 40 }
+          - { id: status, status: glowing, duration: 100 }
+          - { id: status, status: hunters_mark }
+        next: spring_cue
+      spring_cue:
+        type: play_cue
+        cue: trap_spring
+        at: hit
+      expire:
+        type: play_cue
+        cue: fizzle
+        at: trap
+
   # ULTIMATE (F, shown in the offhand slot): 8s of Overdrive. Faster movement, your crossbow draws at
-  # maximum speed (0.25s) no matter your Rhythm, and Venom Step makes you invisible.
+  # maximum speed (0.25s) no matter your Rhythm, your bolts pierce 3 enemies, and Venom Step makes you
+  # invisible.
   overdrive:
     cooldown: 900                    # placeholder until ults charge from damage
     display:
@@ -226,8 +318,8 @@ abilities:
       icon: GLOWSTONE_DUST
       description:
         - "8s: +30% speed, your crossbow draws at"
-        - "max speed, and Venom Step makes you"
-        - "invisible."
+        - "max speed, bolts pierce 3 enemies, and"
+        - "Venom Step makes you invisible."
     active_tags: [state.overdrive, state.hasted]   # held for the whole cast (the delay below)
     aura: overdrive                  # sparks around you while it lasts
     nodes:
@@ -255,5 +347,5 @@ characters:
       primary: infused_bolt          # RMB on a loaded crossbow (hold RMB to draw)
       ability_1: venom_step          # 1
       ability_2: volatile_flask      # 2
-      # ability_3: not designed yet
+      ability_3: hunters_snare       # 3, then LMB to place
       ultimate: overdrive            # F

@@ -1,5 +1,6 @@
 package me.mephisto.ability_engine.engine.data;
 
+import me.mephisto.ability_engine.engine.construct.ConstructSystem;
 import me.mephisto.ability_engine.engine.graph.Keys;
 import me.mephisto.ability_engine.engine.graph.Ports;
 import me.mephisto.ability_engine.engine.nodes.control.AwaitRecastNode;
@@ -20,6 +21,7 @@ import me.mephisto.ability_engine.engine.nodes.gameplay.InfuseNode;
 import me.mephisto.ability_engine.engine.nodes.gameplay.PlayCueNode;
 import me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode;
 import me.mephisto.ability_engine.engine.nodes.gameplay.RedirectProjectileNode;
+import me.mephisto.ability_engine.engine.nodes.gameplay.ReduceCooldownNode;
 import me.mephisto.ability_engine.engine.nodes.gameplay.ReloadNode;
 import me.mephisto.ability_engine.engine.nodes.gameplay.StartCueNode;
 import me.mephisto.ability_engine.engine.nodes.gameplay.SteerProjectileNode;
@@ -71,7 +73,8 @@ public final class NodeTypes {
                 p.getDouble("size", 0.8),
                 p.getInt("fragile", 0),
                 p.requireInt("fuse"),
-                p.getString("visual", "AMETHYST_CLUSTER")));
+                p.getString("visual", "AMETHYST_CLUSTER"),
+                new ConstructSystem.Options(p.getBool("solid", true), p.getDouble("trigger", 0), p.getInt("arm", 0))));
         t.register("await_recast", (p, e) -> new AwaitRecastNode(p.requireInt("window"), p.getString("while", null)));
         t.register("redirect_projectile", (p, e) -> new RedirectProjectileNode(
                 p.requireString("projectile"),
@@ -94,6 +97,14 @@ public final class NodeTypes {
         t.register("has_tag", (p, e) -> new HasTagNode(p.requireString("tag"), p.getString("target", null)));
         t.register("in_range", (p, e) -> new InRangeNode(p.requireString("center"), p.getString("target", null),
                 p.requireDouble("radius")));
+        t.register("reduce_cooldown", (p, e) -> {
+            if (p.has("ability") == p.has("slot")) throw p.error("ability", "give either ability: <id> or slot: <slot>");
+            String slot = p.getString("slot", null);
+            if (slot != null && !me.mephisto.ability_engine.engine.loadout.Slots.ALL.contains(slot)) {
+                throw p.error("slot", "unknown slot, expected one of " + me.mephisto.ability_engine.engine.loadout.Slots.ALL);
+            }
+            return new ReduceCooldownNode(p.getString("ability", null), slot, p.requireInt("ticks"));
+        });
         t.register("play_cue", (p, e) -> new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null)));
         return t;
     }

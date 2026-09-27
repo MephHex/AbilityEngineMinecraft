@@ -164,51 +164,76 @@ public final class ProjectileSystem {
 
         Vec3 from = p.sweepFrom != null ? p.sweepFrom : p.position;
         p.sweepFrom = null;
-        var hit = world.sweep(p.world, from, next, p.spec.size() / 2, teams.passThroughFor(ctx.caster()));
+        // Enemies it already pierced are flown through, like allies.
+        var passThrough = teams.passThroughFor(ctx.caster()).or(p.pierced::contains);
 
-        // Constructs and barriers are engine objects the world doesn't know about: check them too, nearest wins.
-        double worldDist = hit.map(h -> h.position().distance(p.position)).orElse(Double.MAX_VALUE);
-        var barrier = barriers.cross(p.world, from, next, p.spec.size() / 2, ctx.caster());
-        if (barrier.isPresent() && barrier.get().distance() <= worldDist) {
-            // Absorbed by an enemy's frontal barrier: no hit logic, no explosion.
-            moveTo(p, barrier.get().position());
-            barriers.blocked(p.world, barrier.get().position());
-            p.done = true;
-            p.visual.remove();
-            p.resumer.abandon();
-            return;
-        }
-        var construct = constructs.sweep(p.world, p.position, next, p.spec.size() / 2);
-        if (construct.isPresent() && construct.get().distance() <= worldDist) {
-            Object phase = ctx.blackboard().raw("phase");
-            Strike strike = new Strike(ctx.caster(), ctx.instance().ability().id(), phase == null ? "none" : phase.toString());
-            if (constructs.strike(construct.get().construct(), strike)) {
-                // Absorbed into the geometry: the projectile's own hit logic doesn't run.
-                moveTo(p, construct.get().position());
+        // One pass per thing it touches this tick: a pierced enemy continues the sweep from there.
+        while (true) {
+            var hit = world.sweep(p.world, from, next, p.spec.size() / 2, passThrough);
+
+            // Constructs and barriers are engine objects the world doesn't know about: check them too, nearest wins.
+            double worldDist = hit.map(h -> h.position().distance(p.position)).orElse(Double.MAX_VALUE);
+            var barrier = barriers.cross(p.world, from, next, p.spec.size() / 2, ctx.caster());
+            if (barrier.isPresent() && barrier.get().distance() <= worldDist) {
+                // Absorbed by an enemy's frontal barrier: no hit logic, no explosion.
+                moveTo(p, barrier.get().position());
+                barriers.blocked(p.world, barrier.get().position());
                 p.done = true;
                 p.visual.remove();
                 p.resumer.abandon();
                 return;
             }
-        }
+            var construct = constructs.sweep(p.world, from, next, p.spec.size() / 2);
+            if (construct.isPresent() && construct.get().distance() <= worldDist) {
+                Object phase = ctx.blackboard().raw("phase");
+                Strike strike = new Strike(ctx.caster(), ctx.instance().ability().id(), phase == null ? "none" : phase.toString());
+                if (constructs.strike(construct.get().construct(), strike)) {
+                    // Absorbed into the geometry: the projectile's own hit logic doesn't run.
+                    moveTo(p, construct.get().position());
+                    p.done = true;
+                    p.visual.remove();
+                    p.resumer.abandon();
+                    return;
+                }
+            }
 
-        if (hit.isEmpty()) {
-            moveTo(p, next);
+            if (hit.isEmpty()) {
+                moveTo(p, next);
+                return;
+            }
+
+            SweepHit h = hit.get();
+            if (h.target() instanceof EntityTarget e) {
+                moveTo(p, h.position());
+                if (p.piercesLeft > 0) { // through them: this hit runs on its own, the projectile flies on
+                    p.piercesLeft--;
+                    p.pierced.add(e.id());
+                    pierceHit(p, h.target());
+                    if (!ctx.instance().isActive()) return; // the hit logic ended the cast
+                    from = p.position;
+                    continue;
+                }
+                finish(p, Ports.HIT_ENTITY, h.target());
+            } else if (flying == null && p.bouncesLeft > 0 && h.normal() != null && p.spec.bounce(p.velocity, h.normal()) != null) {
+                p.bouncesLeft--;
+                p.velocity = p.spec.bounce(p.velocity, h.normal());
+                moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
+            } else { // out of bounces, or too slow to bounce: it lands
+                moveTo(p, h.position());
+                finish(p, Ports.HIT_BLOCK, h.target());
+            }
             return;
         }
+    }
 
-        SweepHit h = hit.get();
-        if (h.target() instanceof EntityTarget) {
-            moveTo(p, h.position());
-            finish(p, Ports.HIT_ENTITY, h.target());
-        } else if (flying == null && p.bouncesLeft > 0 && h.normal() != null && p.spec.bounce(p.velocity, h.normal()) != null) {
-            p.bouncesLeft--;
-            p.velocity = p.spec.bounce(p.velocity, h.normal());
-            moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
-        } else { // out of bounces, or too slow to bounce: it lands
-            moveTo(p, h.position());
-            finish(p, Ports.HIT_BLOCK, h.target());
-        }
+    /** A pierced enemy: run "hit_entity" for it in a branch of its own, while the projectile keeps flying. */
+    private void pierceHit(Projectile p, Target target) {
+        ExecutionContext branch = p.resumer.context().fork();
+        Resumer resumer = branch.suspend();
+        branch.put(Keys.HIT, target);
+        branch.blackboard().putRaw(Keys.HIT_FROM.name(), new PointTarget(p.world, p.lastPosition));
+        log.debug(() -> "projectile -> pierced " + target);
+        resumer.resume(Ports.HIT_ENTITY);
     }
 
     private void moveTo(Projectile p, Vec3 pos) {

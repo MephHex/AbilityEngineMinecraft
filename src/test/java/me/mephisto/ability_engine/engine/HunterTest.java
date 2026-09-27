@@ -337,6 +337,116 @@ class HunterTest {
         assertFalse(t.engine.tags().has(p, Tags.HASTED));
     }
 
+    // ---- basic attack: cooldown cut ---------------------------------------------------------------
+
+    @Test
+    void boltHitsTakeASecondOffVenomStep() throws IOException {
+        setup();
+        t.spawn(10, 1, 0);
+        t.engine.loadouts().activate(p, "ability_1");
+        t.time.advance(10); // dash over
+        long before = t.engine.cooldowns().remainingTicks(p, "venom_step");
+        t.engine.quivers().tryLoad(p);
+        shoot();
+        long after = t.engine.cooldowns().remainingTicks(p, "venom_step");
+        assertEquals(before - 10 - 20, after, 1, "10 ticks passed, the hit took 20 off");
+    }
+
+    // ---- Hunter's Snare ------------------------------------------------------------------------------
+
+    /** Aim at the floor 10 blocks ahead and confirm: a trap at x=10. */
+    private void placeSnare() {
+        t.world.floor(0);
+        t.world.look(p, new Vec3(1, -0.1, 0));
+        assertTrue(t.engine.loadouts().activate(p, "ability_3").openedTargeting());
+        assertTrue(t.engine.targeting().confirm(p).success());
+        t.world.look(p, new Vec3(1, 0, 0));
+    }
+
+    @Test
+    void theSnareRootsRevealsAndMarksTheFirstEnemyToStepOnIt() throws IOException {
+        setup();
+        placeSnare();
+        UUID enemy = t.spawn(20, 1, 0);
+        t.time.advance(25); // armed
+        t.world.move(enemy, new Vec3(10.5, 1, 0.5));
+        t.time.advance(1);
+        assertTrue(t.engine.tags().has(enemy, Tags.ROOTED));
+        assertTrue(t.engine.tags().has(enemy, Tags.GLOWING));
+        assertTrue(t.engine.statuses().has(enemy, "hunters_mark"));
+        assertTrue(t.render.cues.contains("trap_spring"));
+        assertEquals(0, t.engine.constructs().activeCount(), "sprung: gone");
+    }
+
+    @Test
+    void theSnareIgnoresAlliesAndIsntArmedAtOnce() throws IOException {
+        setup();
+        placeSnare();
+        UUID ally = t.spawn(10, 1, 0);
+        t.world.team(p, "blue");
+        t.world.team(ally, "blue");
+        UUID enemy = t.spawn(10.5, 1, 0); // already standing there
+        t.time.advance(10);
+        assertFalse(t.engine.tags().has(enemy, Tags.ROOTED), "not armed for 1s");
+        t.time.advance(15);
+        assertTrue(t.engine.tags().has(enemy, Tags.ROOTED), "armed: springs");
+        assertFalse(t.engine.tags().has(ally, Tags.ROOTED), "allies never set it off");
+    }
+
+    @Test
+    void projectilesAndPunchesPassThroughTheSnare() throws IOException {
+        setup();
+        placeSnare();
+        var trap = t.engine.constructs().all().get(0);
+        assertFalse(trap.solid());
+        // A shot straight through its centre doesn't touch it (a solid construct would absorb it)...
+        Vec3 c = trap.position();
+        assertTrue(t.engine.constructs().sweep(trap.world(), c.add(-2, 0, 0), c.add(2, 0, 0), 0.2).isEmpty());
+        // ...and nothing striking it (your bolt, a punch) sets it off.
+        assertFalse(t.engine.constructs().strike(trap,
+                new me.mephisto.ability_engine.engine.construct.Strike(p, "infused_bolt", "none")));
+        assertEquals(1, t.engine.constructs().activeCount(), "still waiting");
+    }
+
+    @Test
+    void aMarkedEnemyTakesExtraDamageFromTheNextBoltOnly() throws IOException {
+        setup();
+        UUID enemy = t.spawn(10, 1, 0);
+        t.engine.statuses().apply(enemy, "hunters_mark", p);
+        t.engine.quivers().tryLoad(p);
+        shoot();
+        assertEquals(45 + 40, t.damage(enemy), 1e-9);
+        assertFalse(t.engine.statuses().has(enemy, "hunters_mark"), "used up");
+        t.engine.quivers().tryLoad(p);
+        shoot();
+        assertEquals(45 + 40 + 45, t.damage(enemy), 1e-9);
+    }
+
+    // ---- Overdrive: piercing -------------------------------------------------------------------------
+
+    @Test
+    void duringOverdriveBoltsPierceThreeEnemies() throws IOException {
+        setup();
+        UUID[] line = {t.spawn(4, 1, 0), t.spawn(6, 1, 0), t.spawn(8, 1, 0), t.spawn(10, 1, 0), t.spawn(12, 1, 0)};
+        t.engine.loadouts().activate(p, "ultimate");
+        t.engine.quivers().tryLoad(p);
+        shoot();
+        for (int i = 0; i < 4; i++) assertEquals(45, t.damage(line[i]), 1e-9, "enemy " + i);
+        assertEquals(0, t.damage(line[4]), 1e-9, "stopped at the 4th");
+        assertEquals(3, t.engine.statuses().find(p, "hunters_rhythm").orElseThrow().stacks(), "each hit counts");
+    }
+
+    @Test
+    void withoutOverdriveBoltsStopAtTheFirstEnemy() throws IOException {
+        setup();
+        UUID first = t.spawn(4, 1, 0);
+        UUID second = t.spawn(6, 1, 0);
+        t.engine.quivers().tryLoad(p);
+        shoot();
+        assertEquals(45, t.damage(first), 1e-9);
+        assertEquals(0, t.damage(second), 1e-9);
+    }
+
     // ---- loading ----------------------------------------------------------------------------------
 
     @Test

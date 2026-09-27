@@ -31,6 +31,16 @@ public final class CooldownManager {
         readyAt.computeIfAbsent(caster, k -> new HashMap<>()).put(abilityId, clock.now() + cooldownTicks);
     }
 
+    /** Take {@code ticks} off a running cooldown (never below ready). Nothing happens if it isn't running. */
+    public void reduce(UUID caster, String abilityId, int ticks) {
+        Map<String, Long> mine = readyAt.get(caster);
+        Long ready = mine == null ? null : mine.get(abilityId);
+        if (ready == null || ticks <= 0) return;
+        long reduced = ready - ticks;
+        if (reduced <= clock.now()) mine.remove(abilityId);
+        else mine.put(abilityId, reduced);
+    }
+
     public void clear(UUID caster, String abilityId) {
         Map<String, Long> mine = readyAt.get(caster);
         if (mine != null) mine.remove(abilityId);

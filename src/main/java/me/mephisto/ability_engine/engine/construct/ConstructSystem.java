@@ -1,10 +1,15 @@
 package me.mephisto.ability_engine.engine.construct;
 
 import me.mephisto.ability_engine.engine.EngineLog;
+import me.mephisto.ability_engine.engine.graph.Keys;
 import me.mephisto.ability_engine.engine.graph.Ports;
 import me.mephisto.ability_engine.engine.graph.Resumer;
 import me.mephisto.ability_engine.engine.math.Vec3;
 import me.mephisto.ability_engine.engine.platform.ConstructRenderer;
+import me.mephisto.ability_engine.engine.platform.EntitySnapshot;
+import me.mephisto.ability_engine.engine.platform.WorldQuery;
+import me.mephisto.ability_engine.engine.target.EntityTarget;
+import me.mephisto.ability_engine.engine.target.PointTarget;
 import me.mephisto.ability_engine.engine.platform.TaskHandle;
 import me.mephisto.ability_engine.engine.platform.TaskScheduler;
 import me.mephisto.ability_engine.engine.team.Teams;
@@ -23,7 +28,10 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>{@code struck} — the owner's projectile hit it; writes {@code struck_by} (ability id) and
  *       {@code struck_phase} (that shot's "phase", e.g. "empowered") to the waiting branch</li>
  *   <li>{@code broken} — an enemy hit it while it was still fragile; also writes {@code struck_by}</li>
+ *   <li>{@code triggered} — a TRAP ({@link Options#triggerRadius}): an enemy came within range once it
+ *       was armed; writes that enemy as "hit"</li>
  * </ul>
+ * Traps are usually not {@link Options#solid}: projectiles and punches pass through them.
  * One ticker for all constructs, stopped when none exist. Allies of the owner (Teams) never trigger or break it.
  */
 public final class ConstructSystem {
@@ -36,24 +44,44 @@ public final class ConstructSystem {
     private final ConstructRenderer renderer;
     private final Teams teams;
     private final TaskScheduler scheduler;
+    private final WorldQuery world;
     private final EngineLog log;
     private final List<Construct> active = new ArrayList<>();
     private TaskHandle ticker;
 
-    public ConstructSystem(ConstructRenderer renderer, TaskScheduler scheduler, Teams teams, EngineLog log) {
+    public ConstructSystem(ConstructRenderer renderer, TaskScheduler scheduler, Teams teams, WorldQuery world, EngineLog log) {
         this.renderer = renderer;
         this.teams = teams;
         this.scheduler = scheduler;
+        this.world = world;
         this.log = log;
     }
 
     public record Hit(ConstructHandle construct, Vec3 position, double distance) {}
 
+    /**
+     * @param solid         projectiles and punches hit it (false: they pass through)
+     * @param triggerRadius a trap: an enemy within this many blocks sets it off (0 = not a trap)
+     * @param armTicks      a trap can't be set off for this long after it's placed
+     */
+    public record Options(boolean solid, double triggerRadius, int armTicks) {
+        public static final Options DEFAULT = new Options(true, 0, 0);
+    }
+
+    /** A trap is sprung by an entity whose centre is at most this far above or below it. */
+    private static final double TRIGGER_HEIGHT = 2.0;
+
     // ---- placing ------------------------------------------------------------------------------
 
     public ConstructHandle place(UUID owner, String world, Vec3 position, double size, int fragileTicks, int fuseTicks,
                                  String visual, Resumer resumer) {
-        Construct c = new Construct(IDS.incrementAndGet(), owner, world, position, size, fragileTicks, fuseTicks, resumer);
+        return place(owner, world, position, size, fragileTicks, fuseTicks, visual, resumer, Options.DEFAULT);
+    }
+
+    public ConstructHandle place(UUID owner, String world, Vec3 position, double size, int fragileTicks, int fuseTicks,
+                                 String visual, Resumer resumer, Options options) {
+        Construct c = new Construct(IDS.incrementAndGet(), owner, world, position, size, fragileTicks, fuseTicks, resumer,
+                options);
         c.visual = renderer.spawn(c, visual);
         active.add(c);
         if (ticker == null) ticker = scheduler.every(1, 1, this::tick);
@@ -76,7 +104,7 @@ public final class ConstructSystem {
      * </ul>
      */
     public boolean strike(ConstructHandle handle, Strike strike) {
-        if (!(handle instanceof Construct c) || c.done) return false;
+        if (!(handle instanceof Construct c) || c.done || !c.options.solid()) return false;
         boolean owner = strike.attacker().equals(c.owner);
         if (owner && !strike.isMelee()) {
             finish(c, Ports.STRUCK, strike);
@@ -96,7 +124,7 @@ public final class ConstructSystem {
         double len2 = seg.lengthSquared();
         Hit best = null;
         for (Construct c : active) {
-            if (c.done || !c.world.equals(world)) continue;
+            if (c.done || !c.options.solid() || !c.world.equals(world)) continue;
             double t = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, c.position.subtract(from).dot(seg) / len2));
             Vec3 closest = from.add(seg.multiply(t));
             if (closest.distance(c.position) <= c.size + radius) {
@@ -118,7 +146,11 @@ public final class ConstructSystem {
                 continue;
             }
             c.age++;
-            if (c.age >= c.fuseTicks) {
+            Optional<UUID> victim = c.armed() ? intruder(c) : Optional.empty();
+            if (victim.isPresent()) {
+                c.resumer.context().put(Keys.HIT, new EntityTarget(victim.get()));
+                finish(c, Ports.TRIGGERED, null);
+            } else if (c.age >= c.fuseTicks) {
                 finish(c, Ports.FUSE, null);
             } else {
                 c.visual.update(c.progress(), c.isFragile());
@@ -129,6 +161,23 @@ public final class ConstructSystem {
             ticker.cancel();
             ticker = null;
         }
+    }
+
+    /** A trap's victim: the nearest enemy of its owner in range (allies and the owner never set it off). */
+    private Optional<UUID> intruder(Construct c) {
+        double r = c.options.triggerRadius();
+        if (r <= 0) return Optional.empty();
+        UUID best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (EntitySnapshot e : world.livingEntitiesNear(new PointTarget(c.world, c.position), r + TRIGGER_HEIGHT)) {
+            if (e.id().equals(c.owner) || teams.allies(c.owner, e.id()) || !world.isAlive(e.id())) continue;
+            Vec3 d = e.center().subtract(c.position);
+            double flat = Math.sqrt(d.x() * d.x() + d.z() * d.z());
+            if (flat > r || Math.abs(d.y()) > TRIGGER_HEIGHT || flat >= bestDist) continue;
+            best = e.id();
+            bestDist = flat;
+        }
+        return Optional.ofNullable(best);
     }
 
     private void finish(Construct c, String port, Strike strike) {
@@ -163,11 +212,14 @@ public final class ConstructSystem {
         final int fragileTicks;
         final int fuseTicks;
         final Resumer resumer;
+        final Options options;
         ConstructVisual visual;
         int age;
         boolean done;
 
-        Construct(long id, UUID owner, String world, Vec3 position, double size, int fragileTicks, int fuseTicks, Resumer resumer) {
+        Construct(long id, UUID owner, String world, Vec3 position, double size, int fragileTicks, int fuseTicks, Resumer resumer,
+                  Options options) {
+            this.options = options;
             this.id = id;
             this.owner = owner;
             this.world = world;
@@ -186,5 +238,7 @@ public final class ConstructSystem {
         @Override public boolean isAlive() { return !done; }
         @Override public boolean isFragile() { return !done && age < fragileTicks; }
         @Override public double progress() { return Math.min(1, age / (double) fuseTicks); }
+        @Override public boolean solid() { return options.solid(); }
+        @Override public boolean armed() { return !done && age >= options.armTicks(); }
     }
 }
