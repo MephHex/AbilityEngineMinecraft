@@ -153,7 +153,8 @@ config.yml. Any slot may be left out.
   `hotbar: 1-9` shows the pool as an item whose stack size is the amount.
 - `status_bar: <status>` shows a status on the XP bar: the level number is its stacks, the bar drains
   with its time left (e.g. a passive's stacks). A cast bar takes over while one is running.
-  `status_bar: { status: <status>, level: reload_speed }` shows the quiver's reload speed as the number.
+  `status_bar: { status: <status>, level: reload_speed }` shows the quiver's reload speed as the number;
+  `level: none` shows no number at all (a plain countdown bar).
 - `weapon:` the item locked in the main hand; it also shows the primary fire's tooltip and fire
   rate. Use something with no right-click behaviour of its own (NOT bows, shields, food,
   tridents), except a CROSSBOW together with a `quiver:` (see Quivers). Icons with a cooldown overlay must use different materials from each other and the

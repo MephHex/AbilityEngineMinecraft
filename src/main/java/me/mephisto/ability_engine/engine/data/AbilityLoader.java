@@ -199,28 +199,28 @@ public final class AbilityLoader {
 
     /**
      * {@code status_bar: <status>} (level = its stacks), or
-     * {@code status_bar: { status: <status>, level: stacks | reload_speed }}.
+     * {@code status_bar: { status: <status>, level: stacks | reload_speed | none }}.
      */
     private CharacterDef.StatusBar statusBar(Params p) {
         if (!p.has("status_bar")) return null;
         Object raw = p.raw("status_bar");
         String status;
-        boolean reload = false;
+        CharacterDef.StatusBar.Level level = CharacterDef.StatusBar.Level.STACKS;
         if (raw instanceof Map<?, ?>) {
             Params bar = p.getParams("status_bar");
             status = bar.requireString("status");
-            String level = bar.getString("level", "stacks");
-            if (!level.equals("stacks") && !level.equals("reload_speed")) {
-                throw bar.error("level", "expected stacks or reload_speed");
+            try {
+                level = CharacterDef.StatusBar.Level.valueOf(bar.getString("level", "stacks").toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw bar.error("level", "expected stacks, reload_speed or none");
             }
-            reload = level.equals("reload_speed");
         } else {
             status = p.getString("status_bar", null);
         }
         if (engine.statusDefs().find(status).isEmpty()) {
             throw p.error("status_bar", "unknown status '" + status + "' (define it under 'statuses:')");
         }
-        return new CharacterDef.StatusBar(status, reload);
+        return new CharacterDef.StatusBar(status, level);
     }
 
     public Ability parseAbility(String id, Params p) {

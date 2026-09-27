@@ -19,10 +19,16 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar) {
 
     /**
-     * @param status           the status whose remaining time fills the bar
-     * @param reloadSpeedLevel the level number shows the quiver's reload speed instead of the stacks
+     * @param status the status whose remaining time fills the bar
+     * @param level  what the level number shows
      */
-    public record StatusBar(String status, boolean reloadSpeedLevel) {}
+    public record StatusBar(String status, Level level) {
+        public enum Level {
+            /** the status's stacks */ STACKS,
+            /** the quiver's reload speed */ RELOAD_SPEED,
+            /** no number, just the draining bar */ NONE
+        }
+    }
 
     public CharacterDef(String id, String name, String weapon, Map<String, String> slots, Map<String, ResourceDef> resources) {
         this(id, name, weapon, slots, resources, null, null);

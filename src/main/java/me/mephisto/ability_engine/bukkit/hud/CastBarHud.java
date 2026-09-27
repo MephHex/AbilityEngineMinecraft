@@ -61,9 +61,11 @@ public final class CastBarHud implements Listener {
                 p.setExp((float) Math.min(0.999, fill.get()));
             } else {
                 var gauge = engine.statuses().gauge(id, statusBar.get().status());
-                int level = statusBar.get().reloadSpeedLevel()
-                        ? engine.quivers().reloadSpeed(id)          // e.g. the crossbow's Quick Charge level
-                        : gauge.map(g -> g.stacks()).orElse(0);
+                int level = switch (statusBar.get().level()) {
+                    case STACKS -> gauge.map(g -> g.stacks()).orElse(0);
+                    case RELOAD_SPEED -> engine.quivers().reloadSpeed(id); // e.g. the crossbow's Quick Charge
+                    case NONE -> 0;
+                };
                 p.setLevel(level); // 0 shows no number
                 p.setExp((float) Math.min(0.999, gauge.map(g -> g.fraction()).orElse(0.0)));
             }
