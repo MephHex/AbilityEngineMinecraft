@@ -158,3 +158,17 @@ config.yml. Any slot may be left out.
   weapon.
 
 Try it: `/ae char archmage`, back to normal: `/ae char none`.
+
+## Added for the Dreamer
+
+- **Nodes:** fork (-> out / also: run two branches at once, e.g. you and your echo dash together),
+  summon_clone `{ summon, store, lifetime }` (a mannequin of you that outlives the cast; a new one
+  replaces the old), find_summon `{ summon, store }` -> found / none, swap `{ with }` (trade places).
+- **Dash:** `mover: <key>` makes someone else dash (an echo) along YOUR aim.
+- **Damage:** `backstab: 1.5` multiplies the damage when the hit comes from behind the target
+  (outside the front 220 degrees of where they face), with a crit effect.
+- **Statuses:** `break_on_damage: true` ends it when the holder deals damage (stealth);
+  `once: true` uses up a buff with the first hit that applies its on_hit effects.
+- **Abilities:** `refresh_on_kill: players` (or `all`) resets the cooldown on kills.
+- **Tags:** `state.hidden` (other players can't see you at all), `state.untargetable` (abilities
+  ignore you: shots, rays and dashes pass through, areas skip you), `state.blinded`.

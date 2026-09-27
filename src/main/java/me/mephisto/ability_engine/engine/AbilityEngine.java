@@ -45,6 +45,7 @@ public final class AbilityEngine {
     private final CooldownManager cooldowns;
     private final ResourceManager resources;
     private final TagManager tags = new TagManager();
+    private final me.mephisto.ability_engine.engine.summon.SummonManager summons;
     private final StatusManager statuses;
     private final AbilityInstanceRegistry instances = new AbilityInstanceRegistry();
     private final AbilityActivator activator;
@@ -63,6 +64,8 @@ public final class AbilityEngine {
         this.log = new EngineLog(platform.logger());
         this.runner = new GraphRunner(log);
         this.teams = new Teams(platform.world());
+        teams.setTags(tags);
+        this.summons = new me.mephisto.ability_engine.engine.summon.SummonManager(platform.clones(), platform.scheduler());
         this.barriers = new me.mephisto.ability_engine.engine.barrier.BarrierSystem(platform.world(), teams, platform.cues());
         this.cooldowns = new CooldownManager(platform.clock());
         this.resources = new ResourceManager(platform.clock());
@@ -121,6 +124,7 @@ public final class AbilityEngine {
 
     /** Cancel casts, clear statuses and tags. For death, logout, or mobs despawning. Keeps cooldowns, resources and character. */
     public void resetEntity(UUID entity, String reason) {
+        summons.dismissAll(entity);
         targeting.cancel(entity, reason);
         instances.cancelAll(entity, reason);
         statuses.clear(entity);
@@ -129,6 +133,7 @@ public final class AbilityEngine {
 
     /** Like {@link #resetEntity}, for a death: casts of abilities that survive death keep running (traps). */
     public void resetOnDeath(UUID entity) {
+        summons.dismissAll(entity); // echoes go with you
         targeting.cancel(entity, "death");
         for (var instance : instances.of(entity)) {
             if (!instance.ability().survivesDeath()) instance.cancel("death");
@@ -143,6 +148,29 @@ public final class AbilityEngine {
         instances.cancelEverything("shutdown");
         projectiles.shutdown();
         constructs.shutdown();
+        summons.shutdown();
         statuses.clearAll();
+    }
+
+    public me.mephisto.ability_engine.engine.summon.SummonManager summons() { return summons; }
+
+    /**
+     * Someone dealt damage (the platform's damage effect reports it). Ends the attacker's statuses
+     * with break_on_damage (stealth).
+     */
+    public void notifyDamageDealt(UUID attacker, UUID victim) {
+        if (attacker == null || attacker.equals(victim)) return;
+        for (var s : java.util.List.copyOf(statuses.on(attacker))) {
+            if (s.def().breakOnDamage()) statuses.remove(attacker, s.def().id());
+        }
+    }
+
+    /** Someone got a kill: reset the killer's abilities that refresh on kills (refresh_on_kill). */
+    public void notifyKill(UUID killer, UUID victim, boolean victimIsPlayer) {
+        loadouts.characterOf(killer).ifPresent(c -> c.slots().values().forEach(id -> abilities.find(id).ifPresent(a -> {
+            if (a.refreshOnKill().equals("all") || (victimIsPlayer && a.refreshOnKill().equals("players"))) {
+                cooldowns.clear(killer, id);
+            }
+        })));
     }
 }

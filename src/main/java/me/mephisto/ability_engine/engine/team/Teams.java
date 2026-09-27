@@ -34,7 +34,14 @@ public final class Teams {
     public boolean enemies(UUID a, UUID b) { return !allies(a, b); }
 
     /** For ray sweeps: entities a shot from {@code caster} flies through (the caster and their allies). */
+    private me.mephisto.ability_engine.engine.tag.TagManager tags;
+
+    /** Lets untargetable entities (state.untargetable) be passed through like allies. */
+    public void setTags(me.mephisto.ability_engine.engine.tag.TagManager tags) { this.tags = tags; }
+
+    /** What the caster's shots, rays and dashes go through: allies, and anyone untargetable. */
     public Predicate<UUID> passThroughFor(UUID caster) {
-        return id -> allies(caster, id);
+        return id -> allies(caster, id)
+                || (tags != null && tags.has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE));
     }
 }

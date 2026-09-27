@@ -1,0 +1,181 @@
+# content: fixture_dreamer
+# The Dreamer: an assassin who slips between the waking world and the Dream Realm.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Backstab): every damage effect of hers has  backstab: 1.5  - hitting a target from behind
+# (outside the front 220 degrees of where they face) deals x1.5 and shows a crit.
+
+statuses:
+  dreamwalking:                      # Dreamwalk: gone from sight, ignored by every ability
+    duration: 100                    # 5s...
+    stacking: refresh
+    tags: [state.hidden, state.invisible, state.untargetable, state.hasted]
+    break_on_damage: true            # ...or until you deal damage
+  dream_touch:                       # your next primary fire blinds
+    duration: 200                    # 10s to use it
+    stacking: refresh
+    once: true                       # used up by the first hit
+    on_hit:
+      - { id: status, status: blinded }
+  blinded:
+    duration: 40                     # 2s
+    stacking: refresh
+    tags: [state.blinded]
+
+abilities:
+
+  # PRIMARY: a quick dagger slash in front of you.
+  dream_blade:
+    cooldown: 10                     # 0.5s
+    display:
+      name: "Dream Blade"
+      icon: GOLDEN_SWORD
+      description:
+        - "Quick slash in front of you."
+        - "Crits from behind (x1.5)."
+    nodes:
+      slash:
+        type: apply_effects
+        targets: { type: cone, range: 2.8, angle: 80 }
+        effects:
+          - { id: damage, amount: 40, backstab: 1.5 }
+        next: slash_cue
+      slash_cue:
+        type: play_cue
+        cue: sweep
+
+  # 1: slip into the Dream Realm for 5s: hidden from other players (armor and held items too),
+  # ignored by every ability, faster. Dealing damage wakes you up. Your next primary fire (within
+  # 10s) also blinds.
+  dreamwalk:
+    cooldown: 240                    # 12s
+    display:
+      name: "Dreamwalk"
+      icon: ENDER_EYE
+      description:
+        - "5s: invisible, untargetable and faster."
+        - "Dealing damage wakes you. Your next"
+        - "primary fire blinds."
+    nodes:
+      enter:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: dreamwalking }
+          - { id: status, status: dream_touch }
+        next: enter_cue
+      enter_cue:
+        type: play_cue
+        cue: dream_enter
+
+  # 2: dash where you look (up and down too, in mid-air too), damaging everyone you pass through.
+  # If your Dream Echo is out, it repeats the dash from where it stands, toward your crosshair.
+  # Refreshes on player kills.
+  crescent_rush:
+    cooldown: 200                    # 10s
+    refresh_on_kill: players         # "all" counts any kill (handy for testing on mannequins)
+    display:
+      name: "Crescent Rush"
+      icon: PHANTOM_MEMBRANE
+      description:
+        - "Dash where you look, damaging everyone"
+        - "you pass through. Your Echo repeats it."
+        - "Refreshes on player kills."
+    active_tags: [state.dashing, block.ability]
+    interrupted_by: [state.stunned]
+    nodes:
+      echo_check:
+        type: find_summon
+        summon: dream_echo
+        store: echo
+        on: { found: both, none: rush }
+      both:
+        type: fork                   # you and the echo dash at the same time
+        on: { out: rush, also: echo_rush }
+      rush:
+        type: dash
+        speed: 1.8
+        range: 9
+        flat: false                  # follows your aim up and down
+        pierce: true                 # through enemies; walls stop it
+        store: rush                  # rush_start / rush_end
+        on: { miss: free }
+      free:
+        type: release_tags           # act again the moment the dash ends
+        next: slash
+      slash:
+        type: apply_effects
+        targets: { type: path, from: rush_start, to: rush_end, width: 2.0 }
+        effects:
+          - { id: damage, amount: 55, backstab: 1.5 }
+        next: slash_cue
+      slash_cue:
+        type: play_cue
+        cue: crescent
+        at: rush_start
+        to: rush_end
+      echo_rush:
+        type: dash
+        mover: echo                  # the echo dashes, along YOUR crosshair
+        speed: 1.8
+        range: 9
+        flat: false
+        pierce: true
+        store: echo_rush
+        on: { miss: echo_slash }
+      echo_slash:
+        type: apply_effects
+        targets: { type: path, from: echo_rush_start, to: echo_rush_end, width: 2.0 }
+        effects:
+          - { id: damage, amount: 55, backstab: 1.5 }
+        next: echo_slash_cue
+      echo_slash_cue:
+        type: play_cue
+        cue: crescent
+        at: echo_rush_start
+        to: echo_rush_end
+
+  # 3: leave a Dream Echo (a mannequin with your skin) where you stand, for 10s. Recast (press 3
+  # again) to swap places with it. While it's out, Crescent Rush makes it dash too.
+  dream_echo:
+    cooldown: 360                    # 18s, starts once you swap or the echo fades
+    display:
+      name: "Dream Echo"
+      icon: ARMOR_STAND
+      description:
+        - "Leave an Echo of yourself for 10s."
+        - "Recast: swap places with it."
+        - "It repeats your Crescent Rush."
+    nodes:
+      create:
+        type: summon_clone
+        summon: dream_echo           # Crescent Rush finds it by this name
+        store: echo
+        lifetime: 200                # 10s
+        next: create_cue
+      create_cue:
+        type: play_cue
+        cue: dream_echo
+        next: wait
+      wait:
+        type: await_recast
+        window: 200
+        on: { recast: swap }
+      swap:
+        type: swap
+        with: echo
+        next: swap_cue
+      swap_cue:
+        type: play_cue
+        cue: echo_swap
+
+characters:
+  dreamer:
+    name: "Dreamer"
+    weapon: GOLDEN_SWORD
+    slots:
+      primary: dream_blade           # LMB
+      ability_1: dreamwalk           # 1
+      ability_2: crescent_rush       # 2
+      ability_3: dream_echo          # 3, press 3 again to swap
+      # ultimate: (not designed yet)

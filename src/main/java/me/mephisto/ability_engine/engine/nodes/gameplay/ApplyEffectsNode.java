@@ -69,12 +69,15 @@ public final class ApplyEffectsNode implements GraphNode {
 
     /** The caster's buffs: every on-hit effect of every status they have, applied to this target. */
     private static void applyOnHit(ExecutionContext ctx, Target target) {
-        for (ActiveStatus buff : ctx.engine().statuses().on(ctx.caster())) {
+        java.util.List<String> usedUp = new java.util.ArrayList<>();
+        for (ActiveStatus buff : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
             for (EffectConfig config : buff.def().onHit()) {
                 ctx.engine().effects().require(config.effectId())
                         .apply(new EffectContext(ctx.engine(), ctx, ctx.caster(), target, config.params()));
             }
+            if (buff.def().once() && !buff.def().onHit().isEmpty()) usedUp.add(buff.def().id());
         }
+        usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id)); // "your NEXT hit" buffs
     }
 
     /** The fired bolt's infusions: each one's on-hit effects, applied to this target. */
@@ -94,6 +97,7 @@ public final class ApplyEffectsNode implements GraphNode {
 
     private boolean allowed(ExecutionContext ctx, Target target) {
         if (!(target instanceof EntityTarget e) || e.id().equals(ctx.caster())) return true;
+        if (ctx.engine().tags().has(e.id(), me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE)) return false;
         boolean ally = ctx.engine().teams().allies(ctx.caster(), e.id());
         return switch (affects) {
             case ENEMIES -> !ally;

@@ -46,13 +46,16 @@ public final class TestEngine {
         Logger logger = Logger.getLogger("test");
         logger.setLevel(Level.WARNING);
         render.time = time;
-        engine = new AbilityEngine(new Platform(time, time, world, world, render, render, render, render, logger));
+        engine = new AbilityEngine(new Platform(time, time, world, world, render, render, render, render, world, logger));
         engine.effects().register("damage", new Effect() {
             @Override
             public void apply(EffectContext ctx) {
                 hits.add(ctx.target());
                 if (ctx.target() instanceof EntityTarget e) {
-                    double amount = ctx.params().requireDouble("amount");
+                    // Same rules as the real damage effect: backstab crits, and report it (stealth breaks).
+                    double amount = ctx.params().requireDouble("amount")
+                            * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx);
+                    ctx.engine().notifyDamageDealt(ctx.caster(), e.id());
                     damageTaken.merge(e.id(), amount, Double::sum);
                     double ls = ctx.params().getDouble("lifesteal", 0);
                     if (ls > 0) lifesteal.merge(ctx.caster(), amount * ls, Double::sum);

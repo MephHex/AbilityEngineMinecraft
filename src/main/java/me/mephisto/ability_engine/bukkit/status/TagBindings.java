@@ -23,6 +23,13 @@ public final class TagBindings implements TagListener {
 
     private final Map<String, Binding> bindings = new HashMap<>();
 
+    private static void forOthers(LivingEntity e, java.util.function.BiConsumer<org.bukkit.entity.Player, org.bukkit.plugin.Plugin> action) {
+        org.bukkit.plugin.Plugin plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(TagBindings.class);
+        for (org.bukkit.entity.Player viewer : Bukkit.getOnlinePlayers()) {
+            if (!viewer.equals(e)) action.accept(viewer, plugin);
+        }
+    }
+
     public static TagBindings withDefaults() {
         TagBindings b = new TagBindings();
         b.bind(Tags.BLOCK_MOVE, MovementLock::apply, MovementLock::remove);
@@ -40,6 +47,12 @@ public final class TagBindings implements TagListener {
                     e.setFallDistance(0); // hovering high up doesn't turn into fall damage
                 });
         b.bind(Tags.GLOWING, e -> e.setGlowing(true), e -> e.setGlowing(false));
+        // Truly hidden: other players don't see the entity at all (armor and held items included).
+        b.bind(Tags.HIDDEN, e -> forOthers(e, (viewer, plugin) -> viewer.hideEntity(plugin, e)),
+                e -> forOthers(e, (viewer, plugin) -> viewer.showEntity(plugin, e)));
+        b.bind(Tags.BLINDED,
+                e -> e.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, PotionEffect.INFINITE_DURATION, 0, false, false)),
+                e -> e.removePotionEffect(PotionEffectType.BLINDNESS));
         b.bind(Tags.BURNING, e -> e.setVisualFire(true), e -> e.setVisualFire(false)); // looks on fire, no vanilla fire damage
         b.bind(Tags.RESISTANT,   // Resistance II: -40% damage taken (applies to ability damage too)
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 1, false, false)),

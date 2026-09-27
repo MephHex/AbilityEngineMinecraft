@@ -60,7 +60,14 @@ public final class NodeTypes {
         t.register("start_cue", (p, e) -> new StartCueNode(p.requireString("cue"), p.getString("at", null)));
         t.register("dash", (p, e) -> new DashNode(
                 p.getDouble("speed", 1.2), p.requireDouble("range"), p.getDouble("radius", 0.6), p.getBool("flat", false),
-                p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p)));
+                p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p),
+                p.getString("mover", null)));
+        t.register("fork", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.ForkNode());
+        t.register("summon_clone", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
+                p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime")));
+        t.register("find_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindSummonNode(
+                p.requireString("summon"), p.getString("store", "summon")));
+        t.register("swap", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SwapNode(p.requireString("with")));
         t.register("counter", (p, e) -> new CounterNode(p.requireString("counter"), p.requireInt("every")));
         t.register("release_tags", (p, e) -> new ReleaseTagsNode());
         t.register("steer_projectile", (p, e) -> new SteerProjectileNode(

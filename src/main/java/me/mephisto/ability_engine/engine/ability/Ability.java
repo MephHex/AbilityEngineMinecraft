@@ -43,7 +43,8 @@ public record Ability(
         String aura,
         boolean cancelOnRepress,
         boolean survivesDeath,
-        boolean movement
+        boolean movement,
+        String refreshOnKill
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -71,6 +72,7 @@ public record Ability(
         private boolean cancelOnRepress;
         private boolean survivesDeath;
         private boolean movement;
+        private String refreshOnKill = "none";
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -89,6 +91,8 @@ public record Ability(
         public Builder aura(String cueId) { this.aura = cueId; return this; }
         public Builder cancelOnRepress(boolean v) { this.cancelOnRepress = v; return this; }
         public Builder survivesDeath(boolean v) { this.survivesDeath = v; return this; }
+        /** "none", "players" (reset the cooldown on player kills) or "all" (any kill). */
+        public Builder refreshOnKill(String v) { this.refreshOnKill = v; return this; }
         public Builder movement(boolean v) { this.movement = v; return this; }
 
         public Ability build() {
@@ -103,7 +107,8 @@ public record Ability(
                 interrupts = with(interrupts, Tags.BLOCK_MOVE);
             }
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
-                    cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement);
+                    cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
+                    refreshOnKill);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

@@ -15,9 +15,7 @@ import java.util.UUID;
 
 import static me.mephisto.ability_engine.engine.testkit.Yml.list;
 import static me.mephisto.ability_engine.engine.testkit.Yml.map;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /** The Hunter kit (fixtures/hunter.yml): quiver, infusions, Venom Step, Volatile Flask, Overdrive. */
 class HunterTest {
@@ -430,7 +428,7 @@ class HunterTest {
         setup();
         var trap = throwSnare();
         assertTrue(trap.position().x() > 3 && trap.position().x() < 12, "a short toss: x=" + trap.position().x());
-        assertTrue(trap.position().y() >= 0 && trap.position().y() <= 0.2, "lying on the floor: y=" + trap.position().y());
+        assertEquals(0.0, trap.position().y(), 1e-6, "lying on the floor");
         assertTrue(trap.armed(), "armed where it stopped");
     }
 

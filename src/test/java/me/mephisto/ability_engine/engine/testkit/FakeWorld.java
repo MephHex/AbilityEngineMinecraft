@@ -17,7 +17,8 @@ import java.util.UUID;
 import java.util.function.Predicate;
 
 /** Entities are spheres; the only block is an optional flat floor. */
-public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.engine.platform.MovementControl {
+public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.engine.platform.MovementControl,
+        me.mephisto.ability_engine.engine.platform.CloneSpawner {
 
     public static final String WORLD = "world";
     private static final double ENTITY_RADIUS = 0.4;
@@ -57,6 +58,28 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
 
     @Override
     public void stop(UUID id) {}
+
+    @Override
+    public void teleport(UUID id, Vec3 center) {
+        if (entities.containsKey(id)) entities.put(id, center);
+    }
+
+    // ---- clones: exist and move like entities, but queries and sweeps ignore them (like the real ones) ----
+    public final java.util.Set<UUID> clones = new java.util.HashSet<>();
+
+    @Override
+    public Optional<UUID> spawnClone(UUID of, String world, Vec3 center) {
+        UUID id = UUID.randomUUID();
+        entities.put(id, center);
+        clones.add(id);
+        return Optional.of(id);
+    }
+
+    @Override
+    public void despawn(UUID clone) {
+        entities.remove(clone);
+        clones.remove(clone);
+    }
     public void look(UUID id, Vec3 direction) { looking.put(id, direction.normalize()); }
 
     private final Map<UUID, Vec3> moving = new HashMap<>();
@@ -88,6 +111,7 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     @Override
     public List<EntitySnapshot> livingEntitiesNear(PointTarget center, double radius) {
         return entities.entrySet().stream()
+                .filter(e -> !clones.contains(e.getKey()))
                 .filter(e -> e.getValue().distance(center.position()) <= radius + 1)
                 .map(e -> new EntitySnapshot(e.getKey(), e.getValue()))
                 .toList();
@@ -103,7 +127,7 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
         SweepHit best = null;
 
         for (var e : entities.entrySet()) {
-            if (passThrough.test(e.getKey())) continue;
+            if (passThrough.test(e.getKey()) || clones.contains(e.getKey())) continue;
             double t = Math.max(0, Math.min(1, e.getValue().subtract(from).dot(seg) / len2));
             Vec3 closest = from.add(seg.multiply(t));
             if (closest.distance(e.getValue()) <= ENTITY_RADIUS + radius && t < bestT) {
