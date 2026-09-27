@@ -91,7 +91,15 @@ public final class Parsers {
                 .count(p.getInt("count", 1))
                 .spreadDegrees(p.getDouble("spread", 0))
                 .range(p.getDouble("range", 0))
+                .pierce(p.getInt("pierce", 0))
+                .slide(slide(p))
                 .build();
+    }
+
+    private static double slide(Params p) {
+        double slide = p.getDouble("slide", 0);
+        if (slide < 0 || slide >= 1) throw p.error("slide", "expected the share of speed kept per tick, 0 to 0.99");
+        return slide;
     }
 
     /** The "motion:" list of a section. */

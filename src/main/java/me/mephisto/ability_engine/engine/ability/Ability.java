@@ -22,6 +22,8 @@ import java.util.Set;
  *                      or the cast ended) instead of on the first cast
  * @param aura          a looping cue on the caster for the whole cast (null = none)
  * @param cancelOnRepress pressing the ability's key again while it runs ends it early
+ * @param survivesDeath   the caster dying doesn't cancel its casts (e.g. traps stay armed); logging out
+ *                        or changing character still does
  */
 public record Ability(
         String id,
@@ -36,7 +38,8 @@ public record Ability(
         Targeting targeting,
         boolean cooldownAfterRecast,
         String aura,
-        boolean cancelOnRepress
+        boolean cancelOnRepress,
+        boolean survivesDeath
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -62,6 +65,7 @@ public record Ability(
         private boolean cooldownAfterRecast;
         private String aura;
         private boolean cancelOnRepress;
+        private boolean survivesDeath;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -79,6 +83,7 @@ public record Ability(
         public Builder cooldownAfterRecast(boolean v) { this.cooldownAfterRecast = v; return this; }
         public Builder aura(String cueId) { this.aura = cueId; return this; }
         public Builder cancelOnRepress(boolean v) { this.cancelOnRepress = v; return this; }
+        public Builder survivesDeath(boolean v) { this.survivesDeath = v; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -87,7 +92,7 @@ public record Ability(
             Set<String> active = activeTags != null ? activeTags
                     : mode.exclusive() ? Set.of(Tags.CHANNELING) : Set.of();
             return new Ability(id, graph, cooldownTicks, costs, mode, blockedBy, interrupts, active, display, targeting,
-                    cooldownAfterRecast, aura, cancelOnRepress);
+                    cooldownAfterRecast, aura, cancelOnRepress, survivesDeath);
         }
     }
 }

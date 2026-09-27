@@ -35,6 +35,7 @@ import java.util.logging.Logger;
  *       to break it now".</li>
  *   <li>Hitbox: an invisible Interaction entity. Punching it is reported to the engine as a melee
  *       strike; the engine decides whether that breaks it.</li>
+ *   <li>Traps (not solid): the item lies flat on the ground, no hitbox, and a click when it arms.</li>
  * </ul>
  */
 public final class BukkitConstructRenderer implements ConstructRenderer, Listener {
@@ -56,6 +57,7 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
         Location center = Convert.location(construct.world(), construct.position());
         if (center == null) return NONE;
         float size = (float) construct.size();
+        if (!construct.solid()) return trap(construct, center, visual, size);
 
         VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
         Entity look = spawned.entity();
@@ -105,6 +107,33 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
                 hitboxes.remove(hitbox.getUniqueId());
                 hitboxes.remove(look.getUniqueId());
                 if (hitbox.isValid()) hitbox.remove();
+                if (look.isValid()) look.remove();
+            }
+        };
+    }
+
+    /** A trap: lies flat, nothing to punch, clicks once when it's armed. */
+    private ConstructVisual trap(ConstructHandle construct, Location center, String visual, float size) {
+        VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
+        Entity look = spawned.entity();
+        if (look instanceof ItemDisplay d) {
+            float s = size * 1.5f;
+            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateX((float) (Math.PI / 2)),
+                    new Vector3f(s, s, s), new Quaternionf()));
+        }
+        return new ConstructVisual() {
+            boolean armedShown;
+
+            @Override
+            public void update(double progress, boolean fragile) {
+                if (armedShown || !construct.armed()) return;
+                armedShown = true;
+                center.getWorld().playSound(center, Sound.BLOCK_TRIPWIRE_ATTACH, 0.8f, 1.2f);
+                center.getWorld().spawnParticle(Particle.CRIT, center, 6, 0.3, 0.05, 0.3, 0.02);
+            }
+
+            @Override
+            public void remove() {
                 if (look.isValid()) look.remove();
             }
         };

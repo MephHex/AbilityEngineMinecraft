@@ -68,7 +68,7 @@ public final class AbilityEngine {
         this.resources = new ResourceManager(platform.clock());
         this.statuses = new StatusManager(platform.clock(), platform.scheduler(), tags, statusDefs, log);
         this.activator = new AbilityActivator(this);
-        this.constructs = new ConstructSystem(platform.constructRenderer(), platform.scheduler(), teams, log);
+        this.constructs = new ConstructSystem(platform.constructRenderer(), platform.scheduler(), teams, platform.world(), log);
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
         this.quivers = new QuiverManager(tags, statuses,
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
@@ -85,6 +85,7 @@ public final class AbilityEngine {
             }
         });
         effects.register("status", new ApplyStatusEffect(statusDefs));
+        effects.register("remove_status", new me.mephisto.ability_engine.engine.effect.RemoveStatusEffect(statusDefs));
     }
 
     // ---- platform ----
@@ -122,6 +123,16 @@ public final class AbilityEngine {
     public void resetEntity(UUID entity, String reason) {
         targeting.cancel(entity, reason);
         instances.cancelAll(entity, reason);
+        statuses.clear(entity);
+        tags.clear(entity);
+    }
+
+    /** Like {@link #resetEntity}, for a death: casts of abilities that survive death keep running (traps). */
+    public void resetOnDeath(UUID entity) {
+        targeting.cancel(entity, "death");
+        for (var instance : instances.of(entity)) {
+            if (!instance.ability().survivesDeath()) instance.cancel("death");
+        }
         statuses.clear(entity);
         tags.clear(entity);
     }

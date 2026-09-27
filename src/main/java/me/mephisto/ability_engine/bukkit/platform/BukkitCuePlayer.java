@@ -100,6 +100,16 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.6f);
         });
         c.registerLoop("overdrive", e -> overdrive(plugin, e));
+        c.register("trap_set", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_TRIPWIRE_CLICK_ON, 1f, 0.8f));
+        c.register("trap_spring", loc -> {
+            loc.getWorld().spawnParticle(Particle.CRIT, loc, 25, 0.4, 0.2, 0.4, 0.2);
+            loc.getWorld().playSound(loc, Sound.BLOCK_TRIPWIRE_DETACH, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_IRON_GOLEM_ATTACK, 0.8f, 1.4f);
+        });
+        c.register("mark_pop", loc -> {
+            loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 20, 0.3, 0.4, 0.3, 0.2);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ARROW_HIT_PLAYER, 1f, 0.6f);
+        });
 
         c.register("hit", loc -> {
             loc.getWorld().spawnParticle(Particle.CRIT, loc, 12, 0.2, 0.2, 0.2, 0.2);

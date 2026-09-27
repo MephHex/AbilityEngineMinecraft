@@ -17,4 +17,10 @@ public interface ConstructHandle {
     boolean isFragile();
     /** 0 at placement, 1 when the fuse runs out. */
     double progress();
+
+    /** Projectiles and punches hit it. False for traps, which only an enemy walking in can set off. */
+    default boolean solid() { return true; }
+
+    /** A trap: can it be set off yet? Always true for constructs that aren't traps. */
+    default boolean armed() { return true; }
 }

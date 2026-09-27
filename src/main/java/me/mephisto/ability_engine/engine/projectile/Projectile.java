@@ -23,6 +23,8 @@ final class Projectile implements ProjectileHandle {
     int bouncesLeft;
     boolean done;
     boolean redirected;         // velocity was set from outside: a self-flying visual must be told
+    int piercesLeft;
+    final java.util.Set<java.util.UUID> pierced = new java.util.HashSet<>(); // already hit: fly through them
 
     Projectile(ProjectileSpec spec, String world, Vec3 position, Vec3 velocity, Resumer resumer, ProjectileVisual visual) {
         this.spec = spec;
@@ -34,6 +36,7 @@ final class Projectile implements ProjectileHandle {
         this.motion = spec.motion();
         this.lastPosition = position;
         this.bouncesLeft = spec.maxBounces();
+        this.piercesLeft = Math.max(0, spec.pierce());
     }
 
     @Override public boolean isAlive() { return !done; }

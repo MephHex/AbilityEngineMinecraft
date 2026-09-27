@@ -16,6 +16,7 @@ public final class Ports {
     public static final String FUSE = "fuse";
     public static final String STRUCK = "struck";
     public static final String BROKEN = "broken";
+    public static final String TRIGGERED = "triggered";
     public static final String TRIGGER = "trigger";
     // Not yes/no: YAML 1.1 reads unquoted yes/no keys as booleans.
     public static final String HAS = "has";
