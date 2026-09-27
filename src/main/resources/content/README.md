@@ -69,6 +69,9 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Dashes:** `pierce: true` passes through enemies; `store: name` records name_start / name_end.
   `direction: movement` dashes the way the caster is WALKING (strafe left = dash left, always flat)
   instead of where they aim; standing still, it goes straight ahead.
+- **Movement abilities** (anything with a `dash` node, or `movement: true`, e.g. a blink) can't be used
+  while the caster has `block.move` (rooted, stunned), and a dash in progress stops when they get it.
+  `movement: false` opts a dash out (e.g. one that breaks roots).
 - **Ability options:** `aura: <looping cue>` runs for the whole cast; `cancel_on_repress: true` lets
   the ability's key end it early; `survives_death: true` keeps its casts running when the caster dies
   (thrown traps stay armed; logging out or changing character still ends them).

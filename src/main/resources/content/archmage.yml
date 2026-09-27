@@ -127,6 +127,7 @@ abilities:
   #  Stun or silence during the channel cancels it (the cooldown is still spent).
   foldstep:
     cooldown: 180
+    movement: true                   # a blink: not while rooted (dashes count automatically)
     display:
       name: "Foldstep"
       icon: ENDER_PEARL

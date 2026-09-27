@@ -24,6 +24,9 @@ import java.util.Set;
  * @param cancelOnRepress pressing the ability's key again while it runs ends it early
  * @param survivesDeath   the caster dying doesn't cancel its casts (e.g. traps stay armed); logging out
  *                        or changing character still does
+ * @param movement        it moves the caster (dash, blink): can't be used while they can't move
+ *                        ({@code block.move}: rooted, stunned), and a cast in progress stops if they lose
+ *                        the ability to move. Already folded into blockedBy / interruptedBy.
  */
 public record Ability(
         String id,
@@ -39,7 +42,8 @@ public record Ability(
         boolean cooldownAfterRecast,
         String aura,
         boolean cancelOnRepress,
-        boolean survivesDeath
+        boolean survivesDeath,
+        boolean movement
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -66,6 +70,7 @@ public record Ability(
         private String aura;
         private boolean cancelOnRepress;
         private boolean survivesDeath;
+        private boolean movement;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -84,6 +89,7 @@ public record Ability(
         public Builder aura(String cueId) { this.aura = cueId; return this; }
         public Builder cancelOnRepress(boolean v) { this.cancelOnRepress = v; return this; }
         public Builder survivesDeath(boolean v) { this.survivesDeath = v; return this; }
+        public Builder movement(boolean v) { this.movement = v; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -91,8 +97,19 @@ public record Ability(
                     : mode.exclusive() ? Set.of(Tags.BLOCK_ABILITY) : Set.of();
             Set<String> active = activeTags != null ? activeTags
                     : mode.exclusive() ? Set.of(Tags.CHANNELING) : Set.of();
-            return new Ability(id, graph, cooldownTicks, costs, mode, blockedBy, interrupts, active, display, targeting,
-                    cooldownAfterRecast, aura, cancelOnRepress, survivesDeath);
+            Set<String> blocked = blockedBy;
+            if (movement) { // rooted (or stunned): no dashing or blinking, and a dash in progress stops
+                blocked = with(blocked, Tags.BLOCK_MOVE);
+                interrupts = with(interrupts, Tags.BLOCK_MOVE);
+            }
+            return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
+                    cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement);
+        }
+
+        private static Set<String> with(Set<String> tags, String tag) {
+            Set<String> out = new java.util.HashSet<>(tags);
+            out.add(tag);
+            return out;
         }
     }
 }

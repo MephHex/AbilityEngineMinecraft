@@ -214,7 +214,11 @@ public final class AbilityLoader {
         if (!cdStart.equals("cast") && !cdStart.equals("after_recast")) {
             throw p.error("cooldown_starts", "expected cast or after_recast");
         }
+        // Abilities that dash are movement abilities (blocked while rooted) unless they say movement: false.
+        boolean dashes = built.nodeIds().stream()
+                .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.DashNode);
         Ability.Builder b = Ability.builder(id, built)
+                .movement(p.getBool("movement", dashes))
                 .cooldownAfterRecast(cdStart.equals("after_recast"))
                 .aura(p.getString("aura", null))
                 .cancelOnRepress(p.getBool("cancel_on_repress", false))
