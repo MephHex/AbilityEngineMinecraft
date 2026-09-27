@@ -329,7 +329,7 @@ abilities:
   # bolt. On a player (or mob): massive damage, no explosion. On terrain: it explodes. The damage grows
   # with the charge (40% when let go at once). The last shot ends the ultimate.
   arcanist_barrage:
-    cooldown: 10                     # 0.5s between shots
+    cooldown: 20                     # 1s to load the next shot
     display:
       name: "Arcane Barrage"
       icon: SPYGLASS
