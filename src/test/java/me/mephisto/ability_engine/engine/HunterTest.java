@@ -231,6 +231,25 @@ class HunterTest {
     }
 
     @Test
+    void venomStepGoesTheFullDistanceWithPing() throws IOException {
+        setup();
+        t.world.lag(p, 2); // ~100ms round trip: pushes show up in the position 2 ticks late
+        t.engine.loadouts().activate(p, "ability_1");
+        t.time.advance(20);
+        assertTrue(pos(p).x() >= 5.5, "didn't give up waiting for the first movement: x=" + pos(p).x());
+    }
+
+    @Test
+    void venomStepSurvivesAMovementPacketArrivingLate() throws IOException {
+        setup();
+        t.engine.loadouts().activate(p, "ability_1");
+        t.time.advance(1);
+        t.world.lag(p, 1); // mid-dash, one tick's position update comes late
+        t.time.advance(20);
+        assertTrue(pos(p).x() >= 5.5, "a late packet isn't a wall: x=" + pos(p).x());
+    }
+
+    @Test
     void venomStepGoesForwardWhenStandingStill() throws IOException {
         setup();
         t.world.look(p, new Vec3(1, 1, 0)); // looking up: still a ground dash

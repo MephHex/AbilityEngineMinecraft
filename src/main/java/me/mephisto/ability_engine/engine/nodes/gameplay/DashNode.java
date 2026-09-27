@@ -34,6 +34,13 @@ import java.util.Set;
 public final class DashNode implements GraphNode {
 
     private static final Set<String> OUTPUTS = Set.of(Ports.HIT, Ports.MISS);
+    /**
+     * A player's server-side position only moves when their movement packets arrive, so with ping a tick
+     * can show no progress even mid-dash. Only this many ticks IN A ROW without progress mean stuck.
+     */
+    private static final int STUCK_TICKS = 4;
+    /** Before the caster has moved at all, wait longer: the first push has to reach their client and back. */
+    private static final int START_GRACE_TICKS = 10;
 
     private final double speed;
     private final double range;
@@ -96,6 +103,8 @@ public final class DashNode implements GraphNode {
         private TaskHandle task;
         private Vec3 last;
         private int ticks;
+        private int stillTicks;   // ticks in a row without progress
+        private boolean moving;   // has the caster moved at all yet?
         private boolean done;
 
         Dash(ExecutionContext ctx, Resumer resumer, Vec3 dir, PointTarget start) {
@@ -103,7 +112,7 @@ public final class DashNode implements GraphNode {
             this.resumer = resumer;
             this.dir = dir;
             this.start = start;
-            this.maxTicks = (int) Math.ceil(range / speed) + 5; // safety net
+            this.maxTicks = (int) Math.ceil(range / speed) + START_GRACE_TICKS + 5; // safety net, ping included
         }
 
         void begin() {
@@ -126,7 +135,15 @@ public final class DashNode implements GraphNode {
                 return;
             }
             Vec3 here = pos.get().position();
-            boolean stuck = last != null && ticks > 1 && here.distance(last) < speed * 0.2;
+            if (last != null) {
+                if (here.distance(last) >= speed * 0.2) {
+                    moving = true;
+                    stillTicks = 0;
+                } else {
+                    stillTicks++;
+                }
+            }
+            boolean stuck = stillTicks >= (moving ? STUCK_TICKS : START_GRACE_TICKS);
             if (here.distance(start.position()) >= range || ++ticks > maxTicks || stuck) {
                 finish(Ports.MISS);
                 return;
