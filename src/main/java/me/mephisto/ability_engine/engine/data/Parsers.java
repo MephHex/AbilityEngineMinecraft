@@ -236,7 +236,8 @@ public final class Parsers {
         if (every > 0 && tickEffects.isEmpty()) throw tick.error("effects", "tick needs effects");
         if (every <= 0 && !tickEffects.isEmpty()) throw tick.error("every", "tick needs every: <ticks>");
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
-                base.grantedTags(), onHit, every, tickEffects);
+                base.grantedTags(), onHit, every, tickEffects,
+                p.getBool("break_on_damage", false), p.getBool("once", false));
     }
 
     private Parsers() {}

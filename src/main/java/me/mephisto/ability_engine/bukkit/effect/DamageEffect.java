@@ -55,7 +55,9 @@ public final class DamageEffect implements Effect {
             return;
         }
 
-        double design = ctx.params().requireDouble("amount");
+        // Backstab crits (backstab: 1.5): from behind the target, multiply.
+        double design = ctx.params().requireDouble("amount")
+                * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx);
         double amount = design / scale;
         // Vanilla ignores a hit landing within ~10 ticks of the last one. Rapid channels need this.
         if (ctx.params().getBool("ignore_iframes", false)) living.setNoDamageTicks(0);
@@ -75,6 +77,7 @@ public final class DamageEffect implements Effect {
         // Magic damage has no knockback in vanilla; if anything pushed them anyway, undo it.
         if (!knockback && !living.getVelocity().equals(velocityBefore)) living.setVelocity(velocityBefore);
         double after = living.getHealth();
+        if (after < before) ctx.engine().notifyDamageDealt(ctx.caster(), target.id()); // e.g. stealth breaks
 
         double lifesteal = ctx.params().getDouble("lifesteal", 0);
         if (lifesteal > 0 && after < before && shields != null && damager instanceof LivingEntity self && !self.equals(living)) {

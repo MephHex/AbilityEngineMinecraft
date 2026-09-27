@@ -49,6 +49,35 @@ public final class BukkitCuePlayer implements CuePlayer {
         c.registerLoop("geyser_charge", e -> geyserCharge(plugin, e));
         c.registerLine("geyser_beam", (world, from, to) -> geyserBeam(plugin, world, from, to));
 
+        // ---- Dreamer ----
+        c.register("crit", loc -> {
+            loc.getWorld().spawnParticle(Particle.CRIT, loc, 18, 0.3, 0.4, 0.3, 0.3);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 1f);
+        });
+        c.register("dream_enter", loc -> {
+            loc.getWorld().spawnParticle(Particle.PORTAL, loc, 40, 0.3, 0.6, 0.3, 0.6);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1f, 1.2f);
+        });
+        c.register("dream_echo", loc -> {
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 30, 0.3, 0.6, 0.3, 0.05);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_CAST_SPELL, 1f, 1.3f);
+        });
+        c.register("echo_swap", loc -> {
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 40, 0.3, 0.6, 0.3, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1.4f);
+        });
+        c.registerLine("crescent", (w, from, to) -> {
+            Vector d = to.clone().subtract(from);
+            double len = d.length();
+            if (len < 0.1) return;
+            for (double t = 0; t <= len; t += 0.5) {
+                Vector p = from.clone().add(d.clone().multiply(t / len));
+                w.spawnParticle(Particle.SWEEP_ATTACK, p.getX(), p.getY(), p.getZ(), 1, 0.1, 0.1, 0.1, 0);
+                w.spawnParticle(Particle.END_ROD, p.getX(), p.getY(), p.getZ(), 1, 0.15, 0.15, 0.15, 0.01);
+            }
+            w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.7f);
+        });
+
         // ---- Essence Reaver ----
         c.register("sweep", loc -> {
             loc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 1, 0.3, 0.1, 0.3, 0);

@@ -15,6 +15,7 @@ import me.mephisto.ability_engine.engine.target.EntityTarget;
 import me.mephisto.ability_engine.engine.target.PointTarget;
 
 import java.util.Optional;
+import java.util.UUID;
 import java.util.Set;
 
 /**
@@ -49,6 +50,7 @@ public final class DashNode implements GraphNode {
     private final boolean pierce;
     private final String store; // null = don't record the path
     private final boolean alongMovement;
+    private final String moverKey; // null = the caster dashes; else whoever is in this key (an echo)
 
     public DashNode(double speed, double range, double radius, boolean flat) {
         this(speed, range, radius, flat, false, null);
@@ -61,6 +63,13 @@ public final class DashNode implements GraphNode {
     /** @param alongMovement dash the way the caster is moving instead of where they aim */
     public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
                     boolean alongMovement) {
+        this(speed, range, radius, flat, pierce, store, alongMovement, null);
+    }
+
+    /** @param moverKey who dashes: null = the caster, else the entity in this key, along the CASTER's aim */
+    public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
+                    boolean alongMovement, String moverKey) {
+        this.moverKey = moverKey;
         this.speed = speed;
         this.range = range;
         this.radius = radius;
@@ -74,7 +83,13 @@ public final class DashNode implements GraphNode {
     public NodeResult execute(ExecutionContext ctx) {
         AbilityEngine engine = ctx.engine();
         Optional<Aim> aim = engine.world().aimOf(ctx.caster());
-        Optional<PointTarget> start = engine.world().positionOf(new EntityTarget(ctx.caster()));
+        UUID mover = ctx.caster();
+        if (moverKey != null) {
+            var target = me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, moverKey);
+            if (target.isEmpty() || !(target.get() instanceof EntityTarget e)) return NodeResult.out(Ports.MISS);
+            mover = e.id();
+        }
+        Optional<PointTarget> start = engine.world().positionOf(new EntityTarget(mover));
         if (aim.isEmpty() || start.isEmpty()) return NodeResult.out(Ports.MISS);
 
         Vec3 dir = aim.get().direction();
@@ -87,7 +102,7 @@ public final class DashNode implements GraphNode {
         if (dir.isZero()) return NodeResult.out(Ports.MISS);
 
         if (store != null) ctx.blackboard().putRaw(store + "_start", start.get());
-        new Dash(ctx, ctx.suspend(), dir, start.get()).begin();
+        new Dash(ctx, ctx.suspend(), dir, start.get(), mover).begin();
         return NodeResult.SUSPENDED;
     }
 
@@ -106,8 +121,10 @@ public final class DashNode implements GraphNode {
         private int stillTicks;   // ticks in a row without progress
         private boolean moving;   // has the caster moved at all yet?
         private boolean done;
+        private final UUID mover;
 
-        Dash(ExecutionContext ctx, Resumer resumer, Vec3 dir, PointTarget start) {
+        Dash(ExecutionContext ctx, Resumer resumer, Vec3 dir, PointTarget start, UUID mover) {
+            this.mover = mover;
             this.ctx = ctx;
             this.resumer = resumer;
             this.dir = dir;
@@ -120,7 +137,7 @@ public final class DashNode implements GraphNode {
                 if (done) return;
                 done = true;
                 if (task != null) task.cancel();
-                ctx.engine().movement().stop(ctx.caster());
+                ctx.engine().movement().stop(mover);
             });
             tick();
             if (!done) task = ctx.engine().scheduler().every(1, 1, this::tick);
@@ -129,7 +146,7 @@ public final class DashNode implements GraphNode {
         private void tick() {
             if (done || !ctx.instance().isActive()) return;
             AbilityEngine engine = ctx.engine();
-            Optional<PointTarget> pos = engine.world().positionOf(new EntityTarget(ctx.caster()));
+            Optional<PointTarget> pos = engine.world().positionOf(new EntityTarget(mover));
             if (pos.isEmpty()) {
                 finish(Ports.MISS);
                 return;
@@ -168,17 +185,20 @@ public final class DashNode implements GraphNode {
                 }
                 return;
             }
-            engine.movement().setVelocity(ctx.caster(), dir.multiply(speed));
+            engine.movement().setVelocity(mover, dir.multiply(speed));
         }
 
         private void finish(String port) {
             if (done) return;
             done = true;
             if (task != null) task.cancel();
-            ctx.engine().movement().stop(ctx.caster());
+            ctx.engine().movement().stop(mover);
             if (store != null) {
-                ctx.engine().world().positionOf(new EntityTarget(ctx.caster()))
-                        .ifPresent(p -> ctx.blackboard().putRaw(store + "_end", p));
+                ctx.engine().world().positionOf(new EntityTarget(mover)).ifPresent(p -> {
+                    ctx.blackboard().putRaw(store + "_end", p);
+                    // Hits along this path come from where the dasher ended up (backstabs, frontal blocks).
+                    ctx.blackboard().putRaw(me.mephisto.ability_engine.engine.graph.Keys.HIT_FROM.name(), p);
+                });
             }
             resumer.resume(port);
         }

@@ -155,6 +155,14 @@ public final class AbilityLoader {
         return false;
     }
 
+    private static String refreshOnKill(Params p) {
+        String v = p.getString("refresh_on_kill", "none");
+        if (!v.equals("none") && !v.equals("players") && !v.equals("all")) {
+            throw p.error("refresh_on_kill", "expected none, players or all");
+        }
+        return v;
+    }
+
     public CharacterDef parseCharacter(String id, Params p) {
         Params slotsSection = p.requireParams("slots");
         Map<String, String> slots = new LinkedHashMap<>();
@@ -223,6 +231,7 @@ public final class AbilityLoader {
                 .aura(p.getString("aura", null))
                 .cancelOnRepress(p.getBool("cancel_on_repress", false))
                 .survivesDeath(p.getBool("survives_death", false))
+                .refreshOnKill(refreshOnKill(p))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))

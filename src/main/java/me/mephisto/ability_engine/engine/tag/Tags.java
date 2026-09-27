@@ -24,6 +24,11 @@ public final class Tags {
     public static final String HASTED = "state.hasted";
     /** Can't be seen (on Bukkit: Invisibility, no particles; held items still show, like vanilla). */
     public static final String INVISIBLE = "state.invisible";
+    /** Truly hidden from other players (armor and held items too), not just the invisibility potion. */
+    public static final String HIDDEN = "state.hidden";
+    /** Abilities ignore them: projectiles, rays and dashes pass through, area effects skip them. */
+    public static final String UNTARGETABLE = "state.untargetable";
+    public static final String BLINDED = "state.blinded";
 
     public static final String BLOCK_ABILITY = "block.ability";
     public static final String BLOCK_MOVE = "block.move";

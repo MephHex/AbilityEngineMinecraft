@@ -54,6 +54,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
                 BukkitCuePlayer.withDefaults(this, getLogger()),
                 new BukkitIndicatorRenderer(this),
                 constructRenderer,
+                new me.mephisto.ability_engine.bukkit.platform.BukkitCloneSpawner(),
                 getLogger());
         engine = new AbilityEngine(platform);
         worldQuery.setLog(engine.log()); // ray traces under /ae debug
@@ -83,6 +84,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new VisualEntities(), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BarrierGuard(engine), this);
         pm.registerEvents(constructRenderer, this);
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DreamListeners(engine, this), this);
         castBar = new CastBarHud(engine);
         pm.registerEvents(castBar, this);
         castBar.start();

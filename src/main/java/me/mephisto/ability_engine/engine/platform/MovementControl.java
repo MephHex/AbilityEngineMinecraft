@@ -15,4 +15,7 @@ public interface MovementControl {
 
     /** Come to a halt: zero velocity, and forget any fall so a dash off a ledge doesn't hurt. */
     void stop(UUID entity);
+
+    /** Put an entity's centre at {@code center}, keeping where it looks (a swap, a blink). */
+    void teleport(UUID entity, Vec3 center);
 }

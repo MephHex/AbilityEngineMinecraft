@@ -12,5 +12,6 @@ public record Platform(
         CuePlayer cues,
         IndicatorRenderer indicators,
         ConstructRenderer constructRenderer,
+        CloneSpawner clones,
         Logger logger
 ) {}
