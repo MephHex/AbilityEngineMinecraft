@@ -28,5 +28,5 @@ characters:
     slots:
       primary: test_blast
       ability_1: tidal_orb           # press 1 again to recast
-      ability_2: foldstep
+      ability_2: arcanist_ab2       # Foldstep
       ultimate: delayed_blast

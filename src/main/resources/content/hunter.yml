@@ -66,7 +66,7 @@ infusions:
 abilities:
 
   # PRIMARY (RMB on a loaded crossbow): shoot whatever is loaded. Hold RMB to draw (reload) first.
-  infused_bolt:
+  hunter_primary:
     cooldown: 5                      # just a guard against double clicks: the draw is the real fire rate
     display:
       name: "Infused Bolt"
@@ -157,7 +157,7 @@ abilities:
   # 1: dash the way you're MOVING (strafe left = dash left; standing still = forward). Instantly
   # reloads (if the crossbow is empty) and poisons the next 3 bolts in your quiver.
   # During Overdrive it also turns you invisible for 2.5s.
-  venom_step:
+  hunter_ab1:
     cooldown: 160                    # 8s
     display:
       name: "Venom Step"
@@ -206,7 +206,7 @@ abilities:
   # 2: lob an experimental flask. It bounces once, then bursts (or bursts on the first enemy it hits):
   # damage and a slow to enemies around it. Caught in your own burst: speed, a little healing, and
   # your next bolt is infused with Slowness.
-  volatile_flask:
+  hunter_ab2:
     cooldown: 240                    # 12s
     display:
       name: "Volatile Flask"
@@ -264,7 +264,7 @@ abilities:
   # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
   # A direct hit on an enemy mid-throw snaps shut on them at once. Traps stay armed when you die (not
   # when you log out); at most 5 at a time, a 6th removes your oldest. Your bolts pass through them.
-  hunters_snare:
+  hunter_ab3:
     cooldown: 300                    # 15s
     survives_death: true             # thrown traps stay out when you die
     display:
@@ -325,7 +325,7 @@ abilities:
   # ULTIMATE (F, shown in the offhand slot): 8s of Overdrive. Faster movement, your crossbow draws at
   # maximum speed (0.25s) no matter your Rhythm, your bolts pierce 3 enemies, and Venom Step makes you
   # invisible.
-  overdrive:
+  hunter_ult1:
     cooldown: 900                    # placeholder until ults charge from damage
     display:
       name: "Overdrive"
@@ -358,8 +358,8 @@ characters:
         max: 3
         while: { state.overdrive: 4 }   # Overdrive: 0.25s draws (4 is the most a crossbow allows)
     slots:
-      primary: infused_bolt          # RMB on a loaded crossbow (hold RMB to draw)
-      ability_1: venom_step          # 1
-      ability_2: volatile_flask      # 2
-      ability_3: hunters_snare       # 3: toss a trap
-      ultimate: overdrive            # F
+      primary: hunter_primary        # RMB on a loaded crossbow (hold RMB to draw)
+      ability_1: hunter_ab1          # 1
+      ability_2: hunter_ab2          # 2
+      ability_3: hunter_ab3          # 3: toss a trap
+      ultimate: hunter_ult1          # F

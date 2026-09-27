@@ -10,7 +10,7 @@ abilities:
 
   # PRIMARY + PASSIVE (Vital Overflow): a short swing in front of you. Every third one is a wide
   # cleave instead, which heals you for the damage it deals (excess becomes Overflow).
-  reaver_strike:
+  essence_reaver_primary:
     cooldown: 12                     # 0.6s between swings
     display:
       name: "Reaver Strike"
@@ -46,7 +46,7 @@ abilities:
   # 1: a bolt of quintessence that attaches to the first enemy hit. Recast (press 1 again, within
   # 5s): recall it through them: damage again, pull them toward you, heal for the damage dealt.
   # The cooldown starts once the recall is used or the 5s run out.
-  essence_absorption:
+  essence_reaver_ab1:
     cooldown: 200                    # 10s
     display:
       name: "Essence Absorption"
@@ -94,7 +94,7 @@ abilities:
 
   # 2: dash through enemies, leaving a spirit echo where you started. 0.6s later the echo retraces
   # your path, stunning everyone along it. You're free to act again as soon as the dash ends.
-  lifeline_step:
+  essence_reaver_ab2:
     cooldown: 180                    # 9s
     display:
       name: "Lifeline Step"
@@ -139,7 +139,7 @@ abilities:
 
   # 3: meditate for up to 3s: heal quickly and take 40% less damage, but you can't move, attack
   # or use abilities. Press 3 again to stop early. Stun or silence breaks it.
-  meditation:
+  essence_reaver_ab3:
     cooldown: 300                    # 15s
     display:
       name: "Meditation"
@@ -165,8 +165,8 @@ characters:
     name: "Essence Reaver"
     weapon: NETHERITE_HOE
     slots:
-      primary: reaver_strike         # LMB
-      ability_1: essence_absorption  # 1, press 1 again to recall
-      ability_2: lifeline_step       # 2
-      ability_3: meditation          # 3, press 3 again to stop early
+      primary: essence_reaver_primary  # LMB
+      ability_1: essence_reaver_ab1  # 1, press 1 again to recall
+      ability_2: essence_reaver_ab2  # 2
+      ability_3: essence_reaver_ab3  # 3, press 3 again to stop early
       # ultimate: Last Standing (next)
