@@ -302,11 +302,14 @@ class DreamerTest {
     // ---- Ultimate: Dream Tempest ------------------------------------------------------------------
 
     @Test
-    void dreamTempestLiftsYouOutOfReachLookingDown() throws IOException {
+    void dreamTempestLiftsYouUpAndBackLookingAtTheSpot() throws IOException {
         setup();
         assertTrue(t.engine.loadouts().activate(p, Slots.ULTIMATE).success());
-        assertEquals(new Vec3(0, 13, 0), pos(p), "12 blocks above where you stood");
-        assertTrue(t.world.aimOf(p).orElseThrow().direction().y() < -0.9, "looking down at the spot");
+        assertEquals(new Vec3(-8, 11, 0), pos(p), "10 up and 8 back (he faced +x)");
+        Vec3 look = t.world.aimOf(p).orElseThrow().direction();
+        Vec3 toSpot = new Vec3(0, 1, 0).subtract(pos(p)).normalize();
+        assertTrue(look.dot(toSpot) > 0.999, "looking at the spot: " + look);
+        assertTrue(t.render.cues.contains("dream_tempest_ring"), "the edge is shown");
         assertTrue(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertTrue(t.engine.tags().has(p, Tags.HIDDEN));
         assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "can't move");

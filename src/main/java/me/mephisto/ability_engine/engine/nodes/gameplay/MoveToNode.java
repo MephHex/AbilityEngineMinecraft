@@ -11,10 +11,11 @@ import me.mephisto.ability_engine.engine.target.PointTarget;
 import java.util.UUID;
 
 /**
- * Put the caster at {@code to} (a key; default "caster": where they are) raised by {@code up} blocks.
- * {@code look: down} turns their view toward the ground below (a view from above). {@code store} keeps
- * the spot they were at before. {@code return: true} puts them back there when the cast ends, however
- * it ends (finished, cancelled, a character change).
+ * Put the caster at {@code to} (a key; default "caster": where they are) raised by {@code up} blocks and
+ * moved {@code back} blocks behind (opposite the way they face; negative = ahead), for a view from the
+ * side. {@code look: down} turns their view straight at the ground below; {@code look: spot} at the spot
+ * they were lifted from. {@code store} keeps the spot they were at before. {@code return: true} puts them
+ * back there when the cast ends, however it ends (finished, cancelled, a character change).
  */
 public final class MoveToNode implements GraphNode {
 
@@ -23,14 +24,18 @@ public final class MoveToNode implements GraphNode {
 
     private final String toKey;
     private final double up;
-    private final boolean lookDown;
+    public enum Look { NONE, DOWN, SPOT }
+
+    private final Look look;
+    private final double back;
     private final String store;
     private final boolean returnAfter;
 
-    public MoveToNode(String toKey, double up, boolean lookDown, String store, boolean returnAfter) {
+    public MoveToNode(String toKey, double up, double back, Look look, String store, boolean returnAfter) {
         this.toKey = toKey;
         this.up = up;
-        this.lookDown = lookDown;
+        this.back = back;
+        this.look = look;
         this.store = store;
         this.returnAfter = returnAfter;
     }
@@ -45,13 +50,18 @@ public final class MoveToNode implements GraphNode {
         PointTarget start = from.get();
         if (store != null) ctx.blackboard().putRaw(store, start);
 
-        Vec3 look = null;
-        if (lookDown) {
-            Vec3 heading = engine.world().aimOf(caster).map(a -> new Vec3(a.direction().x(), 0, a.direction().z()))
-                    .filter(v -> !v.isZero()).map(Vec3::normalize).orElse(new Vec3(1, 0, 0));
-            look = new Vec3(0, -1, 0).add(heading.multiply(DOWN_TILT));
-        }
-        engine.movement().teleport(caster, to.get().position().add(0, up, 0), look);
+        Vec3 heading = engine.world().aimOf(caster).map(a -> new Vec3(a.direction().x(), 0, a.direction().z()))
+                .filter(v -> !v.isZero()).map(Vec3::normalize).orElse(new Vec3(1, 0, 0));
+        Vec3 destination = to.get().position().add(0, up, 0).subtract(heading.multiply(back));
+        Vec3 view = switch (look) {
+            case NONE -> null;
+            case DOWN -> new Vec3(0, -1, 0).add(heading.multiply(DOWN_TILT));
+            case SPOT -> {
+                Vec3 d = start.position().subtract(destination);
+                yield d.isZero() ? new Vec3(0, -1, 0).add(heading.multiply(DOWN_TILT)) : d;
+            }
+        };
+        engine.movement().teleport(caster, destination, view);
         if (returnAfter) {
             ctx.instance().onEnd(() -> {
                 if (engine.world().isAlive(caster)) engine.movement().teleport(caster, start.position());

@@ -104,10 +104,15 @@ public final class NodeTypes {
                     p.getString("at", null), p.getString("of", null), health, p.getBool("glowing", false));
         });
         t.register("move_to", (p, e) -> {
-            String look = p.getString("look", null);
-            if (look != null && !look.equals("down")) throw p.error("look", "expected down (or leave it out)");
+            var look = switch (p.getString("look", "none")) {
+                case "none" -> me.mephisto.ability_engine.engine.nodes.gameplay.MoveToNode.Look.NONE;
+                case "down" -> me.mephisto.ability_engine.engine.nodes.gameplay.MoveToNode.Look.DOWN;
+                case "spot" -> me.mephisto.ability_engine.engine.nodes.gameplay.MoveToNode.Look.SPOT;
+                default -> throw p.error("look", "expected down or spot (or leave it out)");
+            };
             return new me.mephisto.ability_engine.engine.nodes.gameplay.MoveToNode(p.getString("to", "caster"),
-                    p.getDouble("up", 0), look != null, p.getString("store", null), p.getBool("return", false));
+                    p.getDouble("up", 0), p.getDouble("back", 0), look, p.getString("store", null),
+                    p.getBool("return", false));
         });
         t.register("await_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.AwaitSummonNode(
                 p.requireString("summon")));
