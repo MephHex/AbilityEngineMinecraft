@@ -192,12 +192,35 @@ public final class AbilityLoader {
                 }
             }
         }
-        String statusBar = p.getString("status_bar", null);
-        if (statusBar != null && engine.statusDefs().find(statusBar).isEmpty()) {
-            throw p.error("status_bar", "unknown status '" + statusBar + "' (define it under 'statuses:')");
-        }
+        CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar);
+    }
+
+    /**
+     * {@code status_bar: <status>} (level = its stacks), or
+     * {@code status_bar: { status: <status>, level: stacks | reload_speed }}.
+     */
+    private CharacterDef.StatusBar statusBar(Params p) {
+        if (!p.has("status_bar")) return null;
+        Object raw = p.raw("status_bar");
+        String status;
+        boolean reload = false;
+        if (raw instanceof Map<?, ?>) {
+            Params bar = p.getParams("status_bar");
+            status = bar.requireString("status");
+            String level = bar.getString("level", "stacks");
+            if (!level.equals("stacks") && !level.equals("reload_speed")) {
+                throw bar.error("level", "expected stacks or reload_speed");
+            }
+            reload = level.equals("reload_speed");
+        } else {
+            status = p.getString("status_bar", null);
+        }
+        if (engine.statusDefs().find(status).isEmpty()) {
+            throw p.error("status_bar", "unknown status '" + status + "' (define it under 'statuses:')");
+        }
+        return new CharacterDef.StatusBar(status, reload);
     }
 
     public Ability parseAbility(String id, Params p) {

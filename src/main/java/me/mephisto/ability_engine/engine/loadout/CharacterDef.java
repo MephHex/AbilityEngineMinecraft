@@ -12,10 +12,17 @@ import java.util.Map;
  *
  * @param weapon platform-specific item id held in the locked main-hand slot; on Bukkit a Material name
  * @param quiver    a queue of bolts the weapon loads one at a time (null = none)
- * @param statusBar a status shown on the XP bar: level = its stacks, bar = its time left (null = none)
+ * @param statusBar a status shown on the XP bar: bar = its time left, level = its stacks or the quiver's
+ *                  reload speed (null = none)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
-                           Map<String, ResourceDef> resources, QuiverDef quiver, String statusBar) {
+                           Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar) {
+
+    /**
+     * @param status           the status whose remaining time fills the bar
+     * @param reloadSpeedLevel the level number shows the quiver's reload speed instead of the stacks
+     */
+    public record StatusBar(String status, boolean reloadSpeedLevel) {}
 
     public CharacterDef(String id, String name, String weapon, Map<String, String> slots, Map<String, ResourceDef> resources) {
         this(id, name, weapon, slots, resources, null, null);

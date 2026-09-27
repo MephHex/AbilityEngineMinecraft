@@ -165,14 +165,15 @@ class HunterTest {
     }
 
     @Test
-    void hitsSpeedUpReloadingUpToThreeTimesThenItFades() throws IOException {
+    void hitsRaiseQuickChargeTo2Then3Then4ThenItFades() throws IOException {
         setup();
         UUID target = t.spawn(10, 1, 0);
         assertEquals(0, t.engine.quivers().reloadSpeed(p));
+        int[] expected = {2, 3, 4, 4}; // the 4th hit: still 4 (3 stacks max)
         for (int i = 1; i <= 4; i++) {
             t.engine.quivers().tryLoad(p);
             shoot();
-            assertEquals(Math.min(i, 3), t.engine.quivers().reloadSpeed(p), "after hit " + i);
+            assertEquals(expected[i - 1], t.engine.quivers().reloadSpeed(p), "after hit " + i);
         }
         t.time.advance(101);
         assertEquals(0, t.engine.quivers().reloadSpeed(p), "5s without a hit: back to normal");
@@ -182,8 +183,10 @@ class HunterTest {
     @Test
     void theRhythmBarShowsTheLevelAndDrainsWithTheTimeLeft() throws IOException {
         setup();
-        String bar = t.engine.loadouts().characterOf(p).orElseThrow().statusBar();
-        assertEquals("hunters_rhythm", bar);
+        var statusBar = t.engine.loadouts().characterOf(p).orElseThrow().statusBar();
+        assertEquals("hunters_rhythm", statusBar.status());
+        assertTrue(statusBar.reloadSpeedLevel(), "the number shows the Quick Charge level");
+        String bar = statusBar.status();
         assertTrue(t.engine.statuses().gauge(p, bar).isEmpty(), "nothing before the first hit");
 
         t.spawn(10, 1, 0);

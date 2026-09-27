@@ -1,6 +1,7 @@
 package me.mephisto.ability_engine.bukkit.hud;
 
 import me.mephisto.ability_engine.engine.AbilityEngine;
+import me.mephisto.ability_engine.engine.loadout.CharacterDef;
 import me.mephisto.ability_engine.engine.platform.TaskHandle;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -49,7 +50,7 @@ public final class CastBarHud implements Listener {
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
             Optional<Double> fill = engine.instances().castProgress(id);
-            Optional<String> statusBar = engine.loadouts().characterOf(id).map(c -> c.statusBar());
+            Optional<CharacterDef.StatusBar> statusBar = engine.loadouts().characterOf(id).map(c -> c.statusBar());
             if (fill.isEmpty() && statusBar.isEmpty()) {
                 restore(p);
                 continue;
@@ -59,8 +60,11 @@ public final class CastBarHud implements Listener {
                 p.setLevel(0); // hides the level number while the bar is up
                 p.setExp((float) Math.min(0.999, fill.get()));
             } else {
-                var gauge = engine.statuses().gauge(id, statusBar.get());
-                p.setLevel(gauge.map(g -> g.stacks()).orElse(0)); // 0 shows no number
+                var gauge = engine.statuses().gauge(id, statusBar.get().status());
+                int level = statusBar.get().reloadSpeedLevel()
+                        ? engine.quivers().reloadSpeed(id)          // e.g. the crossbow's Quick Charge level
+                        : gauge.map(g -> g.stacks()).orElse(0);
+                p.setLevel(level); // 0 shows no number
                 p.setExp((float) Math.min(0.999, gauge.map(g -> g.fraction()).orElse(0.0)));
             }
         }

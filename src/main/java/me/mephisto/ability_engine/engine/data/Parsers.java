@@ -172,6 +172,8 @@ public final class Parsers {
             if (stacksOf != null && !statuses.contains(stacksOf)) {
                 throw r.error("stacks_of", "unknown status '" + stacksOf + "' (define it under 'statuses:')");
             }
+            int first = r.getInt("first", 1);
+            if (first < 1 || first > MAX_RELOAD_SPEED) throw r.error("first", "expected 1-" + MAX_RELOAD_SPEED);
             int max = r.getInt("max", 3);
             if (max < 0 || max > MAX_RELOAD_SPEED) throw r.error("max", "expected 0-" + MAX_RELOAD_SPEED);
             Map<String, Integer> whileTags = new java.util.LinkedHashMap<>();
@@ -181,7 +183,7 @@ public final class Parsers {
                 if (level < 0 || level > MAX_RELOAD_SPEED) throw w.error(tag, "expected 0-" + MAX_RELOAD_SPEED);
                 whileTags.put(tag, level);
             }
-            speed = new QuiverDef.ReloadSpeed(stacksOf, max, whileTags);
+            speed = new QuiverDef.ReloadSpeed(stacksOf, first, max, whileTags);
         }
         return new QuiverDef(size, hotbar, speed);
     }

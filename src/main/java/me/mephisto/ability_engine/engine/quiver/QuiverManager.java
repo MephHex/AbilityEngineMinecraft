@@ -129,8 +129,9 @@ public final class QuiverManager {
     public int reloadSpeed(UUID owner) {
         QuiverDef.ReloadSpeed speed = definitions.apply(owner).map(QuiverDef::reloadSpeed).orElse(null);
         if (speed == null) return 0;
-        int level = speed.stacksOf() == null ? 0
-                : Math.min(speed.max(), statuses.find(owner, speed.stacksOf()).map(ActiveStatus::stacks).orElse(0));
+        int stacks = speed.stacksOf() == null ? 0
+                : statuses.find(owner, speed.stacksOf()).map(ActiveStatus::stacks).orElse(0);
+        int level = stacks <= 0 ? 0 : Math.min(speed.max(), speed.first() + stacks - 1);
         for (var entry : speed.whileTags().entrySet()) {
             if (tags.has(owner, entry.getKey())) level = Math.max(level, entry.getValue());
         }
