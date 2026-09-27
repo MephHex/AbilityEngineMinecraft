@@ -30,8 +30,13 @@ public final class SummonManager {
 
     /** Spawn a look-alike of the owner named {@code name}, lasting {@code lifetime} ticks. */
     public Optional<UUID> summonClone(UUID owner, String name, String world, Vec3 center, int lifetime) {
+        return summonClone(owner, name, world, center, lifetime, null);
+    }
+
+    /** @param facing the way the clone looks (horizontal); null = the way its owner looks */
+    public Optional<UUID> summonClone(UUID owner, String name, String world, Vec3 center, int lifetime, Vec3 facing) {
         dismiss(owner, name);
-        Optional<UUID> spawned = spawner.spawnClone(owner, world, center);
+        Optional<UUID> spawned = spawner.spawnClone(owner, world, center, facing);
         spawned.ifPresent(entity -> {
             Summon[] self = new Summon[1];
             TaskHandle expiry = scheduler.after(lifetime, () -> remove(self[0]));

@@ -5,6 +5,7 @@ import me.mephisto.ability_engine.engine.platform.MovementControl;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.Vector;
 
 import java.util.UUID;
@@ -39,5 +40,16 @@ public final class BukkitMovementControl implements MovementControl {
         to.setZ(center.z());
         e.teleport(to);
         e.setFallDistance(0);
+    }
+
+    /** Head and body both: a mannequin (no AI) wouldn't turn its body by itself before it moves. */
+    @Override
+    public void face(UUID entity, Vec3 direction) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid() || direction.isZero()) return;
+        Location look = e.getLocation();
+        look.setDirection(Convert.bukkit(direction));
+        e.setRotation(look.getYaw(), look.getPitch());
+        if (e instanceof LivingEntity living) living.setBodyYaw(look.getYaw());
     }
 }

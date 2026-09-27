@@ -10,6 +10,7 @@ import me.mephisto.ability_engine.engine.target.EntityTarget;
  * preview: a ground spot, so it stands ON it), a mannequin with their skin, stored as
  * {@code store}. It outlives the cast: it lasts {@code lifetime} ticks, and a new one with the same
  * {@code summon} name replaces the old. Other abilities find it with find_summon.
+ * It spawns facing its owner (placed where they stand: looking the way they look).
  */
 public final class SummonCloneNode implements GraphNode {
 
@@ -38,8 +39,19 @@ public final class SummonCloneNode implements GraphNode {
             center = at.flatMap(world::positionOf).map(p -> at.get() instanceof EntityTarget ? p
                     : new me.mephisto.ability_engine.engine.target.PointTarget(p.world(), p.position().add(0, HALF_HEIGHT, 0)));
         }
-        center.ifPresent(p -> ctx.engine().summons().summonClone(ctx.caster(), name, p.world(), p.position(), lifetime)
+        center.ifPresent(p -> ctx.engine().summons()
+                .summonClone(ctx.caster(), name, p.world(), p.position(), lifetime, towardOwner(ctx, p.position()))
                 .ifPresent(id -> ctx.blackboard().putRaw(store, new EntityTarget(id))));
         return NodeResult.NEXT;
+    }
+
+    /** Horizontal direction from the clone to its owner; null if it's right on them (then: the owner's look). */
+    private static me.mephisto.ability_engine.engine.math.Vec3 towardOwner(ExecutionContext ctx,
+                                                                         me.mephisto.ability_engine.engine.math.Vec3 at) {
+        return ctx.engine().world().positionOf(new EntityTarget(ctx.caster())).map(owner -> {
+            var d = owner.position().subtract(at);
+            var flat = new me.mephisto.ability_engine.engine.math.Vec3(d.x(), 0, d.z());
+            return flat.length() < 0.5 ? null : flat.normalize();
+        }).orElse(null);
     }
 }

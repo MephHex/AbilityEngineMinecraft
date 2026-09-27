@@ -67,13 +67,20 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     // ---- clones: exist and move like entities, but queries and sweeps ignore them (like the real ones) ----
     public final java.util.Set<UUID> clones = new java.util.HashSet<>();
 
+    /** Which way each entity was last turned (spawnClone's facing, MovementControl.face). */
+    public final Map<UUID, Vec3> facing = new HashMap<>();
+
     @Override
-    public Optional<UUID> spawnClone(UUID of, String world, Vec3 center) {
+    public Optional<UUID> spawnClone(UUID of, String world, Vec3 center, Vec3 facingDir) {
         UUID id = UUID.randomUUID();
         entities.put(id, center);
         clones.add(id);
+        if (facingDir != null) facing.put(id, facingDir.normalize());
         return Optional.of(id);
     }
+
+    @Override
+    public void face(UUID id, Vec3 direction) { facing.put(id, direction.normalize()); }
 
     @Override
     public void despawn(UUID clone) {

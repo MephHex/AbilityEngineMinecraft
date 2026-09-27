@@ -229,6 +229,25 @@ class DreamerTest {
     }
 
     @Test
+    void theEchoSpawnsFacingHer() throws IOException {
+        setup();
+        UUID echo = placeEcho();                         // ~4 blocks ahead of her (+x)
+        Vec3 facing = t.world.facing.get(echo);
+        assertTrue(facing != null && facing.x() < -0.99, "looks back at her: " + facing);
+        assertEquals(0, facing.y(), 1e-9, "level");
+    }
+
+    @Test
+    void theEchoTurnsTowardItsDashBeforeDashing() throws IOException {
+        setup();
+        UUID echo = summonEchoAt(4, 6);                 // off to her side
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        Vec3 facing = t.world.facing.get(echo);          // right away, before it has moved
+        assertTrue(facing != null && facing.x() > 0.9 && facing.z() < 0, "toward her cursor (+x, back toward her line): " + facing);
+        assertFalse(t.world.facing.containsKey(p), "her own view is never turned");
+    }
+
+    @Test
     void theEchoDashesTowardWhereSheAimsSoTheyConverge() throws IOException {
         setup();
         UUID echo = summonEchoAt(4, 6);                 // off to her side
