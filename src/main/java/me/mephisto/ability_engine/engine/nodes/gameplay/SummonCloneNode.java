@@ -14,7 +14,8 @@ import me.mephisto.ability_engine.engine.target.EntityTarget;
  * <p>{@code of: <key>} makes it a look-alike of someone else (placed where THEY stand unless {@code at}
  * says otherwise), e.g. an enemy's soul; it still belongs to the caster. {@code health: N} (design HP)
  * makes it vulnerable: it can be hit and killed (it's on {@code of}'s team, so their allies can't), see
- * await_summon; {@code glowing: true} outlines it. Also stores where it was placed as {@code <store>_at}.
+ * await_summon; {@code health_share: 0.6} instead makes that 60% of {@code of}'s max HP (a soul as sturdy as
+ * its owner); {@code glowing: true} outlines it. Also stores where it was placed as {@code <store>_at}.
  */
 public final class SummonCloneNode implements GraphNode {
 
@@ -27,14 +28,17 @@ public final class SummonCloneNode implements GraphNode {
 
     private final String ofKey;  // null = the caster
     private final double health;
+    private final double healthShare;
     private final boolean glowing;
 
     public SummonCloneNode(String name, String store, int lifetime, String atKey) {
-        this(name, store, lifetime, atKey, null, 0, false);
+        this(name, store, lifetime, atKey, null, 0, 0, false);
     }
 
+    /** @param healthShare above 0: health is this share of {@code of}'s max HP instead of {@code health} */
     public SummonCloneNode(String name, String store, int lifetime, String atKey, String ofKey, double health,
-                           boolean glowing) {
+                           double healthShare, boolean glowing) {
+        this.healthShare = healthShare;
         this.name = name;
         this.store = store;
         this.lifetime = lifetime;
@@ -62,8 +66,9 @@ public final class SummonCloneNode implements GraphNode {
             center = at.flatMap(world::positionOf).map(p -> at.get() instanceof EntityTarget ? p
                     : new me.mephisto.ability_engine.engine.target.PointTarget(p.world(), p.position().add(0, HALF_HEIGHT, 0)));
         }
-        var options = new me.mephisto.ability_engine.engine.platform.CloneSpawner.Options(health, glowing,
-                health > 0 ? of : null);
+        double hp = healthShare > 0 ? ctx.engine().stats().maxHealth(of) * healthShare : health;
+        var options = new me.mephisto.ability_engine.engine.platform.CloneSpawner.Options(hp, glowing,
+                hp > 0 ? of : null);
         java.util.UUID copyOf = of;
         center.ifPresent(p -> ctx.engine().summons()
                 .summonClone(ctx.caster(), name, copyOf, p.world(), p.position(), lifetime, towardOwner(ctx, p.position()), options)

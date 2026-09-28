@@ -19,7 +19,7 @@ abilities:
     display:
       name: "Arcane Bolt"
       icon: AMETHYST_SHARD
-      description: ["Fast arcane bolt, small burst on impact.", "Shatters your Unstable Binding."]
+      description: ["Fast arcane bolt: 100% base damage to", "whoever it hits, a small burst on the", "ground. Shatters your Unstable Binding."]
     nodes:
       fire:
         type: projectile
@@ -28,12 +28,18 @@ abilities:
         range: 30                    # blocks it may fly UNGUIDED; guided distance doesn't count
         lifetime: 120                # hard cap: 6s no matter what
         visual: AMETHYST_BLOCK
-        on: { hit_entity: burst, hit_block: burst }
+        on: { hit_entity: strike, hit_block: burst }
+      strike:
+        type: apply_effects          # a direct hit
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.0 }             # 100% base damage
+        next: burst_cue
       burst:
-        type: apply_effects
+        type: apply_effects          # it hit the ground: a small splash
         targets: { type: radius, center: hit, radius: 1.5 }
         effects:
-          - { id: damage, amount: 4 }
+          - { id: damage, base: 0.35 }            # 35% base damage
         next: burst_cue
       burst_cue:
         type: play_cue
@@ -103,7 +109,7 @@ abilities:
         on_hit: true                 # buffs apply to the target hit
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 25 }
+          - { id: damage, base: 0.85 }            # 85% base damage
       stun_target:
         type: apply_effects
         on_hit: true                 # buffs apply to the main target (not again via the explosion)
@@ -120,7 +126,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3 }
         effects:
-          - { id: damage, amount: 50 }
+          - { id: damage, base: 1.65 }            # 165% base damage
         next: explode_cue
       explode_cue:
         type: play_cue
@@ -221,7 +227,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: binding, radius: 5 }
         effects:
-          - { id: damage, amount: 30 }
+          - { id: damage, base: 1.0 }             # 100% base damage
           - { id: knockback, from: binding, radius: 5, center: 1.4, edge: 0.4, lift: 0.35 }
         next: shatter_cue
       shatter_cue:
@@ -233,7 +239,7 @@ abilities:
         on_hit: true                 # the recast Missile's shatter carries your buffs to everyone caught
         targets: { type: radius, center: binding, radius: 5 }
         effects:
-          - { id: damage, amount: 30 }
+          - { id: damage, base: 1.0 }
           - { id: knockback, from: binding, radius: 5, center: 1.4, edge: 0.4, lift: 0.35 }
           - { id: status, status: stun, duration: 10 }
           - { id: status, status: glowing, duration: 60 }
@@ -386,7 +392,7 @@ abilities:
         type: apply_effects          # a direct hit: no explosion, just a lot of damage
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 220, scale_by: power }
+          - { id: damage, base: 7.3, scale_by: power }   # 730% base damage x the charge
         next: snipe_cue
       snipe_cue:
         type: play_cue
@@ -396,7 +402,7 @@ abilities:
         type: apply_effects          # terrain: explodes
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
-          - { id: damage, amount: 90, scale_by: power }
+          - { id: damage, base: 3.0, scale_by: power }    # 300% base damage x the charge
           - { id: knockback, from: hit, radius: 3.5, center: 1.0, edge: 0.3, lift: 0.4 }
         next: blast_cue
       blast_cue:
@@ -412,6 +418,12 @@ characters:
   arcanist:
     name: "Arcanist"
     weapon: BREEZE_ROD
+    stats:                           # see docs/character-stats.md
+      health: 175                    # max HP
+      armor: 5                       # damage taken x 100 / (100 + armor)
+      base_damage: 30                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      attack_speed: 1.25             # basic attacks per second
     resources:
       focus:
         max: 100

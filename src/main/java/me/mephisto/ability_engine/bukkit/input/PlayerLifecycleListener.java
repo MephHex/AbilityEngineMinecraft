@@ -58,5 +58,6 @@ public final class PlayerLifecycleListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         tagBindings.scrub(event.getPlayer());
         hud.clear(event.getPlayer());
+        hud.scrubStats(event.getPlayer());
     }
 }

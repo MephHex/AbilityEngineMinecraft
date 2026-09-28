@@ -16,9 +16,9 @@ import java.util.UUID;
 
 /**
  * Runs EVERY hit (ability damage and vanilla alike) through the engine's DamageModifiers: Strength
- * ({@code damage_dealt}), {@code damage_taken} statuses and tethers (Radiant Bond: the bonded ally
- * takes less, part of it hits the Vanguard instead). Redirected damage is magic damage credited to the
- * original attacker and isn't modified again.
+ * ({@code damage_dealt}), {@code damage_taken} statuses, tethers (Radiant Bond: the bonded ally takes
+ * less, part of it hits the Vanguard instead) and armor (not on damage over time or % max HP hits).
+ * Redirected damage is magic damage credited to the original attacker and isn't modified again.
  */
 public final class DamageModifierListener implements Listener {
 
@@ -34,7 +34,10 @@ public final class DamageModifierListener implements Listener {
         if (redirecting || !(event.getEntity() instanceof LivingEntity)) return;
         Entity attacker = event.getDamageSource().getCausingEntity();
         UUID victim = event.getEntity().getUniqueId();
-        var result = DamageModifiers.apply(engine, attacker != null ? attacker.getUniqueId() : null, victim, event.getDamage());
+        // Armor applies to everything (vanilla hits and falls too) except damage over time / % max HP hits.
+        boolean armored = !me.mephisto.ability_engine.bukkit.effect.DamageEffect.isIgnoringArmor();
+        var result = DamageModifiers.apply(engine, attacker != null ? attacker.getUniqueId() : null, victim,
+                event.getDamage(), armored);
         if (result.amount() != event.getDamage()) event.setDamage(result.amount());
 
         for (var redirect : result.redirects()) {

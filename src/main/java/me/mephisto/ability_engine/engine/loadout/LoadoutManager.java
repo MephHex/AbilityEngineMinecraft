@@ -64,6 +64,12 @@ public final class LoadoutManager {
         });
     }
 
+    /** The player's character as defined, ignoring forms (its own primary, its own stats). */
+    public Optional<CharacterDef> baseCharacterOf(UUID player) {
+        String id = assigned.get(player);
+        return id == null ? Optional.empty() : characters.find(id);
+    }
+
     public boolean has(UUID player) { return characterOf(player).isPresent(); }
 
     public Optional<String> abilityIn(UUID player, String slot) {

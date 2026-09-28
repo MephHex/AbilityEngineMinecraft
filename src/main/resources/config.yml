@@ -20,6 +20,10 @@ keybinds:
 # (half a heart). 10 means a 20-health player has 200 design HP.
 damage-scale: 10
 
+# Armor: damage taken x armor-constant / (armor-constant + armor). With 100, every armor point is +1%
+# effective HP: 25 armor = 20% less damage, 100 armor = 50% less. (Characters' armor: stats: in the kits.)
+armor-constant: 100
+
 # ---- Development helpers -------------------------------------------------------------------
 # Both are read again on every /ae reload. Leave them off on a real server.
 dev:

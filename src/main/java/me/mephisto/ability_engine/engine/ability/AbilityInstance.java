@@ -129,7 +129,7 @@ public final class AbilityInstance {
     public void startDeferredCooldown() {
         if (!cooldownPending) return;
         cooldownPending = false;
-        engine.cooldowns().start(caster, ability.id(), ability.cooldownTicks());
+        engine.cooldowns().start(caster, ability.id(), engine.stats().cooldownTicks(caster, ability.id(), ability.cooldownTicks()));
     }
 
     // ---- cast bar --------------------------------------------------------------------------------

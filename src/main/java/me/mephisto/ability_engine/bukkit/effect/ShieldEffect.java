@@ -9,8 +9,9 @@ import org.bukkit.entity.LivingEntity;
 
 /**
  * Effect id "shield": absorption hearts (yellow), eaten by damage before health. Params (design HP,
- * like damage): {@code amount} (required), {@code max} (the total it can build up to; default: no cap
- * beyond what's given), {@code decay} per second (default 0: lasts until it's broken).
+ * like damage): {@code amount}, or {@code max_hp: 0.4} (40% of the target's max HP); {@code max} (the
+ * total it can build up to; default: no cap beyond what's given), {@code decay} per second (default 0:
+ * lasts until it's broken).
  */
 public final class ShieldEffect implements Effect {
 
@@ -28,7 +29,7 @@ public final class ShieldEffect implements Effect {
                 || living.isDead()) return;
         double scale = scaleSource.scale();
         Params p = ctx.params();
-        double amount = p.requireDouble("amount") / scale;
+        double amount = me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx) / scale; // flat, or max_hp share
         double max = p.getDouble("max", 0) / scale;
         double cap = max > 0 ? max : living.getAbsorptionAmount() + amount;
         shields.add(living, amount, cap, p.getDouble("decay", 0) / scale);
@@ -36,7 +37,7 @@ public final class ShieldEffect implements Effect {
 
     @Override
     public void validate(Params params) {
-        if (params.requireDouble("amount") < 0) throw params.error("amount", "must be >= 0");
+        me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, false);
         if (params.getDouble("max", 0) < 0) throw params.error("max", "must be >= 0");
         if (params.getDouble("decay", 0) < 0) throw params.error("decay", "must be >= 0");
     }

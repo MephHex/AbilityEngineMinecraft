@@ -100,10 +100,22 @@ public final class HotbarHud {
         engine.instances().cancelAll(p.getUniqueId(), "character_change");
         engine.loadouts().assign(p.getUniqueId(), characterId);
         render(p);
+        if (stats != null) stats.fill(p); // a fresh character starts at full health
         return true;
     }
 
+    /** Max HP, move speed and the stat items (set by the plugin). */
+    private StatsHud stats;
+
+    public void setStats(StatsHud stats) { this.stats = stats; }
+
+    /** Undo a character's max HP and speed (leftovers from a crash, on join). */
+    public void scrubStats(Player p) {
+        if (stats != null) stats.remove(p);
+    }
+
     public void unequip(Player p) {
+        if (stats != null) stats.remove(p);
         engine.instances().cancelAll(p.getUniqueId(), "character_change");
         engine.loadouts().clear(p.getUniqueId());
         clear(p);
@@ -115,7 +127,10 @@ public final class HotbarHud {
     public void render(Player p) {
         clear(p);
         Optional<CharacterDef> character = engine.loadouts().characterOf(p.getUniqueId());
-        if (character.isEmpty()) return;
+        if (character.isEmpty()) {
+            if (stats != null) stats.remove(p);
+            return;
+        }
         renderedAs.put(p.getUniqueId(), character.get());
 
         PlayerInventory inv = p.getInventory();
@@ -131,6 +146,7 @@ public final class HotbarHud {
         }
         drawBolts(p, character.get());
         quiverShown.put(p.getUniqueId(), quiverState(p));
+        if (stats != null) stats.apply(p); // max HP, speed, and the stat items in the inventory
         refresh(p);
     }
 

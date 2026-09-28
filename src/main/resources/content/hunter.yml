@@ -25,9 +25,9 @@ statuses:
     stacking: refresh
     tags: [state.poisoned]
     tick:
-      every: 20                      # ...10 damage per second = 40 total
+      every: 20                      # ...5% of their max HP per second = 20% total
       effects:
-        - { id: damage, amount: 10, knockback: false }   # just damage: no knockback
+        - { id: damage, max_hp: 0.05, knockback: false }   # 5% of their max HP a tick, ignores armor; no knockback
 
   flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
     duration: 60                     # 3s
@@ -54,17 +54,17 @@ statuses:
     stacking: refresh
     tags: [state.frozen]
     tick:
-      every: 20                      # ...10 ice damage per second = 30 total
+      every: 20                      # ...5% of their max HP per second = 15% total
       effects:
-        - { id: damage, amount: 10, damage_type: freeze }   # no knockback
+        - { id: damage, max_hp: 0.05, damage_type: freeze }   # 5% of their max HP, ignores armor
   scorched:                          # Flame: on fire, no knockback
     duration: 60                     # 3s...
     stacking: refresh
     tags: [state.burning]            # looks on fire (no vanilla fire damage)
     tick:
-      every: 10                      # ...6 fire damage every 0.5s = 36 total
+      every: 10                      # ...3% of their max HP every 0.5s = 18% total
       effects:
-        - { id: damage, amount: 6, damage_type: fire }
+        - { id: damage, max_hp: 0.03, damage_type: fire }    # 3% of their max HP, ignores armor
   paralyzed:                         # Paralysis: slowed and silenced (no abilities)
     duration: 40                     # 2s
     stacking: refresh
@@ -76,20 +76,20 @@ infusions:
   poison:
     name: "Poison"
     color: "#4E9331"
-    description: ["Poisons: 40 damage over 4s."]
+    description: ["Poisons: 20% of their max HP over 4s."]
     on_hit:
       - { id: status, status: poisoned }
   # Volatile Flask: each of your 3 queued bolts gets ONE of these, at random.
   frost:
     name: "Frost"
     color: "#8FD8FF"
-    description: ["Freezes: 30 ice damage over 3s, slowed."]
+    description: ["Freezes: 15% of their max HP over 3s, slowed."]
     on_hit:
       - { id: status, status: frozen }
   flame:
     name: "Flame"
     color: "#F0672B"
-    description: ["Burns: 36 fire damage over 3s."]
+    description: ["Burns: 18% of their max HP over 3s."]
     on_hit:
       - { id: status, status: scorched }
   paralysis:
@@ -161,7 +161,7 @@ abilities:
         targets: { type: key, key: hit }
         infusions: true              # + everything this bolt was infused with
         effects:
-          - { id: damage, amount: 45 }
+          - { id: damage, base: 1.0 }             # 100% base damage
         next: rhythm
       rhythm:
         type: apply_effects          # the passive: +1 stack per hit
@@ -183,7 +183,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 40 }
+          - { id: damage, base: 0.9 }             # 90% base damage
           - { id: remove_status, status: hunters_mark }   # used up
         next: mark_cue
       mark_cue:
@@ -287,7 +287,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
-          - { id: damage, amount: 50 }
+          - { id: damage, base: 1.1 }             # 110% base damage
           - { id: status, status: slow, duration: 60 }
         next: burst_cue
       burst_cue:
@@ -402,6 +402,12 @@ characters:
   hunter:
     name: "Hunter"
     weapon: CROSSBOW                 # a real crossbow: hold RMB to draw (needs the quiver below)
+    stats:                           # see docs/character-stats.md
+      health: 175                    # max HP
+      armor: 10                      # damage taken x 100 / (100 + armor)
+      base_damage: 45                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      # no attack_speed: the crossbow's draw (and Hunter's Rhythm) is the fire rate
     status_bar: hunters_rhythm       # XP bar: number = Rhythm stacks (0-3), bar = their time left
     quiver:
       size: 3                        # the next 3 bolts...

@@ -8,7 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.LivingEntity;
 
 /**
- * Effect id "heal". Params (design HP, like damage): {@code amount} (required), {@code overflow}
+ * Effect id "heal". Params (design HP, like damage): {@code amount}, or {@code max_hp: 0.2} (20% of the
+ * target's max HP), {@code overflow}
  * (default false: excess healing becomes a decaying shield), {@code overflow_max} (default 150),
  * {@code overflow_decay} per second (default 25).
  */
@@ -27,12 +28,13 @@ public final class HealEffect implements Effect {
         if (!(ctx.target() instanceof EntityTarget t) || !(Bukkit.getEntity(t.id()) instanceof LivingEntity living)) return;
         double scale = scaleSource.scale();
         Params p = ctx.params();
-        shields.heal(living, p.requireDouble("amount") / scale, p.getBool("overflow", false),
+        double amount = me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx); // flat, or max_hp share
+        shields.heal(living, amount / scale, p.getBool("overflow", false),
                 p.getDouble("overflow_max", 150) / scale, p.getDouble("overflow_decay", 25) / scale);
     }
 
     @Override
     public void validate(Params params) {
-        if (params.requireDouble("amount") < 0) throw params.error("amount", "must be >= 0");
+        me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, false);
     }
 }

@@ -60,6 +60,7 @@ public final class AbilityEngine {
     private final QuiverManager quivers;
     private final me.mephisto.ability_engine.engine.link.LinkManager links;
     private java.util.random.RandomGenerator random = new java.util.Random();
+    private final me.mephisto.ability_engine.engine.stats.StatSheets stats;
 
     public AbilityEngine(Platform platform) {
         this.platform = platform;
@@ -84,6 +85,7 @@ public final class AbilityEngine {
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
         this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags);
         this.targeting = new TargetingManager(this);
+        this.stats = new me.mephisto.ability_engine.engine.stats.StatSheets(loadouts, platform.world());
 
         tags.addListener(instances); // interrupts
         statuses.setEffectApplier((source, target, list) -> { // status ticks (burn damage etc.)
@@ -129,6 +131,8 @@ public final class AbilityEngine {
     public InfusionRegistry infusions() { return infusions; }
     public QuiverManager quivers() { return quivers; }
     public me.mephisto.ability_engine.engine.link.LinkManager links() { return links; }
+    /** Max HP, armor, base damage, speeds: character stat sheets. */
+    public me.mephisto.ability_engine.engine.stats.StatSheets stats() { return stats; }
     /** Randomness for gameplay rolls (random infusions...). Tests swap in a seeded one. */
     public java.util.random.RandomGenerator random() { return random; }
     public void setRandom(java.util.random.RandomGenerator random) { this.random = random; }

@@ -66,12 +66,16 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         shields.start(this);
         damage = BukkitEffects.registerBuiltins(engine.effects(), shields); // before loading: effects are validated at load time
         cloneSpawner.setDamageScale(() -> damage.scale()); // a soul's health is in design HP, like damage
+        worldQuery.setDamageScale(() -> damage.scale());   // mobs' max HP, for % max HP damage
         TagBindings tagBindings = TagBindings.withDefaults();
         engine.tags().addListener(tagBindings);
 
         saveDefaultConfig();
         keybinds = new Keybinds();
         hud = new HotbarHud(this, engine, keybinds);
+        var statsHud = new me.mephisto.ability_engine.bukkit.hud.StatsHud(this, engine, damage);
+        hud.setStats(statsHud);
+        statsHud.start();
         hud.start();
         files = new AbilityFiles(this, engine, getFile());
         LoadReport report = reloadAll();
@@ -123,6 +127,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         reloadConfig();
         keybinds.load(getConfig(), getLogger());
         damage.setScale(getConfig().getDouble("damage-scale", 10));
+        engine.stats().setArmorConstant(getConfig().getDouble("armor-constant", 100));
         LoadReport report = files.reload();
         for (Player p : getServer().getOnlinePlayers()) {
             if (!engine.loadouts().has(p.getUniqueId())) engine.loadouts().clear(p.getUniqueId());
