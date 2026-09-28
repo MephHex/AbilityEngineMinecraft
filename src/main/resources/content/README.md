@@ -284,8 +284,13 @@ Full sheets and reasoning: `docs/character-stats.md`.
   - `move_speed`: x vanilla walking; slows and haste multiply on top of it.
   - `attack_speed`: basic attacks per second; the primary's cooldown becomes 20 / it ticks. Leave it
     out to keep the primary's own cooldown (a crossbow).
-- **Damage:** exactly one of `amount: 50` (flat), `base: 1.1` (110% of the caster's base damage) or
-  `max_hp: 0.05` (5% of the target's max HP; **ignores armor**: use it for damage over time).
-- **Heal and shield:** `amount:` (flat), or `max_hp: 0.2` (20% of the target's max HP).
+- **Damage** is any of these, added together:
+  - `base: 1.2`: 120% of the caster's base damage (armor reduces it)
+  - `max_hp: 0.1`: 10% of the target's max HP (**ignores armor**; also for damage over time)
+  - `amount: 50`: flat (armor reduces it)
+
+  For example `{ id: damage, base: 1.2, max_hp: 0.1 }` from an Arcanist with 35 base damage, on a 200 HP
+  target: 42 (minus armor) + 20. Backstab and `scale_by` multiply the whole hit.
+- **Heal and shield:** `amount:` (flat) and/or `max_hp: 0.2` (20% of the target's max HP), added together.
 - **summon_clone:** `health_share: 0.6` instead of `health:`, i.e. 60% of `of`'s max HP.
 - **In game:** the stat items are in the top row of the inventory. Hover one to see the value right now.

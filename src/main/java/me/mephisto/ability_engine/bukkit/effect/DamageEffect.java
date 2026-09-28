@@ -13,9 +13,9 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.Vector;
 
 /**
- * Effect id "damage". Params: {@code amount} (design HP), or {@code base: 1.1} (110% of the caster's base
- * damage), or {@code max_hp: 0.05} (5% of the target's max HP; ignores armor); {@code ignore_iframes}
- * (default false).
+ * Effect id "damage". Params, added together: {@code amount} (flat design HP), {@code base: 1.2} (120% of
+ * the caster's base damage), {@code max_hp: 0.1} (10% of the target's max HP; this part ignores armor);
+ * {@code ignore_iframes} (default false).
  * Minecraft health dealt = amount / damage-scale (config.yml, default 10: 20 health = 200 design HP).
  * {@code lifesteal: 1.0} heals the caster for that share of the damage actually dealt; add
  * {@code overflow: true} (and optional overflow_max / overflow_decay) to turn excess into a shield.
@@ -30,8 +30,8 @@ import org.bukkit.util.Vector;
 public final class DamageEffect implements Effect {
 
     private static int applying;
-    /** The hit being dealt skips armor (damage over time, % max HP): read by DamageModifierListener. */
-    private static boolean ignoringArmor;
+    /** Share of the hit being dealt that skips armor (its max_hp part): read by DamageModifierListener. */
+    private static double pierceShare;
 
     private double scale = 10;
     private OverflowShields shields;
@@ -49,8 +49,8 @@ public final class DamageEffect implements Effect {
      */
     public static boolean isApplying() { return applying > 0; }
 
-    /** True while this effect deals a hit that armor doesn't reduce ({@code max_hp} damage). */
-    public static boolean isIgnoringArmor() { return applying > 0 && ignoringArmor; }
+    /** Share (0..1) of the hit this effect is dealing right now that armor doesn't reduce (its max_hp part). */
+    public static double pierceShare() { return applying > 0 ? pierceShare : 0; }
 
     @Override
     public void apply(EffectContext ctx) {
@@ -67,8 +67,8 @@ public final class DamageEffect implements Effect {
 
         // Backstab crits (backstab: 1.5): from behind the target, multiply.
         // amount (flat), base (x the caster's base damage) or max_hp (x the target's max HP); backstab, scale_by
-        double design = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
-        boolean pierceArmor = me.mephisto.ability_engine.engine.combat.DamageAmount.ignoresArmor(ctx.params());
+        var parts = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
+        double design = parts.total();
         double amount = design / scale;
         // Vanilla ignores a hit landing within ~10 ticks of the last one. Rapid channels need this.
         if (ctx.params().getBool("ignore_iframes", false)) living.setNoDamageTicks(0);
@@ -79,15 +79,15 @@ public final class DamageEffect implements Effect {
         boolean knockback = type == null && ctx.params().getBool("knockback", true);
         Vector velocityBefore = living.getVelocity();
         applying++;
-        boolean wasIgnoring = ignoringArmor;
-        ignoringArmor = pierceArmor;
+        double previousShare = pierceShare;
+        pierceShare = parts.pierceShare();
         try {
             if (!knockback) living.damage(amount, typed(type != null ? type : DamageType.MAGIC, damager, living));
             else if (damager != null && !damager.equals(living)) living.damage(amount, damager);
             else living.damage(amount);
         } finally {
             applying--;
-            ignoringArmor = wasIgnoring;
+            pierceShare = previousShare;
         }
         // Magic damage has no knockback in vanilla; if anything pushed them anyway, undo it.
         if (!knockback && !living.getVelocity().equals(velocityBefore)) living.setVelocity(velocityBefore);

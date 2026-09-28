@@ -17,7 +17,7 @@ import java.util.UUID;
  *   <li>each tether on the victim takes off its share ({@code damage_taken}), and {@code redirect} of what
  *       it took off goes to the tether's owner instead; {@code mirror} of what's left ALSO hits the owner
  *       (a soul: hurting it hurts its owner)</li>
- *   <li>armor on what's left ({@code armored} = false: damage over time and % max HP hits skip it)</li>
+ *   <li>armor on what's left, except the share that pierces it (the max_hp part of a hit)</li>
  * </ol>
  * Redirected damage is final: it isn't modified again (no armor either).
  */
@@ -29,10 +29,15 @@ public final class DamageModifiers {
     public record Result(double amount, List<Redirect> redirects) {}
 
     public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount) {
-        return apply(engine, attacker, victim, amount, true);
+        return apply(engine, attacker, victim, amount, 0);
     }
 
     public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, boolean armored) {
+        return apply(engine, attacker, victim, amount, armored ? 0 : 1);
+    }
+
+    /** @param pierceShare share of the hit (0..1) that armor doesn't reduce (a max_hp part) */
+    public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, double pierceShare) {
         if (attacker != null && !attacker.equals(victim)) {
             for (ActiveStatus s : engine.statuses().on(attacker)) amount *= s.def().damageDealt();
         }
@@ -45,7 +50,8 @@ public final class DamageModifiers {
             if (link.redirect() > 0 && prevented > 0) redirects.add(new Redirect(link.owner(), prevented * link.redirect()));
             if (link.mirror() > 0 && amount > 0) redirects.add(new Redirect(link.owner(), amount * link.mirror()));
         }
-        if (armored) amount = engine.stats().afterArmor(victim, amount);
+        double share = Math.max(0, Math.min(1, pierceShare));
+        amount = engine.stats().afterArmor(victim, amount * (1 - share)) + amount * share;
         return new Result(Math.max(0, amount), redirects);
     }
 

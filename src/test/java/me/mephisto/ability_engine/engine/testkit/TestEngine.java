@@ -55,10 +55,10 @@ public final class TestEngine {
                 hits.add(ctx.target());
                 if (ctx.target() instanceof EntityTarget e) {
                     // Same rules as the real damage effect: backstab crits, and report it (stealth breaks).
-                    double raw = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
+                    var parts = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
                     // Strength, damage taken, tethers, armor: the same pipeline as the real damage effect.
-                    boolean armored = !me.mephisto.ability_engine.engine.combat.DamageAmount.ignoresArmor(ctx.params());
-                    var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(), raw, armored);
+                    var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(),
+                            parts.total(), parts.pierceShare());
                     double amount = result.amount();
                     ctx.engine().notifyDamageDealt(ctx.caster(), e.id());
                     damageTaken.merge(e.id(), amount, Double::sum);
