@@ -54,6 +54,21 @@ Abilities say *"110% base damage"* instead of *"50"*.
 - Buffs that raise base damage (or Strength's x1.25) scale every hit at once.
 - A flat `amount:` would still work for things that shouldn't scale (environment, tests).
 
+### Writing an ability's damage
+
+Every damage effect is a sum of parts:
+
+    damage = base% x caster's base damage   +   max_hp% x target's max HP   +   flat amount
+             (armor reduces it)                 (armor does NOT)                (armor reduces it)
+
+```yaml
+- { id: damage, base: 1.2, max_hp: 0.1 }   # 120% base damage + 10% of their max HP
+```
+
+For example, an Arcanist with 35 base damage hitting a 250 HP Essence Reaver (25 armor) with that deals
+`42 x 100/125 + 25 = 33.6 + 25 = 58.6`. The tables below give each ability's base% today; a max HP part
+can be added to any of them.
+
 ### How the stats combine with what already exists
 
 - **Strength / `damage_dealt`** multiplies *after* base damage.

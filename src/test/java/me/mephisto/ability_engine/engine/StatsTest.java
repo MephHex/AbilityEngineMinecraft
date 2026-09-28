@@ -32,6 +32,12 @@ class StatsTest {
         Map<String, Object> percent = map("nodes", map("hit", map("type", "apply_effects",
                 "targets", map("type", "key", "key", "target"),
                 "effects", list(map("id", "damage", "max_hp", 0.1)))));
+        Map<String, Object> mixed = map("nodes", map("hit", map("type", "apply_effects",
+                "targets", map("type", "key", "key", "target"),
+                "effects", list(map("id", "damage", "base", 1.2, "max_hp", 0.1)))));
+        Map<String, Object> mixedHeal = map("nodes", map("hit", map("type", "apply_effects",
+                "targets", map("type", "self"),
+                "effects", list(map("id", "heal", "amount", 10, "max_hp", 0.1)))));
         Map<String, Object> mend = map("nodes", map("hit", map("type", "apply_effects",
                 "targets", map("type", "self"),
                 "effects", list(map("id", "heal", "max_hp", 0.2), map("id", "shield", "amount", 30)))));
@@ -39,6 +45,7 @@ class StatsTest {
                 "of", "target", "health_share", 0.5, "lifetime", 100)));
         t.load(map(
                 "abilities", map("hit", hit, "flat", flat, "percent", percent, "mend", mend, "soul", soul,
+                        "mixed", mixed, "mixed_heal", mixedHeal,
                         "jab", map("cooldown", 30, "nodes", map("n", map("type", "print", "message", "jab")))),
                 "characters", map(
                         "bruiser", map("stats", map("health", 300, "armor", 100, "base_damage", 40,
@@ -103,6 +110,28 @@ class StatsTest {
         UUID mob = t.spawn(5, 1, 3);
         use(bruiser, "percent", mob);
         assertEquals(20, t.damage(mob), 1e-9, "no sheet: 10% of the default 200");
+    }
+
+    @Test
+    void partsAddUpAndOnlyTheMaxHpPartIgnoresArmor() {
+        setup();
+        UUID bruiser = character("bruiser");                 // 300 HP, 100 armor
+        UUID plain = character("plain");                     // base damage 40
+        use(plain, "mixed", bruiser);
+        // 120% of 40 = 48, halved by 100 armor = 24; plus 10% of 300 = 30 straight through
+        assertEquals(24 + 30, t.damage(bruiser), 1e-9);
+
+        UUID mob = t.spawn(5, 1, 3);
+        use(bruiser, "mixed", mob);
+        assertEquals(48 + 20, t.damage(mob), 1e-9, "no armor: 48 + 10% of the default 200");
+    }
+
+    @Test
+    void healPartsAddUpToo() {
+        setup();
+        UUID bruiser = character("bruiser");
+        use(bruiser, "mixed_heal", bruiser);
+        assertEquals(10 + 30, t.healed.get(bruiser), 1e-9, "10 flat + 10% of 300");
     }
 
     @Test

@@ -34,10 +34,10 @@ public final class DamageModifierListener implements Listener {
         if (redirecting || !(event.getEntity() instanceof LivingEntity)) return;
         Entity attacker = event.getDamageSource().getCausingEntity();
         UUID victim = event.getEntity().getUniqueId();
-        // Armor applies to everything (vanilla hits and falls too) except damage over time / % max HP hits.
-        boolean armored = !me.mephisto.ability_engine.bukkit.effect.DamageEffect.isIgnoringArmor();
+        // Armor applies to everything (vanilla hits and falls too) except a hit's % max HP part (damage over time).
+        double pierce = me.mephisto.ability_engine.bukkit.effect.DamageEffect.pierceShare();
         var result = DamageModifiers.apply(engine, attacker != null ? attacker.getUniqueId() : null, victim,
-                event.getDamage(), armored);
+                event.getDamage(), pierce);
         if (result.amount() != event.getDamage()) event.setDamage(result.amount());
 
         for (var redirect : result.redirects()) {

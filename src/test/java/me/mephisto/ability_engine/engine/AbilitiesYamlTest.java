@@ -100,7 +100,7 @@ class AbilitiesYamlTest {
                         "effects", Yml.list(Yml.map("id", "damage")))))),
                 "abilities.yml");
         assertEquals(1, report.errors().size());
-        assertEquals("abilities.yml.abilities.bad.nodes.n.effects[0].amount: give exactly one of amount: <flat>, "
-                + "base: <x base damage> or max_hp: <x target's max HP>", report.errors().get(0));
+        assertEquals("abilities.yml.abilities.bad.nodes.n.effects[0].amount: give amount: <flat>, "
+                + "base: <x base damage> and/or max_hp: <x target's max HP>", report.errors().get(0));
     }
 }
