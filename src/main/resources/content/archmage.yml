@@ -331,17 +331,19 @@ abilities:
         cue: barrage_reload
 
   # Arcane Barrage's shot: the primary fire DURING the ultimate (the spyglass). Hold RMB: zoom in and
-  # charge (you can't move or use abilities meanwhile); let go, or reach full charge, to fire a very fast
-  # bolt. On a player (or mob): massive damage, no explosion. On terrain: it explodes. The damage grows
-  # with the charge (40% when let go at once). The last shot ends the ultimate.
+  # charge (you can't move or use abilities meanwhile; 2.5s to full, then it stays full); LET GO to fire a
+  # very fast bolt. Let go before 0.5s: nothing fires and no shot is spent. On a player (or mob): massive
+  # damage, no explosion. On terrain: it explodes. The damage grows with the charge (from 40%).
+  # The last shot ends the ultimate.
   arcanist_barrage:
-    cooldown: 20                     # 1s to load the next shot
+    cooldown: 20                     # 1s to load the next shot, counted from when a shot FIRES
+    cooldown_starts: manual          # (at "fired" below: a cooldown while charging would end the zoom)
     display:
       name: "Arcane Barrage"
       icon: SPYGLASS
       description:
         - "Hold RMB: zoom in and charge (you can't"
-        - "move). Let go or fully charged: fire."
+        - "move, 2.5s to full). Let go to fire."
         - "Direct hit: up to 220 damage."
         - "Terrain: explodes, up to 90 around it."
     active_tags: [state.charging, block.move, block.ability]   # while charging (released when it fires)
@@ -352,16 +354,24 @@ abilities:
         on: { has: charge }          # none: nothing happens
       charge:
         type: charge
-        ticks: 30                    # 1.5s to full power (the XP bar fills, level 0)
-        from: 0.4                    # let go at once: 40% power
+        ticks: 50                    # 2.5s to full power (the XP bar fills, level 0)
+        from: 0.4                    # let go at the minimum: ~50% power
+        min: 10                      # let go before 0.5s: no shot (see "early")
+        fire_when_full: false        # full: it waits for you to let go
         store: power
-        next: still_loaded
+        on: { out: still_loaded, early: fizzle }
+      fizzle:
+        type: play_cue               # not charged enough: nothing fired, nothing spent
+        cue: fizzle
       still_loaded:
         type: has_tag                # the ultimate ran out while charging: no shot
         tag: state.barrage_charged
         on: { has: steady }
       steady:
         type: release_tags           # fired: move again
+        next: fired
+      fired:
+        type: start_cooldown         # 1s until the next one can charge
         next: shoot
       shoot:
         type: projectile

@@ -10,21 +10,36 @@ import me.mephisto.ability_engine.engine.platform.TaskHandle;
 
 /**
  * Charge up while the input is held: continues out of "out" when it's let go (the platform calls
- * {@code instances().release(caster)}) or when it's fully charged after {@code ticks}, whichever
- * comes first. Stores the power under {@code store}: {@code from} (let go at once) up to 1.0 (full),
- * e.g. for a damage effect's {@code scale_by}. The charge fills the cast bar.
+ * {@code instances().release(caster)}). Full after {@code ticks}; with {@code fire_when_full: true}
+ * (the default) it then goes by itself, with {@code false} it stays full until let go. Stores the power
+ * under {@code store}: {@code from} (let go at once) up to 1.0 (full), e.g. for a damage effect's
+ * {@code scale_by}. Let go before {@code min} ticks: exits "early" instead (nothing fired). The charge
+ * fills the cast bar.
  */
 public final class ChargeNode implements GraphNode {
 
     private final int ticks;
     private final double from;
     private final String store;
+    private final int min;
+    private final boolean fireWhenFull;
+
+    private static final java.util.Set<String> OUTPUTS = java.util.Set.of(Ports.OUT, Ports.EARLY);
 
     public ChargeNode(int ticks, double from, String store) {
+        this(ticks, from, store, 0, true);
+    }
+
+    public ChargeNode(int ticks, double from, String store, int min, boolean fireWhenFull) {
         this.ticks = Math.max(1, ticks);
         this.from = Math.max(0, Math.min(1, from));
         this.store = store;
+        this.min = Math.max(0, min);
+        this.fireWhenFull = fireWhenFull;
     }
+
+    @Override
+    public java.util.Set<String> outputs() { return OUTPUTS; }
 
     @Override
     public NodeResult execute(ExecutionContext ctx) {
@@ -52,20 +67,26 @@ public final class ChargeNode implements GraphNode {
         void start() {
             instance.setReleaseHandler(handler);
             bar = instance.showProgress(ticks);
-            task = ctx.engine().scheduler().after(ticks, this::fire); // fully charged: fires by itself
+            // Fully charged: fires by itself, or (fire_when_full: false) just stays full until let go.
+            if (fireWhenFull) task = ctx.engine().scheduler().after(ticks, this::fire);
             instance.onEnd(() -> {
                 done = true;
-                task.cancel();
+                if (task != null) task.cancel();
             });
         }
 
         private void fire() {
             if (done) return;
             done = true;
-            task.cancel();
+            if (task != null) task.cancel();
             instance.clearReleaseHandler(handler);
             instance.clearProgress(bar);
-            double held = Math.min(1, (ctx.engine().clock().now() - startedAt) / (double) ticks);
+            long heldTicks = ctx.engine().clock().now() - startedAt;
+            if (heldTicks < min) {
+                resumer.resume(Ports.EARLY); // let go too soon: not charged enough to fire
+                return;
+            }
+            double held = Math.min(1, heldTicks / (double) ticks);
             ctx.blackboard().putRaw(store, from + (1 - from) * held);
             resumer.resume(Ports.OUT);
         }

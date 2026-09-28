@@ -216,9 +216,12 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 ## Added for Arcane Barrage, Overdrive and Volatile Flask
 
 - **Nodes:**
-  charge `{ ticks, from, store }` (charge while the input is held: continues when it's let go, or by
-  itself at full charge after `ticks`; stores the power, `from` (let go at once, default 0) up to 1.0.
-  Fills the XP bar while charging),
+  charge `{ ticks, from, store, min, fire_when_full }` -> out / early (charge while the input is held:
+  continues when it's let go; full after `ticks`, where it goes by itself unless `fire_when_full: false`,
+  which waits for the let-go; stores the power, `from` (let go at once, default 0) up to 1.0; let go
+  before `min` ticks: exits `early` instead. Fills the XP bar while charging. Tip: with a spyglass, give
+  the ability `cooldown_starts: manual` and a start_cooldown after it fires: a cooldown on the held
+  spyglass ends the zoom),
   await_kill `{ players_only, store }` -> kill (waits for the caster's next elimination, the victim in
   `store`; chain two for "up to 2"), cancel_ability `{ ability }` (end the caster's running casts of
   another ability, e.g. the last shot ends the ultimate).

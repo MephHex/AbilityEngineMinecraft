@@ -31,6 +31,7 @@ public final class Ports {
     public static final String FULL = "full";
     public static final String KILL = "kill";
     public static final String DESTROYED = "destroyed";
+    public static final String EARLY = "early";
 
     private Ports() {}
 }
