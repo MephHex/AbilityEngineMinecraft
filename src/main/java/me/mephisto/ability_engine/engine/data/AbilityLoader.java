@@ -182,6 +182,27 @@ public final class AbilityLoader {
         return slots;
     }
 
+    /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */
+    private static CharacterDef.Stats stats(Params p) {
+        CharacterDef.Stats d = CharacterDef.Stats.DEFAULT;
+        if (!p.has("stats")) return d;
+        Params s = p.getParams("stats");
+        for (String key : s.keys()) {
+            if (!java.util.Set.of("health", "armor", "base_damage", "move_speed", "attack_speed").contains(key)) {
+                throw s.error(key, "unknown stat, expected health, armor, base_damage, move_speed or attack_speed");
+            }
+        }
+        var stats = new CharacterDef.Stats(s.getDouble("health", d.health()), s.getDouble("armor", d.armor()),
+                s.getDouble("base_damage", d.baseDamage()), s.getDouble("move_speed", d.moveSpeed()),
+                s.getDouble("attack_speed", d.attackSpeed()));
+        if (stats.health() <= 0) throw s.error("health", "must be above 0");
+        if (stats.armor() < 0) throw s.error("armor", "must be >= 0");
+        if (stats.baseDamage() < 0) throw s.error("base_damage", "must be >= 0");
+        if (stats.moveSpeed() <= 0) throw s.error("move_speed", "must be above 0 (1.0 = vanilla)");
+        if (stats.attackSpeed() < 0) throw s.error("attack_speed", "must be >= 0 (0 = the primary's own cooldown)");
+        return stats;
+    }
+
     /** {@code traits: [sneak_slow_fall]}: always-on behaviours the platform provides. */
     private static Set<String> traits(Params p) {
         Set<String> traits = p.getStringSet("traits", Set.of());
@@ -223,7 +244,7 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p), traits(p));
+                statusBar, forms(p), traits(p), stats(p));
     }
 
     /**

@@ -42,7 +42,7 @@ abilities:
         targets: { type: cone, range: 3, angle: 70 }
         count: swing_hits            # how many it hit
         effects:
-          - { id: damage, amount: 35 }
+          - { id: damage, base: 1.0 }             # 100% base damage
         next: swing_cue
       swing_cue:
         type: play_cue
@@ -60,7 +60,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 4.5, angle: 140 }
         effects:
-          - { id: damage, amount: 45, lifesteal: 1.0, overflow: true }
+          - { id: damage, base: 1.3, lifesteal: 1.0, overflow: true }
         next: cleave_cue
       cleave_cue:
         type: play_cue
@@ -91,7 +91,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 30, knockback: false }   # no vanilla shove
+          - { id: damage, base: 0.85, knockback: false }   # 85% base damage, no vanilla shove
         next: mark
       mark:
         type: start_cue
@@ -106,7 +106,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 40, lifesteal: 1.0, overflow: true, knockback: false }   # no vanilla shove...
+          - { id: damage, base: 1.15, lifesteal: 1.0, overflow: true, knockback: false }   # no vanilla shove...
           - { id: knockback, from: caster, radius: 30, center: -0.9, edge: -0.9, lift: 0.25 }   # ...just the pull
         next: recall_cue
       recall_cue:
@@ -186,7 +186,8 @@ abilities:
 
   # ULTIMATE 2 (F): Soul Rend. Your next basic attack (within 10s) is a rend: the enemy you strike is
   # knocked back and stunned while flying, and their SOUL is torn out where they stood.
-  #   - The soul glows and can be attacked (150 health). Half the damage it takes also hits its owner.
+  #   - The soul looks like them, glows and can be attacked (60% of their max HP). Half the damage it
+  #     takes also hits its owner.
   #   - Its owner is tethered to it for 6s: they can stay near it, or flee past 12 blocks, which snaps
   #     the tether: the soul vanishes, but they're slowed for 3s.
   #   - Destroy the soul and it slams back into its owner: 90 damage to them, and you heal 150
@@ -240,7 +241,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: target }
         effects:
-          - { id: damage, amount: 40, knockback: false }
+          - { id: damage, base: 1.15, knockback: false }   # 115% base damage
           - { id: status, status: stun, duration: 20 }   # stunned while flying back (1s)
           - { id: knockback, from: caster, radius: 6, center: 1.8, edge: 1.8, lift: 0.5 }
         next: tear
@@ -248,7 +249,7 @@ abilities:
         type: summon_clone           # their soul, where they stand (a look-alike of them)
         summon: rent_soul
         of: target
-        health: 150                  # can be attacked (and killed)
+        health_share: 0.6            # can be attacked (and killed): 60% of their max HP
         glowing: true
         lifetime: 120                # 6s
         store: soul                  # also stores soul_at: where it was torn out (they only start
@@ -284,7 +285,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: target }
         effects:
-          - { id: damage, amount: 90, knockback: false }
+          - { id: damage, base: 2.6, knockback: false }    # 260% base damage
         next: feast
       feast:
         type: apply_effects
@@ -325,6 +326,12 @@ characters:
   essence_reaver:
     name: "Essence Reaver"
     weapon: NETHERITE_HOE
+    stats:                           # see docs/character-stats.md
+      health: 250                    # max HP
+      armor: 25                      # damage taken x 100 / (100 + armor)
+      base_damage: 35                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      attack_speed: 1.67             # basic attacks per second
     slots:
       primary: essence_reaver_primary  # LMB
       ability_1: essence_reaver_ab1  # 1, press 1 again to recall

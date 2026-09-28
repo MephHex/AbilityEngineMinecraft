@@ -55,11 +55,10 @@ public final class TestEngine {
                 hits.add(ctx.target());
                 if (ctx.target() instanceof EntityTarget e) {
                     // Same rules as the real damage effect: backstab crits, and report it (stealth breaks).
-                    double raw = ctx.params().requireDouble("amount")
-                            * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx)
-                            * me.mephisto.ability_engine.engine.combat.DamageScale.multiplier(ctx);
-                    // Strength, damage taken, tethers: the same pipeline as the real damage effect.
-                    var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(), raw);
+                    double raw = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
+                    // Strength, damage taken, tethers, armor: the same pipeline as the real damage effect.
+                    boolean armored = !me.mephisto.ability_engine.engine.combat.DamageAmount.ignoresArmor(ctx.params());
+                    var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(), raw, armored);
                     double amount = result.amount();
                     ctx.engine().notifyDamageDealt(ctx.caster(), e.id());
                     damageTaken.merge(e.id(), amount, Double::sum);
@@ -71,25 +70,29 @@ public final class TestEngine {
             }
 
             @Override
-            public void validate(Params params) { params.requireDouble("amount"); }
+            public void validate(Params params) { me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, true); }
         });
         engine.effects().register("shield", new Effect() {
             @Override
             public void apply(EffectContext ctx) {
-                if (ctx.target() instanceof EntityTarget e) shields.merge(e.id(), ctx.params().requireDouble("amount"), Double::sum);
+                if (ctx.target() instanceof EntityTarget e) {
+                    shields.merge(e.id(), me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx), Double::sum);
+                }
             }
 
             @Override
-            public void validate(Params params) { params.requireDouble("amount"); }
+            public void validate(Params params) { me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, false); }
         });
         engine.effects().register("heal", new Effect() {
             @Override
             public void apply(EffectContext ctx) {
-                if (ctx.target() instanceof EntityTarget e) healed.merge(e.id(), ctx.params().requireDouble("amount"), Double::sum);
+                if (ctx.target() instanceof EntityTarget e) {
+                    healed.merge(e.id(), me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx), Double::sum);
+                }
             }
 
             @Override
-            public void validate(Params params) { params.requireDouble("amount"); }
+            public void validate(Params params) { me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, false); }
         });
         engine.effects().register("knockback", new Effect() {
             @Override

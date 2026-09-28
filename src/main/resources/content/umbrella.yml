@@ -5,6 +5,27 @@
 
 abilities:
 
+  # PRIMARY: a quick spear poke straight ahead (3.5 blocks). Rate: her attack speed (1.25 a second).
+  umbrella_primary:
+    cooldown: 16                     # 0.8s (her stats' attack_speed sets it)
+    display:
+      name: "Spear Poke"
+      description:
+        - "A quick poke straight ahead, 3.5 blocks:"
+        - "100% base damage to everyone in line."
+    nodes:
+      poke:
+        type: apply_effects
+        targets: { type: line, range: 3.5, width: 1.0 }
+        effects:
+          - { id: damage, base: 1.0 }             # 100% base damage
+        next: poke_cue
+      poke_cue:
+        type: play_cue
+        cue: umbrella_thrust
+        at: beam_start
+        to: beam_end
+
   # Dash where you aim (trident-style thrust). Stops at the first enemy: damage + brief stun.
   # A miss ends at max range (or at a wall). Allies are passed through. Stun mid-lunge cancels it.
   # 2 charges: each comes back 8s after the last one used.
@@ -40,7 +61,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 50 }
+          - { id: damage, base: 1.25 }            # 125% base damage
           - { id: status, status: stun, duration: 10 }   # 0.5s
         next: strike_cue
       strike_cue:
@@ -112,7 +133,7 @@ abilities:
         type: apply_effects
         targets: { type: line, range: 7, width: 1.4 }
         effects:
-          - { id: damage, amount: 55 }
+          - { id: damage, base: 1.4 }             # 140% base damage
           - { id: status, status: slow, duration: 40 }   # 2s
         next: thrust_cue
       thrust_cue:
@@ -152,7 +173,7 @@ abilities:
         type: apply_effects
         targets: { type: line, range: 25, width: 2.0 }
         effects:
-          - { id: damage, amount: 180 }
+          - { id: damage, base: 4.5 }             # 450% base damage
           - { id: knockback, from: caster, radius: 25, center: 3.0, edge: 2.2, lift: 0.6 }
         next: beam
       beam:
@@ -169,9 +190,15 @@ characters:
   umbrella:                          # diver kit
     name: "Umbrella"
     weapon: DIAMOND_SPEAR
+    stats:                           # see docs/character-stats.md
+      health: 225                    # max HP
+      armor: 20                      # damage taken x 100 / (100 + armor)
+      base_damage: 40                # abilities deal % of this
+      move_speed: 1.05               # x vanilla walking speed
+      attack_speed: 1.25             # basic attacks per second
     traits: [sneak_slow_fall]        # passive: hold SHIFT while falling to float down
     slots:
-      primary: test_blast
+      primary: umbrella_primary      # LMB: Spear Poke
       ability_1: umbrella_ab1        # 1: Royal Lunge (2 charges)
       ability_2: umbrella_ab2        # 2: Parasol Guard
       ability_3: umbrella_ab3        # 3: Piercing Thrust

@@ -38,7 +38,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 2.8, angle: 80 }
         effects:
-          - { id: damage, amount: 40, backstab: 1.5 }
+          - { id: damage, base: 1.0, backstab: 1.5 }   # 100% base damage
         next: slash_cue
       slash_cue:
         type: play_cue
@@ -105,7 +105,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }     # the enemy just passed
         effects:
-          - { id: damage, amount: 55, backstab: 1.5 }
+          - { id: damage, base: 1.4, backstab: 1.5 }   # 140% base damage
         next: slash_cue
       slash_cue:
         type: play_cue
@@ -134,7 +134,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 55, backstab: 1.5 }
+          - { id: damage, base: 1.4, backstab: 1.5 }
         next: echo_slash_cue
       echo_slash_cue:
         type: play_cue
@@ -226,7 +226,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: origin, radius: 5 }
         effects:
-          - { id: damage, amount: 10, knockback: false, ignore_iframes: true }
+          - { id: damage, base: 0.25, knockback: false, ignore_iframes: true }   # 25% base damage a pulse
         next: slash_cue
       slash_cue:
         type: play_cue
@@ -247,6 +247,12 @@ characters:
   dreamer:
     name: "Dreamer"
     weapon: GOLDEN_SWORD
+    stats:                           # see docs/character-stats.md
+      health: 180                    # max HP
+      armor: 10                      # damage taken x 100 / (100 + armor)
+      base_damage: 40                # abilities deal % of this
+      move_speed: 1.1                # x vanilla walking speed
+      attack_speed: 2.0              # basic attacks per second
     status_bar:                      # XP bar: drains over Dreamwalk's 5s, no number
       status: dreamwalking
       level: none

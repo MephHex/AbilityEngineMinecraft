@@ -13,7 +13,9 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.Vector;
 
 /**
- * Effect id "damage". Params: {@code amount} (required, in design HP), {@code ignore_iframes} (default false).
+ * Effect id "damage". Params: {@code amount} (design HP), or {@code base: 1.1} (110% of the caster's base
+ * damage), or {@code max_hp: 0.05} (5% of the target's max HP; ignores armor); {@code ignore_iframes}
+ * (default false).
  * Minecraft health dealt = amount / damage-scale (config.yml, default 10: 20 health = 200 design HP).
  * {@code lifesteal: 1.0} heals the caster for that share of the damage actually dealt; add
  * {@code overflow: true} (and optional overflow_max / overflow_decay) to turn excess into a shield.
@@ -28,6 +30,8 @@ import org.bukkit.util.Vector;
 public final class DamageEffect implements Effect {
 
     private static int applying;
+    /** The hit being dealt skips armor (damage over time, % max HP): read by DamageModifierListener. */
+    private static boolean ignoringArmor;
 
     private double scale = 10;
     private OverflowShields shields;
@@ -45,6 +49,9 @@ public final class DamageEffect implements Effect {
      */
     public static boolean isApplying() { return applying > 0; }
 
+    /** True while this effect deals a hit that armor doesn't reduce ({@code max_hp} damage). */
+    public static boolean isIgnoringArmor() { return applying > 0 && ignoringArmor; }
+
     @Override
     public void apply(EffectContext ctx) {
         EngineLog log = ctx.engine().log();
@@ -59,9 +66,9 @@ public final class DamageEffect implements Effect {
         }
 
         // Backstab crits (backstab: 1.5): from behind the target, multiply.
-        double design = ctx.params().requireDouble("amount")
-                * me.mephisto.ability_engine.engine.combat.Backstab.multiplier(ctx)
-                * me.mephisto.ability_engine.engine.combat.DamageScale.multiplier(ctx);
+        // amount (flat), base (x the caster's base damage) or max_hp (x the target's max HP); backstab, scale_by
+        double design = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
+        boolean pierceArmor = me.mephisto.ability_engine.engine.combat.DamageAmount.ignoresArmor(ctx.params());
         double amount = design / scale;
         // Vanilla ignores a hit landing within ~10 ticks of the last one. Rapid channels need this.
         if (ctx.params().getBool("ignore_iframes", false)) living.setNoDamageTicks(0);
@@ -72,12 +79,15 @@ public final class DamageEffect implements Effect {
         boolean knockback = type == null && ctx.params().getBool("knockback", true);
         Vector velocityBefore = living.getVelocity();
         applying++;
+        boolean wasIgnoring = ignoringArmor;
+        ignoringArmor = pierceArmor;
         try {
             if (!knockback) living.damage(amount, typed(type != null ? type : DamageType.MAGIC, damager, living));
             else if (damager != null && !damager.equals(living)) living.damage(amount, damager);
             else living.damage(amount);
         } finally {
             applying--;
+            ignoringArmor = wasIgnoring;
         }
         // Magic damage has no knockback in vanilla; if anything pushed them anyway, undo it.
         if (!knockback && !living.getVelocity().equals(velocityBefore)) living.setVelocity(velocityBefore);
@@ -116,7 +126,7 @@ public final class DamageEffect implements Effect {
 
     @Override
     public void validate(Params params) {
-        if (params.requireDouble("amount") < 0) throw params.error("amount", "must be >= 0");
+        me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, true);
         String type = params.getString("damage_type", null);
         if (type != null && typeOf(type) == null) throw params.error("damage_type", "expected freeze, fire or magic");
     }

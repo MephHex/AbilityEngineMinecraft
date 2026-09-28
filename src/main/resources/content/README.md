@@ -271,3 +271,21 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
   spot they were at; `return: true` puts them back there when the cast ends, however it ends.
 - **Cues:** dream_tempest (slashes somewhere in a 5-block circle), dream_tempest_ring (that circle's edge
   on the ground, 5 blocks: keep it in step with the ability's radius).
+
+## Character stats
+
+Full sheets and reasoning: `docs/character-stats.md`.
+
+- **Characters:** `stats: { health, armor, base_damage, move_speed, attack_speed }`. Missing stats get
+  the defaults: 200 / 0 / 40 / 1.0 / none.
+  - `health`: max HP. Everyone is shown as 10 hearts.
+  - `armor`: damage taken x 100 / (100 + armor). The 100 is `armor-constant` in config.yml.
+  - `base_damage`: what `base:` on a damage effect is a share of.
+  - `move_speed`: x vanilla walking; slows and haste multiply on top of it.
+  - `attack_speed`: basic attacks per second; the primary's cooldown becomes 20 / it ticks. Leave it
+    out to keep the primary's own cooldown (a crossbow).
+- **Damage:** exactly one of `amount: 50` (flat), `base: 1.1` (110% of the caster's base damage) or
+  `max_hp: 0.05` (5% of the target's max HP; **ignores armor**: use it for damage over time).
+- **Heal and shield:** `amount:` (flat), or `max_hp: 0.2` (20% of the target's max HP).
+- **summon_clone:** `health_share: 0.6` instead of `health:`, i.e. 60% of `of`'s max HP.
+- **In game:** the stat items are in the top row of the inventory. Hover one to see the value right now.

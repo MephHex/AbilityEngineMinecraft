@@ -16,10 +16,25 @@ import java.util.Map;
  *                  reload speed (null = none)
  * @param forms     while the player has a form's tag, it changes the kit (first match wins)
  * @param traits    always-on behaviours the platform provides (see {@link #TRAITS}), e.g. a passive
+ * @param stats     max HP, armor, base damage, move speed, attack speed
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
-                           java.util.List<Form> forms, java.util.Set<String> traits) {
+                           java.util.List<Form> forms, java.util.Set<String> traits, Stats stats) {
+
+    /**
+     * A character's stat sheet (design HP, like damage).
+     *
+     * @param health      max HP
+     * @param armor       damage taken x constant / (constant + armor), constant 100 by default
+     * @param baseDamage  what {@code base: 1.1} on a damage effect is 110% of
+     * @param moveSpeed   x vanilla walking speed; slows and haste multiply on top of it
+     * @param attackSpeed basic attacks per second: the primary's cooldown becomes 20 / this ticks;
+     *                    0 = the primary's own cooldown (e.g. a crossbow, whose draw is its fire rate)
+     */
+    public record Stats(double health, double armor, double baseDamage, double moveSpeed, double attackSpeed) {
+        public static final Stats DEFAULT = new Stats(200, 0, 40, 1.0, 0);
+    }
 
     /** Holding sneak while falling: slow falling (the Umbrella's parasol). */
     public static final String SNEAK_SLOW_FALL = "sneak_slow_fall";
@@ -62,11 +77,18 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         this(id, name, weapon, slots, resources, quiver, statusBar, forms, java.util.Set.of());
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, Stats.DEFAULT);
+    }
+
     public CharacterDef {
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
         resources = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(resources));
         forms = java.util.List.copyOf(forms);
         traits = java.util.Set.copyOf(traits);
+        if (stats == null) stats = Stats.DEFAULT;
     }
 
     public boolean has(String trait) { return traits.contains(trait); }
@@ -76,7 +98,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         Map<String, String> changed = new LinkedHashMap<>(slots);
         changed.putAll(form.slots());
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
-                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits);
+                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

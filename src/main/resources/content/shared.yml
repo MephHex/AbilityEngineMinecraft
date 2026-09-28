@@ -28,7 +28,7 @@ statuses:
     tick:
       every: 10                # ...one tick every 0.5s = 4 ticks
       effects:
-        - { id: damage, amount: 5 }
+        - { id: damage, max_hp: 0.025, knockback: false }   # 2.5% of their max HP a tick, ignores armor
 
   # ---- BUFFS: statuses with on_hit effects -----------------------------------------------
   # While you have one, every hit from an on-hit ability also applies these to the target.

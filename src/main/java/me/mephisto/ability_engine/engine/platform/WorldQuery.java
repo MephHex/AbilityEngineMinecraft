@@ -44,6 +44,9 @@ public interface WorldQuery {
 
     boolean isAlive(UUID entity);
 
+    /** Max health in design HP (like damage), for entities without a character. Empty = unknown. */
+    default java.util.OptionalDouble maxHealth(UUID entity) { return java.util.OptionalDouble.empty(); }
+
     /**
      * Which way the entity is moving right now, horizontally (walking, strafing, backpedalling),
      * as a unit vector. Empty when standing still. Default: unknown (always empty).

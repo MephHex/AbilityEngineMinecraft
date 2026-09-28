@@ -47,7 +47,7 @@ public final class AbilityActivator {
 
     /** Pay the costs and start the cooldown. */
     public void commit(UUID caster, Ability ability) {
-        engine.cooldowns().start(caster, ability.id(), ability.cooldownTicks());
+        engine.cooldowns().start(caster, ability.id(), engine.stats().cooldownTicks(caster, ability.id(), ability.cooldownTicks()));
         ability.costs().forEach((resource, amount) -> engine.resources().consume(caster, resource, amount));
     }
 
@@ -182,7 +182,7 @@ public final class AbilityActivator {
         AbilityInstance instance = new AbilityInstance(engine, ability, caster, presets);
         if (ability.manualCooldown()) instance.deferCooldownManually();
         else if (ability.cooldownAfterRecast()) instance.deferCooldown();
-        else engine.cooldowns().start(caster, ability.id(), ability.cooldownTicks());
+        else engine.cooldowns().start(caster, ability.id(), engine.stats().cooldownTicks(caster, ability.id(), ability.cooldownTicks()));
         engine.instances().add(instance);
         instance.start();
         return ActivationResult.ok();

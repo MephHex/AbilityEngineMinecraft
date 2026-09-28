@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * What a hit really deals, after statuses and tethers. Every damage effect (the platform's, the tests')
+ * What a hit really deals, after statuses, tethers and armor. Every damage effect (the platform's, the tests')
  * runs its amount through here:
  * <ol>
  *   <li>x the attacker's {@code damage_dealt} statuses (Strength)</li>
@@ -17,8 +17,9 @@ import java.util.UUID;
  *   <li>each tether on the victim takes off its share ({@code damage_taken}), and {@code redirect} of what
  *       it took off goes to the tether's owner instead; {@code mirror} of what's left ALSO hits the owner
  *       (a soul: hurting it hurts its owner)</li>
+ *   <li>armor on what's left ({@code armored} = false: damage over time and % max HP hits skip it)</li>
  * </ol>
- * Redirected damage is final: it isn't modified again.
+ * Redirected damage is final: it isn't modified again (no armor either).
  */
 public final class DamageModifiers {
 
@@ -28,6 +29,10 @@ public final class DamageModifiers {
     public record Result(double amount, List<Redirect> redirects) {}
 
     public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount) {
+        return apply(engine, attacker, victim, amount, true);
+    }
+
+    public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, boolean armored) {
         if (attacker != null && !attacker.equals(victim)) {
             for (ActiveStatus s : engine.statuses().on(attacker)) amount *= s.def().damageDealt();
         }
@@ -40,6 +45,7 @@ public final class DamageModifiers {
             if (link.redirect() > 0 && prevented > 0) redirects.add(new Redirect(link.owner(), prevented * link.redirect()));
             if (link.mirror() > 0 && amount > 0) redirects.add(new Redirect(link.owner(), amount * link.mirror()));
         }
+        if (armored) amount = engine.stats().afterArmor(victim, amount);
         return new Result(Math.max(0, amount), redirects);
     }
 

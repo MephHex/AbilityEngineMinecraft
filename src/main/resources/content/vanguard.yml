@@ -39,7 +39,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 3.2, angle: 90 }
         effects:
-          - { id: damage, amount: 45 }
+          - { id: damage, base: 1.0 }             # 100% base damage
         next: swing_cue
       swing_cue:
         type: play_cue
@@ -81,7 +81,7 @@ abilities:
         targets: { type: radius, radius: 4 }
         count: leap_hits             # how many enemies it hit
         effects:
-          - { id: damage, amount: 50, knockback: false }
+          - { id: damage, base: 1.1, knockback: false }   # 110% base damage
           - { id: knockback, from: caster, radius: 4, center: 0.15, edge: 0.15, lift: 0.9 }   # knocked UP
         next: slam_cue
       slam_cue:
@@ -297,7 +297,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 7 }
         effects:
-          - { id: damage, amount: 60, knockback: false }
+          - { id: damage, base: 1.35, knockback: false }   # 135% base damage
           - { id: knockback, from: caster, radius: 7, center: 2.2, edge: 0.5, lift: 0.5 }   # closer = harder
         next: rally
       rally:
@@ -320,6 +320,12 @@ characters:
   vanguard:
     name: "Vanguard"
     weapon: IRON_SWORD
+    stats:                           # see docs/character-stats.md
+      health: 300                    # max HP
+      armor: 40                      # damage taken x 100 / (100 + armor)
+      base_damage: 45                # abilities deal % of this
+      move_speed: 0.95               # x vanilla walking speed
+      attack_speed: 1.4              # basic attacks per second
     slots:
       primary: vanguard_primary      # LMB
       ability_1: vanguard_ab1        # 1: Heroic Leap

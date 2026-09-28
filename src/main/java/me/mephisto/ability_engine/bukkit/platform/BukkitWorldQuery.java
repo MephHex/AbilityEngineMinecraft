@@ -183,6 +183,20 @@ public final class BukkitWorldQuery implements WorldQuery {
         return e != null && e.isValid() && !(e instanceof LivingEntity l && l.isDead());
     }
 
+    /** Design HP per Minecraft health point (config damage-scale). */
+    private java.util.function.DoubleSupplier damageScale = () -> 10;
+
+    public void setDamageScale(java.util.function.DoubleSupplier damageScale) { this.damageScale = damageScale; }
+
+    /** A living entity's max health in design HP (a mob's own; characters use their stat sheet instead). */
+    @Override
+    public java.util.OptionalDouble maxHealth(UUID entity) {
+        if (!(Bukkit.getEntity(entity) instanceof LivingEntity living)) return java.util.OptionalDouble.empty();
+        var attribute = living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        return attribute == null ? java.util.OptionalDouble.empty()
+                : java.util.OptionalDouble.of(attribute.getValue() * damageScale.getAsDouble());
+    }
+
     /** Null if the entity can be targeted, otherwise the reason (shown in debug traces). */
     private static String whyNotTargetable(Entity e) {
         if (!(e instanceof LivingEntity living)) return "not a living entity";

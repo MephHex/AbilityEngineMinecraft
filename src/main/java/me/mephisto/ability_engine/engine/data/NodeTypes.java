@@ -99,9 +99,12 @@ public final class NodeTypes {
         t.register("summon_clone", (p, e) -> {
             double health = p.getDouble("health", 0);
             if (health < 0) throw p.error("health", "must be >= 0 (0 = can't be hurt)");
+            double share = p.getDouble("health_share", 0);
+            if (share < 0) throw p.error("health_share", "must be >= 0");
+            if (health > 0 && share > 0) throw p.error("health", "give health or health_share, not both");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
                     p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),
-                    p.getString("at", null), p.getString("of", null), health, p.getBool("glowing", false));
+                    p.getString("at", null), p.getString("of", null), health, share, p.getBool("glowing", false));
         });
         t.register("move_to", (p, e) -> {
             var look = switch (p.getString("look", "none")) {
