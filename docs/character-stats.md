@@ -1,7 +1,25 @@
 # Character stat sheets (proposal)
 
-Status: **draft for review, nothing implemented yet.** Numbers are first-pass. They were derived from
-what the kits deal today, so that switching to stats doesn't change how anything feels until we tune it.
+Status: **implemented** (the sheets below are in the kits' `stats:`). Numbers are first-pass. They were
+derived from what the kits dealt before, so switching to stats didn't change how anything feels; tune
+from here.
+
+### Decisions
+
+- **Players see their stats:** the top row of the inventory holds one item per stat. Hovering one shows
+  its value right now: current health, Strength on base damage, a slow on move speed, the Hunter's draw.
+- **Armor applies to everything** (abilities, basic attacks, vanilla hits, falls) **except damage over
+  time and % max HP hits.** Damage over time is % max HP now: poison, frost and flame are 5% / 5% / 3%
+  of the target's max HP a tick, the shared burn 2.5%. Tether redirect and soul mirror damage stay
+  final: not reduced again.
+- **Heals and shields are flat**, unless an effect says `max_hp:`.
+- **Hunter has no attack speed stat:** his crossbow draw (and Hunter's Rhythm) is his fire rate, and the
+  stat item shows the draw time instead.
+- **Placeholders fixed:** Arcane Bolt deals 100% base damage on a direct hit (35% splash on the ground).
+  The Umbrella has a real primary, Spear Poke (a 3.5-block line, 100%).
+- **Soul Rend's soul** looks like its owner and has **60% of their max HP** (`health_share: 0.6`).
+- **Move speed** is added to the base speed, so slows (-40%) and haste (+30%) multiply on top of it.
+- **Hearts:** everyone shows 10 hearts; the real HP is behind them (and on the Max HP item).
 
 All health and damage are in **design HP**, the unit the YAML already uses: 10 design HP = half a heart,
 and a vanilla player (20 health) = 200.
@@ -220,7 +238,7 @@ would be a later step, not part of the first version.
 
 ---
 
-## 5. Open questions (answer these before I write code)
+## 5. The original open questions (answered above, kept for reference)
 
 1. **Armor constant 100:** is that the curve you want, and does armor apply to *everything*? My
    proposal: yes to abilities, DoTs and vanilla hits; **no** to tether redirect and Soul Rend mirror
