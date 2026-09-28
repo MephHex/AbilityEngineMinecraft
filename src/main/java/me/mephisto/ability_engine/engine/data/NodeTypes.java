@@ -129,8 +129,10 @@ public final class NodeTypes {
         t.register("charge", (p, e) -> {
             double from = p.getDouble("from", 0);
             if (from < 0 || from > 1) throw p.error("from", "must be between 0 and 1");
+            int min = p.getInt("min", 0);
+            if (min < 0 || min > p.requireInt("ticks")) throw p.error("min", "must be between 0 and ticks");
             return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
-                    p.getString("store", "charge"));
+                    p.getString("store", "charge"), min, p.getBool("fire_when_full", true));
         });
         t.register("await_kill", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.AwaitKillNode(
                 p.getBool("players_only", false), p.getString("store", "victim")));

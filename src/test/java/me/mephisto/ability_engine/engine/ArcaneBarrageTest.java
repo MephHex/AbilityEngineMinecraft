@@ -48,7 +48,7 @@ class ArcaneBarrageTest {
         t.time.advance(20); // the rise
     }
 
-    /** Hold RMB for {@code ticks}, then let go (or it fires by itself when full). */
+    /** Hold RMB for {@code ticks}, then let go (it only fires when let go). */
     private void chargeAndFire(int ticks) {
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
         t.time.advance(ticks);
@@ -78,17 +78,20 @@ class ArcaneBarrageTest {
         setup();
         ult();
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
-        t.time.advance(15);
+        t.time.advance(25);
         assertTrue(t.engine.instances().charging(p));
         assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "can't move");
         assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "can't use abilities");
-        assertEquals(0.5, t.engine.instances().castProgress(p).orElseThrow(), 0.01, "half charged");
+        assertEquals(0.5, t.engine.instances().castProgress(p).orElseThrow(), 0.01, "half charged (2.5s to full)");
         assertEquals(3, charges(), "nothing spent yet");
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "arcanist_barrage"),
+                "no cooldown while charging (on the spyglass it would end the zoom)");
 
         t.engine.instances().release(p);
         assertFalse(t.engine.instances().charging(p));
         assertFalse(t.engine.tags().has(p, Tags.BLOCK_MOVE), "free again once it's fired");
         assertEquals(2, charges());
+        assertEquals(20, t.engine.cooldowns().remainingTicks(p, "arcanist_barrage"), "1s, from the shot");
     }
 
     @Test
@@ -98,21 +101,41 @@ class ArcaneBarrageTest {
         UUID beside = enemy(20, 2);
         ult();
         aimAt(pos(target));
-        chargeAndFire(15); // half charged: 40% + 60% x 0.5 = 70%
+        chargeAndFire(25); // half charged: 40% + 60% x 0.5 = 70%
         assertEquals(220 * 0.7, t.damage(target), 1e-6);
         assertEquals(0, t.damage(beside), 1e-9, "no explosion on a direct hit");
     }
 
     @Test
-    void fullyChargedItFiresByItself() throws IOException {
+    void fullyChargedItWaitsForYouToLetGo() throws IOException {
         setup();
         UUID target = enemy(20, 0);
         ult();
         aimAt(pos(target));
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
-        t.time.advance(40); // still "holding" past full
-        assertFalse(t.engine.instances().charging(p), "fired at full charge");
-        assertEquals(220, t.damage(target), 1e-6);
+        t.time.advance(80); // held well past full
+        assertTrue(t.engine.instances().charging(p), "still holding it, full");
+        assertEquals(0, t.damage(target), 1e-9, "nothing fired yet");
+        assertEquals(3, charges());
+        t.engine.instances().release(p);
+        t.time.advance(10);
+        assertEquals(220, t.damage(target), 1e-6, "let go: full power");
+        assertEquals(2, charges());
+    }
+
+    @Test
+    void lettingGoTooSoonFiresNothingAndSpendsNothing() throws IOException {
+        setup();
+        UUID target = enemy(20, 0);
+        ult();
+        aimAt(pos(target));
+        chargeAndFire(5); // under the 0.5s minimum
+        assertEquals(0, t.damage(target), 1e-9);
+        assertEquals(3, charges(), "no shot spent");
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "arcanist_barrage"), "and no cooldown");
+        assertFalse(t.engine.tags().has(p, Tags.BLOCK_MOVE));
+        chargeAndFire(10); // exactly the minimum: it fires
+        assertTrue(t.damage(target) > 0);
         assertEquals(2, charges());
     }
 
@@ -123,7 +146,7 @@ class ArcaneBarrageTest {
         UUID far = enemy(15, 6);
         ult();
         aimAt(new Vec3(15, 0, 0)); // the floor between them
-        chargeAndFire(30);
+        chargeAndFire(50);
         assertEquals(90, t.damage(near), 1e-6, "caught in the blast");
         assertEquals(0, t.damage(far), 1e-9);
     }
@@ -134,8 +157,8 @@ class ArcaneBarrageTest {
         ult();
         aimAt(new Vec3(10, 0, 0));
         for (int i = 0; i < 3; i++) {
-            chargeAndFire(5);
-            t.time.advance(10); // the shot cooldown
+            chargeAndFire(10);
+            t.time.advance(10); // the rest of the 1s shot cooldown
         }
         assertEquals(0, charges());
         assertFalse(t.engine.instances().isRunning(p, "arcanist_ult1"), "over");
@@ -174,7 +197,9 @@ class ArcaneBarrageTest {
         aimAt(pos(target));
         t.time.advance(215);
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
-        t.time.advance(40); // the ult ends meanwhile, then full charge
+        t.time.advance(40); // the ult ends meanwhile
+        t.engine.instances().release(p);
+        t.time.advance(10);
         assertEquals(0, t.damage(target), 1e-9);
     }
 
