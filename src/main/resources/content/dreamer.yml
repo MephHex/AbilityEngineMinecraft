@@ -9,7 +9,7 @@ statuses:
   dreamwalking:                      # Dreamwalk: gone from sight, ignored by every ability
     duration: 100                    # 5s...
     stacking: refresh
-    tags: [ state.hidden, state.invisible, state.hasted ]
+    tags: [ state.hidden, state.invisible, state.hasted, buff.dreamwalk ]   # buff.*: a buff (tethers copy it)
     break_on_damage: true            # ...or until you deal damage
   dream_touch:                       # your next primary fire blinds
     duration: 200                    # 10s to use it

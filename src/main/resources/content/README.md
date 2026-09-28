@@ -205,8 +205,14 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **Hitscan:** `targets: allies` aims at allies instead of enemies (with `ray_size` for a generous hitbox).
 - **Dash:** `to: <key>` dashes straight to a stored spot and stops there (or where it touches the ground).
 - **Barrier:** `projectiles_only: true` only stops projectiles (rays, dashes and melee pass).
-- **Statuses:** `positive: true` (a buff, copied by tethers), `damage_dealt: 1.25` (+25% damage dealt),
-  `damage_taken: 0.8` (20% less damage taken). They apply to every hit, vanilla ones too.
+- **Statuses:** `damage_dealt: 1.25` (+25% damage dealt), `damage_taken: 0.8` (20% less damage taken).
+  They apply to every hit, vanilla ones too.
+- **Buffs** (what tethers with `copy_positive` copy, like Radiant Bond): any status with a **`buff.*` tag**
+  (e.g. `tags: [state.hasted, buff.tonic]`), on-hit effects, `damage_dealt` above 1 or `damage_taken` below 1.
+  `positive: true` / `positive: false` overrides it: e.g. Soul Rend's charge and Hunter's Rhythm have a
+  `buff.*` tag, but they're `positive: false` so they aren't shared. Beneficial vanilla potion effects
+  (drunk potions, beacons, /effect) are copied too. Buffs that only exist while an ability runs (its
+  `active_tags`, e.g. Overdrive's speed) aren't statuses, so they aren't copied.
 - **Effects:** shield `{ amount, max, decay }` gives absorption (design HP; `decay` per second,
   default 0 = until it's broken).
 - **Tags:** `state.sturdy` halves knockback.

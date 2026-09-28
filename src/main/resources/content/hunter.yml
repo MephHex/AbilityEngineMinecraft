@@ -19,6 +19,7 @@ statuses:
     stacking: stack
     max_stacks: 3
     tags: [buff.hunters_rhythm]
+    positive: false                  # the passive's counter, not a buff to share (a bond won't copy it)
 
   poisoned:                          # the Poison infusion
     duration: 80                     # 4s...
@@ -32,7 +33,7 @@ statuses:
   flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
     duration: 60                     # 3s
     stacking: refresh
-    tags: [state.hasted]             # +30% movement speed
+    tags: [state.hasted, buff.tonic] # +30% movement speed; buff.*: a buff (tethers copy it)
     tick:
       every: 10
       effects:
@@ -46,7 +47,7 @@ statuses:
   camouflaged:                       # Venom Step during Overdrive
     duration: 50                     # 2.5s
     stacking: refresh
-    tags: [state.invisible]
+    tags: [state.invisible, buff.camouflage]
 
   # ---- Volatile Flask's random infusions (see infusions below) ----
   frozen:                            # Frost: ice damage, frozen (blue) hearts, and the powder-snow slow

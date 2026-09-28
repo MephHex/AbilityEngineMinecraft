@@ -10,6 +10,7 @@ statuses:
   soul_rend_ready:                   # Soul Rend: your next basic attack rends (see forms)
     duration: 200                    # 10s to land it
     tags: [buff.soul_rend]
+    positive: false                  # an ultimate's charge, not a buff to share (a bond won't copy it)
 
 abilities:
 
