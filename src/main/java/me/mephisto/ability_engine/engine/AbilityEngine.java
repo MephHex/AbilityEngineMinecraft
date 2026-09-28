@@ -61,6 +61,9 @@ public final class AbilityEngine {
     private final me.mephisto.ability_engine.engine.link.LinkManager links;
     private java.util.random.RandomGenerator random = new java.util.Random();
     private final me.mephisto.ability_engine.engine.stats.StatSheets stats;
+    private final me.mephisto.ability_engine.engine.combat.CombatTracker combat;
+    private final me.mephisto.ability_engine.engine.ward.WardManager wards;
+    private final me.mephisto.ability_engine.engine.combat.SpellShields spellShields;
 
     public AbilityEngine(Platform platform) {
         this.platform = platform;
@@ -86,6 +89,13 @@ public final class AbilityEngine {
         this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags);
         this.targeting = new TargetingManager(this);
         this.stats = new me.mephisto.ability_engine.engine.stats.StatSheets(loadouts, platform.world());
+        this.combat = new me.mephisto.ability_engine.engine.combat.CombatTracker(platform.clock());
+        this.spellShields = new me.mephisto.ability_engine.engine.combat.SpellShields(platform.world(), platform.cues());
+        this.wards = new me.mephisto.ability_engine.engine.ward.WardManager(loadouts, tags, combat, platform.clock(),
+                platform.cues(), platform.world(), platform.scheduler(), statuses);
+        // Debuff immunity from anything else (a status granting state.debuff_immune): blocks without using it up.
+        statuses.addGuard((target, def, source) -> tags.has(target, me.mephisto.ability_engine.engine.tag.Tags.DEBUFF_IMMUNE)
+                && me.mephisto.ability_engine.engine.status.StatusManager.isDebuff(target, def, source));
 
         tags.addListener(instances); // interrupts
         statuses.setEffectApplier((source, target, list) -> { // status ticks (burn damage etc.)
@@ -98,6 +108,7 @@ public final class AbilityEngine {
         });
         effects.register("status", new ApplyStatusEffect(statusDefs));
         effects.register("remove_status", new me.mephisto.ability_engine.engine.effect.RemoveStatusEffect(statusDefs));
+        effects.register("purge_buffs", new me.mephisto.ability_engine.engine.effect.PurgeBuffsEffect());
     }
 
     // ---- platform ----
@@ -133,6 +144,12 @@ public final class AbilityEngine {
     public me.mephisto.ability_engine.engine.link.LinkManager links() { return links; }
     /** Max HP, armor, base damage, speeds: character stat sheets. */
     public me.mephisto.ability_engine.engine.stats.StatSheets stats() { return stats; }
+    /** Who was in combat when (dealt or took damage). */
+    public me.mephisto.ability_engine.engine.combat.CombatTracker combat() { return combat; }
+    /** Characters' wards: debuff immunity that recharges out of combat. */
+    public me.mephisto.ability_engine.engine.ward.WardManager wards() { return wards; }
+    /** Spell shields: spell damage absorbed as charge. */
+    public me.mephisto.ability_engine.engine.combat.SpellShields spellShields() { return spellShields; }
     /** Randomness for gameplay rolls (random infusions...). Tests swap in a seeded one. */
     public java.util.random.RandomGenerator random() { return random; }
     public void setRandom(java.util.random.RandomGenerator random) { this.random = random; }

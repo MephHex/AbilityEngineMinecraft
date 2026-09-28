@@ -38,6 +38,7 @@ public final class DamageModifiers {
 
     /** @param pierceShare share of the hit (0..1) that armor doesn't reduce (a max_hp part) */
     public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, double pierceShare) {
+        engine.combat().hit(attacker, victim); // both are in combat now (e.g. a ward's out-of-combat timer)
         if (attacker != null && !attacker.equals(victim)) {
             for (ActiveStatus s : engine.statuses().on(attacker)) amount *= s.def().damageDealt();
         }

@@ -56,6 +56,7 @@ public final class TestEngine {
                 if (ctx.target() instanceof EntityTarget e) {
                     // Same rules as the real damage effect: backstab crits, and report it (stealth breaks).
                     var parts = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
+                    if (ctx.engine().spellShields().absorb(ctx, parts.total())) return; // a spell shield ate it
                     // Strength, damage taken, tethers, armor: the same pipeline as the real damage effect.
                     var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(),
                             parts.total(), parts.pierceShare());

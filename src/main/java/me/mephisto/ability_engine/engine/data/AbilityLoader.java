@@ -182,6 +182,24 @@ public final class AbilityLoader {
         return slots;
     }
 
+    /** {@code ward: { name, out_of_combat, hotbar, icon, description }}: a passive debuff immunity. */
+    private static CharacterDef.Ward ward(Params p, Map<String, ResourceDef> resources, QuiverDef quiver) {
+        if (!p.has("ward")) return null;
+        Params w = p.getParams("ward");
+        int ticks = w.requireInt("out_of_combat");
+        if (ticks < 1) throw w.error("out_of_combat", "must be at least 1 tick");
+        int hotbar = w.getInt("hotbar", 0);
+        if (hotbar < 0 || hotbar > 9) throw w.error("hotbar", "expected a hotbar slot 1-9 (or 0: not shown)");
+        for (ResourceDef r : resources.values()) {
+            if (hotbar > 0 && r.hotbarSlot() == hotbar) throw w.error("hotbar", "slot " + hotbar + " is used by resource '" + r.id() + "'");
+        }
+        if (quiver != null && hotbar > 0 && hotbar >= quiver.hotbarSlot() && hotbar < quiver.hotbarSlot() + quiver.size()) {
+            throw w.error("hotbar", "slot " + hotbar + " is used by the quiver");
+        }
+        return new CharacterDef.Ward(w.getString("name", "Ward"), ticks, hotbar, w.getString("icon", null),
+                w.has("description") ? w.getStringList("description") : List.of());
+    }
+
     /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */
     private static CharacterDef.Stats stats(Params p) {
         CharacterDef.Stats d = CharacterDef.Stats.DEFAULT;
@@ -244,7 +262,7 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p), traits(p), stats(p));
+                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver));
     }
 
     /**

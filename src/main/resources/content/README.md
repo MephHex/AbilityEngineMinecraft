@@ -303,3 +303,26 @@ Full sheets and reasoning: `docs/character-stats.md`.
 - **Heal and shield:** `amount:` (flat) and/or `max_hp: 0.2` (20% of the target's max HP), added together.
 - **summon_clone:** `health_share: 0.6` instead of `health:`, i.e. 60% of `of`'s max HP.
 - **In game:** the stat items are in the top row of the inventory. Hover one to see the value right now.
+
+## Added for the AntiMage
+
+- **Characters:** `ward: { name, out_of_combat, hotbar, icon, description }` is a passive debuff
+  immunity. After `out_of_combat` ticks without dealing or taking damage, the next **debuff** doesn't
+  land. Blocking one uses it up, and it recharges from the later of the last hit and the block. Its item
+  sits in hotbar slot `hotbar`: glinting when ready, otherwise the count is the seconds left.
+- **Debuff:** a status that isn't a buff (see Buffs), put on you by someone else. Your own statuses and
+  buffs never count. The tag `state.debuff_immune` blocks debuffs too (without using anything up).
+- **Nodes:**
+  - has_status `{ status, target, min_stacks, mine }` -> has / lacks. `mine: true` = only if the caster
+    put it there, e.g. your own mark.
+  - moving_toward `{ target, angle }` -> toward / away: is the caster walking toward it.
+  - random `on: { a: x, b: y, ... }`: one of its ports, at random.
+  - ward_reset: the caster's ward is ready right now.
+  - spell_shield `{ max }`: until the cast ends, SPELL damage to the caster is absorbed and stored as
+    charge, up to `max`. Spells are ability damage from anything but the primary / secondary / melee
+    slots, plus damage over time. Basic attacks and vanilla hits still land.
+  - shield_charge `{ store }` -> out / full: the stored charge (e.g. for `scale_by`).
+- **Effects:** purge_buffs removes every buff from the target.
+- **Cues:** dagger_throw, hunted_dagger (looping, over the target), hunt_execute, null_burst, null_pool
+  (a 3-block ring), dagger_infuse, spellshield (looping), spellshield_absorb, spellshield_blast,
+  spellshield_purge, ward_block, ward_ready.
