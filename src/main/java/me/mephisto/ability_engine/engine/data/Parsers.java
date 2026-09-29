@@ -105,6 +105,8 @@ public final class Parsers {
                 .range(p.getDouble("range", 0))
                 .pierce(p.getInt("pierce", 0))
                 .slide(slide(p))
+                .visualSize(p.getDouble("visual_size", 0))
+                .faceFlight(p.getBool("face_flight", false))
                 .build();
     }
 
