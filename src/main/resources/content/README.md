@@ -378,5 +378,10 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **charge:** `release_gap: N` - for inputs without a let-go signal (RMB on a normal item): the input repeats
   while it's held, and N ticks without a repeat means it was let go. A quick click counts as 0 ticks held;
   a new click while it charges lets the old charge go and casts again.
+  `load: { resource, every, max }` - instead of power, it loads that resource while held: 1 every `every`
+  ticks (up to `max`, or until it runs out), spent as it loads so the player sees the count drop; `store`
+  gets how many (none loaded when let go: `early`). While loaded, the resource doesn't reload.
+- **hold_reload** `{ resource }`: restart its reload timer without spending (e.g. each bullet of a volley
+  that was already paid for, so the gun reloads after the last shot).
 - **Cues:** shotgun_blast, buckshot_blast, revolver_shot (lines: `at: caster, to: aim`), rounds_loaded,
   spell_blocked, keg_throw, keg_blast.

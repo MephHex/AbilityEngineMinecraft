@@ -132,7 +132,8 @@ public final class NodeTypes {
             int min = p.getInt("min", 0);
             if (min < 0 || min > p.requireInt("ticks")) throw p.error("min", "must be between 0 and ticks");
             return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
-                    p.getString("store", "charge"), min, p.getBool("fire_when_full", true), p.getInt("release_gap", 0));
+                    p.getString("store", "charge"), min, p.getBool("fire_when_full", true), p.getInt("release_gap", 0),
+                    chargeLoad(p));
         });
         t.register("has_status", (p, e) -> {
             String status = p.requireString("status");
@@ -219,6 +220,8 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.control.SpendNode(p.requireString("resource"), amount,
                     p.getBool("peek", false));
         });
+        t.register("hold_reload", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.HoldReloadNode(
+                p.requireString("resource")));
         t.register("refill", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.RefillNode(
                 p.requireString("resource"), p.has("amount") ? p.getDouble("amount", 0) : null));
         t.register("repeat", (p, e) -> {
@@ -246,6 +249,17 @@ public final class NodeTypes {
         NodeFactory f = factories.get(type);
         if (f == null) throw at.error("type", "unknown node type '" + type + "', known: " + factories.keySet());
         return f;
+    }
+
+    /** charge's {@code load: { resource, every, max }} (null without one). */
+    private static me.mephisto.ability_engine.engine.nodes.control.ChargeNode.Load chargeLoad(Params p) {
+        if (!p.has("load")) return null;
+        Params l = p.getParams("load");
+        int every = l.getInt("every", 5);
+        if (every < 1) throw l.error("every", "must be at least 1 tick");
+        int max = l.getInt("max", 99);
+        if (max < 1) throw l.error("max", "must be at least 1");
+        return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode.Load(l.requireString("resource"), every, max);
     }
 
     private static boolean towardCursor(Params p) {

@@ -10,8 +10,8 @@
 # PASSIVE 2 (Two Guns): LMB fires the SHOTGUN (2 shells), RMB the REVOLVER (6 bullets). Using one puts it
 #   in your hand (the other is holstered); the ammo in slot 8 is the one in your hand.
 #   A gun that runs dry reloads by itself (shotgun 1.5s, revolver 2s after the last shot).
-#   Hold RMB after a revolver shot to load a volley: the longer you hold, the more bullets (up to 5 more),
-#   and they all go when you let go.
+#   Hold RMB after a revolver shot to load a volley: a bullet every 0.25s (up to 5 more), taken out of the
+#   cylinder as it loads (the ammo count drops), and they all go when you let go.
 #
 # MAGIC ROUNDS: Volatile Nullifier (caught in it yourself) and Counterspell (a blocked spell) load your
 #   next 3 shots with ONE of these, at random: Blind, Weakness (less damage and slower attacks) or Silence.
@@ -119,7 +119,8 @@ abilities:
         to: aim
 
   # SECONDARY (RMB): the revolver. A precise shot: 55% base damage to the first enemy in line (30 blocks).
-  # Keep holding RMB to load a volley (1 more bullet every 0.25s, up to 5) and let go to fire them all.
+  # Keep holding RMB to load a volley (1 more bullet every 0.25s, up to 5, taken from the cylinder as they
+  # load) and let go to fire them all.
   # 6 bullets, then it reloads by itself (2s after the last shot).
   antimage_revolver:
     cooldown: 8                      # 0.4s between clicks
@@ -177,20 +178,22 @@ abilities:
         to: aim
         next: hammer
       hammer:
-        type: charge                 # still holding RMB? load the volley
-        ticks: 25                    # 5 bullets at 1.25s
-        min: 4                       # a click (no hold) loads nothing
+        type: charge                 # still holding RMB? load bullets into a volley
+        ticks: 25                    # (the cast bar: 5 bullets at 1.25s)
         store: volley
-        fire_when_full: false        # full: waits for you to let go
+        fire_when_full: false        # all loaded: waits for you to let go
         release_gap: 6               # RMB repeats while held; 6 ticks without one = let go
-        on: { out: fan, early: ~ }
+        load: { resource: bullets, every: 5, max: 5 }   # a bullet every 0.25s held, taken from the cylinder
+        on: { out: fan, early: ~ }   # (a click loads none: nothing more)
       fan:
-        type: repeat                 # fan the hammer: one bullet every 3 ticks
+        type: repeat                 # fan the hammer: the loaded bullets, one every 3 ticks
         times: volley
-        scale: 5                     # held all the way = 5 bullets
         every: 3
-        spend: bullets               # stops when the cylinder is empty
-        on: { each: v_aim, out: ~ }
+        on: { each: v_hold, out: ~ }
+      v_hold:
+        type: hold_reload            # still shooting: the reload starts after the last bullet
+        resource: bullets
+        next: v_aim
       v_aim:
         type: acquire_target
         query: { type: cursor, range: 30 }   # where this bullet is aimed (for its tracer)

@@ -19,6 +19,10 @@ import me.mephisto.ability_engine.engine.platform.TaskHandle;
  * repeats (the activator passes each repeat on), and N ticks without a repeat means it was let go. The
  * time held is then counted up to the last repeat, so a quick click counts as 0 ticks. A fresh press of
  * the same input while it charges also lets it go (the activator then starts a new cast).
+ * <p>With {@code load: { resource, every, max }} it loads a resource instead of charging power: every
+ * {@code every} ticks held spends 1 of it (up to {@code max}, or until it runs out), so the player sees
+ * it go down, and {@code store} gets how many were loaded. Let go with none loaded: "early". While any
+ * are loaded the resource doesn't start reloading (it's still in use).
  */
 public final class ChargeNode implements GraphNode {
 
@@ -28,6 +32,10 @@ public final class ChargeNode implements GraphNode {
     private final int min;
     private final boolean fireWhenFull;
     private final int releaseGap;
+    private final Load load;
+
+    /** Loading a resource while held (see the class comment). */
+    public record Load(String resource, int every, int max) {}
 
     private static final java.util.Set<String> OUTPUTS = java.util.Set.of(Ports.OUT, Ports.EARLY);
 
@@ -40,6 +48,11 @@ public final class ChargeNode implements GraphNode {
     }
 
     public ChargeNode(int ticks, double from, String store, int min, boolean fireWhenFull, int releaseGap) {
+        this(ticks, from, store, min, fireWhenFull, releaseGap, null);
+    }
+
+    public ChargeNode(int ticks, double from, String store, int min, boolean fireWhenFull, int releaseGap, Load load) {
+        this.load = load;
         this.releaseGap = Math.max(0, releaseGap);
         this.ticks = Math.max(1, ticks);
         this.from = Math.max(0, Math.min(1, from));
@@ -68,6 +81,7 @@ public final class ChargeNode implements GraphNode {
         private TaskHandle watcher;
         private final Runnable onRepeat = this::repeated;
         private long lastInput;
+        private int loaded;
         private boolean done;
 
         Charge(ExecutionContext ctx, Resumer resumer) {
@@ -83,10 +97,14 @@ public final class ChargeNode implements GraphNode {
             bar = instance.showProgress(ticks);
             // Fully charged: fires by itself, or (fire_when_full: false) just stays full until let go.
             if (fireWhenFull) task = ctx.engine().scheduler().after(ticks, this::fire);
-            if (releaseGap > 0) {
-                instance.setInputRepeat(onRepeat);
+            if (releaseGap > 0) instance.setInputRepeat(onRepeat);
+            if (releaseGap > 0 || load != null) {
                 watcher = ctx.engine().scheduler().every(1, 1, () -> {
-                    if (ctx.engine().clock().now() - lastInput > releaseGap) fire();
+                    if (releaseGap > 0 && ctx.engine().clock().now() - lastInput > releaseGap) {
+                        fire();
+                        return;
+                    }
+                    loadUpTo(heldUntil());
                 });
             }
             instance.onEnd(() -> {
@@ -96,7 +114,25 @@ public final class ChargeNode implements GraphNode {
             });
         }
 
-        private void repeated() { lastInput = ctx.engine().clock().now(); }
+        private void repeated() {
+            lastInput = ctx.engine().clock().now();
+            loadUpTo(lastInput);
+        }
+
+        /** Held until when, as far as we know: the last repeat, or (the platform reports the let-go) now. */
+        private long heldUntil() { return releaseGap > 0 ? lastInput : ctx.engine().clock().now(); }
+
+        /** Loading: spend what the time held so far has loaded. */
+        private void loadUpTo(long heldUntil) {
+            if (load == null || done) return;
+            var res = ctx.engine().resources();
+            int want = (int) Math.min(load.max(), (heldUntil - startedAt) / load.every());
+            while (loaded < want && res.has(ctx.caster(), load.resource(), 1)) {
+                res.consume(ctx.caster(), load.resource(), 1);
+                loaded++;
+            }
+            if (loaded > 0) res.holdReload(ctx.caster(), load.resource()); // still in use: no reload yet
+        }
 
         private void fire() {
             if (done) return;
@@ -107,6 +143,12 @@ public final class ChargeNode implements GraphNode {
             instance.clearInputRepeat(onRepeat);
             instance.clearProgress(bar);
             long now = ctx.engine().clock().now();
+            if (load != null) {
+                loadUpTo(heldUntil());
+                ctx.blackboard().putRaw(store, (double) loaded);
+                resumer.resume(loaded > 0 ? Ports.OUT : Ports.EARLY);
+                return;
+            }
             // Watching repeats: held until the last one (the gap after it is just us noticing the let-go).
             long heldTicks = releaseGap > 0 ? Math.min(now, lastInput) - startedAt : now - startedAt;
             if (heldTicks < min) {
