@@ -69,11 +69,17 @@ abilities:
         speed: 1.8
         size: 0.5
         lifetime: 12                 # about 20 blocks
-        visual: IRON_PICKAXE
+        visual: COPPER_PICKAXE
+        store: pick                  # (for the chain that follows it)
         on: { spawned: throw_cue, hit_entity: hooked, hit_block: anchored }
       throw_cue:
         type: play_cue
         cue: anchor_throw
+        next: chain_out
+      chain_out:
+        type: start_line             # a chain from you to the pick while it flies
+        cue: anchor_chain
+        to: pick
       hooked:
         type: apply_effects
         targets: { type: key, key: hit }
@@ -82,9 +88,8 @@ abilities:
           - { id: status, status: stun, duration: 20 }   # 1s
         next: hooked_chain
       hooked_chain:
-        type: play_cue
-        cue: anchor_chain            # the chain between you
-        at: caster
+        type: start_line             # the chain between you while you're pulled in
+        cue: anchor_chain
         to: hit
         next: pull
       pull:
@@ -94,9 +99,8 @@ abilities:
         range: 25
         on: { hit: landed, miss: landed }
       anchored:
-        type: play_cue
+        type: start_line             # the chain to where it bit in, while you're pulled there
         cue: anchor_chain
-        at: caster
         to: hit
         next: grapple
       grapple:
@@ -109,7 +113,8 @@ abilities:
         type: play_cue
         cue: anchor_land
 
-  # 2: Rustbreaker. Rust over 2s: you build up a shield (15 every 0.25s, up to 120) but get slower and slower.
+  # 2: Rustbreaker. Rust over 2s: you build up a shield (15 every 0.25s, up to 120; what's left of it is gone
+  # about 4s after the burst) but get slower and slower.
   # At full charge you seize up (stunned 1s), then burst out: 130% base damage within 4.5 blocks, and the
   # enemies hit are disarmed for 2s (no basic attacks). During Lightning Rod: it rusts in 0.8s and the stun
   # is only 0.5s.
@@ -144,7 +149,7 @@ abilities:
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: shield, amount: 15, max: 120 }
+          - { id: shield, amount: 15, max: 120, lasts: 100 }   # gone 5s after the last layer (~4s after the burst)
           - { id: status, status: rusting }
         next: step_cue
       step_cue:
@@ -235,7 +240,7 @@ abilities:
         targets: { type: radius, center: center, radius: 2 }
         effects: &wave_hit
           - { id: damage, base: 0.8 }             # 80% base damage
-          - { id: knockback, from: center, radius: 8, center: 0.15, edge: 0.15, lift: 0.85 }   # up
+          - { id: knockback, from: center, radius: 8, center: 0.15, edge: 0.15, lift: 0.45 }   # up (a small hop)
         next: ring1_cue
       ring1_cue:
         type: play_cue
@@ -348,7 +353,7 @@ abilities:
 characters:
   copper_golem:
     name: "Copper Golem"
-    weapon: IRON_PICKAXE             # the anchor-pickaxe
+    weapon: COPPER_PICKAXE           # the anchor-pickaxe
     stats:                           # see docs/character-stats.md
       health: 320                    # max HP
       armor: 45                      # damage taken x 100 / (100 + armor)

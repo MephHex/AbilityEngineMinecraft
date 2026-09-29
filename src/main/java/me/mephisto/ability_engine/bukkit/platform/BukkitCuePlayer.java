@@ -325,12 +325,22 @@ public final class BukkitCuePlayer implements CuePlayer {
         c.register("ward_ready", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 0.8f, 1.8f));
 
         // ---- Copper Golem ----
-        c.register("barrier_break", loc -> { // Cuprous Might: the copper barrier takes a hit and cracks
-            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 40, 0.5, 0.7, 0.5, 0.1,
-                    org.bukkit.Material.COPPER_BLOCK.createBlockData());
-            loc.getWorld().spawnParticle(Particle.WAX_OFF, loc, 15, 0.5, 0.7, 0.5, 0.2);
-            loc.getWorld().playSound(loc, Sound.BLOCK_COPPER_BREAK, 1f, 0.7f);
-            loc.getWorld().playSound(loc, Sound.ITEM_SHIELD_BREAK, 0.7f, 1.3f);
+        c.register("barrier_break", loc -> { // Cuprous Might: the copper barrier shatters off him
+            var w = loc.getWorld();
+            // chunks of copper (fresh, weathered and oxidized) bursting off his body
+            w.spawnParticle(Particle.BLOCK, loc, 70, 0.6, 0.9, 0.6, 0.15, org.bukkit.Material.COPPER_BLOCK.createBlockData());
+            w.spawnParticle(Particle.BLOCK, loc, 35, 0.6, 0.9, 0.6, 0.15, org.bukkit.Material.EXPOSED_COPPER.createBlockData());
+            w.spawnParticle(Particle.BLOCK, loc, 20, 0.6, 0.9, 0.6, 0.15, org.bukkit.Material.OXIDIZED_COPPER.createBlockData());
+            // shards flying out
+            w.spawnParticle(Particle.ITEM, loc, 25, 0.3, 0.5, 0.3, 0.25, new ItemStack(Material.COPPER_INGOT));
+            w.spawnParticle(Particle.ITEM, loc, 15, 0.3, 0.5, 0.3, 0.25, new ItemStack(Material.RAW_COPPER));
+            // copper-coloured dust falling around him
+            var copper = new Particle.DustOptions(org.bukkit.Color.fromRGB(216, 125, 80), 1.3f);
+            w.spawnParticle(Particle.DUST, loc, 30, 0.7, 1.0, 0.7, 0, copper);
+            w.spawnParticle(Particle.WAX_OFF, loc, 20, 0.6, 0.9, 0.6, 0.3);
+            w.playSound(loc, Sound.BLOCK_COPPER_BREAK, 1f, 0.6f);
+            w.playSound(loc, Sound.BLOCK_COPPER_BREAK, 1f, 0.9f);
+            w.playSound(loc, Sound.ITEM_SHIELD_BREAK, 0.8f, 1.2f);
         });
         c.register("golem_swing", loc -> {
             loc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc.clone().add(0, 0.3, 0), 2, 0.6, 0.1, 0.6, 0);
@@ -340,7 +350,7 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_THROW, 1f, 0.6f);
             loc.getWorld().playSound(loc, Sound.BLOCK_CHAIN_PLACE, 0.8f, 0.8f);
         });
-        c.registerLine("anchor_chain", (w, from, to) -> { // the chain, grey links from you to the pick
+        c.registerLine("anchor_chain", (w, from, to) -> { // the chain, grey links from you to the pick (redrawn every 2 ticks)
             Vector d = to.clone().subtract(from);
             double len = d.length();
             if (len < 0.1) return;
@@ -349,9 +359,9 @@ public final class BukkitCuePlayer implements CuePlayer {
                 Vector q = from.clone().add(d.clone().multiply(t / len));
                 w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0, 0, 0, 0, iron);
             }
-            w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.BLOCK_CHAIN_HIT, 1f, 0.8f);
         });
         c.register("anchor_land", loc -> {
+            loc.getWorld().playSound(loc, Sound.BLOCK_CHAIN_BREAK, 1f, 0.8f);
             loc.getWorld().spawnParticle(Particle.BLOCK, loc, 25, 0.5, 0.2, 0.5, 0.1,
                     org.bukkit.Material.COPPER_BLOCK.createBlockData());
             loc.getWorld().playSound(loc, Sound.BLOCK_ANVIL_LAND, 0.6f, 0.7f);

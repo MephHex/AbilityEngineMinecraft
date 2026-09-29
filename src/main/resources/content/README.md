@@ -399,6 +399,10 @@ slot, so an ability is only silenced when it's in an ability slot.
   builds up.
 - **Radius query:** `inner: 4` - a ring: only what's farther than that from the centre (on the ground), e.g.
   one band of a shockwave rolling outward.
+- **start_line** `{ cue, to, every }`: keep drawing a line cue from the caster to `to` every `every` ticks
+  (default 2) while the cast lasts: a target, or a projectile stored with `store:` (it follows it in flight
+  and stops when it lands), e.g. the Golem's chain.
+- **shield:** `lasts: <ticks>` - whatever is left of the shield disappears that long after the last one given.
 - **Cues:** barrier_break, golem_swing, anchor_throw, anchor_chain (line), anchor_land, rust_step,
   rust_burst, conduction_slam, shockwave_2 / _4 / _6 / _8 (rings of that radius), rod_charge,
   lightning_strike, electric_field (5 blocks).
