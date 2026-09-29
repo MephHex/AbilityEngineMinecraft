@@ -30,7 +30,7 @@ import java.util.stream.Stream;
  */
 public final class AbilityCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBS = List.of("char", "quickcast", "cast", "castas", "bind", "unbind", "cdclear", "list", "status", "setres", "reload", "debug");
+    private static final List<String> SUBS = List.of("char", "quickcast", "cast", "castas", "bind", "unbind", "cdclear", "list", "status", "apply", "setres", "reload", "debug");
 
     private final AbilityEngine engine;
     private final ItemBindings bindings;
@@ -144,6 +144,25 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
                             + " queue=" + engine.quivers().queue(id).stream().map(b -> b.infusions().toString()).toList()
                             + " reload_speed=" + engine.quivers().reloadSpeed(id));
                 }
+            }
+            case "apply" -> { // a status on yourself, as if an enemy put it there (a debuff: wards block it)
+                if (args.length < 2) return false;
+                var def = engine.statusDefs().find(args[1]);
+                if (def.isEmpty()) {
+                    player.sendMessage(ChatColor.RED + "Unknown status: " + args[1]);
+                    return true;
+                }
+                int ticks;
+                try {
+                    ticks = args.length >= 3 ? Integer.parseInt(args[2]) : def.get().defaultDurationTicks();
+                } catch (NumberFormatException e) {
+                    player.sendMessage(ChatColor.RED + "Not a number: " + args[2]);
+                    return true;
+                }
+                engine.statuses().apply(id, def.get(), ticks, null);
+                boolean landed = engine.statuses().has(id, args[1]);
+                player.sendMessage(landed ? ChatColor.GREEN + "Applied " + args[1] + " (" + ticks + "t, from nobody)"
+                        : ChatColor.YELLOW + args[1] + " didn't land (blocked, e.g. debuff immunity)");
             }
             case "setres" -> {
                 if (args.length < 3) return false;
@@ -277,6 +296,9 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length >= 4 && args.length % 2 == 0 && args[0].equalsIgnoreCase("castas")) {
             return filter(Stream.of("recast", "hold"), args[args.length - 1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("apply")) {
+            return filter(engine.statusDefs().ids().stream().sorted(), args[1]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("char")) {
             return filter(Stream.concat(Stream.of("none"), engine.characters().ids().stream().sorted()), args[1]);
