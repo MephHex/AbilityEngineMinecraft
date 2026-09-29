@@ -36,6 +36,8 @@ public final class BukkitCuePlayer implements CuePlayer {
     /** Anti-magic colour coding (silence): bright teal fading to deep cyan. */
     public static final org.bukkit.Color ANTI_MAGIC = org.bukkit.Color.fromRGB(40, 240, 210);
     public static final org.bukkit.Color ANTI_MAGIC_DEEP = org.bukkit.Color.fromRGB(0, 110, 130);
+    /** Near-black teal, for particles that fade out dark (the silenced wisps). */
+    public static final org.bukkit.Color ANTI_MAGIC_DARK = org.bukkit.Color.fromRGB(8, 40, 38);
 
 
     private final Map<String, Consumer<Location>> cues = new HashMap<>();
