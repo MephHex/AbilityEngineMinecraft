@@ -228,14 +228,6 @@ public final class BukkitCuePlayer implements CuePlayer {
         });
 
         // ---- AntiMage ----
-        c.register("dagger_throw", loc -> loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_THROW, 1f, 1.6f));
-        c.registerLoop("hunted_dagger", e -> daggerOver(plugin, e));
-        c.register("hunt_execute", loc -> {
-            loc.getWorld().spawnParticle(Particle.CRIT, loc, 30, 0.3, 0.5, 0.3, 0.4);
-            loc.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, loc, 8, 0.3, 0.4, 0.3, 0.1);
-            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.6f);
-            loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_HIT, 1f, 0.8f);
-        });
         // Silence reads as anti-magic: teal / cyan, never the green of heals or the purple of spells.
         c.register("null_burst", loc -> {
             var teal = new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.4f);
@@ -256,9 +248,51 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc.clone().add(0, 0.15, 0), 14, 1.4, 0.05, 1.4, 0, inside);
             loc.getWorld().spawnParticle(Particle.GLOW, loc.clone().add(0, 0.2, 0), 3, 1.4, 0.1, 1.4, 0);
         });
-        c.register("dagger_infuse", loc -> {
+        c.register("rounds_loaded", loc -> { // magic rounds loaded into the guns
             loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 40, 0.4, 0.8, 0.4, 0.5);
             loc.getWorld().playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1.4f);
+            loc.getWorld().playSound(loc, Sound.ITEM_CROSSBOW_LOADING_END, 1f, 1.2f);
+        });
+        c.register("spell_blocked", loc -> { // Counterspell ate a spell: a teal flash
+            loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc, 40, 0.7, 0.9, 0.7, 0,
+                    new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.4f));
+            loc.getWorld().spawnParticle(Particle.GLOW, loc, 12, 0.6, 0.8, 0.6, 0.1);
+            loc.getWorld().playSound(loc, Sound.ITEM_SHIELD_BLOCK, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_CONDUIT_ATTACK_TARGET, 0.8f, 1.6f);
+        });
+        // Guns: from = the shooter (their centre), to = where they aimed.
+        c.registerLine("shotgun_blast", (w, from, to) -> gunCone(w, from, to, 7, 22.5, 1f));
+        c.registerLine("buckshot_blast", (w, from, to) -> {
+            gunCone(w, from, to, 9, 35, 1.4f);
+            w.playSound(new Location(w, from.getX(), from.getY(), from.getZ()), Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.6f);
+        });
+        c.registerLine("revolver_shot", (w, from, to) -> {
+            Vector start = from.clone().add(new Vector(0, 0.55, 0)); // about eye height
+            Vector d = to.clone().subtract(start);
+            double len = Math.min(30, d.length());
+            if (len < 0.1) return;
+            d.normalize();
+            var brass = new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 225, 140), 0.6f);
+            for (double t = 0.8; t <= len; t += 0.5) {
+                Vector q = start.clone().add(d.clone().multiply(t));
+                w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0, 0, 0, 0, brass);
+            }
+            Vector muzzle = start.clone().add(d.clone().multiply(0.8));
+            w.spawnParticle(Particle.SMOKE, muzzle.getX(), muzzle.getY(), muzzle.getZ(), 3, 0.05, 0.05, 0.05, 0.01);
+            Location at = new Location(w, start.getX(), start.getY(), start.getZ());
+            w.playSound(at, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 0.9f, 1.7f);
+            w.playSound(at, Sound.BLOCK_IRON_TRAPDOOR_CLOSE, 0.5f, 1.8f);
+        });
+        // ---- Powder Keg ----
+        c.register("keg_throw", loc -> {
+            loc.getWorld().playSound(loc, Sound.ENTITY_SNOWBALL_THROW, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_TNT_PRIMED, 0.8f, 1.2f);
+        });
+        c.register("keg_blast", loc -> {
+            loc.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1, 0, 0, 0, 0);
+            loc.getWorld().spawnParticle(Particle.FLAME, loc, 80, 2.5, 0.8, 2.5, 0.1);
+            loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 40, 2, 0.8, 2, 0.05);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.2f, 0.8f);
         });
         c.registerLoop("spellshield", e -> spellShield(plugin, e));
         c.register("spellshield_absorb", loc -> {
@@ -574,26 +608,27 @@ public final class BukkitCuePlayer implements CuePlayer {
         };
     }
 
-    /** Fated Dagger's mark: a dagger hanging point-down over the marked entity's head, following it. */
-    private static CueHandle daggerOver(Plugin plugin, Entity entity) {
-        Location start = entity.getLocation();
-        ItemDisplay prop = entity.getWorld().spawn(start, ItemDisplay.class, d -> {
-            d.setItemStack(new ItemStack(Material.IRON_SWORD));
-            d.setPersistent(false);
-            d.setTeleportDuration(1);
-            d.setBillboard(org.bukkit.entity.Display.Billboard.VERTICAL); // faces everyone, stays upright
-            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateZ((float) Math.toRadians(-135)),
-                    new Vector3f(0.7f, 0.7f, 0.7f), new Quaternionf()));
-            VisualEntities.mark(d);
-        });
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            if (!entity.isValid() || !prop.isValid()) return;
-            prop.teleport(entity.getLocation().add(0, entity.getHeight() + 0.7, 0));
-        }, 0, 1);
-        return () -> {
-            task.cancel();
-            if (prop.isValid()) prop.remove();
-        };
+    /** A gun's blast: a cone of sparks and smoke from about eye height toward {@code to}. */
+    private static void gunCone(World w, Vector from, Vector to, double range, double halfAngleDeg, float volume) {
+        Vector start = from.clone().add(new Vector(0, 0.55, 0));
+        Vector dir = to.clone().subtract(start);
+        if (dir.lengthSquared() < 1e-6) return;
+        dir.normalize();
+        java.util.concurrent.ThreadLocalRandom rng = java.util.concurrent.ThreadLocalRandom.current();
+        double spread = Math.tan(Math.toRadians(halfAngleDeg));
+        for (int i = 0; i < 45; i++) {
+            Vector jitter = new Vector(rng.nextDouble(-1, 1), rng.nextDouble(-1, 1), rng.nextDouble(-1, 1)).multiply(spread);
+            Vector ray = dir.clone().add(jitter).normalize();
+            double t = rng.nextDouble(0.8, range);
+            Vector q = start.clone().add(ray.multiply(t));
+            w.spawnParticle(i % 3 == 0 ? Particle.SMOKE : Particle.CRIT, q.getX(), q.getY(), q.getZ(), 1, 0, 0, 0, 0);
+        }
+        Vector muzzle = start.clone().add(dir.clone().multiply(0.9));
+        w.spawnParticle(Particle.FLAME, muzzle.getX(), muzzle.getY(), muzzle.getZ(), 6, 0.1, 0.1, 0.1, 0.02);
+        w.spawnParticle(Particle.LARGE_SMOKE, muzzle.getX(), muzzle.getY(), muzzle.getZ(), 4, 0.15, 0.15, 0.15, 0.02);
+        Location at = new Location(w, start.getX(), start.getY(), start.getZ());
+        w.playSound(at, Sound.ENTITY_GENERIC_EXPLODE, 0.5f * volume, 1.9f);
+        w.playSound(at, Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST, volume, 0.7f);
     }
 
     /** Counterspell: a shimmering teal sphere around the caster (anti-magic colours). */

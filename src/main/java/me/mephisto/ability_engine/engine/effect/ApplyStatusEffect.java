@@ -23,6 +23,9 @@ public final class ApplyStatusEffect implements Effect {
         if (!(ctx.target() instanceof EntityTarget target)) return;
         String statusId = ctx.params().requireString("status");
         java.util.UUID source = "world".equals(ctx.params().getString("from", "caster")) ? null : ctx.caster();
+        // A one-spell block (spell_block) also stops a spell's debuffs.
+        boolean debuff = statuses.find(statusId).map(d -> !d.positive()).orElse(false);
+        if (debuff && source != null && ctx.engine().spellShields().blocks(ctx)) return;
         if (ctx.params().has("duration")) {
             ctx.engine().statuses().apply(target.id(), statusId, ctx.params().getInt("duration", 0), source);
         } else {

@@ -1,193 +1,294 @@
-# content: fixture_antimage
-# The AntiMage: a melee dagger fighter who hunts casters, shuts down spells and shrugs off debuffs.
+# content: antimage
+# The AntiMage, reworked as a gunslinger who hunts casters: a shotgun and a revolver, a flask that shuts
+# down spells, and a counterspell that turns a blocked spell into speed and loaded magic rounds.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Null Ward): after 6s out of combat (no damage dealt or taken) the next debuff doesn't land.
+# PASSIVE 1 (Null Ward): after 6s out of combat (no damage dealt or taken) the next debuff doesn't land.
 #   Blocking one uses it up; it recharges 6s after your last hit or the block, whichever is later. Shown in
-#   hotbar slot 9: glinting = ready, otherwise the count is the seconds left (it only counts down out of
-#   combat). Volatile Nullifier resets it instantly (see ability 2).
+#   hotbar slot 9 (an Eye of Ender): glinting = ready, otherwise the count is the seconds left.
+#
+# PASSIVE 2 (Two Guns): LMB fires the SHOTGUN (2 shells), RMB the REVOLVER (6 bullets). Using one puts it
+#   in your hand (the other is holstered); the ammo next to your weapon (slot 4) is the one in your hand.
+#   A gun that runs dry reloads by itself (shotgun 1.5s, revolver 2s after the last shot).
+#   Hold RMB after a revolver shot to load a volley: the longer you hold, the more bullets (up to 5 more),
+#   and they all go when you let go.
+#
+# MAGIC ROUNDS: Volatile Nullifier (caught in it yourself) and Counterspell (a blocked spell) load your
+#   next 3 shots with ONE of these, at random: Blind, Weakness (less damage and slower attacks) or Silence.
+#   Every shot of either gun, and Buckshot, uses one (and puts its effect on whoever it hits). While
+#   loaded, your gun glints and slot 6 shows the rounds left.
 
 statuses:
-  hunted:                            # Fated Dagger's mark: your next 3 dagger strikes on them count
-    duration: 100                    # 5s
-    stacking: refresh
-    tags: [state.hunted]
-  hunt_hits:                         # how many of those strikes landed (on the target)
-    duration: 100
-    stacking: stack
-    max_stacks: 3
-  pursuit:                           # running at your mark: faster
-    duration: 6                      # refreshed every 0.2s while you run toward them
-    stacking: refresh
-    tags: [state.hasted, buff.pursuit]
-  null_rush:                         # caught in your own flask: faster
+  revolver_drawn:                    # the revolver is in your hand (see forms below)
+    duration: 0                      # until you fire the shotgun
+    tags: [state.revolver]
+    positive: false                  # not a buff: nothing to share or strip
+  null_rush:                         # caught in your own flask, or a spell blocked: faster
     duration: 60                     # 3s
     stacking: refresh
     tags: [state.hasted, buff.null_rush]
-  weakened:                          # the Weakness infusion: they deal less damage
+  weakened:                          # Sapping Rounds: they deal less damage and attack slower
     duration: 60                     # 3s
     stacking: refresh
     damage_dealt: 0.75               # -25% damage dealt
+    attack_speed: 0.7                # basic attacks 30% slower
     tags: [state.weakened]
+  keg_burn:                          # Powder Keg: on fire
+    duration: 60                     # 3s...
+    stacking: refresh
+    tags: [state.burning]
+    tick:
+      every: 10                      # ...2% of their max HP every 0.5s = 12% total
+      effects:
+        - { id: damage, max_hp: 0.02, damage_type: fire }
 
-  # ---- Volatile Nullifier's dagger infusions: ONE of these, at random, for 8s (your dagger strikes) ----
-  dagger_blind:
-    duration: 160
-    tags: [buff.dagger_blind]
+  # ---- Magic rounds: your next 3 shots (stacks = shots left; each shot takes one off) ----
+  gun_blind:
+    duration: 0                      # until they're shot
+    stacking: stack
+    max_stacks: 3
+    tags: [buff.gun_rounds]
     on_hit:
       - { id: status, status: blinded, duration: 30 }   # 1.5s blind
-  dagger_silence:
-    duration: 160
-    tags: [buff.dagger_silence]
+  gun_weakness:
+    duration: 0
+    stacking: stack
+    max_stacks: 3
+    tags: [buff.gun_rounds]
+    on_hit:
+      - { id: status, status: weakened }                 # 3s: -25% damage, 30% slower attacks
+  gun_silence:
+    duration: 0
+    stacking: stack
+    max_stacks: 3
+    tags: [buff.gun_rounds]
     on_hit:
       - { id: status, status: silence, duration: 30 }   # 1.5s silence
-  dagger_lifesteal:
-    duration: 160
-    tags: [buff.dagger_lifesteal]
-    on_hit:
-      - { id: heal, amount: 20, self: true }             # heals you 20 per strike
-  dagger_weakness:
-    duration: 160
-    tags: [buff.dagger_weakness]
-    on_hit:
-      - { id: status, status: weakened }                 # they deal 25% less damage for 3s
 
 abilities:
 
-  # PRIMARY (LMB): a quick dagger strike at the enemy in front of you (3.5 blocks).
-  # On a target you've marked (Fated Dagger): each strike heals you 6% of your max HP; the 3rd one before
-  # the mark runs out deals 12% of THEIR max HP as true damage (ignores armor) and uses the mark up.
-  antimage_primary:
-    cooldown: 11                     # her attack speed (1.8/s) sets it
+  # PRIMARY (LMB): the shotgun. A wide blast: 130% base damage to everyone in a 45 degree cone, 7 blocks.
+  # 2 shells, then it reloads by itself (1.5s after the last shot). Shooting your Powder Keg sets it off.
+  antimage_shotgun:
+    cooldown: 14                     # 0.7s between shots
     display:
-      name: "Dagger Strike"
+      name: "Scattergun"
+      icon: NETHERITE_HOE            # the shotgun (the weapon while it's out)
       description:
-        - "A quick stab: 100% base damage."
-        - "On your mark: heal 6% max HP per strike;"
-        - "the 3rd deals 12% of their max HP (true)."
+        - "LMB: 130% base damage in a 7 block cone."
+        - "2 shells; reloads when empty (1.5s)."
     nodes:
+      draw:
+        type: apply_effects          # the shotgun comes out (the revolver goes away)
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: revolver_drawn }
+        next: load
+      load:
+        type: spend
+        resource: shells
+        on: { out: blast, empty: click }
+      click:
+        type: play_cue
+        cue: dry_fire
+      blast:
+        type: apply_effects          # (plus your magic rounds' on-hit)
+        targets: { type: cone, range: 7, angle: 45 }
+        effects:
+          - { id: damage, base: 1.3 }             # 130% base damage
+        next: keg
+      keg:
+        type: strike_constructs      # your Powder Keg in the blast: it goes off
+        range: 7
+        angle: 45
+        next: use_round
+      use_round:
+        type: apply_effects          # one magic round used
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: gun_blind, stacks: 1 }
+          - { id: remove_status, status: gun_weakness, stacks: 1 }
+          - { id: remove_status, status: gun_silence, stacks: 1 }
+        next: bang
+      bang:
+        type: play_cue
+        cue: shotgun_blast           # a cone of smoke and sparks toward where you aimed
+        at: caster
+        to: aim
+
+  # SECONDARY (RMB): the revolver. A precise shot: 55% base damage to the first enemy in line (30 blocks).
+  # Keep holding RMB to load a volley (1 more bullet every 0.25s, up to 5) and let go to fire them all.
+  # 6 bullets, then it reloads by itself (2s after the last shot).
+  antimage_revolver:
+    cooldown: 8                      # 0.4s between clicks
+    display:
+      name: "Six-Shooter"
+      icon: IRON_HOE                 # the revolver (the weapon while it's out)
+      description:
+        - "RMB: 55% base damage, first enemy in line."
+        - "Hold RMB to load a volley (up to 5 more),"
+        - "let go to fire it. 6 bullets; reloads (2s)."
+    nodes:
+      draw:
+        type: apply_effects          # the revolver comes out
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: revolver_drawn }
+        next: load
+      load:
+        type: spend
+        resource: bullets
+        on: { out: aim, empty: click }
+      click:
+        type: play_cue
+        cue: dry_fire
       aim:
         type: acquire_target
-        query: { type: hitscan, range: 3.5, ray_size: 0.6 }   # the enemy you strike at
-        on: { hit: stab, miss: whiff }
-      whiff:
-        type: play_cue
-        cue: sweep
-      stab:
+        query: { type: hitscan, range: 30, ray_size: 0.35 }
+        on: { hit: bullet, miss: keg }
+      bullet:
         type: apply_effects
         targets: { type: key, key: target }
+        on_hit: true                 # your magic rounds (secondary casts don't carry them by default)
         effects:
-          - { id: damage, base: 1.0 }             # 100% base damage (+ your dagger infusion's on-hit)
-        next: stab_cue
-      stab_cue:
-        type: play_cue
-        cue: hit
-        at: target
-        next: marked
-      marked:
-        type: has_status             # your mark on them?
-        status: hunted
-        target: target
-        mine: true
-        on: { has: count_hit }
-      count_hit:
-        type: apply_effects
-        targets: { type: key, key: target }
-        on_hit: false
-        effects:
-          - { id: status, status: hunt_hits }
-        next: mend
-      mend:
+          - { id: damage, base: 0.55 }            # 55% base damage
+        next: keg
+      keg:
+        type: strike_constructs      # your Powder Keg in the line of fire: it goes off
+        range: 30
+        width: 0.6
+        next: use_round
+      use_round:
         type: apply_effects
         targets: { type: self }
-        effects:
-          - { id: heal, max_hp: 0.06 }            # 6% of your max HP
-        next: third
-      third:
-        type: has_status
-        status: hunt_hits
-        target: target
-        min_stacks: 3
-        mine: true
-        on: { has: execute }
-      execute:
-        type: apply_effects
-        targets: { type: key, key: target }
         on_hit: false
         effects:
-          - { id: damage, max_hp: 0.12, knockback: false, ignore_iframes: true }   # 12% of their max HP, true damage
-          - { id: remove_status, status: hunted }
-          - { id: remove_status, status: hunt_hits }
-        next: execute_cue
-      execute_cue:
+          - { id: remove_status, status: gun_blind, stacks: 1 }
+          - { id: remove_status, status: gun_weakness, stacks: 1 }
+          - { id: remove_status, status: gun_silence, stacks: 1 }
+        next: bang
+      bang:
         type: play_cue
-        cue: hunt_execute
-        at: target
+        cue: revolver_shot           # a tracer to where you aimed
+        at: caster
+        to: aim
+        next: hammer
+      hammer:
+        type: charge                 # still holding RMB? load the volley
+        ticks: 25                    # 5 bullets at 1.25s
+        min: 4                       # a click (no hold) loads nothing
+        store: volley
+        fire_when_full: false        # full: waits for you to let go
+        release_gap: 6               # RMB repeats while held; 6 ticks without one = let go
+        on: { out: fan, early: ~ }
+      fan:
+        type: repeat                 # fan the hammer: one bullet every 3 ticks
+        times: volley
+        scale: 5                     # held all the way = 5 bullets
+        every: 3
+        spend: bullets               # stops when the cylinder is empty
+        on: { each: v_aim, out: ~ }
+      v_aim:
+        type: acquire_target
+        query: { type: cursor, range: 30 }   # where this bullet is aimed (for its tracer)
+        store: aim_now
+        on: { hit: v_hit, miss: v_hit }
+      v_hit:
+        type: acquire_target
+        query: { type: hitscan, range: 30, ray_size: 0.35 }
+        on: { hit: v_bullet, miss: v_keg }
+      v_bullet:
+        type: apply_effects
+        targets: { type: key, key: target }
+        on_hit: true
+        effects:
+          - { id: damage, base: 0.45 }            # 45% base damage per volley bullet
+        next: v_keg
+      v_keg:
+        type: strike_constructs
+        range: 30
+        width: 0.6
+        next: v_round
+      v_round:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: gun_blind, stacks: 1 }
+          - { id: remove_status, status: gun_weakness, stacks: 1 }
+          - { id: remove_status, status: gun_silence, stacks: 1 }
+        next: v_bang
+      v_bang:
+        type: play_cue
+        cue: revolver_shot
+        at: caster
+        to: aim_now
 
-  # 1: throw your dagger. The first enemy hit takes 80% base damage and is marked for 5s (a dagger hangs
-  # over them): while it lasts you're faster whenever you run toward them, and your dagger strikes on them
-  # count (see the primary: heals, and the 3rd deals 12% of their max HP as true damage).
+  # 1: Buckshot. A heavy shotgun blast in a wider cone (70 degrees, 9 blocks): 160% base damage, a slight
+  # knockback and 1.5s slow. The recoil throws you backwards. Uses a magic round, and fills the shotgun.
   antimage_ab1:
-    cooldown: 200                    # 10s
+    cooldown: 160                    # 8s
     display:
-      name: "Fated Dagger"
+      name: "Buckshot"
       icon: FLINT
       description:
-        - "Throw your dagger: 80% base damage and"
-        - "mark them for 5s. Faster running at them;"
-        - "your strikes on them heal you, and the"
-        - "3rd deals 12% of their max HP (true)."
+        - "A heavy blast (9 blocks, wide): 160% base"
+        - "damage, knockback and 1.5s slow. The recoil"
+        - "throws you back. Refills the shotgun."
     nodes:
-      throw:
-        type: projectile
-        speed: 1.8
-        size: 0.4
-        range: 22
-        lifetime: 30
-        visual: IRON_SWORD
-        on: { spawned: throw_cue, hit_entity: mark }   # a miss just ends it
-      throw_cue:
-        type: play_cue
-        cue: dagger_throw
-      mark:
-        type: apply_effects
-        targets: { type: key, key: hit }
-        effects:
-          - { id: damage, base: 0.8 }             # 80% base damage
-          - { id: remove_status, status: hunt_hits }   # a fresh mark: count from 0
-          - { id: status, status: hunted }
-        next: show
-      show:
-        type: start_cue              # a dagger hangs over them while the mark lasts
-        cue: hunted_dagger
-        at: hit
-        next: chase
-      chase:
-        type: has_status             # mark still on (not expired, not used up)?
-        status: hunted
-        target: hit
-        mine: true
-        on: { has: heading }         # gone: the cast ends (and the dagger over them with it)
-      heading:
-        type: moving_toward          # running at them?
-        target: hit
-        angle: 50
-        on: { toward: haste, away: wait }
-      haste:
+      draw:
         type: apply_effects
         targets: { type: self }
+        on_hit: false
         effects:
-          - { id: status, status: pursuit }
-        next: wait
-      wait:
-        type: delay
-        ticks: 4
-        next: chase
+          - { id: remove_status, status: revolver_drawn }
+        next: blast
+      blast:
+        type: apply_effects
+        targets: { type: cone, range: 9, angle: 70 }
+        on_hit: true                 # your magic rounds
+        effects:
+          - { id: damage, base: 1.6 }             # 160% base damage
+          - { id: status, status: slow, duration: 30 }   # 1.5s
+          - { id: knockback, from: caster, radius: 9, center: 0.9, edge: 0.4, lift: 0.2 }
+        next: recoil
+      recoil:
+        type: apply_effects          # thrown back, away from where you aimed
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: knockback, from: aim, radius: 1, center: 1.3, edge: 1.3, lift: 0.35 }
+        next: keg
+      keg:
+        type: strike_constructs
+        range: 9
+        angle: 70
+        next: use_round
+      use_round:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: gun_blind, stacks: 1 }
+          - { id: remove_status, status: gun_weakness, stacks: 1 }
+          - { id: remove_status, status: gun_silence, stacks: 1 }
+        next: reload
+      reload:
+        type: refill                 # fresh shells
+        resource: shells
+        next: bang
+      bang:
+        type: play_cue
+        cue: buckshot_blast
+        at: caster
+        to: aim
 
   # 2: lob a flask that bounces once, then bursts: 90% base damage and 2s silence around it, and it leaves
   # a 4s pool that silences anyone standing in it. Caught in the burst yourself: faster for 3s, Null Ward is
-  # ready again at once, and your dagger gets one of these for 8s, at random: Blind, Silence, Lifesteal or
-  # Weakness on hit.
+  # ready again at once, and your next 3 shots get magic rounds (Blind, Weakness or Silence, at random).
   antimage_ab2:
     cooldown: 240                    # 12s
     display:
@@ -197,8 +298,8 @@ abilities:
         - "A bouncing flask: 90% base damage and"
         - "2s silence, then a 4s silencing pool."
         - "Caught in it yourself: faster, Null Ward"
-        - "ready, and a random dagger infusion (8s):"
-        - "Blind, Silence, Lifesteal or Weakness."
+        - "ready, and 3 magic rounds at random:"
+        - "Blind, Weakness or Silence."
     nodes:
       throw:
         type: projectile
@@ -242,44 +343,43 @@ abilities:
         targets: { type: self }
         effects:
           - { id: status, status: null_rush }
-          - { id: remove_status, status: dagger_blind }        # one infusion at a time
-          - { id: remove_status, status: dagger_silence }
-          - { id: remove_status, status: dagger_lifesteal }
-          - { id: remove_status, status: dagger_weakness }
+          - { id: remove_status, status: gun_blind }        # one kind of rounds at a time
+          - { id: remove_status, status: gun_weakness }
+          - { id: remove_status, status: gun_silence }
         next: refresh
       refresh:
         type: ward_reset             # Null Ward: ready again right now
         next: roll
       roll:
-        type: random                 # which infusion (each equally likely)
-        on: { blind: give_blind, silence: give_silence, lifesteal: give_lifesteal, weakness: give_weakness }
+        type: random                 # which rounds (each equally likely)
+        on: { blind: give_blind, weakness: give_weakness, silence: give_silence }
       give_blind:
         type: apply_effects
         targets: { type: self }
-        effects:
-          - { id: status, status: dagger_blind }
-        next: infuse_cue
-      give_silence:
-        type: apply_effects
-        targets: { type: self }
-        effects:
-          - { id: status, status: dagger_silence }
-        next: infuse_cue
-      give_lifesteal:
-        type: apply_effects
-        targets: { type: self }
-        effects:
-          - { id: status, status: dagger_lifesteal }
-        next: infuse_cue
+        effects:                     # 3 stacks = 3 shots
+          - { id: status, status: gun_blind }
+          - { id: status, status: gun_blind }
+          - { id: status, status: gun_blind }
+        next: loaded_cue
       give_weakness:
         type: apply_effects
         targets: { type: self }
         effects:
-          - { id: status, status: dagger_weakness }
-        next: infuse_cue
-      infuse_cue:
+          - { id: status, status: gun_weakness }
+          - { id: status, status: gun_weakness }
+          - { id: status, status: gun_weakness }
+        next: loaded_cue
+      give_silence:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: gun_silence }
+          - { id: status, status: gun_silence }
+          - { id: status, status: gun_silence }
+        next: loaded_cue
+      loaded_cue:
         type: play_cue
-        cue: dagger_infuse
+        cue: rounds_loaded
         next: pool
       pool:
         type: fork                   # the pool's 4s, and its pulses, side by side
@@ -306,93 +406,154 @@ abilities:
         ticks: 10                    # every 0.5s
         next: pulse
 
-  # 3: a spell shield all around you for 3s: SPELL damage (abilities, damage over time) is absorbed and
-  # stored as charge (up to 150); basic attacks and vanilla hits still land. You're slowed meanwhile. Press 3
-  # again (the icon glints) to explode early; otherwise it explodes by itself when the 3s run out: 50% base
-  # damage + everything you stored, within 4.5 blocks. At max charge it also strips every buff from the
-  # enemies it hits.
+  # 3: Counterspell. For 2s, the first enemy SPELL that reaches you is blocked: its damage and its debuffs
+  # (basic attacks and damage over time still land). Block one and you're faster for 3s, and your next 3
+  # shots get magic rounds (Blind, Weakness or Silence, at random).
   antimage_ab3:
-    cooldown: 280                    # 14s, once it's over
+    cooldown: 240                    # 12s
     display:
       name: "Counterspell"
       icon: SHULKER_SHELL
       description:
-        - "3s: absorb all spell damage as charge"
-        - "(basic attacks still hit); you're slowed."
-        - "Explodes at the end (or press again): 50%"
-        - "base damage + the charge. Full: strips buffs."
-    active_tags: [state.slowed, state.spellshield]
+        - "2s: the first enemy spell is blocked"
+        - "(damage and debuffs). Block one: faster,"
+        - "and 3 magic rounds at random."
+    active_tags: [state.spellshield]
     nodes:
-      raise:
-        type: spell_shield
-        max: 150                     # most charge it can store (design HP)
-        next: aura
       aura:
         type: start_cue
         cue: spellshield
-        next: split
-      split:
-        type: fork                   # the 3s, and the recast, side by side
-        on: { out: hold, also: wait }
-      hold:
-        type: delay
-        ticks: 60                    # 3s
-        cast_bar: true
-        next: measure                # time's up: it explodes by itself
-      wait:
-        type: await_recast           # or explode early
-        window: 60
-        on: { recast: measure }
-      measure:
-        type: shield_charge          # how much did it take?
-        store: absorbed
-        on: { out: blast, full: purge_blast }
-      blast:
+        next: guard
+      guard:
+        type: spell_block
+        duration: 40                 # 2s
+        on: { blocked: rush, expired: ~ }
+      rush:
         type: apply_effects
-        targets: { type: radius, radius: 4.5 }
+        targets: { type: self }
         effects:
-          - { id: damage, base: 0.5 }                                    # 50% base damage...
-          - { id: damage, amount: 1, scale_by: absorbed, ignore_iframes: true }   # ...+ the charge
-        next: blast_cue
-      purge_blast:
+          - { id: status, status: null_rush }
+          - { id: remove_status, status: gun_blind }
+          - { id: remove_status, status: gun_weakness }
+          - { id: remove_status, status: gun_silence }
+        next: roll
+      roll:
+        type: random
+        on: { blind: give_blind, weakness: give_weakness, silence: give_silence }
+      give_blind:
         type: apply_effects
-        targets: { type: radius, radius: 4.5 }
+        targets: { type: self }
         effects:
-          - { id: damage, base: 0.5 }
-          - { id: damage, amount: 1, scale_by: absorbed, ignore_iframes: true }
-          - { id: purge_buffs }                  # full charge: their buffs are gone
-        next: purge_cue
-      purge_cue:
+          - { id: status, status: gun_blind }
+          - { id: status, status: gun_blind }
+          - { id: status, status: gun_blind }
+        next: loaded_cue
+      give_weakness:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: gun_weakness }
+          - { id: status, status: gun_weakness }
+          - { id: status, status: gun_weakness }
+        next: loaded_cue
+      give_silence:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: gun_silence }
+          - { id: status, status: gun_silence }
+          - { id: status, status: gun_silence }
+        next: loaded_cue
+      loaded_cue:
         type: play_cue
-        cue: spellshield_purge
-        next: blast_cue
-      blast_cue:
+        cue: rounds_loaded
+
+  # ULTIMATE (F): Powder Keg. Throw a keg: where it lands it sits for 2.5s, then explodes (5 blocks): 200%
+  # base damage, sets them on fire (12% of their max HP over 3s) and blows them away from the centre.
+  # Shoot it (either gun, or Buckshot) to set it off early. A direct hit on an enemy explodes at once.
+  antimage_ult1:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Powder Keg"
+      icon: TNT
+      description:
+        - "Throw a keg: explodes after 2.5s (5 blocks):"
+        - "200% base damage, burning, knocked away."
+        - "Shoot it to set it off early."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.1
+        size: 0.6
+        lifetime: 100
+        visual: TNT
+        motion:
+          - { type: gravity, amount: 0.05 }
+        on: { spawned: toss, hit_entity: direct, hit_block: plant }
+      toss:
         type: play_cue
-        cue: spellshield_blast
-        next: done
-      done:
-        type: end_cast               # the shield comes down
+        cue: keg_throw
+      direct:
+        type: remember_spot          # hit someone: it goes off right there
+        of: hit
+        store: keg
+        ground: false
+        next: boom
+      plant:
+        type: construct              # sits on the ground, fuse lit
+        at: hit
+        store: keg
+        height: 0.5
+        size: 0.9                    # generous: easy to shoot
+        fuse: 50                     # 2.5s
+        visual: TNT
+        on: { fuse: boom, struck: boom }
+      boom:
+        type: apply_effects
+        targets: { type: radius, center: keg, radius: 5 }
+        effects:
+          - { id: damage, base: 2.0 }             # 200% base damage
+          - { id: status, status: keg_burn }
+          - { id: knockback, from: keg, radius: 5, center: 1.6, edge: 0.5, lift: 0.45 }
+        next: boom_cue
+      boom_cue:
+        type: play_cue
+        cue: keg_blast
+        at: keg
 
 characters:
   antimage:
     name: "AntiMage"
-    weapon: IRON_SWORD               # her dagger
+    weapon: NETHERITE_HOE            # the shotgun
+    forms:                           # the revolver in your hand after an RMB shot (until the next LMB)
+      - { while: state.revolver, weapon: IRON_HOE }
     stats:                           # see docs/character-stats.md
       health: 210                    # max HP
       armor: 15                      # damage taken x 100 / (100 + armor)
-      base_damage: 38                # abilities deal % of this
+      base_damage: 38                # shots and abilities deal % of this
       move_speed: 1.1                # x vanilla walking speed
-      attack_speed: 1.8              # dagger strikes per second
+    resources:                       # the ammo of the gun in your hand shows in slot 4
+      shells: { max: 2, reload: 30, hotbar: 4, icon: FIRE_CHARGE, hidden_while: state.revolver }
+      bullets: { max: 6, reload: 40, hotbar: 4, icon: GOLD_NUGGET, shown_while: state.revolver }
+    status_items:                    # magic rounds loaded: slot 6, stack = shots left; the gun glints
+      - { status: gun_blind, hotbar: 6, icon: INK_SAC, name: "Blinding Rounds", glint_weapon: true,
+          description: ["Your next shots blind for 1.5s."] }
+      - { status: gun_weakness, hotbar: 6, icon: FERMENTED_SPIDER_EYE, name: "Sapping Rounds", glint_weapon: true,
+          description: ["Your next shots weaken for 3s:", "-25% damage, 30% slower attacks."] }
+      - { status: gun_silence, hotbar: 6, icon: PRISMARINE_CRYSTALS, name: "Hushing Rounds", glint_weapon: true,
+          description: ["Your next shots silence for 1.5s."] }
     ward:                            # PASSIVE: Null Ward
       name: "Null Ward"
       out_of_combat: 120             # 6s without dealing or taking damage
       hotbar: 9                      # shown in slot 9
-      icon: TOTEM_OF_UNDYING
+      icon: ENDER_EYE
       description:
         - "After 6s out of combat, the next debuff"
         - "doesn't land. Blocking one uses it up."
     slots:
-      primary: antimage_primary      # LMB: Dagger Strike
-      ability_1: antimage_ab1        # 1: Fated Dagger
+      primary: antimage_shotgun      # LMB: Scattergun
+      secondary: antimage_revolver   # RMB: Six-Shooter (hold to load a volley)
+      ability_1: antimage_ab1        # 1: Buckshot
       ability_2: antimage_ab2        # 2: Volatile Nullifier
-      ability_3: antimage_ab3        # 3: Counterspell (press again to explode)
+      ability_3: antimage_ab3        # 3: Counterspell
+      ultimate: antimage_ult1        # F: Powder Keg

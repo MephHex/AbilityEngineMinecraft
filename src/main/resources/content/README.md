@@ -331,9 +331,8 @@ Full sheets and reasoning: `docs/character-stats.md`.
     slots, plus damage over time. Basic attacks and vanilla hits still land.
   - shield_charge `{ store }` -> out / full: the stored charge (e.g. for `scale_by`).
 - **Effects:** purge_buffs removes every buff from the target.
-- **Cues:** dagger_throw, hunted_dagger (looping, over the target), hunt_execute, null_burst, null_pool
-  (a 3-block ring), dagger_infuse, spellshield (looping), spellshield_absorb, spellshield_blast,
-  spellshield_purge, ward_block, ward_ready.
+- **Cues:** null_burst, null_pool (a 3-block ring), spellshield (looping), spellshield_absorb,
+  spellshield_blast, spellshield_purge, ward_block, ward_ready.
 
 ## Crowd control
 
@@ -356,3 +355,28 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **remember_spot** `{ of, store, ground }` stores where `of` (an entity or a point) is right now, as a
   fixed spot: it doesn't follow the entity afterwards. With `ground: true` (default) it's dropped onto the
   ground below. For example, Volatile Nullifier's pool stays where the flask burst.
+
+## Added for the gunslinger AntiMage
+
+- **Resources (ammo):** `reload: <ticks>` - once it's empty, it refills to max that long after the last
+  spend. `shown_while: <tag>` / `hidden_while: <tag>` - only shown on the hotbar while you have (or don't
+  have) the tag; two resources can share a slot this way (the ammo of the gun in your hand). While it
+  reloads, its item shows a cooldown sweep.
+- **Characters:** `status_items: [ { status, hotbar, icon, name, description, glint_weapon } ]` - a status
+  shown as a hotbar item while you have it, stack = its stacks (e.g. magic rounds left). Several can share a
+  slot (the first one you have shows). `glint_weapon: true` makes the weapon glint meanwhile.
+- **Nodes:**
+  - spend `{ resource, amount, peek }` -> out / empty: spend some of a resource (a bullet); not enough: empty.
+  - refill `{ resource, amount }`: back to max (or + amount).
+  - repeat `{ times, scale, every, spend }` -> each / out: runs `each` `times` times (a number, or a key
+    holding one x `scale`, rounded up), `every` ticks apart, then `out`. `spend: <resource>` costs 1 each
+    time and stops early when it runs out.
+  - strike_constructs `{ range, angle | width }`: your own constructs inside this cone (`angle`) or line
+    (`width`) are struck, as if your projectile hit them (e.g. shooting your Powder Keg sets it off).
+  - spell_block `{ duration }` -> blocked / expired: the first enemy spell that reaches you in that time is
+    blocked, its damage and its debuffs (basic attacks and damage over time still land).
+- **charge:** `release_gap: N` - for inputs without a let-go signal (RMB on a normal item): the input repeats
+  while it's held, and N ticks without a repeat means it was let go. A quick click counts as 0 ticks held;
+  a new click while it charges lets the old charge go and casts again.
+- **Cues:** shotgun_blast, buckshot_blast, revolver_shot (lines: `at: caster, to: aim`), rounds_loaded,
+  spell_blocked, keg_throw, keg_blast.

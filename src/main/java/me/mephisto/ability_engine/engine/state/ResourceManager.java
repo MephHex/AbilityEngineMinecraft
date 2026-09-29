@@ -97,8 +97,21 @@ public final class ResourceManager {
 
     // ---- internals ----------------------------------------------------------------------------
 
+    /** Ammo reloading right now (empty, with a reload time): ticks until it's full again; 0 otherwise. */
+    public long reloadRemaining(UUID owner, String resource) {
+        Pool p = pool(owner, resource);
+        if (p == null || p.def == null || p.def.reloadTicks() <= 0) return 0;
+        update(p);
+        if (p.value >= 1 - 1e-9) return 0;
+        return Math.max(0, p.lastSpend + p.def.reloadTicks() - clock.now());
+    }
+
     private void update(Pool p) {
         long now = clock.now();
+        // Ammo: empty, and the reload time since the last shot is up: full again.
+        if (p.def != null && p.def.reloadTicks() > 0 && p.value < 1 - 1e-9 && now >= p.lastSpend + p.def.reloadTicks()) {
+            p.value = p.def.max();
+        }
         if (p.def != null && p.def.regenPerSecond() > 0 && p.value < p.def.max()) {
             long regenFrom = Math.max(p.updatedAt, p.lastSpend + p.def.delayTicks());
             if (now > regenFrom) p.value = Math.min(p.def.max(), p.value + p.def.regenPerSecond() * (now - regenFrom) / 20.0);
