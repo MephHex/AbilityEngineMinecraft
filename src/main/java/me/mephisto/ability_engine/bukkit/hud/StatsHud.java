@@ -31,8 +31,10 @@ import java.util.UUID;
 /**
  * A character's stat sheet in game.
  * <ul>
- *   <li>Applied to the player: max HP (always shown as 10 hearts, the real HP behind them) and move speed
- *       (added to the base, so slows and haste multiply on top of it).</li>
+ *   <li>Applied to the player: max HP (always shown as 10 hearts, the real HP behind them), move speed
+ *       (added to the base, so slows and haste multiply on top of it), and vanilla attack speed set to the
+ *       primary fire's rate, so the attack indicator under the crosshair and the arm swing follow it (it
+ *       keeps up with forms and slowed attacks, e.g. Paralysis).</li>
  *   <li>Shown in the inventory's top row: one item per stat. Hovering one shows its value right now
  *       (current health, Strength on base damage, a slow on move speed...). Refreshed twice a second.</li>
  * </ul>
@@ -51,6 +53,7 @@ public final class StatsHud {
     private final NamespacedKey hudKey;
     private final NamespacedKey healthKey;
     private final NamespacedKey speedKey;
+    private final NamespacedKey attackSpeedKey;
     /** Per player: the lore last drawn, so items are only replaced when something changed. */
     private final Map<UUID, List<String>> shown = new HashMap<>();
 
@@ -60,12 +63,15 @@ public final class StatsHud {
         this.hudKey = new NamespacedKey(plugin, "hud"); // same key as HotbarHud: cleared and locked with it
         this.healthKey = new NamespacedKey("ability_engine", "character_health");
         this.speedKey = new NamespacedKey("ability_engine", "character_speed");
+        this.attackSpeedKey = new NamespacedKey("ability_engine", "character_attack_speed");
     }
 
     public void start() {
         engine.scheduler().every(10, 10, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) {
-                if (engine.loadouts().has(p.getUniqueId())) draw(p);
+                if (!engine.loadouts().has(p.getUniqueId())) continue;
+                draw(p);
+                syncAttackSpeed(p);
             }
         });
     }
@@ -93,6 +99,34 @@ public final class StatsHud {
         }
         shown.remove(p.getUniqueId());
         draw(p);
+        syncAttackSpeed(p);
+    }
+
+    /**
+     * Vanilla attack speed (attacks per second) = the primary fire's rate right now: 20 / its cooldown in
+     * ticks, after the sheet's attack speed and any slowed/faster attacks. Whatever the held weapon item adds
+     * or takes away is made up for, so the crosshair's attack indicator fills exactly when the next shot
+     * is ready. Only touched when it changes.
+     */
+    private void syncAttackSpeed(Player p) {
+        AttributeInstance attr = p.getAttribute(Attribute.ATTACK_SPEED);
+        if (attr == null) return;
+        UUID id = p.getUniqueId();
+        String primary = engine.loadouts().abilityIn(id, Slots.PRIMARY).orElse(null);
+        var ability = primary == null ? java.util.Optional.<me.mephisto.ability_engine.engine.ability.Ability>empty()
+                : engine.abilities().find(primary);
+        int ticks = ability.map(a -> engine.stats().cooldownTicks(id, a.id(), a.cooldownTicks())).orElse(0);
+        if (ticks <= 0) {
+            strip(attr, attackSpeedKey);
+            return;
+        }
+        double wanted = 20.0 / ticks;
+        AttributeModifier ours = attr.getModifier(attackSpeedKey);
+        double without = attr.getValue() - (ours == null ? 0 : ours.getAmount());
+        double amount = wanted - without;
+        if (ours != null && Math.abs(ours.getAmount() - amount) < 0.01) return;
+        strip(attr, attackSpeedKey);
+        attr.addModifier(new AttributeModifier(attackSpeedKey, amount, AttributeModifier.Operation.ADD_NUMBER));
     }
 
     /** A fresh character: full health. */
@@ -105,6 +139,7 @@ public final class StatsHud {
     public void remove(Player p) {
         strip(p.getAttribute(Attribute.MAX_HEALTH), healthKey);
         strip(p.getAttribute(Attribute.MOVEMENT_SPEED), speedKey);
+        strip(p.getAttribute(Attribute.ATTACK_SPEED), attackSpeedKey);
         p.setHealthScaled(false);
         AttributeInstance health = p.getAttribute(Attribute.MAX_HEALTH);
         if (health != null && p.getHealth() > health.getValue()) p.setHealth(health.getValue());
