@@ -69,6 +69,10 @@ public final class DamageEffect implements Effect {
         // amount (flat), base (x the caster's base damage) or max_hp (x the target's max HP); backstab, scale_by
         var parts = me.mephisto.ability_engine.engine.combat.DamageAmount.damage(ctx);
         double design = parts.total();
+        if (ctx.engine().spellShields().absorb(ctx, design)) { // a spell shield ate it: nothing is dealt
+            log.debug(() -> "damage: absorbed by a spell shield (" + design + ")");
+            return;
+        }
         double amount = design / scale;
         // Vanilla ignores a hit landing within ~10 ticks of the last one. Rapid channels need this.
         if (ctx.params().getBool("ignore_iframes", false)) living.setNoDamageTicks(0);

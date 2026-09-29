@@ -92,6 +92,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BarrierGuard(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DamageModifierListener(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.FrostAndFlight(engine), this);
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BondPotions(engine), this);
         var traits = new me.mephisto.ability_engine.bukkit.status.Traits(engine);
         pm.registerEvents(traits, this);
         traits.start();

@@ -35,6 +35,8 @@ public final class Tags {
     public static final String FROZEN = "state.frozen";
     /** Can fly (on Bukkit: creative-style flight; no fall damage from the landing after it ends). */
     public static final String FLYING = "state.flying";
+    /** Debuffs (non-buff statuses from others) don't land; see the character ward. */
+    public static final String DEBUFF_IMMUNE = "state.debuff_immune";
 
     public static final String BLOCK_ABILITY = "block.ability";
     public static final String BLOCK_MOVE = "block.move";

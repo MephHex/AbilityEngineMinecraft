@@ -83,6 +83,8 @@ public final class HotbarHud {
      * @param rapid    rapid fire (no drawing: the crossbow always shows the next bolt ready)
      */
     private record QuiverShown(long revision, int reloadSpeed, boolean rapid) {}
+    /** Per player: the ward item last drawn ("ready" or seconds left), so it's only redrawn when it changes. */
+    private final Map<UUID, String> wardShown = new HashMap<>();
     /** Per player: the kit last drawn (with any form applied), so a form starting or ending redraws it. */
     private final Map<UUID, CharacterDef> renderedAs = new HashMap<>();
 
@@ -145,6 +147,8 @@ public final class HotbarHud {
             if (def.hotbarSlot() > 0) inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
         }
         drawBolts(p, character.get());
+        wardShown.remove(p.getUniqueId());
+        updateWard(p);
         quiverShown.put(p.getUniqueId(), quiverState(p));
         if (stats != null) stats.apply(p); // max HP, speed, and the stat items in the inventory
         refresh(p);
@@ -201,6 +205,7 @@ public final class HotbarHud {
                 // A form started or ended (e.g. an ultimate that swaps the weapon and primary): redraw the kit.
                 if (!now.get().equals(renderedAs.get(p.getUniqueId()))) render(p);
                 updateGauges(p);
+                updateWard(p);
                 updateGlints(p);
                 syncQuiver(p); // reload speed follows statuses that expire on their own
             }
@@ -328,6 +333,39 @@ public final class HotbarHud {
 
     // ---- resource gauges -------------------------------------------------------------------
 
+    /**
+     * The character's ward (passive debuff immunity): glinting while ready, otherwise the stack counts the
+     * seconds until it's ready (they only run out of combat).
+     */
+    private void updateWard(Player p) {
+        UUID id = p.getUniqueId();
+        engine.loadouts().characterOf(id).map(CharacterDef::ward).filter(w -> w.hotbarSlot() > 0).ifPresent(ward ->
+                engine.wards().state(id).ifPresent(state -> {
+                    int seconds = (int) Math.min(MAX_COUNT, Math.max(1, Math.ceil(state.rechargeTicks() / 20.0)));
+                    String shown = state.ready() ? "ready" : String.valueOf(seconds);
+                    if (shown.equals(wardShown.get(id))) return;
+                    wardShown.put(id, shown);
+                    p.getInventory().setItem(ward.hotbarSlot() - 1, wardItem(ward, state.ready(), seconds));
+                }));
+    }
+
+    private ItemStack wardItem(CharacterDef.Ward ward, boolean ready, int seconds) {
+        Material m = ward.icon() == null ? null : Material.matchMaterial(ward.icon());
+        ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.TOTEM_OF_UNDYING);
+        ItemMeta meta = item.getItemMeta();
+        meta.setMaxStackSize(MAX_COUNT);
+        meta.displayName(plain("[Passive] ", NamedTextColor.YELLOW).append(plain(ward.name(), NamedTextColor.WHITE)));
+        List<Component> lore = new ArrayList<>();
+        for (String line : ward.description()) lore.add(plain(line, NamedTextColor.GRAY));
+        lore.add(ready ? plain("Ready: the next debuff won't land", NamedTextColor.GREEN)
+                : plain("Recharging: " + seconds + "s out of combat", NamedTextColor.RED));
+        meta.lore(lore);
+        meta.setEnchantmentGlintOverride(ready ? Boolean.TRUE : null);
+        meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+        item.setAmount(ready ? 1 : seconds);
+        return tag(item, meta);
+    }
+
     /** Stack size follows the amount (1..99; Minecraft can't show 0 or more than 99), name shows the exact value. */
     private void updateGauges(Player p) {
         engine.loadouts().characterOf(p.getUniqueId()).ifPresent(c -> {
@@ -397,6 +435,7 @@ public final class HotbarHud {
     public void clear(Player p) {
         sweepEnds.remove(p.getUniqueId()); // next refresh re-sends every sweep
         quiverShown.remove(p.getUniqueId());
+        wardShown.remove(p.getUniqueId());
         renderedAs.remove(p.getUniqueId());
         PlayerInventory inv = p.getInventory();
         ItemStack[] contents = inv.getContents();

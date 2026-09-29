@@ -220,6 +220,54 @@ public final class BukkitCuePlayer implements CuePlayer {
             w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 1.4f);
         });
 
+        // ---- AntiMage ----
+        c.register("dagger_throw", loc -> loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_THROW, 1f, 1.6f));
+        c.registerLoop("hunted_dagger", e -> daggerOver(plugin, e));
+        c.register("hunt_execute", loc -> {
+            loc.getWorld().spawnParticle(Particle.CRIT, loc, 30, 0.3, 0.5, 0.3, 0.4);
+            loc.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, loc, 8, 0.3, 0.4, 0.3, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_HIT, 1f, 0.8f);
+        });
+        c.register("null_burst", loc -> {
+            loc.getWorld().spawnParticle(Particle.WITCH, loc, 50, 1.6, 0.5, 1.6, 0.05);
+            loc.getWorld().spawnParticle(Particle.SQUID_INK, loc, 20, 1.2, 0.3, 1.2, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_SPLASH_POTION_BREAK, 1f, 0.6f);
+        });
+        c.register("null_pool", loc -> { // the pool's edge (3 blocks), on the ground
+            var dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(120, 60, 170), 1.1f);
+            for (int i = 0; i < 28; i++) {
+                double a = Math.PI * 2 * i / 28;
+                loc.getWorld().spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * 3, loc.getY() + 0.1,
+                        loc.getZ() + Math.sin(a) * 3, 1, 0, 0, 0, 0, dust);
+            }
+            loc.getWorld().spawnParticle(Particle.WITCH, loc, 6, 1.5, 0.1, 1.5, 0);
+        });
+        c.register("dagger_infuse", loc -> {
+            loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 40, 0.4, 0.8, 0.4, 0.5);
+            loc.getWorld().playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1.4f);
+        });
+        c.registerLoop("spellshield", e -> spellShield(plugin, e));
+        c.register("spellshield_absorb", loc -> {
+            loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 12, 0.5, 0.7, 0.5, 0.1);
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, 1.6f);
+        });
+        c.register("spellshield_blast", loc -> {
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 60, 2.2, 0.8, 2.2, 0.15);
+            loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 1, 0.3, 1, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_EVOKER_CAST_SPELL, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.5f);
+        });
+        c.register("spellshield_purge", loc -> {
+            loc.getWorld().spawnParticle(Particle.SMOKE, loc, 60, 2.5, 0.6, 2.5, 0.05);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_DEACTIVATE, 1f, 1.2f);
+        });
+        c.register("ward_block", loc -> {
+            loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 20, 0.4, 0.6, 0.4, 0.2);
+            loc.getWorld().playSound(loc, Sound.ITEM_SHIELD_BLOCK, 1f, 1.4f);
+        });
+        c.register("ward_ready", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 0.8f, 1.8f));
+
         // ---- Vanguard ----
         c.register("leap_off", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);
@@ -502,6 +550,47 @@ public final class BukkitCuePlayer implements CuePlayer {
             task.cancel();
             if (prop.isValid()) prop.remove();
         };
+    }
+
+    /** Fated Dagger's mark: a dagger hanging point-down over the marked entity's head, following it. */
+    private static CueHandle daggerOver(Plugin plugin, Entity entity) {
+        Location start = entity.getLocation();
+        ItemDisplay prop = entity.getWorld().spawn(start, ItemDisplay.class, d -> {
+            d.setItemStack(new ItemStack(Material.IRON_SWORD));
+            d.setPersistent(false);
+            d.setTeleportDuration(1);
+            d.setBillboard(org.bukkit.entity.Display.Billboard.VERTICAL); // faces everyone, stays upright
+            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateZ((float) Math.toRadians(-135)),
+                    new Vector3f(0.7f, 0.7f, 0.7f), new Quaternionf()));
+            VisualEntities.mark(d);
+        });
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!entity.isValid() || !prop.isValid()) return;
+            prop.teleport(entity.getLocation().add(0, entity.getHeight() + 0.7, 0));
+        }, 0, 1);
+        return () -> {
+            task.cancel();
+            if (prop.isValid()) prop.remove();
+        };
+    }
+
+    /** Counterspell: a shimmering sphere around the caster. */
+    private static CueHandle spellShield(Plugin plugin, Entity entity) {
+        entity.getWorld().playSound(entity.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.8f);
+        int[] tick = {0};
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!entity.isValid()) return;
+            Vector c = entity.getBoundingBox().getCenter();
+            World w = entity.getWorld();
+            for (int i = 0; i < 10; i++) { // a slowly turning band of points on a 1.3-block sphere
+                double theta = (tick[0] * 0.2) + i * Math.PI * 2 / 10;
+                double phi = Math.PI * (0.25 + 0.5 * ((i + tick[0]) % 5) / 4.0);
+                w.spawnParticle(Particle.END_ROD, c.getX() + 1.3 * Math.sin(phi) * Math.cos(theta),
+                        c.getY() + 1.3 * Math.cos(phi), c.getZ() + 1.3 * Math.sin(phi) * Math.sin(theta), 1, 0, 0, 0, 0);
+            }
+            tick[0]++;
+        }, 0, 2);
+        return task::cancel;
     }
 
     /** Trident riptide spin POSE only: no vanilla riptide damage or movement (the dash does the moving). */

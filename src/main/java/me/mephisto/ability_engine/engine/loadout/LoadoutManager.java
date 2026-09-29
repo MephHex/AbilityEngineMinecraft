@@ -24,6 +24,10 @@ public final class LoadoutManager {
     private final QuiverManager quivers;
     private final me.mephisto.ability_engine.engine.tag.TagManager tags;
     private final Map<UUID, String> assigned = new HashMap<>();
+    private final java.util.List<java.util.function.Consumer<UUID>> assignListeners = new java.util.ArrayList<>();
+
+    /** Told after a player is given a character. */
+    public void onAssign(java.util.function.Consumer<UUID> listener) { assignListeners.add(listener); }
 
     public LoadoutManager(CharacterRegistry characters, AbilityActivator activator, ResourceManager resources,
                           QuiverManager quivers, me.mephisto.ability_engine.engine.tag.TagManager tags) {
@@ -41,6 +45,7 @@ public final class LoadoutManager {
         assigned.put(player, characterId);
         characters.find(characterId).get().resources().values().forEach(def -> resources.define(player, def));
         quivers.reset(player); // a fresh quiver: plain bolts, nothing loaded
+        assignListeners.forEach(l -> l.accept(player));
     }
 
     public void clear(UUID player) {

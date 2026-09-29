@@ -218,6 +218,27 @@ class VanguardTest {
     }
 
     @Test
+    void anythingThatIsABuffIsCopiedNotJustStatusesMarkedPositive() throws IOException {
+        setup();
+        t.load(map("statuses", map(
+                "tagged", map("duration", 100, "tags", list("buff.tagged")),                 // a buff.* tag
+                "on_hit_buff", map("duration", 100, "on_hit", list(map("id", "status", "status", "stun"))),
+                "tougher", map("duration", 100, "damage_taken", 0.8),                        // less damage taken
+                "opted_out", map("duration", 100, "tags", list("buff.charge"), "positive", false),
+                "plain", map("duration", 100, "tags", list("state.glowing")))));
+        UUID friend = ally(4, 0);
+        bond(friend);
+        for (String id : new String[]{"tagged", "on_hit_buff", "tougher", "opted_out", "plain"}) {
+            t.engine.statuses().apply(p, id, p);
+        }
+        assertTrue(t.engine.statuses().has(friend, "tagged"), "buff.* tag: a buff");
+        assertTrue(t.engine.statuses().has(friend, "on_hit_buff"), "on-hit effects: a buff");
+        assertTrue(t.engine.statuses().has(friend, "tougher"), "less damage taken: a buff");
+        assertFalse(t.engine.statuses().has(friend, "opted_out"), "positive: false isn't shared");
+        assertFalse(t.engine.statuses().has(friend, "plain"), "not a buff");
+    }
+
+    @Test
     void theBondBreaksWhenTheyGetTooFarApart() throws IOException {
         setup();
         UUID friend = ally(4, 0);

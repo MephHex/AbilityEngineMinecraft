@@ -81,6 +81,11 @@ public final class LinkManager {
         return active.stream().filter(l -> l.owner().equals(owner) && l.name().equals(name)).findFirst();
     }
 
+    /** Links this entity owns. */
+    public List<Link> ownedBy(UUID owner) {
+        return active.stream().filter(l -> l.owner().equals(owner)).toList();
+    }
+
     /** Links whose target is this entity (whose damage they reduce). */
     public List<Link> onTarget(UUID target) {
         return active.stream().filter(l -> l.target().equals(target)).toList();

@@ -192,6 +192,22 @@ damage (30) (see Q5).
 | Arcane Barrage: direct hit | 220 x charge (40-100%) | **730%** x charge |
 | Arcane Barrage: terrain blast | 90 x charge | **300%** x charge |
 
+### AntiMage: Melee Anti-Caster
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **210** | **15** (13%) | **38** | **1.10** | **1.8** (11 ticks) | 242 | 68 |
+
+A fast dagger duelist who hunts casters. Null Ward (her passive) shrugs off one debuff after 6s out of
+combat, and Counterspell turns enemy spells into her own damage.
+
+| Ability | Damage |
+|---|---|
+| Dagger Strike (primary) | **100%**; on your mark: heal **6% of your max HP**, the 3rd deals **12% of their max HP** (true) |
+| Fated Dagger | **80%**, marks for 5s (faster when running at them) |
+| Volatile Nullifier | **90%** + 2s silence, then a 4s silencing pool |
+| Counterspell: explosion | **50%** + everything absorbed (max 150); at full charge, strips their buffs |
+
 ### Test kits (Gunner, Pyro, Tidecaller)
 
 No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).

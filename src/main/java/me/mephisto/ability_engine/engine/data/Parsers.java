@@ -221,6 +221,9 @@ public final class Parsers {
                 p.getBool("ground", false), p.getDouble("max_drop", DEFAULT_MAX_DROP));
     }
 
+    /** Tags starting with this mark a status as a buff (positive: copied by tethers). */
+    public static final String BUFF_TAG_PREFIX = "buff.";
+
     /** A status with tags only; its effects (on_hit, tick) are read by statusEffects() in a second pass. */
     public static StatusDef status(String id, Params p) {
         String stacking = p.getString("stacking", "refresh").toUpperCase(Locale.ROOT);
@@ -249,10 +252,15 @@ public final class Parsers {
         double taken = p.getDouble("damage_taken", 1);
         if (dealt < 0) throw p.error("damage_dealt", "must be >= 0 (1.2 = 20% more damage)");
         if (taken < 0) throw p.error("damage_taken", "must be >= 0 (0.8 = 20% less damage taken)");
+        // A buff (copied by tethers like Radiant Bond): said so, or recognisably one: a buff.* tag, on-hit
+        // effects, more damage dealt or less taken. positive: false opts one out (e.g. an ult's charge).
+        boolean looksPositive = base.grantedTags().stream().anyMatch(t -> t.startsWith(BUFF_TAG_PREFIX))
+                || !onHit.isEmpty() || dealt > 1 || taken < 1;
+        boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
                 p.getBool("break_on_damage", false), p.getBool("once", false),
-                p.getBool("positive", false), dealt, taken);
+                positive, dealt, taken);
     }
 
     private Parsers() {}

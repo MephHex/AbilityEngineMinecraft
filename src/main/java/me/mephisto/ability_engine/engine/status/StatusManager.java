@@ -63,7 +63,29 @@ public final class StatusManager {
 
     public void addApplyListener(ApplyListener listener) { applyListeners.add(listener); }
 
+    /** Can refuse a status before it lands (e.g. debuff immunity). */
+    @FunctionalInterface
+    public interface Guard {
+        /** True: {@code def} doesn't land on {@code target}. */
+        boolean blocks(UUID target, StatusDef def, UUID source);
+    }
+
+    private final List<Guard> guards = new ArrayList<>();
+
+    public void addGuard(Guard guard) { guards.add(guard); }
+
+    /** A debuff: not a buff, and put on you by someone else (or by nobody: the world). */
+    public static boolean isDebuff(UUID target, StatusDef def, UUID source) {
+        return !def.positive() && !target.equals(source);
+    }
+
     public void apply(UUID target, StatusDef def, int durationTicks, UUID source) {
+        for (Guard g : List.copyOf(guards)) {
+            if (g.blocks(target, def, source)) {
+                log.debug(() -> "status " + def.id() + " on " + target + " blocked");
+                return;
+            }
+        }
         applyInternal(target, def, durationTicks, source);
         for (ApplyListener l : List.copyOf(applyListeners)) l.applied(target, def, durationTicks, source);
     }

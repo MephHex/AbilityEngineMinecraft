@@ -1,0 +1,394 @@
+# content: antimage
+# The AntiMage: a melee dagger fighter who hunts casters, shuts down spells and shrugs off debuffs.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Null Ward): after 6s out of combat (no damage dealt or taken) the next debuff doesn't land.
+#   Blocking one uses it up; it recharges 6s after your last hit or the block, whichever is later. Shown in
+#   hotbar slot 9: glinting = ready, otherwise the count is the seconds left (it only counts down out of
+#   combat). Volatile Nullifier resets it instantly (see ability 2).
+
+statuses:
+  hunted:                            # Fated Dagger's mark: your next 3 dagger strikes on them count
+    duration: 100                    # 5s
+    stacking: refresh
+    tags: [state.hunted]
+  hunt_hits:                         # how many of those strikes landed (on the target)
+    duration: 100
+    stacking: stack
+    max_stacks: 3
+  pursuit:                           # running at your mark: faster
+    duration: 6                      # refreshed every 0.2s while you run toward them
+    stacking: refresh
+    tags: [state.hasted, buff.pursuit]
+  null_rush:                         # caught in your own flask: faster
+    duration: 60                     # 3s
+    stacking: refresh
+    tags: [state.hasted, buff.null_rush]
+  weakened:                          # the Weakness infusion: they deal less damage
+    duration: 60                     # 3s
+    stacking: refresh
+    damage_dealt: 0.75               # -25% damage dealt
+    tags: [state.weakened]
+
+  # ---- Volatile Nullifier's dagger infusions: ONE of these, at random, for 8s (your dagger strikes) ----
+  dagger_blind:
+    duration: 160
+    tags: [buff.dagger_blind]
+    on_hit:
+      - { id: status, status: blinded, duration: 30 }   # 1.5s blind
+  dagger_silence:
+    duration: 160
+    tags: [buff.dagger_silence]
+    on_hit:
+      - { id: status, status: silence, duration: 30 }   # 1.5s silence
+  dagger_lifesteal:
+    duration: 160
+    tags: [buff.dagger_lifesteal]
+    on_hit:
+      - { id: heal, amount: 20, self: true }             # heals you 20 per strike
+  dagger_weakness:
+    duration: 160
+    tags: [buff.dagger_weakness]
+    on_hit:
+      - { id: status, status: weakened }                 # they deal 25% less damage for 3s
+
+abilities:
+
+  # PRIMARY (LMB): a quick dagger strike at the enemy in front of you (3.5 blocks).
+  # On a target you've marked (Fated Dagger): each strike heals you 6% of your max HP; the 3rd one before
+  # the mark runs out deals 12% of THEIR max HP as true damage (ignores armor) and uses the mark up.
+  antimage_primary:
+    cooldown: 11                     # her attack speed (1.8/s) sets it
+    display:
+      name: "Dagger Strike"
+      description:
+        - "A quick stab: 100% base damage."
+        - "On your mark: heal 6% max HP per strike;"
+        - "the 3rd deals 12% of their max HP (true)."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 3.5, ray_size: 0.6 }   # the enemy you strike at
+        on: { hit: stab, miss: whiff }
+      whiff:
+        type: play_cue
+        cue: sweep
+      stab:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 1.0 }             # 100% base damage (+ your dagger infusion's on-hit)
+        next: stab_cue
+      stab_cue:
+        type: play_cue
+        cue: hit
+        at: target
+        next: marked
+      marked:
+        type: has_status             # your mark on them?
+        status: hunted
+        target: target
+        mine: true
+        on: { has: count_hit }
+      count_hit:
+        type: apply_effects
+        targets: { type: key, key: target }
+        on_hit: false
+        effects:
+          - { id: status, status: hunt_hits }
+        next: mend
+      mend:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: heal, max_hp: 0.06 }            # 6% of your max HP
+        next: third
+      third:
+        type: has_status
+        status: hunt_hits
+        target: target
+        min_stacks: 3
+        mine: true
+        on: { has: execute }
+      execute:
+        type: apply_effects
+        targets: { type: key, key: target }
+        on_hit: false
+        effects:
+          - { id: damage, max_hp: 0.12, knockback: false, ignore_iframes: true }   # 12% of their max HP, true damage
+          - { id: remove_status, status: hunted }
+          - { id: remove_status, status: hunt_hits }
+        next: execute_cue
+      execute_cue:
+        type: play_cue
+        cue: hunt_execute
+        at: target
+
+  # 1: throw your dagger. The first enemy hit takes 80% base damage and is marked for 5s (a dagger hangs
+  # over them): while it lasts you're faster whenever you run toward them, and your dagger strikes on them
+  # count (see the primary: heals, and the 3rd deals 12% of their max HP as true damage).
+  antimage_ab1:
+    cooldown: 200                    # 10s
+    display:
+      name: "Fated Dagger"
+      icon: FLINT
+      description:
+        - "Throw your dagger: 80% base damage and"
+        - "mark them for 5s. Faster running at them;"
+        - "your strikes on them heal you, and the"
+        - "3rd deals 12% of their max HP (true)."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.8
+        size: 0.4
+        range: 22
+        lifetime: 30
+        visual: IRON_SWORD
+        on: { spawned: throw_cue, hit_entity: mark }   # a miss just ends it
+      throw_cue:
+        type: play_cue
+        cue: dagger_throw
+      mark:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8 }             # 80% base damage
+          - { id: remove_status, status: hunt_hits }   # a fresh mark: count from 0
+          - { id: status, status: hunted }
+        next: show
+      show:
+        type: start_cue              # a dagger hangs over them while the mark lasts
+        cue: hunted_dagger
+        at: hit
+        next: chase
+      chase:
+        type: has_status             # mark still on (not expired, not used up)?
+        status: hunted
+        target: hit
+        mine: true
+        on: { has: heading }         # gone: the cast ends (and the dagger over them with it)
+      heading:
+        type: moving_toward          # running at them?
+        target: hit
+        angle: 50
+        on: { toward: haste, away: wait }
+      haste:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: pursuit }
+        next: wait
+      wait:
+        type: delay
+        ticks: 4
+        next: chase
+
+  # 2: lob a flask that bounces once, then bursts: 90% base damage and 2s silence around it, and it leaves
+  # a 4s pool that silences anyone standing in it. Caught in the burst yourself: faster for 3s, Null Ward is
+  # ready again at once, and your dagger gets one of these for 8s, at random: Blind, Silence, Lifesteal or
+  # Weakness on hit.
+  antimage_ab2:
+    cooldown: 240                    # 12s
+    display:
+      name: "Volatile Nullifier"
+      icon: LINGERING_POTION
+      description:
+        - "A bouncing flask: 90% base damage and"
+        - "2s silence, then a 4s silencing pool."
+        - "Caught in it yourself: faster, Null Ward"
+        - "ready, and a random dagger infusion (8s):"
+        - "Blind, Silence, Lifesteal or Weakness."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.2
+        size: 0.5
+        lifetime: 100
+        bounces: 1
+        restitution: 0.45
+        friction: 0.3
+        visual: LINGERING_POTION
+        motion:
+          - { type: gravity, amount: 0.05 }
+        on: { spawned: toss, hit_entity: burst, hit_block: burst }
+      toss:
+        type: play_cue
+        cue: flask_throw
+      burst:
+        type: apply_effects
+        targets: { type: radius, center: hit, radius: 3.5 }
+        effects:
+          - { id: damage, base: 0.9 }             # 90% base damage
+          - { id: status, status: silence, duration: 40 }   # 2s
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: null_burst
+        at: hit
+        next: caught
+      caught:
+        type: in_range               # were YOU in the burst?
+        center: hit
+        radius: 3.5
+        on: { inside: rush, outside: pool }
+      rush:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: null_rush }
+          - { id: remove_status, status: dagger_blind }        # one infusion at a time
+          - { id: remove_status, status: dagger_silence }
+          - { id: remove_status, status: dagger_lifesteal }
+          - { id: remove_status, status: dagger_weakness }
+        next: refresh
+      refresh:
+        type: ward_reset             # Null Ward: ready again right now
+        next: roll
+      roll:
+        type: random                 # which infusion (each equally likely)
+        on: { blind: give_blind, silence: give_silence, lifesteal: give_lifesteal, weakness: give_weakness }
+      give_blind:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: dagger_blind }
+        next: infuse_cue
+      give_silence:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: dagger_silence }
+        next: infuse_cue
+      give_lifesteal:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: dagger_lifesteal }
+        next: infuse_cue
+      give_weakness:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: status, status: dagger_weakness }
+        next: infuse_cue
+      infuse_cue:
+        type: play_cue
+        cue: dagger_infuse
+        next: pool
+      pool:
+        type: fork                   # the pool's 4s, and its pulses, side by side
+        on: { out: pool_time, also: pulse }
+      pool_time:
+        type: delay
+        ticks: 80                    # 4s
+        next: pool_end
+      pool_end:
+        type: end_cast
+      pulse:
+        type: apply_effects          # standing in the pool: silenced
+        targets: { type: radius, center: hit, radius: 3 }
+        effects:
+          - { id: status, status: silence, duration: 15 }
+        next: pulse_cue
+      pulse_cue:
+        type: play_cue
+        cue: null_pool               # (drawn at 3 blocks: keep it in step with the radius above)
+        at: hit
+        next: pulse_wait
+      pulse_wait:
+        type: delay
+        ticks: 10                    # every 0.5s
+        next: pulse
+
+  # 3: a spell shield all around you for 3s: SPELL damage (abilities, damage over time) is absorbed and
+  # stored as charge (up to 150); basic attacks and vanilla hits still land. You're slowed meanwhile. Press 3
+  # again (the icon glints): explode for 50% base damage + everything you stored, within 4.5 blocks. At max
+  # charge the explosion also strips every buff from the enemies it hits. Not recast: the charge fades.
+  antimage_ab3:
+    cooldown: 280                    # 14s, once it's over
+    display:
+      name: "Counterspell"
+      icon: SHULKER_SHELL
+      description:
+        - "3s: absorb all spell damage as charge"
+        - "(basic attacks still hit); you're slowed."
+        - "Press again: explode for 50% base damage"
+        - "+ the charge. Full charge: strips buffs."
+    active_tags: [state.slowed, state.spellshield]
+    nodes:
+      raise:
+        type: spell_shield
+        max: 150                     # most charge it can store (design HP)
+        next: aura
+      aura:
+        type: start_cue
+        cue: spellshield
+        next: split
+      split:
+        type: fork                   # the 3s, and the recast, side by side
+        on: { out: hold, also: wait }
+      hold:
+        type: delay
+        ticks: 60                    # 3s
+        cast_bar: true
+        next: fade
+      fade:
+        type: end_cast               # not recast: the charge fades
+      wait:
+        type: await_recast
+        window: 60
+        on: { recast: measure }
+      measure:
+        type: shield_charge          # how much did it take?
+        store: absorbed
+        on: { out: blast, full: purge_blast }
+      blast:
+        type: apply_effects
+        targets: { type: radius, radius: 4.5 }
+        effects:
+          - { id: damage, base: 0.5 }                                    # 50% base damage...
+          - { id: damage, amount: 1, scale_by: absorbed, ignore_iframes: true }   # ...+ the charge
+        next: blast_cue
+      purge_blast:
+        type: apply_effects
+        targets: { type: radius, radius: 4.5 }
+        effects:
+          - { id: damage, base: 0.5 }
+          - { id: damage, amount: 1, scale_by: absorbed, ignore_iframes: true }
+          - { id: purge_buffs }                  # full charge: their buffs are gone
+        next: purge_cue
+      purge_cue:
+        type: play_cue
+        cue: spellshield_purge
+        next: blast_cue
+      blast_cue:
+        type: play_cue
+        cue: spellshield_blast
+        next: done
+      done:
+        type: end_cast               # the shield comes down
+
+characters:
+  antimage:
+    name: "AntiMage"
+    weapon: IRON_SWORD               # her dagger
+    stats:                           # see docs/character-stats.md
+      health: 210                    # max HP
+      armor: 15                      # damage taken x 100 / (100 + armor)
+      base_damage: 38                # abilities deal % of this
+      move_speed: 1.1                # x vanilla walking speed
+      attack_speed: 1.8              # dagger strikes per second
+    ward:                            # PASSIVE: Null Ward
+      name: "Null Ward"
+      out_of_combat: 120             # 6s without dealing or taking damage
+      hotbar: 9                      # shown in slot 9
+      icon: TOTEM_OF_UNDYING
+      description:
+        - "After 6s out of combat, the next debuff"
+        - "doesn't land. Blocking one uses it up."
+    slots:
+      primary: antimage_primary      # LMB: Dagger Strike
+      ability_1: antimage_ab1        # 1: Fated Dagger
+      ability_2: antimage_ab2        # 2: Volatile Nullifier
+      ability_3: antimage_ab3        # 3: Counterspell (press again to explode)

@@ -17,10 +17,23 @@ import java.util.Map;
  * @param forms     while the player has a form's tag, it changes the kit (first match wins)
  * @param traits    always-on behaviours the platform provides (see {@link #TRAITS}), e.g. a passive
  * @param stats     max HP, armor, base damage, move speed, attack speed
+ * @param ward      a passive debuff immunity that recharges out of combat (null = none)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
-                           java.util.List<Form> forms, java.util.Set<String> traits, Stats stats) {
+                           java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward) {
+
+    /**
+     * Debuff immunity: after {@code outOfCombatTicks} without dealing or taking damage, the next debuff
+     * doesn't land; blocking one uses it up, and the out-of-combat timer starts over.
+     *
+     * @param hotbarSlot 1-9: where its item shows (glints when ready, counts down otherwise); 0 = hidden
+     */
+    public record Ward(String name, int outOfCombatTicks, int hotbarSlot, String icon, java.util.List<String> description) {
+        public Ward {
+            description = java.util.List.copyOf(description);
+        }
+    }
 
     /**
      * A character's stat sheet (design HP, like damage).
@@ -83,6 +96,12 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, Stats.DEFAULT);
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, null);
+    }
+
     public CharacterDef {
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
         resources = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(resources));
@@ -98,7 +117,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         Map<String, String> changed = new LinkedHashMap<>(slots);
         changed.putAll(form.slots());
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
-                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats);
+                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

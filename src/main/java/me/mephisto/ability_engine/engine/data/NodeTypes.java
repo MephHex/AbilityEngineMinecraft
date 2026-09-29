@@ -134,6 +134,27 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
                     p.getString("store", "charge"), min, p.getBool("fire_when_full", true));
         });
+        t.register("has_status", (p, e) -> {
+            String status = p.requireString("status");
+            if (e.statusDefs().find(status).isEmpty()) throw p.error("status", "unknown status '" + status + "'");
+            return new me.mephisto.ability_engine.engine.nodes.control.HasStatusNode(status, p.getString("target", null),
+                    p.getInt("min_stacks", 1), p.getBool("mine", false));
+        });
+        t.register("moving_toward", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.MovingTowardNode(
+                p.requireString("target"), p.getDouble("angle", 45)));
+        t.register("random", (p, e) -> {
+            var ports = new java.util.ArrayList<>(p.getParams("on").keys());
+            if (ports.size() < 2) throw p.error("on", "give at least two ports to pick from");
+            return new me.mephisto.ability_engine.engine.nodes.control.RandomNode(ports);
+        });
+        t.register("ward_reset", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.WardResetNode());
+        t.register("spell_shield", (p, e) -> {
+            double max = p.requireDouble("max");
+            if (max <= 0) throw p.error("max", "must be above 0");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.SpellShieldNode(max);
+        });
+        t.register("shield_charge", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.ShieldChargeNode(
+                p.getString("store", "charge")));
         t.register("await_kill", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.AwaitKillNode(
                 p.getBool("players_only", false), p.getString("store", "victim")));
         t.register("cancel_ability", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.CancelAbilityNode(
