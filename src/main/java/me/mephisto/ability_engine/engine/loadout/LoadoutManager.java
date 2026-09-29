@@ -24,6 +24,7 @@ public final class LoadoutManager {
     private final QuiverManager quivers;
     private final me.mephisto.ability_engine.engine.tag.TagManager tags;
     private final me.mephisto.ability_engine.engine.ability.AbilityRegistry abilities;
+    private final me.mephisto.ability_engine.engine.ability.AbilityInstanceRegistry instances;
     private final Map<UUID, String> assigned = new HashMap<>();
     private final java.util.List<java.util.function.Consumer<UUID>> assignListeners = new java.util.ArrayList<>();
 
@@ -32,8 +33,10 @@ public final class LoadoutManager {
 
     public LoadoutManager(CharacterRegistry characters, AbilityActivator activator, ResourceManager resources,
                           QuiverManager quivers, me.mephisto.ability_engine.engine.tag.TagManager tags,
-                          me.mephisto.ability_engine.engine.ability.AbilityRegistry abilities) {
+                          me.mephisto.ability_engine.engine.ability.AbilityRegistry abilities,
+                          me.mephisto.ability_engine.engine.ability.AbilityInstanceRegistry instances) {
         this.abilities = abilities;
+        this.instances = instances;
         this.characters = characters;
         this.activator = activator;
         this.resources = resources;
@@ -96,7 +99,8 @@ public final class LoadoutManager {
      *   <li>stunned: every slot</li>
      *   <li>disarmed: basic attacks (primary, melee)</li>
      *   <li>silenced: everything but basic attacks</li>
-     *   <li>rooted (block.move): movement abilities (dashes, blinks)</li>
+     *   <li>rooted (block.move): movement abilities (dashes, blinks), and recasts that move you while
+     *       their window is open (recast_movement)</li>
      * </ul>
      * A passive isn't a slot, so it's never blocked. Empty = free.
      */
@@ -109,7 +113,8 @@ public final class LoadoutManager {
         }
         if (tags.has(player, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_MOVE)) {
             boolean movement = abilityIn(player, slot).flatMap(abilities::find)
-                    .map(me.mephisto.ability_engine.engine.ability.Ability::movement).orElse(false);
+                    .map(a -> a.movement() || (a.recastMovement() && instances.awaitingRecast(player, a.id())))
+                    .orElse(false);
             if (movement) return Optional.of(me.mephisto.ability_engine.engine.tag.Tags.ROOTED);
         }
         return Optional.empty();

@@ -312,6 +312,8 @@ Full sheets and reasoning: `docs/character-stats.md`.
   sits in hotbar slot `hotbar`: glinting when ready, otherwise the count is the seconds left.
 - **Debuff:** a status that isn't a buff (see Buffs), put on you by someone else. Your own statuses and
   buffs never count. The tag `state.debuff_immune` blocks debuffs too (without using anything up).
+  To test: `{ id: status, status: stun, from: world }` puts a status on as if from nobody, so it's a
+  debuff even on the caster (`self_stun_test` does this). Or run `/ae apply <status> [ticks]` in game.
 - **Nodes:**
   - has_status `{ status, target, min_stacks, mine }` -> has / lacks. `mine: true` = only if the caster
     put it there, e.g. your own mark.
@@ -337,7 +339,14 @@ the passive never does.
 | **Stun** (`state.stunned`, with `block.ability` + `block.move`) | blocked | blocked |
 | **Silence** (`state.silenced`) | works | blocked |
 | **Disarm** (`state.disarmed`) | blocked | works |
-| **Root** (`block.move`) | works | only movement abilities (dashes, blinks) are blocked |
+| **Root** (`block.move`) | works | only movement abilities (dashes, blinks) and movement recasts are blocked |
+
+`recast_movement: true` on an ability: its RECAST moves you (Dream Echo's swap, Shield Rush), so it waits out
+a root. The window stays open and the first cast isn't affected.
 
 The statuses are `stun`, `silence`, `disarm` and `root` (shared.yml). Silence and disarm are checked per
 slot, so an ability is only silenced when it's in an ability slot.
+
+- **remember_spot** `{ of, store, ground }` stores where `of` (an entity or a point) is right now, as a
+  fixed spot: it doesn't follow the entity afterwards. With `ground: true` (default) it's dropped onto the
+  ground below. For example, Volatile Nullifier's pool stays where the flask burst.

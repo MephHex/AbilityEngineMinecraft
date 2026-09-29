@@ -78,7 +78,8 @@ abilities:
         type: apply_effects
         targets: { type: self }
         effects:
-          - { id: status, status: stun, duration: 80 }
+          # from: world - as if an enemy did it: a debuff, so debuff immunity (Null Ward) blocks it
+          - { id: status, status: stun, duration: 80, from: world }
 
   stun_hit:
     display: { name: "Concuss", icon: GOLD_NUGGET, description: ["Hitscan stun, 3s."] }

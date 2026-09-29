@@ -96,6 +96,17 @@ class AntiMageTest {
     }
 
     @Test
+    void theSelfStunTestCountsAsADebuff() throws IOException {
+        setup();
+        t.time.advance(1);
+        assertTrue(t.engine.activator().activate(p, "self_stun_test").success());
+        assertFalse(t.engine.tags().has(p, Tags.STUNNED), "from: world - blocked like an enemy's stun");
+        assertFalse(wardReady());
+        assertTrue(t.engine.activator().activate(p, "self_stun_test").success());
+        assertTrue(t.engine.tags().has(p, Tags.STUNNED), "the ward is used up: this one lands");
+    }
+
+    @Test
     void buffsAndHerOwnStatusesArentDebuffs() throws IOException {
         setup();
         t.engine.statuses().apply(p, "null_rush", p);      // her own
@@ -184,6 +195,21 @@ class AntiMageTest {
         t.world.move(late, new Vec3(20, 1, 0));
         t.time.advance(40);
         assertFalse(t.engine.tags().has(late, Tags.SILENCED), "left it");
+    }
+
+    @Test
+    void thePoolStaysWhereItBurstNotOnWhoeverItHit() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(4, 1, 0));             // a direct hit
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        t.time.advance(10);
+        assertTrue(t.engine.tags().has(enemy, Tags.SILENCED));
+        t.world.move(enemy, new Vec3(20, 1, 0));            // they run
+        UUID late = t.spawn(4, 1, 0);                       // someone walks onto the spot
+        t.world.team(late, "red");
+        t.time.advance(50);                                 // past the burst's 2s silence
+        assertFalse(t.engine.tags().has(enemy, Tags.SILENCED), "the pool didn't follow them");
+        assertTrue(t.engine.tags().has(late, Tags.SILENCED), "it's still on the ground where it burst");
     }
 
     @Test
