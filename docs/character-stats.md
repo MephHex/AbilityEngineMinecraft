@@ -198,14 +198,14 @@ damage (30) (see Q5).
 |---|---|---|---|---|---|---|
 | **210** | **15** (13%) | **38** | **1.10** | shotgun 0.7s, revolver 0.4s (their own cooldowns) | 242 | ~40 (revolver, sustained) |
 
-Two guns: LMB is a shotgun (2 shells), RMB a revolver (6 bullets, hold RMB for a volley). The gun you used
+Two guns: LMB is a shotgun (2 shells), RMB a revolver (6 bullets; it fires when you let go, holding loads more). The gun you used
 last is in your hand and its ammo shows in slot 8; an empty gun reloads by itself. Null Ward (passive) shrugs
 off one debuff after 6s out of combat; Counterspell blocks a spell and loads magic rounds.
 
 | Ability | Damage |
 |---|---|
 | Scattergun (LMB) | **130%** to everyone in a 7-block, 45 degree cone; 2 shells, reload 1.5s |
-| Six-Shooter (RMB) | **55%**, first enemy in line; hold for a volley of up to 5 more at **45%** each; 6 bullets, reload 2s |
+| Six-Shooter (RMB) | fires on let-go: press loads 1, holding loads up to 6; **55%** for the first, **45%** each after; 6 bullets, reload 2s |
 | Buckshot | **160%** in a 9-block, 70 degree cone, knockback, 1.5s slow; recoil throws you back; refills the shotgun |
 | Volatile Nullifier | **90%** + 2s silence, then a 4s silencing pool; caught in it yourself: speed, Null Ward ready, 3 magic rounds |
 | Counterspell | blocks the first enemy spell for 2s (damage and debuffs); blocked: speed and 3 magic rounds |

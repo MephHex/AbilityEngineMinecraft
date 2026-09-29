@@ -18,10 +18,13 @@ import java.util.Set;
  *   <li>{@code spend: <resource>}: each time costs 1 of it; when it runs out, it stops early (a volley
  *       that empties the gun)</li>
  * </ul>
+ * Each "each" branch gets {@code repeat_index}: 1 for the first time, 2 for the second... (e.g. a switch
+ * that makes the first bullet of a volley different).
  */
 public final class RepeatNode implements GraphNode {
 
     public static final String EACH = "each";
+    public static final String INDEX_KEY = "repeat_index";
     private static final Set<String> OUTPUTS = Set.of(Ports.OUT, EACH);
 
     private final Integer fixedTimes;
@@ -81,7 +84,9 @@ public final class RepeatNode implements GraphNode {
                 }
                 if (spend != null) ctx.engine().resources().consume(ctx.caster(), spend, 1);
                 done++;
-                ctx.fork().suspend().resume(EACH);
+                ExecutionContext branch = ctx.fork();
+                branch.blackboard().putRaw(INDEX_KEY, done);
+                branch.suspend().resume(EACH);
                 if (every > 0) {
                     task = ctx.engine().scheduler().after(every, this::next);
                     return;

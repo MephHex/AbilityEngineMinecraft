@@ -259,7 +259,9 @@ public final class NodeTypes {
         if (every < 1) throw l.error("every", "must be at least 1 tick");
         int max = l.getInt("max", 99);
         if (max < 1) throw l.error("max", "must be at least 1");
-        return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode.Load(l.requireString("resource"), every, max);
+        int start = l.getInt("start", 0);
+        if (start < 0 || start > max) throw l.error("start", "must be between 0 and max");
+        return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode.Load(l.requireString("resource"), every, max, start);
     }
 
     private static boolean towardCursor(Params p) {

@@ -370,7 +370,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   - refill `{ resource, amount }`: back to max (or + amount).
   - repeat `{ times, scale, every, spend }` -> each / out: runs `each` `times` times (a number, or a key
     holding one x `scale`, rounded up), `every` ticks apart, then `out`. `spend: <resource>` costs 1 each
-    time and stops early when it runs out.
+    time and stops early when it runs out. Each `each` branch gets `repeat_index` (1, 2, ...), e.g. for a
+    switch that makes the first bullet different.
   - strike_constructs `{ range, angle | width }`: your own constructs inside this cone (`angle`) or line
     (`width`) are struck, as if your projectile hit them (e.g. shooting your Powder Keg sets it off).
   - spell_block `{ duration }` -> blocked / expired: the first enemy spell that reaches you in that time is
@@ -378,8 +379,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **charge:** `release_gap: N` - for inputs without a let-go signal (RMB on a normal item): the input repeats
   while it's held, and N ticks without a repeat means it was let go. A quick click counts as 0 ticks held;
   a new click while it charges lets the old charge go and casts again.
-  `load: { resource, every, max }` - instead of power, it loads that resource while held: 1 every `every`
-  ticks (up to `max`, or until it runs out), spent as it loads so the player sees the count drop; `store`
+  `load: { resource, start, every, max }` - instead of power, it loads that resource while held: `start`
+  on the press itself, then 1 every `every` ticks (up to `max`, or until it runs out), spent as it loads so the player sees the count drop; `store`
   gets how many (none loaded when let go: `early`). While loaded, the resource doesn't reload.
 - **hold_reload** `{ resource }`: restart its reload timer without spending (e.g. each bullet of a volley
   that was already paid for, so the gun reloads after the last shot).

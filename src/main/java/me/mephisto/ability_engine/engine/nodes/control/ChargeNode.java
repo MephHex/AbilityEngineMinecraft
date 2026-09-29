@@ -19,8 +19,8 @@ import me.mephisto.ability_engine.engine.platform.TaskHandle;
  * repeats (the activator passes each repeat on), and N ticks without a repeat means it was let go. The
  * time held is then counted up to the last repeat, so a quick click counts as 0 ticks. A fresh press of
  * the same input while it charges also lets it go (the activator then starts a new cast).
- * <p>With {@code load: { resource, every, max }} it loads a resource instead of charging power: every
- * {@code every} ticks held spends 1 of it (up to {@code max}, or until it runs out), so the player sees
+ * <p>With {@code load: { resource, every, max, start }} it loads a resource instead of charging power:
+ * {@code start} of it on the press itself, then every {@code every} ticks held 1 more (up to {@code max}, or until it runs out), so the player sees
  * it go down, and {@code store} gets how many were loaded. Let go with none loaded: "early". While any
  * are loaded the resource doesn't start reloading (it's still in use).
  */
@@ -34,8 +34,10 @@ public final class ChargeNode implements GraphNode {
     private final int releaseGap;
     private final Load load;
 
-    /** Loading a resource while held (see the class comment). */
-    public record Load(String resource, int every, int max) {}
+    /** Loading a resource while held (see the class comment); {@code start} are loaded on the press itself. */
+    public record Load(String resource, int every, int max, int start) {
+        public Load(String resource, int every, int max) { this(resource, every, max, 0); }
+    }
 
     private static final java.util.Set<String> OUTPUTS = java.util.Set.of(Ports.OUT, Ports.EARLY);
 
@@ -98,6 +100,7 @@ public final class ChargeNode implements GraphNode {
             // Fully charged: fires by itself, or (fire_when_full: false) just stays full until let go.
             if (fireWhenFull) task = ctx.engine().scheduler().after(ticks, this::fire);
             if (releaseGap > 0) instance.setInputRepeat(onRepeat);
+            loadUpTo(startedAt); // what the press itself loads
             if (releaseGap > 0 || load != null) {
                 watcher = ctx.engine().scheduler().every(1, 1, () -> {
                     if (releaseGap > 0 && ctx.engine().clock().now() - lastInput > releaseGap) {
@@ -126,7 +129,7 @@ public final class ChargeNode implements GraphNode {
         private void loadUpTo(long heldUntil) {
             if (load == null || done) return;
             var res = ctx.engine().resources();
-            int want = (int) Math.min(load.max(), (heldUntil - startedAt) / load.every());
+            int want = (int) Math.min(load.max(), load.start() + (heldUntil - startedAt) / load.every());
             while (loaded < want && res.has(ctx.caster(), load.resource(), 1)) {
                 res.consume(ctx.caster(), load.resource(), 1);
                 loaded++;

@@ -81,8 +81,15 @@ class AntiMageTest {
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
     }
 
-    private void revolver() {
+    /** Press RMB (loads a bullet; nothing fires until it's let go). */
+    private void pressRevolver() {
         assertTrue(t.engine.loadouts().activate(p, Slots.SECONDARY).success());
+    }
+
+    /** A click: press, let go; the bullet fires once the let-go is noticed (6 ticks without a repeat). */
+    private void revolver() {
+        pressRevolver();
+        t.time.advance(7);
     }
 
     private String weapon() { return t.engine.loadouts().characterOf(p).orElseThrow().weapon(); }
@@ -219,35 +226,45 @@ class AntiMageTest {
     }
 
     @Test
+    void theRevolverFiresWhenYouLetGoNotOnThePress() throws IOException {
+        setup();
+        pressRevolver();
+        assertEquals(5, ammo("bullets"), "the press loads a bullet");
+        t.time.advance(5);
+        assertEquals(0, t.damage(enemy), 1e-9, "not fired yet: still might be a hold");
+        t.time.advance(2);                                  // no repeat for 6 ticks: let go
+        assertEquals(38 * 0.55, t.damage(enemy), 1e-9, "one bullet");
+        assertEquals(5, ammo("bullets"));
+    }
+
+    @Test
     void holdingLoadsBulletsOutOfTheCylinderThenFiresThemWhenYouLetGo() throws IOException {
         setup();
-        revolver();                                         // the first shot, at once
-        assertEquals(5, ammo("bullets"));
-        holdRmb(3);                                         // held 12 ticks: a bullet every 5 = 2 loaded
+        pressRevolver();                                    // 1 loaded
+        holdRmb(3);                                         // held 12 ticks: +2 (one every 5)
         assertEquals(3, ammo("bullets"), "the loaded bullets come out of the cylinder: you see the count");
-        holdRmb(4);                                         // held 28 ticks: all 5
+        holdRmb(4);                                         // held 28 ticks: all 6
         assertEquals(0, ammo("bullets"));
         assertTrue(t.engine.instances().charging(p), "still loading (waiting for the let-go)");
-        assertEquals(38 * 0.55, t.damage(enemy), 1e-9, "nothing more fired yet");
+        assertEquals(0, t.damage(enemy), 1e-9, "nothing fired yet");
         t.time.advance(7);                                  // let go (no more repeats)
         assertFalse(t.engine.instances().charging(p));
-        t.time.advance(15);                                 // the volley: a bullet every 3 ticks
-        assertEquals(38 * 0.55 + 5 * 38 * 0.45, t.damage(enemy), 1e-6, "5 more bullets");
-        t.time.advance(36);                                 // the last volley shot was 3 ticks ago + 36 = 39
+        t.time.advance(16);                                 // the volley: a bullet every 3 ticks
+        assertEquals(38 * 0.55 + 5 * 38 * 0.45, t.damage(enemy), 1e-6, "6 bullets: the first 55%, the rest 45%");
+        t.time.advance(38);
         assertEquals(0, ammo("bullets"), "reloading counts from the last shot of the volley...");
-        t.time.advance(2);
+        t.time.advance(3);
         assertEquals(6, ammo("bullets"), "...2s after it");
     }
 
     @Test
     void holdingDoesntReloadTheLoadedBulletsAway() throws IOException {
         setup();
-        revolver();
-        holdRmb(20);                                        // 5 loaded (gun empty), then held 2.8s more
+        pressRevolver();
+        holdRmb(20);                                        // all 6 loaded (gun empty), then held 2.8s more
         assertEquals(0, ammo("bullets"), "no reload while the volley is still in your hand");
         assertEquals(0, t.engine.resources().reloadRemaining(p, "bullets"), "and it doesn't say reloading");
-        t.time.advance(7);
-        t.time.advance(15);
+        t.time.advance(7 + 17);
         assertEquals(38 * 0.55 + 5 * 38 * 0.45, t.damage(enemy), 1e-6);
         assertEquals(0, ammo("bullets"));
     }
@@ -255,41 +272,42 @@ class AntiMageTest {
     @Test
     void aShortHoldLoadsFewerAndLoadingStopsWhenTheGunIsEmpty() throws IOException {
         setup();
-        revolver();
-        holdRmb(2);                                         // held 8 ticks: 1 bullet
+        pressRevolver();
+        holdRmb(2);                                         // held 8 ticks: 1 + 1
         assertEquals(4, ammo("bullets"));
-        t.time.advance(20);
+        t.time.advance(7 + 10);
         assertEquals(38 * 0.55 + 38 * 0.45, t.damage(enemy), 1e-6);
 
-        t.engine.resources().set(p, "bullets", 3);          // 3 left: the first shot and 2 to load
+        t.engine.resources().set(p, "bullets", 2);          // only 2 left to load
         t.time.advance(10);
         double before = t.damage(enemy);
-        revolver();
+        pressRevolver();
         holdRmb(7);
         assertEquals(0, ammo("bullets"));
-        t.time.advance(30);
-        assertEquals(38 * 0.55 + 2 * 38 * 0.45, t.damage(enemy) - before, 1e-6, "only 2 were left to load");
+        t.time.advance(7 + 10);
+        assertEquals(38 * 0.55 + 38 * 0.45, t.damage(enemy) - before, 1e-6, "only 2 were left to load");
     }
 
     @Test
-    void aTapLoadsNothing() throws IOException {
+    void anEmptyRevolverClicks() throws IOException {
         setup();
-        revolver();
-        holdRmb(1);                                         // held 4 ticks: not a bullet yet
-        t.time.advance(30);
-        assertEquals(38 * 0.55, t.damage(enemy), 1e-9);
-        assertEquals(5, ammo("bullets"), "nothing taken");
+        t.engine.resources().consume(p, "bullets", 6);      // just emptied (reloading)
+        pressRevolver();
+        assertTrue(t.render.cues.contains("dry_fire"));
+        t.time.advance(10);
+        assertEquals(0, t.damage(enemy), 1e-9);
     }
 
     @Test
-    void anotherClickWhileLoadingEndsTheHoldAndShootsAgain() throws IOException {
+    void aSecondClickRightAwayFiresTheFirstAtOnce() throws IOException {
         setup();
-        revolver();
-        t.time.advance(10);                                 // (no repeats: that was a click)
-        revolver();                                         // a fresh click
+        pressRevolver();
+        t.time.advance(3);                                  // (no repeats: that was a click)
+        assertFalse(t.engine.loadouts().activate(p, Slots.SECONDARY).success(), "too soon for another (0.4s)");
+        assertEquals(38 * 0.55, t.damage(enemy), 1e-9, "but it let the first one go at once");
         t.time.advance(30);
-        assertEquals(2 * 38 * 0.55, t.damage(enemy), 1e-6, "two plain shots, no volley");
-        assertEquals(4, ammo("bullets"));
+        assertEquals(38 * 0.55, t.damage(enemy), 1e-9, "once");
+        assertEquals(5, ammo("bullets"));
     }
 
     // ---- Magic rounds ------------------------------------------------------------------------------

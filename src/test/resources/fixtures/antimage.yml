@@ -10,8 +10,8 @@
 # PASSIVE 2 (Two Guns): LMB fires the SHOTGUN (2 shells), RMB the REVOLVER (6 bullets). Using one puts it
 #   in your hand (the other is holstered); the ammo in slot 8 is the one in your hand.
 #   A gun that runs dry reloads by itself (shotgun 1.5s, revolver 2s after the last shot).
-#   Hold RMB after a revolver shot to load a volley: a bullet every 0.25s (up to 5 more), taken out of the
-#   cylinder as it loads (the ammo count drops), and they all go when you let go.
+#   The revolver fires when you let go of RMB: pressing loads a bullet, holding loads more (1 every 0.25s,
+#   up to 6), taken out of the cylinder as they load (the ammo count drops); letting go fires them all.
 #
 # MAGIC ROUNDS: Volatile Nullifier (caught in it yourself) and Counterspell (a blocked spell) load your
 #   next 3 shots with ONE of these, at random: Blind, Weakness (less damage and slower attacks) or Silence.
@@ -118,19 +118,19 @@ abilities:
         at: caster
         to: aim
 
-  # SECONDARY (RMB): the revolver. A precise shot: 55% base damage to the first enemy in line (30 blocks).
-  # Keep holding RMB to load a volley (1 more bullet every 0.25s, up to 5, taken from the cylinder as they
-  # load) and let go to fire them all.
-  # 6 bullets, then it reloads by itself (2s after the last shot).
+  # SECONDARY (RMB): the revolver. Pressing RMB loads a bullet; keep holding to load more (1 every 0.25s,
+  # up to 6), taken out of the cylinder as they load (the ammo count drops). Let go and they fire, one every
+  # 3 ticks, at the first enemy in line (30 blocks): the first 55% base damage, the rest 45% each.
+  # A click is one bullet. 6 bullets, then it reloads by itself (2s after the last shot).
   antimage_revolver:
     cooldown: 8                      # 0.4s between clicks
     display:
       name: "Six-Shooter"
       icon: IRON_HOE                 # the revolver (the weapon while it's out)
       description:
-        - "RMB: 55% base damage, first enemy in line."
-        - "Hold RMB to load a volley (up to 5 more),"
-        - "let go to fire it. 6 bullets; reloads (2s)."
+        - "RMB: load a bullet, hold to load more (up"
+        - "to 6); let go to fire. 55% base damage,"
+        - "then 45% each. 6 bullets; reloads (2s)."
     nodes:
       draw:
         type: apply_effects          # the revolver comes out
@@ -138,55 +138,25 @@ abilities:
         on_hit: false
         effects:
           - { id: status, status: revolver_drawn }
-        next: load
-      load:
-        type: spend
+        next: loaded
+      loaded:
+        type: spend                  # anything in the cylinder? (just a look: the hammer takes them)
         resource: bullets
-        on: { out: aim, empty: click }
-      click:
-        type: play_cue
-        cue: dry_fire
-      aim:
-        type: acquire_target
-        query: { type: hitscan, range: 30, ray_size: 0.35 }
-        on: { hit: bullet, miss: keg }
-      bullet:
-        type: apply_effects
-        targets: { type: key, key: target }
-        on_hit: true                 # your magic rounds (secondary casts don't carry them by default)
-        effects:
-          - { id: damage, base: 0.55 }            # 55% base damage
-        next: keg
-      keg:
-        type: strike_constructs      # your Powder Keg in the line of fire: it goes off
-        range: 30
-        width: 0.6
-        next: use_round
-      use_round:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: gun_blind, stacks: 1 }
-          - { id: remove_status, status: gun_weakness, stacks: 1 }
-          - { id: remove_status, status: gun_silence, stacks: 1 }
-        next: bang
-      bang:
-        type: play_cue
-        cue: revolver_shot           # a tracer to where you aimed
-        at: caster
-        to: aim
-        next: hammer
+        peek: true
+        on: { out: hammer, empty: click }
       hammer:
-        type: charge                 # still holding RMB? load bullets into a volley
-        ticks: 25                    # (the cast bar: 5 bullets at 1.25s)
+        type: charge                 # load bullets while RMB is held
+        ticks: 25                    # (the cast bar: all 6 at 1.25s)
         store: volley
         fire_when_full: false        # all loaded: waits for you to let go
         release_gap: 6               # RMB repeats while held; 6 ticks without one = let go
-        load: { resource: bullets, every: 5, max: 5 }   # a bullet every 0.25s held, taken from the cylinder
-        on: { out: fan, early: ~ }   # (a click loads none: nothing more)
+        load: { resource: bullets, start: 1, every: 5, max: 6 }   # 1 on the press, +1 every 0.25s held
+        on: { out: fan, early: ~ }
+      click:
+        type: play_cue
+        cue: dry_fire
       fan:
-        type: repeat                 # fan the hammer: the loaded bullets, one every 3 ticks
+        type: repeat                 # let go: the loaded bullets, one every 3 ticks
         times: volley
         every: 3
         on: { each: v_hold, out: ~ }
@@ -202,21 +172,32 @@ abilities:
       v_hit:
         type: acquire_target
         query: { type: hitscan, range: 30, ray_size: 0.35 }
-        on: { hit: v_bullet, miss: v_keg }
+        on: { hit: which, miss: v_keg }
+      which:
+        type: switch                 # the first bullet hits harder
+        key: repeat_index
+        on: { "1": first_bullet, default: v_bullet }
+      first_bullet:
+        type: apply_effects
+        targets: { type: key, key: target }
+        on_hit: true                 # your magic rounds (secondary casts don't carry them by default)
+        effects:
+          - { id: damage, base: 0.55 }            # 55% base damage
+        next: v_keg
       v_bullet:
         type: apply_effects
         targets: { type: key, key: target }
         on_hit: true
         effects:
-          - { id: damage, base: 0.45 }            # 45% base damage per volley bullet
+          - { id: damage, base: 0.45 }            # 45% base damage
         next: v_keg
       v_keg:
-        type: strike_constructs
+        type: strike_constructs      # your Powder Keg in the line of fire: it goes off
         range: 30
         width: 0.6
         next: v_round
       v_round:
-        type: apply_effects
+        type: apply_effects          # one magic round used
         targets: { type: self }
         on_hit: false
         effects:
@@ -226,7 +207,7 @@ abilities:
         next: v_bang
       v_bang:
         type: play_cue
-        cue: revolver_shot
+        cue: revolver_shot           # a tracer to where this bullet was aimed
         at: caster
         to: aim_now
 
