@@ -199,7 +199,7 @@ damage (30) (see Q5).
 | **210** | **15** (13%) | **38** | **1.10** | shotgun 0.7s, revolver 0.4s (their own cooldowns) | 242 | ~40 (revolver, sustained) |
 
 Two guns: LMB is a shotgun (2 shells), RMB a revolver (6 bullets, hold RMB for a volley). The gun you used
-last is in your hand and its ammo shows in slot 4; an empty gun reloads by itself. Null Ward (passive) shrugs
+last is in your hand and its ammo shows in slot 8; an empty gun reloads by itself. Null Ward (passive) shrugs
 off one debuff after 6s out of combat; Counterspell blocks a spell and loads magic rounds.
 
 | Ability | Damage |

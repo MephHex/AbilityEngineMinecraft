@@ -8,7 +8,7 @@
 #   hotbar slot 9 (an Eye of Ender): glinting = ready, otherwise the count is the seconds left.
 #
 # PASSIVE 2 (Two Guns): LMB fires the SHOTGUN (2 shells), RMB the REVOLVER (6 bullets). Using one puts it
-#   in your hand (the other is holstered); the ammo next to your weapon (slot 4) is the one in your hand.
+#   in your hand (the other is holstered); the ammo in slot 8 is the one in your hand.
 #   A gun that runs dry reloads by itself (shotgun 1.5s, revolver 2s after the last shot).
 #   Hold RMB after a revolver shot to load a volley: the longer you hold, the more bullets (up to 5 more),
 #   and they all go when you let go.
@@ -532,9 +532,9 @@ characters:
       armor: 15                      # damage taken x 100 / (100 + armor)
       base_damage: 38                # shots and abilities deal % of this
       move_speed: 1.1                # x vanilla walking speed
-    resources:                       # the ammo of the gun in your hand shows in slot 4
-      shells: { max: 2, reload: 30, hotbar: 4, icon: FIRE_CHARGE, hidden_while: state.revolver }
-      bullets: { max: 6, reload: 40, hotbar: 4, icon: GOLD_NUGGET, shown_while: state.revolver }
+    resources:                       # the ammo of the gun in your hand shows in slot 8
+      shells: { max: 2, reload: 30, hotbar: 8, icon: FIRE_CHARGE, hidden_while: state.revolver }
+      bullets: { max: 6, reload: 40, hotbar: 8, icon: GOLD_NUGGET, shown_while: state.revolver }
     status_items:                    # magic rounds loaded: slot 6, stack = shots left; the gun glints
       - { status: gun_blind, hotbar: 6, icon: INK_SAC, name: "Blinding Rounds", glint_weapon: true,
           description: ["Your next shots blind for 1.5s."] }
