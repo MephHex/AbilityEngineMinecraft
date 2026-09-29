@@ -132,7 +132,7 @@ class HunterTest {
         shoot();
         assertTrue(t.engine.statuses().has(target, "poisoned"));
         assertTrue(t.engine.tags().has(target, Tags.SLOWED), "paralysis: slowed...");
-        assertTrue(t.engine.tags().has(target, Tags.BLOCK_ABILITY), "...and silenced");
+        assertTrue(t.engine.tags().has(target, Tags.SILENCED), "...and silenced");
         double onImpact = t.damage(target);
         t.time.advance(80);
         assertEquals(40, t.damage(target) - onImpact, 1e-9, "poison: 40 over 4s");

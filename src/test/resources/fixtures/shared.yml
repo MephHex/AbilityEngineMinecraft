@@ -7,9 +7,12 @@ statuses:
     duration: 40
     stacking: refresh          # refresh | extend | stack
     tags: [state.stunned, block.move, block.ability]
-  silence:
+  silence:                     # no abilities; basic attacks (primary / melee) still work
     duration: 60
-    tags: [state.silenced, block.ability]
+    tags: [state.silenced]
+  disarm:                      # no basic attacks (primary / melee); abilities still work
+    duration: 40
+    tags: [state.disarmed]
   root:
     duration: 40
     tags: [state.rooted, block.move]

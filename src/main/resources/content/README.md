@@ -326,3 +326,18 @@ Full sheets and reasoning: `docs/character-stats.md`.
 - **Cues:** dagger_throw, hunted_dagger (looping, over the target), hunt_execute, null_burst, null_pool
   (a 3-block ring), dagger_infuse, spellshield (looping), spellshield_absorb, spellshield_blast,
   spellshield_purge, ward_block, ward_ready.
+
+## Crowd control
+
+What each one stops. While it lasts, the blocked icons (and the weapon, for primary fire) show a barrier;
+the passive never does.
+
+| | Primary fire (and melee) | Abilities (secondary, 1-3, ultimate) |
+|---|---|---|
+| **Stun** (`state.stunned`, with `block.ability` + `block.move`) | blocked | blocked |
+| **Silence** (`state.silenced`) | works | blocked |
+| **Disarm** (`state.disarmed`) | blocked | works |
+| **Root** (`block.move`) | works | only movement abilities (dashes, blinks) are blocked |
+
+The statuses are `stun`, `silence`, `disarm` and `root` (shared.yml). Silence and disarm are checked per
+slot, so an ability is only silenced when it's in an ability slot.
