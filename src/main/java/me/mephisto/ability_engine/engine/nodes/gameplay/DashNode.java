@@ -55,6 +55,7 @@ public final class DashNode implements GraphNode {
     private final String moverKey; // null = the caster dashes; else whoever is in this key (an echo)
     private final boolean towardCursor; // dash toward the caster's cursor point instead of along their aim
     private String toKey;               // dash to the point in this key (stopping there), e.g. a chosen landing spot
+    private double stopShort;           // with toKey: stop this many blocks before it (e.g. in front of the caster)
 
     public DashNode(double speed, double range, double radius, boolean flat) {
         this(speed, range, radius, flat, false, null);
@@ -84,6 +85,13 @@ public final class DashNode implements GraphNode {
                     boolean alongMovement, String moverKey, boolean towardCursor, String toKey) {
         this(speed, range, radius, flat, pierce, store, alongMovement, moverKey, towardCursor);
         this.toKey = toKey;
+    }
+
+    /** @param stopShort with {@code toKey}: stop this many blocks before reaching it */
+    public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
+                    boolean alongMovement, String moverKey, boolean towardCursor, String toKey, double stopShort) {
+        this(speed, range, radius, flat, pierce, store, alongMovement, moverKey, towardCursor, toKey);
+        this.stopShort = Math.max(0, stopShort);
     }
 
     public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
@@ -131,14 +139,16 @@ public final class DashNode implements GraphNode {
             if (point.isEmpty()) return NodeResult.out(Ports.MISS);
             dir = point.get().position().subtract(start.get().position());
             if (flat) dir = new Vec3(dir.x(), 0, dir.z());
-            maxRange = Math.min(range, dir.length());
+            maxRange = Math.min(range, dir.length() - stopShort);
+            if (maxRange <= 0) return NodeResult.out(Ports.MISS); // already there
         }
         dir = dir.normalize();
         if (dir.isZero()) return NodeResult.out(Ports.MISS);
 
         if (store != null) ctx.blackboard().putRaw(store + "_start", start.get());
-        // Someone else dashing (an echo) turns to face where it's going first. Never the caster's own camera.
-        if (!mover.equals(ctx.caster())) engine.movement().face(mover, dir);
+        // An echo dashing turns to face where it's going first. Never a player's camera (the caster's, or an
+        // enemy being dragged).
+        if (!mover.equals(ctx.caster()) && engine.summons().isSummon(mover)) engine.movement().face(mover, dir);
         new Dash(ctx, ctx.suspend(), dir, start.get(), mover, maxRange).begin();
         return NodeResult.SUSPENDED;
     }
@@ -233,8 +243,9 @@ public final class DashNode implements GraphNode {
                 engine.movement().setVelocity(mover, dir.multiply(speed));
                 return;
             }
+            var through = engine.teams().passThroughFor(ctx.caster());
             Optional<SweepHit> hit = engine.world().sweep(pos.get().world(), here, ahead, radius,
-                    engine.teams().passThroughFor(ctx.caster()));
+                    id -> id.equals(mover) || through.test(id)); // (someone dragged doesn't bump into themselves)
             if (hit.isPresent()) {
                 if (hit.get().target() instanceof EntityTarget enemy) {
                     ctx.put(Keys.HIT, enemy);

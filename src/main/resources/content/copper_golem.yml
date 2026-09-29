@@ -50,19 +50,19 @@ abilities:
         type: play_cue
         cue: golem_swing
 
-  # 1: Groundbreaker. Throw the anchor-pickaxe (about 20 blocks). An enemy it hits takes 90% base damage and
-  # is stunned for 1s, and the chain pulls you to them. A block it hits: the chain pulls you there
-  # (a grappling hook).
+  # 1: Groundbreaker. Throw the anchor-pickaxe (about 20 blocks). An enemy it hits takes 90% base damage, is
+  # stunned for 1s, and the chain drags them to you (they stop 1.5 blocks in front of you). Terrain just
+  # stops it.
   golem_ab1:
     cooldown: 200                    # 10s
+    movement: false                  # it moves them, not you: a root doesn't stop it
     display:
       name: "Groundbreaker"
       icon: TRIPWIRE_HOOK
       description:
         - "Throw your anchor-pickaxe. An enemy hit:"
-        - "90% base damage, stunned 1s, and you're"
-        - "pulled to them. A wall or the ground:"
-        - "you're pulled there (grappling hook)."
+        - "90% base damage, stunned 1s, and the"
+        - "chain drags them to you."
     nodes:
       throw:
         type: projectile
@@ -71,7 +71,7 @@ abilities:
         lifetime: 12                 # about 20 blocks
         visual: COPPER_PICKAXE
         store: pick                  # (for the chain that follows it)
-        on: { spawned: throw_cue, hit_entity: hooked, hit_block: anchored }
+        on: { spawned: throw_cue, hit_entity: hooked, hit_block: clank }
       throw_cue:
         type: play_cue
         cue: anchor_throw
@@ -88,30 +88,26 @@ abilities:
           - { id: status, status: stun, duration: 20 }   # 1s
         next: hooked_chain
       hooked_chain:
-        type: start_line             # the chain between you while you're pulled in
+        type: start_line             # the chain between you while they're dragged in
         cue: anchor_chain
         to: hit
-        next: pull
-      pull:
-        type: dash                   # pulled to them (stops when you reach them)
-        to: hit
-        speed: 1.6
-        range: 25
-        on: { hit: landed, miss: landed }
-      anchored:
-        type: start_line             # the chain to where it bit in, while you're pulled there
-        cue: anchor_chain
-        to: hit
-        next: grapple
-      grapple:
-        type: dash                   # pulled to where it bit in
-        to: hit
-        speed: 1.6
+        next: drag
+      drag:
+        type: dash                   # THEY are pulled to YOU
+        mover: hit
+        to: caster
+        stop_short: 1.5              # in front of you, not inside you
+        speed: 1.4
         range: 25
         on: { hit: landed, miss: landed }
       landed:
         type: play_cue
         cue: anchor_land
+        at: hit
+      clank:
+        type: play_cue               # terrain: it just bounces off
+        cue: anchor_land
+        at: hit
 
   # 2: Rustbreaker. Rust over 2s: you build up a shield (15 every 0.25s, up to 120; what's left of it is gone
   # about 4s after the burst) but get slower and slower.
