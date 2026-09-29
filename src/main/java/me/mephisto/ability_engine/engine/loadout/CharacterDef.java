@@ -18,10 +18,25 @@ import java.util.Map;
  * @param traits    always-on behaviours the platform provides (see {@link #TRAITS}), e.g. a passive
  * @param stats     max HP, armor, base damage, move speed, attack speed
  * @param ward      a passive debuff immunity that recharges out of combat (null = none)
+ * @param statusItems statuses shown as hotbar items while the player has them (e.g. a weapon infusion)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
-                           java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward) {
+                           java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                           java.util.List<StatusItem> statusItems) {
+
+    /**
+     * A status shown as a hotbar item while the player has it, its stack size = the status's stacks (e.g.
+     * the infused shots left). Several may share a slot: the first one the player has shows.
+     *
+     * @param glintWeapon the weapon glints (looks enchanted) while the player has it
+     */
+    public record StatusItem(String status, int hotbarSlot, String icon, String name,
+                             java.util.List<String> description, boolean glintWeapon) {
+        public StatusItem {
+            description = java.util.List.copyOf(description);
+        }
+    }
 
     /**
      * Debuff immunity: after {@code outOfCombatTicks} without dealing or taking damage, the next debuff
@@ -102,12 +117,19 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, null);
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, java.util.List.of());
+    }
+
     public CharacterDef {
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
         resources = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(resources));
         forms = java.util.List.copyOf(forms);
         traits = java.util.Set.copyOf(traits);
         if (stats == null) stats = Stats.DEFAULT;
+        statusItems = statusItems == null ? java.util.List.of() : java.util.List.copyOf(statusItems);
     }
 
     public boolean has(String trait) { return traits.contains(trait); }
@@ -117,7 +139,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         Map<String, String> changed = new LinkedHashMap<>(slots);
         changed.putAll(form.slots());
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
-                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward);
+                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

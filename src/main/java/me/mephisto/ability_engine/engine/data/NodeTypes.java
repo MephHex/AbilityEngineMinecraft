@@ -132,7 +132,7 @@ public final class NodeTypes {
             int min = p.getInt("min", 0);
             if (min < 0 || min > p.requireInt("ticks")) throw p.error("min", "must be between 0 and ticks");
             return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
-                    p.getString("store", "charge"), min, p.getBool("fire_when_full", true));
+                    p.getString("store", "charge"), min, p.getBool("fire_when_full", true), p.getInt("release_gap", 0));
         });
         t.register("has_status", (p, e) -> {
             String status = p.requireString("status");
@@ -155,6 +155,8 @@ public final class NodeTypes {
             if (max <= 0) throw p.error("max", "must be above 0");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SpellShieldNode(max);
         });
+        t.register("spell_block", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SpellBlockNode(
+                p.requireInt("duration")));
         t.register("shield_charge", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.ShieldChargeNode(
                 p.getString("store", "charge")));
         t.register("await_kill", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.AwaitKillNode(
@@ -209,6 +211,30 @@ public final class NodeTypes {
                 throw p.error("slot", "unknown slot, expected one of " + me.mephisto.ability_engine.engine.loadout.Slots.ALL);
             }
             return new ReduceCooldownNode(p.getString("ability", null), slot, p.requireInt("ticks"));
+        });
+        // ---- ammo ----
+        t.register("spend", (p, e) -> {
+            double amount = p.getDouble("amount", 1);
+            if (amount <= 0) throw p.error("amount", "must be above 0");
+            return new me.mephisto.ability_engine.engine.nodes.control.SpendNode(p.requireString("resource"), amount,
+                    p.getBool("peek", false));
+        });
+        t.register("refill", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.RefillNode(
+                p.requireString("resource"), p.has("amount") ? p.getDouble("amount", 0) : null));
+        t.register("repeat", (p, e) -> {
+            Object times = p.raw("times");
+            Integer fixed = times instanceof Number n ? n.intValue() : null;
+            String key = times instanceof String str ? str : null;
+            if (fixed == null && key == null) throw p.error("times", "give a number, or a blackboard key holding one");
+            if (fixed != null && fixed < 1) throw p.error("times", "must be at least 1");
+            return new me.mephisto.ability_engine.engine.nodes.control.RepeatNode(fixed, key, p.getDouble("scale", 1),
+                    p.getInt("every", 0), p.getString("spend", null));
+        });
+        t.register("strike_constructs", (p, e) -> {
+            double range = p.requireDouble("range");
+            if (range <= 0) throw p.error("range", "must be above 0");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.StrikeConstructsNode(range,
+                    p.getDouble("angle", 0), p.getDouble("width", 0.6));
         });
         t.register("play_cue", (p, e) -> new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null)));
         return t;

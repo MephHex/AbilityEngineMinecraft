@@ -248,8 +248,11 @@ public final class AbilityLoader {
             Params r = res.requireParams(name);
             int hotbar = r.getInt("hotbar", 0);
             if (hotbar < 0 || hotbar > 9) throw r.error("hotbar", "expected a hotbar slot 1-9");
+            int reload = r.getInt("reload", 0);
+            if (reload < 0) throw r.error("reload", "must be >= 0 (ticks to refill once it's empty)");
             resources.put(name, new ResourceDef(name, r.requireDouble("max"), r.getDouble("regen", 0),
-                    r.getInt("delay", 0), hotbar, r.getString("icon", null)));
+                    r.getInt("delay", 0), hotbar, r.getString("icon", null), reload,
+                    r.getString("shown_while", null), r.getString("hidden_while", null)));
         }
         QuiverDef quiver = p.has("quiver") ? Parsers.quiver(p.getParams("quiver"), engine.statusDefs().ids()) : null;
         if (quiver != null && quiver.hotbarSlot() > 0) {
@@ -262,7 +265,23 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver));
+                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p));
+    }
+
+    /** {@code status_items: [ { status, hotbar, icon, name, description, glint_weapon } ]}. */
+    private java.util.List<CharacterDef.StatusItem> statusItems(Params p) {
+        java.util.List<CharacterDef.StatusItem> items = new java.util.ArrayList<>();
+        for (Params i : p.getParamsList("status_items")) {
+            String status = i.requireString("status");
+            if (engine.statusDefs().find(status).isEmpty()) {
+                throw i.error("status", "unknown status '" + status + "' (define it under 'statuses:')");
+            }
+            int hotbar = i.requireInt("hotbar");
+            if (hotbar < 1 || hotbar > 9) throw i.error("hotbar", "expected a hotbar slot 1-9");
+            items.add(new CharacterDef.StatusItem(status, hotbar, i.getString("icon", null), i.getString("name", status),
+                    i.has("description") ? i.getStringList("description") : List.of(), i.getBool("glint_weapon", false)));
+        }
+        return items;
     }
 
     /**

@@ -21,6 +21,7 @@ import java.util.UUID;
 public final class SpellShields {
 
     public static final String ABSORB_CUE = "spellshield_absorb";
+    public static final String BLOCK_CUE = "spell_blocked";
     private static final Set<String> BASIC_ATTACK_SLOTS = Set.of(Slots.PRIMARY, Slots.SECONDARY, Slots.MELEE);
 
     private static final class Shield {
@@ -30,9 +31,19 @@ public final class SpellShields {
         Shield(double max) { this.max = max; }
     }
 
+    /** A one-spell block (spell_block): the first enemy spell that reaches the holder is blocked. */
+    private static final class Block {
+        final Runnable onBlocked;
+        long spentAt = -1;
+        UUID spentBy;
+
+        Block(Runnable onBlocked) { this.onBlocked = onBlocked; }
+    }
+
     private final WorldQuery world;
     private final CuePlayer cues;
     private final Map<UUID, Shield> shields = new HashMap<>();
+    private final Map<UUID, Block> blocks = new HashMap<>();
 
     public SpellShields(WorldQuery world, CuePlayer cues) {
         this.world = world;
@@ -44,6 +55,36 @@ public final class SpellShields {
     public void lower(UUID holder) { shields.remove(holder); }
 
     public boolean has(UUID holder) { return shields.containsKey(holder); }
+
+    /**
+     * A one-spell block: the first enemy SPELL cast that reaches the holder (its damage, and its debuffs)
+     * is blocked, then {@code onBlocked} runs. The rest of that same cast's hit, in the same tick, is
+     * blocked too (a flask's damage AND its silence); the next spell isn't. Damage over time never counts.
+     */
+    public void raiseBlock(UUID holder, Runnable onBlocked) { blocks.put(holder, new Block(onBlocked)); }
+
+    public void lowerBlock(UUID holder) { blocks.remove(holder); }
+
+    public boolean hasBlock(UUID holder) {
+        Block b = blocks.get(holder);
+        return b != null && b.spentAt < 0;
+    }
+
+    /** A spell's damage or debuff is about to land: true if a one-spell block eats it (see raiseBlock). */
+    public boolean blocks(EffectContext ctx) {
+        if (!(ctx.target() instanceof EntityTarget target) || target.id().equals(ctx.caster())) return false;
+        Block b = blocks.get(target.id());
+        if (b == null || ctx.execution() == null || !isSpell(ctx)) return false;
+        if (ctx.caster() == null || ctx.engine().teams().allies(ctx.caster(), target.id())) return false;
+        long now = ctx.engine().clock().now();
+        if (b.spentAt >= 0) return b.spentAt == now && ctx.caster().equals(b.spentBy); // the rest of that hit
+        b.spentAt = now;
+        b.spentBy = ctx.caster();
+        ctx.engine().combat().hit(ctx.caster(), target.id());
+        world.positionOf(target).ifPresent(p -> cues.play(BLOCK_CUE, p.world(), p.position()));
+        b.onBlocked.run();
+        return true;
+    }
 
     /** Charge stored so far (0 without a shield). */
     public double charge(UUID holder) {
@@ -61,6 +102,7 @@ public final class SpellShields {
      * effect must then deal nothing). Returns true when absorbed.
      */
     public boolean absorb(EffectContext ctx, double amount) {
+        if (blocks(ctx)) return true;
         if (!(ctx.target() instanceof EntityTarget target) || target.id().equals(ctx.caster())) return false;
         Shield s = shields.get(target.id());
         if (s == null || !isSpell(ctx)) return false;

@@ -113,6 +113,18 @@ public final class AbilityActivator {
             }
         }
 
+        // A charge of this ability that follows its input's repeats (release_gap): a repeat means still
+        // held; a fresh press lets the old charge go, then this press casts as usual.
+        for (AbilityInstance running : java.util.List.copyOf(engine.instances().of(caster))) {
+            if (running.ability().id().equals(ability.id()) && running.chargingOnRepeats()) {
+                if (!freshPress) {
+                    running.inputRepeated();
+                    return ActivationResult.ok();
+                }
+                running.release();
+            }
+        }
+
         // Recast comes first: it's free. While a window is open, a HELD key does nothing: it must never
         // recast, and (the cooldown not running yet) it must not start a second cast either.
         for (AbilityInstance running : engine.instances().of(caster)) {

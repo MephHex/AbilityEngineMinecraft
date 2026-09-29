@@ -202,6 +202,25 @@ public final class AbilityInstance {
 
     public boolean charging() { return isActive() && releaseHandler != null; }
 
+    /** A charge that watches its input's repeats (charge's release_gap): told each time the input repeats. */
+    private Runnable inputRepeat;
+
+    public void setInputRepeat(Runnable onRepeat) { this.inputRepeat = onRepeat; }
+
+    public void clearInputRepeat(Runnable onRepeat) {
+        if (inputRepeat == onRepeat) inputRepeat = null;
+    }
+
+    /** Charging, and it learns about letting go from the input's repeats stopping (not from the platform). */
+    public boolean chargingOnRepeats() { return charging() && inputRepeat != null; }
+
+    /** The held input repeated (still held). Returns false if nothing is watching. */
+    public boolean inputRepeated() {
+        if (!chargingOnRepeats()) return false;
+        inputRepeat.run();
+        return true;
+    }
+
     /** The held input was let go: fire the charge. One-shot. */
     public void release() {
         Runnable h = releaseHandler;

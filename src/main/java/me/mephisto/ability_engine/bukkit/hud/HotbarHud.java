@@ -87,6 +87,10 @@ public final class HotbarHud {
     private final Map<UUID, Map<String, String>> ccShown = new HashMap<>();
     /** Per player: the ward item last drawn ("ready" or seconds left), so it's only redrawn when it changes. */
     private final Map<UUID, String> wardShown = new HashMap<>();
+    /** Per player: what each status item slot last showed ("status:stacks", "" = nothing). */
+    private final Map<UUID, Map<Integer, String>> statusItemsShown = new HashMap<>();
+    /** Per player: whether the weapon was last drawn glinting (a glint_weapon status item). */
+    private final Map<UUID, Boolean> weaponGlint = new HashMap<>();
     /** Per player: the kit last drawn (with any form applied), so a form starting or ending redraws it. */
     private final Map<UUID, CharacterDef> renderedAs = new HashMap<>();
 
@@ -145,10 +149,13 @@ public final class HotbarHud {
             if (onWeapon(slot)) continue; // primary/secondary are described on the weapon itself
             ability(character.get(), slot).ifPresent(a -> inv.setItem(position(slot), icon(slot, a)));
         }
-        for (ResourceDef def : character.get().resources().values()) {
-            if (def.hotbarSlot() > 0) inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
+        for (ResourceDef def : visibleGauges(p.getUniqueId(), character.get()).values()) {
+            inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
         }
         drawBolts(p, character.get());
+        statusItemsShown.remove(p.getUniqueId());
+        weaponGlint.put(p.getUniqueId(), weaponGlints(p.getUniqueId(), character.get()));
+        updateStatusItems(p);
         wardShown.remove(p.getUniqueId());
         updateWard(p);
         ccShown.remove(p.getUniqueId()); // the next update puts barriers back if still crowd-controlled
@@ -166,7 +173,7 @@ public final class HotbarHud {
             for (String slot : Slots.ALL) {
                 ability(c, slot).ifPresent(a -> {
                     long remaining = engine.cooldowns().remainingTicks(id, a.id());
-                    Material m = Slots.PRIMARY.equals(slot) ? weaponMaterial(c) : iconMaterial(slot, a);
+                    Material m = Slots.PRIMARY.equals(slot) ? primarySweepMaterial(id, c, a) : iconMaterial(slot, a);
                     syncSweep(p, sent, m, now, remaining);
                 });
             }
@@ -208,6 +215,7 @@ public final class HotbarHud {
                 // A form started or ended (e.g. an ultimate that swaps the weapon and primary): redraw the kit.
                 if (!now.get().equals(renderedAs.get(p.getUniqueId()))) render(p);
                 updateGauges(p);
+                updateStatusItems(p);
                 updateWard(p);
                 updateCrowdControl(p);
                 updateGlints(p);
@@ -422,19 +430,49 @@ public final class HotbarHud {
         return tag(item, meta);
     }
 
-    /** Stack size follows the amount (1..99; Minecraft can't show 0 or more than 99), name shows the exact value. */
+    /**
+     * The resource shown in each hotbar slot right now: the first one (in the order they're declared) whose
+     * shown_while / hidden_while tags allow it, e.g. the ammo of the gun in your hand.
+     */
+    private Map<Integer, ResourceDef> visibleGauges(UUID id, CharacterDef c) {
+        Map<Integer, ResourceDef> out = new java.util.LinkedHashMap<>();
+        for (ResourceDef def : c.resources().values()) {
+            if (def.hotbarSlot() <= 0 || out.containsKey(def.hotbarSlot())) continue;
+            if (def.shownWhile() != null && !engine.tags().has(id, def.shownWhile())) continue;
+            if (def.hiddenWhile() != null && engine.tags().has(id, def.hiddenWhile())) continue;
+            out.put(def.hotbarSlot(), def);
+        }
+        return out;
+    }
+
+    /**
+     * Stack size follows the amount (1..99; Minecraft can't show 0 or more than 99), name shows the exact
+     * value. Ammo that's reloading shows a cooldown sweep for the time left.
+     */
     private void updateGauges(Player p) {
-        engine.loadouts().characterOf(p.getUniqueId()).ifPresent(c -> {
+        UUID id = p.getUniqueId();
+        engine.loadouts().characterOf(id).ifPresent(c -> {
             PlayerInventory inv = p.getInventory();
+            Map<Integer, ResourceDef> visible = visibleGauges(id, c);
+            Map<Material, Long> sent = sweepEnds.computeIfAbsent(id, k -> new HashMap<>());
+            long now = engine.clock().now();
             for (ResourceDef def : c.resources().values()) {
-                if (def.hotbarSlot() <= 0) continue;
-                int pos = def.hotbarSlot() - 1;
+                int slot = def.hotbarSlot();
+                if (slot <= 0) continue;
+                int pos = slot - 1;
                 ItemStack item = inv.getItem(pos);
-                if (!isHudItem(item)) continue;
-                int amount = gaugeAmount(p, def);
-                int shown = shownValue(p, def);
-                if (item.getAmount() != amount || !gaugeName(def, shown).equals(item.getItemMeta().displayName())) {
-                    inv.setItem(pos, gauge(p, def));
+                if (!visible.containsKey(slot)) {           // nothing to show here right now
+                    if (isHudItem(item)) inv.setItem(pos, null);
+                    continue;
+                }
+                if (visible.get(slot) != def) continue;
+                if (def.reloadTicks() > 0) {
+                    syncSweep(p, sent, gaugeMaterial(def), now, engine.resources().reloadRemaining(id, def.id()));
+                }
+                if (item == null || item.getType() != gaugeMaterial(def) // another gauge (or nothing) was there
+                        || item.getAmount() != gaugeAmount(p, def)
+                        || !gaugeName(p, def).equals(item.getItemMeta().displayName())) {
+                    if (item == null || isHudItem(item)) inv.setItem(pos, gauge(p, def));
                 }
             }
         });
@@ -448,18 +486,91 @@ public final class HotbarHud {
         return Math.max(1, Math.min(MAX_COUNT, shownValue(p, def)));
     }
 
-    private static Component gaugeName(ResourceDef def, int shown) {
+    private Component gaugeName(Player p, ResourceDef def) {
+        int shown = shownValue(p, def);
         String title = Character.toUpperCase(def.id().charAt(0)) + def.id().substring(1);
+        if (engine.resources().reloadRemaining(p.getUniqueId(), def.id()) > 0) {
+            return plain(title + ": reloading...", NamedTextColor.RED);
+        }
         return plain(title + " " + shown + "/" + (int) def.max(), shown <= 0 ? NamedTextColor.RED : NamedTextColor.AQUA);
     }
 
-    private ItemStack gauge(Player p, ResourceDef def) {
+    private static Material gaugeMaterial(ResourceDef def) {
         Material m = def.icon() == null ? null : Material.matchMaterial(def.icon());
-        ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.LAPIS_LAZULI);
+        return m != null && m.isItem() ? m : Material.LAPIS_LAZULI;
+    }
+
+    private ItemStack gauge(Player p, ResourceDef def) {
+        ItemStack item = new ItemStack(gaugeMaterial(def));
         item.setAmount(gaugeAmount(p, def));
         ItemMeta meta = item.getItemMeta();
         meta.setMaxStackSize(MAX_COUNT);
-        meta.displayName(gaugeName(def, shownValue(p, def)));
+        meta.displayName(gaugeName(p, def));
+        if (def.reloadTicks() > 0) {
+            meta.lore(List.of(plain(String.format("Reloads %.1fs after the last shot when empty", def.reloadTicks() / 20.0),
+                    NamedTextColor.GRAY)));
+        }
+        return tag(item, meta);
+    }
+
+    // ---- status items (e.g. magic rounds loaded) ------------------------------------------------
+
+    /** The first status item per slot the player has right now. */
+    private Map<Integer, CharacterDef.StatusItem> activeStatusItems(UUID id, CharacterDef c) {
+        Map<Integer, CharacterDef.StatusItem> out = new HashMap<>();
+        for (CharacterDef.StatusItem item : c.statusItems()) {
+            if (!out.containsKey(item.hotbarSlot()) && engine.statuses().has(id, item.status())) out.put(item.hotbarSlot(), item);
+        }
+        return out;
+    }
+
+    private boolean weaponGlints(UUID id, CharacterDef c) {
+        return activeStatusItems(id, c).values().stream().anyMatch(CharacterDef.StatusItem::glintWeapon);
+    }
+
+    /** Status items: shown while the status lasts, stack = its stacks; the weapon glints with glint_weapon ones. */
+    private void updateStatusItems(Player p) {
+        UUID id = p.getUniqueId();
+        Optional<CharacterDef> character = engine.loadouts().characterOf(id);
+        if (character.isEmpty() || character.get().statusItems().isEmpty()) return;
+        CharacterDef c = character.get();
+        PlayerInventory inv = p.getInventory();
+        Map<Integer, CharacterDef.StatusItem> active = activeStatusItems(id, c);
+        Map<Integer, String> shown = statusItemsShown.computeIfAbsent(id, k -> new HashMap<>());
+        for (CharacterDef.StatusItem entry : c.statusItems()) {
+            int slot = entry.hotbarSlot();
+            CharacterDef.StatusItem want = active.get(slot);
+            int stacks = want == null ? 0 : engine.statuses().find(id, want.status()).map(s -> s.stacks()).orElse(0);
+            String key = want == null ? "" : want.status() + ":" + stacks;
+            if (key.equals(shown.get(slot))) continue;
+            shown.put(slot, key);
+            ItemStack there = inv.getItem(slot - 1);
+            if (there != null && !isHudItem(there)) continue; // the player's own item: leave it
+            inv.setItem(slot - 1, want == null ? null : statusItem(want, stacks));
+        }
+        boolean glint = weaponGlints(id, c);
+        if (glint != weaponGlint.getOrDefault(id, false)) {
+            weaponGlint.put(id, glint);
+            ItemStack held = inv.getItem(WEAPON_SLOT);
+            // (a crowd-control barrier on the weapon stays; updateCrowdControl puts the weapon back, glint included)
+            if (isHudItem(held) && engine.loadouts().crowdControl(id, Slots.PRIMARY).isEmpty()) {
+                inv.setItem(WEAPON_SLOT, weapon(p, c));
+            }
+        }
+    }
+
+    private ItemStack statusItem(CharacterDef.StatusItem entry, int stacks) {
+        Material m = entry.icon() == null ? null : Material.matchMaterial(entry.icon());
+        ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.GLOWSTONE_DUST);
+        item.setAmount(Math.max(1, Math.min(MAX_COUNT, stacks)));
+        ItemMeta meta = item.getItemMeta();
+        meta.setMaxStackSize(MAX_COUNT);
+        meta.displayName(plain(entry.name() + (stacks > 0 ? " x" + stacks : ""), NamedTextColor.LIGHT_PURPLE));
+        List<Component> lore = new ArrayList<>();
+        for (String line : entry.description()) lore.add(plain(line, NamedTextColor.GRAY));
+        meta.lore(lore);
+        meta.setEnchantmentGlintOverride(true);
+        meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
         return tag(item, meta);
     }
 
@@ -494,6 +605,8 @@ public final class HotbarHud {
         wardShown.remove(p.getUniqueId());
         ccShown.remove(p.getUniqueId());
         renderedAs.remove(p.getUniqueId());
+        statusItemsShown.remove(p.getUniqueId());
+        weaponGlint.remove(p.getUniqueId());
         PlayerInventory inv = p.getInventory();
         ItemStack[] contents = inv.getContents();
         for (int i = 0; i < contents.length; i++) {
@@ -527,9 +640,29 @@ public final class HotbarHud {
         return m != null && m.isItem() ? m : Material.IRON_SWORD;
     }
 
+    /**
+     * Where the primary's cooldown sweep shows: on the item in hand, unless the primary's own icon is one of
+     * the character's weapons (two guns: the shotgun's sweep stays on the shotgun while the revolver is out).
+     */
+    private Material primarySweepMaterial(UUID id, CharacterDef c, Ability a) {
+        Material icon = a.display().icon() == null ? null : Material.matchMaterial(a.display().icon());
+        if (icon != null) {
+            java.util.Set<Material> weapons = new java.util.HashSet<>();
+            weapons.add(weaponMaterial(c));
+            engine.loadouts().baseCharacterOf(id).ifPresent(base -> weapons.add(weaponMaterial(base)));
+            for (CharacterDef.Form f : c.forms()) {
+                Material m = f.weapon() == null ? null : Material.matchMaterial(f.weapon());
+                if (m != null) weapons.add(m);
+            }
+            if (weapons.contains(icon)) return icon;
+        }
+        return weaponMaterial(c);
+    }
+
     private ItemStack weapon(Player p, CharacterDef c) {
         ItemStack item = new ItemStack(weaponMaterial(c));
         ItemMeta meta = item.getItemMeta();
+        if (weaponGlints(p.getUniqueId(), c)) meta.setEnchantmentGlintOverride(true); // magic rounds loaded
         meta.displayName(plain(c.name(), NamedTextColor.GOLD));
         meta.setUnbreakable(true);
         List<Component> lore = new ArrayList<>();

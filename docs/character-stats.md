@@ -192,21 +192,27 @@ damage (30) (see Q5).
 | Arcane Barrage: direct hit | 220 x charge (40-100%) | **730%** x charge |
 | Arcane Barrage: terrain blast | 90 x charge | **300%** x charge |
 
-### AntiMage: Melee Anti-Caster
+### AntiMage: Gunslinger Anti-Caster
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **210** | **15** (13%) | **38** | **1.10** | **1.8** (11 ticks) | 242 | 68 |
+| **210** | **15** (13%) | **38** | **1.10** | shotgun 0.7s, revolver 0.4s (their own cooldowns) | 242 | ~40 (revolver, sustained) |
 
-A fast dagger duelist who hunts casters. Null Ward (her passive) shrugs off one debuff after 6s out of
-combat, and Counterspell turns enemy spells into her own damage.
+Two guns: LMB is a shotgun (2 shells), RMB a revolver (6 bullets, hold RMB for a volley). The gun you used
+last is in your hand and its ammo shows in slot 4; an empty gun reloads by itself. Null Ward (passive) shrugs
+off one debuff after 6s out of combat; Counterspell blocks a spell and loads magic rounds.
 
 | Ability | Damage |
 |---|---|
-| Dagger Strike (primary) | **100%**; on your mark: heal **6% of your max HP**, the 3rd deals **12% of their max HP** (true) |
-| Fated Dagger | **80%**, marks for 5s (faster when running at them) |
-| Volatile Nullifier | **90%** + 2s silence, then a 4s silencing pool |
-| Counterspell: explosion (at the end of the 3s, or early on recast) | **50%** + everything absorbed (max 150); at full charge, strips their buffs |
+| Scattergun (LMB) | **130%** to everyone in a 7-block, 45 degree cone; 2 shells, reload 1.5s |
+| Six-Shooter (RMB) | **55%**, first enemy in line; hold for a volley of up to 5 more at **45%** each; 6 bullets, reload 2s |
+| Buckshot | **160%** in a 9-block, 70 degree cone, knockback, 1.5s slow; recoil throws you back; refills the shotgun |
+| Volatile Nullifier | **90%** + 2s silence, then a 4s silencing pool; caught in it yourself: speed, Null Ward ready, 3 magic rounds |
+| Counterspell | blocks the first enemy spell for 2s (damage and debuffs); blocked: speed and 3 magic rounds |
+| Powder Keg (ult) | **200%** in 5 blocks, burn **12% of their max HP** over 3s, knocked away; shoot it to set it off early |
+
+Magic rounds (the next 3 shots of either gun, or Buckshot): Blind 1.5s, Weakness 3s (-25% damage, 30% slower
+attacks) or Silence 1.5s.
 
 ### Test kits (Gunner, Pyro, Tidecaller)
 
