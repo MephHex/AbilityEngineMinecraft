@@ -63,6 +63,7 @@ public final class TagBindings implements TagListener {
         b.bind(Tags.STUNNED,
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, PotionEffect.INFINITE_DURATION, 3, false, false)),
                 e -> e.removePotionEffect(PotionEffectType.NAUSEA));
+        b.bind(Tags.SILENCED, SilenceMarker::apply, SilenceMarker::remove);   // teal ring over the head
         return b;
     }
 

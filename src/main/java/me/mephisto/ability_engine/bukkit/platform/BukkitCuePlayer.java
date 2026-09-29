@@ -33,6 +33,11 @@ import java.util.logging.Logger;
 /** Cue id -> particles/sounds. Register more with {@link #register}; unknown ids warn once. */
 public final class BukkitCuePlayer implements CuePlayer {
 
+    /** Anti-magic colour coding (silence): bright teal fading to deep cyan. */
+    public static final org.bukkit.Color ANTI_MAGIC = org.bukkit.Color.fromRGB(40, 240, 210);
+    public static final org.bukkit.Color ANTI_MAGIC_DEEP = org.bukkit.Color.fromRGB(0, 110, 130);
+
+
     private final Map<String, Consumer<Location>> cues = new HashMap<>();
     private final Set<String> warned = new HashSet<>();
     private final Logger logger;
@@ -229,19 +234,25 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.6f);
             loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_HIT, 1f, 0.8f);
         });
+        // Silence reads as anti-magic: teal / cyan, never the green of heals or the purple of spells.
         c.register("null_burst", loc -> {
-            loc.getWorld().spawnParticle(Particle.WITCH, loc, 50, 1.6, 0.5, 1.6, 0.05);
-            loc.getWorld().spawnParticle(Particle.SQUID_INK, loc, 20, 1.2, 0.3, 1.2, 0.02);
+            var teal = new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.4f);
+            loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc, 70, 1.6, 0.5, 1.6, 0, teal);
+            loc.getWorld().spawnParticle(Particle.GLOW, loc, 25, 1.4, 0.4, 1.4, 0.05);
+            loc.getWorld().spawnParticle(Particle.NAUTILUS, loc.clone().add(0, 0.8, 0), 40, 0.3, 0.3, 0.3, 1.2);
             loc.getWorld().playSound(loc, Sound.ENTITY_SPLASH_POTION_BREAK, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_CONDUIT_DEACTIVATE, 0.8f, 1.4f);
         });
         c.register("null_pool", loc -> { // the pool's edge (3 blocks), on the ground
-            var dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(120, 60, 170), 1.1f);
-            for (int i = 0; i < 28; i++) {
-                double a = Math.PI * 2 * i / 28;
+            var edge = new Particle.DustOptions(ANTI_MAGIC, 1.2f);
+            for (int i = 0; i < 32; i++) {
+                double a = Math.PI * 2 * i / 32;
                 loc.getWorld().spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * 3, loc.getY() + 0.1,
-                        loc.getZ() + Math.sin(a) * 3, 1, 0, 0, 0, 0, dust);
+                        loc.getZ() + Math.sin(a) * 3, 1, 0, 0, 0, 0, edge);
             }
-            loc.getWorld().spawnParticle(Particle.WITCH, loc, 6, 1.5, 0.1, 1.5, 0);
+            var inside = new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.0f);
+            loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc.clone().add(0, 0.15, 0), 14, 1.4, 0.05, 1.4, 0, inside);
+            loc.getWorld().spawnParticle(Particle.GLOW, loc.clone().add(0, 0.2, 0), 3, 1.4, 0.1, 1.4, 0);
         });
         c.register("dagger_infuse", loc -> {
             loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 40, 0.4, 0.8, 0.4, 0.5);
