@@ -95,7 +95,7 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
             case "cast" -> {
                 if (args.length < 2) return false;
                 ActivationResult r = engine.activator().activate(id, args[1]);
-                if (r.openedTargeting()) player.sendMessage(ChatColor.AQUA + "Aiming " + args[1] + ": left click to confirm, right click to cancel.");
+                if (r.openedTargeting()) player.sendMessage(ChatColor.AQUA + "Aiming " + args[1] + ": left click to confirm (with a character: its key again), right click to cancel.");
                 else player.sendMessage(r.success() ? ChatColor.GREEN + "Cast " + args[1] : ChatColor.RED + r.reason());
             }
             case "quickcast" -> {

@@ -134,7 +134,7 @@ abilities:
         at: hit
 
   # ---- Foldstep: aimed, channeled blink ---------------------------------------------
-  #  Press: a preview circle follows your crosshair (only you see it). Left click confirms,
+  #  Press: a preview circle follows your crosshair (only you see it). Press 2 again to confirm,
   #  right click cancels. Nothing is spent until you confirm. Always lands on the ground straight
   #  below your crosshair; the preview sits on that spot.
   #  Then: 0.5s channel (rooted, no other abilities, XP bar fills), then teleport.
@@ -445,7 +445,7 @@ characters:
       primary: arcanist_primary      # LMB
       secondary: arcanist_secondary  # hold RMB to guide the bolt
       ability_1: arcanist_ab1        # 1, press 1 again to recast
-      ability_2: arcanist_ab2        # 2, left click to confirm
+      ability_2: arcanist_ab2        # 2, press 2 again to confirm
       ability_3: arcanist_ab3        # 3, left click to place
       ultimate: arcanist_ult1        # F: Arcane Barrage
     forms:

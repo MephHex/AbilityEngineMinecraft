@@ -46,12 +46,16 @@ public final class BukkitIndicatorRenderer implements IndicatorRenderer {
 
     private final Plugin plugin;
     private final Set<UUID> hinted = new HashSet<>();
+    /** How a player confirms what they're aiming (its key, e.g. "3"); set once the keybinds exist. */
+    private java.util.function.Function<UUID, String> confirmKey = viewer -> "LMB";
     private final Map<UUID, ItemDisplay> markers = new HashMap<>();
     private final Set<UUID> markerShown = new HashSet<>();
 
     public BukkitIndicatorRenderer(Plugin plugin) {
         this.plugin = plugin;
     }
+
+    public void setConfirmKey(java.util.function.Function<UUID, String> confirmKey) { this.confirmKey = confirmKey; }
 
     @Override
     public void draw(UUID viewer, String abilityName, Targeting t, Aim from, PointTarget at, boolean valid) {
@@ -60,7 +64,8 @@ public final class BukkitIndicatorRenderer implements IndicatorRenderer {
         long now = Bukkit.getCurrentTick();
 
         if (hinted.add(viewer) || now % 20 == 0) {
-            p.sendActionBar(Component.text("Aiming " + abilityName + "  ·  LMB confirm  ·  RMB cancel", NamedTextColor.AQUA));
+            String key = confirmKey.apply(viewer);
+            p.sendActionBar(Component.text("Aiming " + abilityName + "  ·  " + key + " confirm  ·  RMB cancel", NamedTextColor.AQUA));
         }
         if (now % 2 != 0) return;
 

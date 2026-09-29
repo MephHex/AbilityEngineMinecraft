@@ -2,8 +2,8 @@ package me.mephisto.ability_engine.engine.targeting;
 
 /**
  * An ability's aiming preview. Abilities with one open a targeting session on press: a preview
- * follows the crosshair, LMB confirms, RMB cancels, the ability's own key does nothing (key repeat
- * makes it unsafe as a confirm). The confirmed spot is written to the blackboard as "aim".
+ * follows the crosshair; the ability's own key again confirms, RMB cancels. (The input layer does the
+ * confirming: it tells a second press from a held key's auto-repeat; the engine's activate() ignores it.) The confirmed spot is written to the blackboard as "aim".
  * Cooldown and costs are only spent on confirm.
  *
  * @param range        max distance of the aim point from the caster's eyes

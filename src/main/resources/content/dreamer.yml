@@ -146,8 +146,8 @@ abilities:
         at: echo_rush_start
         to: echo_rush_end
 
-  # 3: aim, then place a Dream Echo (a mannequin with your skin) on that spot, for 10s: left click
-  # places it, right click cancels. Recast (press 3 again) to swap places with it. While it's out,
+  # 3: aim, then place a Dream Echo (a mannequin with your skin) on that spot, for 10s: press 3
+  # again to place it, right click cancels. Recast (press 3 again) to swap places with it. While it's out,
   # Crescent Rush makes it dash too.
   dream_echo:
     cooldown: 360                    # 18s, starts once you swap or the echo fades
