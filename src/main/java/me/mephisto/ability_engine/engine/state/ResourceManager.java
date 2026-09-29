@@ -20,7 +20,11 @@ public final class ResourceManager {
         double value;
         long updatedAt;           // tick the value was last brought up to date
         long lastSpend = Long.MIN_VALUE / 2;
+        long heldAt = Long.MIN_VALUE / 2; // last holdReload: still in use (a volley in hand or firing)
     }
+
+    /** A holdReload this recent still counts as in use (volley bullets go every 3 ticks). */
+    private static final long HELD_TICKS = 3;
 
     private final GameClock clock;
     private final Map<UUID, Map<String, Pool>> pools = new HashMap<>();
@@ -62,6 +66,18 @@ public final class ResourceManager {
         p.lastSpend = clock.now();
     }
 
+    /**
+     * Restart the regen delay and the reload timer as if some was spent just now, without spending any
+     * (e.g. while a volley of already-loaded bullets is still firing, the gun doesn't reload yet).
+     */
+    public void holdReload(UUID owner, String resource) {
+        Pool p = pool(owner, resource);
+        if (p == null) return;
+        update(p);
+        p.lastSpend = clock.now();
+        p.heldAt = clock.now();
+    }
+
     public void add(UUID owner, String resource, double amount) {
         Pool p = poolOrCreate(owner, resource);
         update(p);
@@ -97,12 +113,16 @@ public final class ResourceManager {
 
     // ---- internals ----------------------------------------------------------------------------
 
-    /** Ammo reloading right now (empty, with a reload time): ticks until it's full again; 0 otherwise. */
+    /**
+     * Ammo reloading right now (empty, with a reload time): ticks until it's full again; 0 otherwise, also
+     * while it's held (holdReload in the last few ticks: a volley still in hand or firing).
+     */
     public long reloadRemaining(UUID owner, String resource) {
         Pool p = pool(owner, resource);
         if (p == null || p.def == null || p.def.reloadTicks() <= 0) return 0;
         update(p);
         if (p.value >= 1 - 1e-9) return 0;
+        if (clock.now() - p.heldAt <= HELD_TICKS) return 0;
         return Math.max(0, p.lastSpend + p.def.reloadTicks() - clock.now());
     }
 
