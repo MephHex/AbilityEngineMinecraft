@@ -402,6 +402,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **start_line** `{ cue, to, every }`: keep drawing a line cue from the caster to `to` every `every` ticks
   (default 2) while the cast lasts: a target, or a projectile stored with `store:` (it follows it in flight
   and stops when it lands), e.g. the Golem's chain.
+- **dash:** `stop_short: 1.5` - with `to:`, stop that many blocks before it. With `mover: hit, to: caster`
+  it drags whoever was hit to the caster (Groundbreaker).
 - **shield:** `lasts: <ticks>` - whatever is left of the shield disappears that long after the last one given.
 - **Cues:** barrier_break, golem_swing, anchor_throw, anchor_chain (line), anchor_land, rust_step,
   rust_burst, conduction_slam, shockwave_2 / _4 / _6 / _8 (rings of that radius), rod_charge,

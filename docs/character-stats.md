@@ -226,7 +226,7 @@ enemy basic attacks landing on him take 0.5s off his abilities' cooldowns.
 | Ability | Damage |
 |---|---|
 | Anchor Swing (primary) | **100%** in a wide 3.5-block arc |
-| Groundbreaker | **90%** + 1s stun, pulled to them; on a block: a grappling hook |
+| Groundbreaker | **90%** + 1s stun, and the chain drags them to him |
 | Rustbreaker | shield up to 120 over 2s (slower and slower), 1s stun on himself, then **130%** (4.5 blocks) + 2s disarm |
 | Conduction Field | **80%** + knock-up, a ring rolling out to 8 blocks |
 | Lightning Rod (ult) | **220%** (5 blocks) + 2s paralysis, then 6s: faster, a field that deals **30%** every 0.5s and keeps them paralyzed |

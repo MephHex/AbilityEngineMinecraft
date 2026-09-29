@@ -111,7 +111,7 @@ class CopperGolemTest {
     // ---- Ability 1: Groundbreaker ------------------------------------------------------------------
 
     @Test
-    void theHookStunsWhoItHitsAndPullsHimToThem() throws IOException {
+    void theHookStunsWhoItHitsAndDragsThemToHim() throws IOException {
         setup();
         t.world.move(enemy, new Vec3(12, 1, 0));
         use(Slots.ABILITY_1);
@@ -121,18 +121,28 @@ class CopperGolemTest {
         assertEquals(34 * 0.9, t.damage(enemy), 1e-9);
         assertTrue(t.engine.tags().has(enemy, Tags.STUNNED));
         t.time.advance(15);
-        assertTrue(pos(p).x() > 8, "pulled over to them: " + pos(p));
+        assertEquals(0, pos(p).x(), 1e-9, "he stays where he is");
+        assertEquals(1.5, pos(enemy).x(), 0.8, "they're dragged to just in front of him: " + pos(enemy));
         assertTrue(t.render.cues.contains("anchor_land"));
     }
 
     @Test
-    void onABlockItsAGrapplingHook() throws IOException {
+    void terrainJustStopsIt() throws IOException {
         setup();
         t.world.move(enemy, new Vec3(30, 1, 30));            // out of the way
         t.world.look(p, new Vec3(8, -1, 0));                 // at the ground ahead
         use(Slots.ABILITY_1);
         t.time.advance(30);
-        assertTrue(pos(p).x() > 5, "pulled to where it bit in: " + pos(p));
+        assertEquals(0, pos(p).x(), 1e-9, "no grappling: he stays put");
+        assertTrue(t.render.cues.contains("anchor_land"), "it clanks off the ground");
+    }
+
+    @Test
+    void aRootDoesntStopTheHook() throws IOException {
+        setup();
+        t.engine.statuses().apply(p, "root", 40, enemy);
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "rooted");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_1).success(), "it moves them, not him");
     }
 
     // ---- Ability 2: Rustbreaker --------------------------------------------------------------------

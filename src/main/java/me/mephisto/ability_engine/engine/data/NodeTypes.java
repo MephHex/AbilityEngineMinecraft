@@ -65,7 +65,7 @@ public final class NodeTypes {
         t.register("dash", (p, e) -> new DashNode(
                 p.getDouble("speed", 1.2), p.requireDouble("range"), p.getDouble("radius", 0.6), p.getBool("flat", false),
                 p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p),
-                p.getString("mover", null), towardCursor(p), p.getString("to", null)));
+                p.getString("mover", null), towardCursor(p), p.getString("to", null), p.getDouble("stop_short", 0)));
         // ---- Vanguard: leaps, tethers, mid-cast aiming, manual cooldowns ----
         t.register("leap", (p, e) -> {
             me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode.Direction dir;
