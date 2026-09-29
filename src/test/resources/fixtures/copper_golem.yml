@@ -70,6 +70,8 @@ abilities:
         size: 0.5
         lifetime: 12                 # about 20 blocks
         visual: COPPER_PICKAXE
+        visual_size: 0.8             # the pick you see (the hitbox stays 0.5)
+        face_flight: true            # flies head first
         store: pick                  # (for the chain that follows it)
         on: { spawned: throw_cue, hit_entity: hooked, hit_block: clank }
       throw_cue:
@@ -273,9 +275,11 @@ abilities:
   # ULTIMATE (F): Lightning Rod. Channel for 1.5s (slowed), then lightning strikes you: 220% base damage to
   # everyone within 5 blocks, and they're paralyzed (slowed, slower attacks) for 2s. Then for 6s you're
   # charged: faster, an electric field (5 blocks) around you damages enemies inside every 0.5s (30% base
-  # damage) and keeps them paralyzed, and Rustbreaker rusts in 0.8s with only a 0.5s stun.
+  # damage) and keeps them paralyzed. You're silenced the whole time (channel and field: no abilities,
+  # basic attacks still work).
   golem_ult1:
     cooldown: 900                    # placeholder until ults charge from damage
+    active_tags: [state.silenced]    # a self-silence for the whole ult (it ends with it)
     display:
       name: "Lightning Rod"
       icon: LIGHTNING_ROD
@@ -284,7 +288,7 @@ abilities:
         - "base damage (5 blocks) and paralysis. 6s:"
         - "faster, and an electric field around you"
         - "shocks and paralyzes enemies inside."
-        - "Rustbreaker: quicker, 0.5s stun."
+        - "You're silenced the whole time."
     nodes:
       channel:
         type: apply_effects

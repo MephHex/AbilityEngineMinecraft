@@ -23,6 +23,8 @@ import java.util.List;
  * @param slide          out of bounces, landing on the ground doesn't stop it: it slides, keeping this
  *                       share (0..1) of its speed each tick on the ground, and stops (hit_block) when it's
  *                       nearly still or hits a wall. 0 = it stops where it lands
+ * @param visualSize     the visual's scale when it should differ from the hitbox (0 = {@code size})
+ * @param faceFlight     the visual turns to point along its flight (a thrown pickaxe, head first)
  */
 public record ProjectileSpec(
         double speed,
@@ -38,7 +40,9 @@ public record ProjectileSpec(
         double spreadDegrees,
         double range,
         int pierce,
-        double slide
+        double slide,
+        double visualSize,
+        boolean faceFlight
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
@@ -46,6 +50,9 @@ public record ProjectileSpec(
     }
 
     public static Builder builder() { return new Builder(); }
+
+    /** The visual's scale: {@code visual_size}, or the hitbox size. */
+    public double shownSize() { return visualSize > 0 ? visualSize : size; }
 
     /**
      * Velocity after hitting a surface with unit normal {@code n}, or null if it's too slow to bounce.
@@ -81,6 +88,8 @@ public record ProjectileSpec(
         private double range = 0;
         private int pierce = 0;
         private double slide = 0;
+        private double visualSize = 0;
+        private boolean faceFlight = false;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -96,10 +105,12 @@ public record ProjectileSpec(
         public Builder range(double v) { range = v; return this; }
         public Builder pierce(int v) { pierce = v; return this; }
         public Builder slide(double v) { slide = v; return this; }
+        public Builder visualSize(double v) { visualSize = v; return this; }
+        public Builder faceFlight(boolean v) { faceFlight = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
-                    motion, visual, count, spreadDegrees, range, pierce, slide);
+                    motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight);
         }
     }
 }

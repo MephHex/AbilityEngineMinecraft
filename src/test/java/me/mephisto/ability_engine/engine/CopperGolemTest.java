@@ -213,6 +213,8 @@ class CopperGolemTest {
         UUID outside = foe(8, 0);
         use(Slots.ULTIMATE);
         assertTrue(t.engine.tags().has(p, Tags.SLOWED), "channeling");
+        assertTrue(t.engine.tags().has(p, Tags.SILENCED), "a self-silence");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_3).success(), "no abilities");
         t.time.advance(29);
         assertEquals(0, t.damage(enemy), 1e-9);
         t.time.advance(1);
@@ -221,6 +223,8 @@ class CopperGolemTest {
         assertEquals(0, t.damage(outside), 1e-9);
         assertTrue(t.engine.tags().has(p, Tags.HASTED), "faster");
         assertTrue(t.engine.tags().has(p, "state.lightning_rod"));
+        assertTrue(t.engine.tags().has(p, Tags.SILENCED), "still silenced in the field");
+        assertTrue(t.engine.loadouts().crowdControl(p, Slots.PRIMARY).isEmpty(), "basic attacks still work");
 
         t.time.advance(60);                                  // 3s in the field: 6 more pulses
         assertEquals(34 * 2.2 + 7 * 34 * 0.3, t.damage(enemy), 1e-6);
@@ -228,6 +232,7 @@ class CopperGolemTest {
         t.time.advance(61);
         assertFalse(t.engine.instances().isRunning(p, "golem_ult1"), "6s: over");
         assertFalse(t.engine.tags().has(p, "state.lightning_rod"));
+        assertFalse(t.engine.tags().has(p, Tags.SILENCED), "the silence ends with it");
         double after = t.damage(enemy);
         t.time.advance(20);
         assertEquals(after, t.damage(enemy), 1e-9, "no more pulses");
