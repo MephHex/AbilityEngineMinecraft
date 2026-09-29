@@ -303,8 +303,9 @@ abilities:
 
   # 3: a spell shield all around you for 3s: SPELL damage (abilities, damage over time) is absorbed and
   # stored as charge (up to 150); basic attacks and vanilla hits still land. You're slowed meanwhile. Press 3
-  # again (the icon glints): explode for 50% base damage + everything you stored, within 4.5 blocks. At max
-  # charge the explosion also strips every buff from the enemies it hits. Not recast: the charge fades.
+  # again (the icon glints) to explode early; otherwise it explodes by itself when the 3s run out: 50% base
+  # damage + everything you stored, within 4.5 blocks. At max charge it also strips every buff from the
+  # enemies it hits.
   antimage_ab3:
     cooldown: 280                    # 14s, once it's over
     display:
@@ -313,8 +314,8 @@ abilities:
       description:
         - "3s: absorb all spell damage as charge"
         - "(basic attacks still hit); you're slowed."
-        - "Press again: explode for 50% base damage"
-        - "+ the charge. Full charge: strips buffs."
+        - "Explodes at the end (or press again): 50%"
+        - "base damage + the charge. Full: strips buffs."
     active_tags: [state.slowed, state.spellshield]
     nodes:
       raise:
@@ -332,11 +333,9 @@ abilities:
         type: delay
         ticks: 60                    # 3s
         cast_bar: true
-        next: fade
-      fade:
-        type: end_cast               # not recast: the charge fades
+        next: measure                # time's up: it explodes by itself
       wait:
-        type: await_recast
+        type: await_recast           # or explode early
         window: 60
         on: { recast: measure }
       measure:

@@ -206,7 +206,7 @@ combat, and Counterspell turns enemy spells into her own damage.
 | Dagger Strike (primary) | **100%**; on your mark: heal **6% of your max HP**, the 3rd deals **12% of their max HP** (true) |
 | Fated Dagger | **80%**, marks for 5s (faster when running at them) |
 | Volatile Nullifier | **90%** + 2s silence, then a 4s silencing pool |
-| Counterspell: explosion | **50%** + everything absorbed (max 150); at full charge, strips their buffs |
+| Counterspell: explosion (at the end of the 3s, or early on recast) | **50%** + everything absorbed (max 150); at full charge, strips their buffs |
 
 ### Test kits (Gunner, Pyro, Tidecaller)
 

@@ -250,12 +250,18 @@ class AntiMageTest {
     }
 
     @Test
-    void notRecastTheChargeFades() throws IOException {
+    void notRecastItExplodesByItselfWhenTimeRunsOut() throws IOException {
         setup();
         t.engine.loadouts().activate(p, Slots.ABILITY_3);
         hit(true);
-        t.time.advance(61);
-        assertFalse(t.engine.spellShields().has(p));
-        assertEquals(0, t.damage(enemy), 1e-9, "no explosion");
+        t.time.advance(59);
+        assertEquals(0, t.damage(enemy), 1e-9, "not yet");
+        t.time.advance(2);
+        assertEquals(38 * 0.5 + 100, t.damage(enemy), 1e-9, "the 3s ran out: it went off");
+        assertFalse(t.engine.spellShields().has(p), "the shield is down");
+        assertFalse(t.engine.tags().has(p, Tags.SLOWED));
+        t.time.advance(20);
+        assertEquals(38 * 0.5 + 100, t.damage(enemy), 1e-9, "once");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "antimage_ab3") > 0, "on cooldown");
     }
 }
