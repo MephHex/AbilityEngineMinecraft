@@ -172,7 +172,8 @@ abilities:
   # and the shield comes down.
   vanguard_ab3:
     cooldown: 240                    # 12s, once the shield is down
-    movement: false                  # raising a shield works while rooted (the rush checks for itself)
+    movement: false                  # raising a shield works while rooted (the rush is the recast, below)
+    recast_movement: true            # Shield Rush moves you: not while rooted (the window stays open)
     display:
       name: "Bulwark"
       icon: SHIELD

@@ -5,6 +5,7 @@ import me.mephisto.ability_engine.engine.ability.Ability;
 import me.mephisto.ability_engine.engine.ability.AbilityInstance;
 
 import me.mephisto.ability_engine.engine.graph.Keys;
+import me.mephisto.ability_engine.engine.tag.Tags;
 import me.mephisto.ability_engine.engine.targeting.AimPoint;
 import me.mephisto.ability_engine.engine.target.PointTarget;
 import me.mephisto.ability_engine.engine.target.Target;
@@ -119,6 +120,10 @@ public final class AbilityActivator {
                 if (!freshPress) return ActivationResult.fail("held");
                 String blocking = engine.tags().firstMatch(caster, ability.blockedBy());
                 if (blocking != null) return ActivationResult.fail("blocked:" + blocking);
+                // A recast that moves you (a swap, a charge) waits out a root; the window stays open.
+                if (ability.recastMovement() && engine.tags().has(caster, Tags.BLOCK_MOVE)) {
+                    return ActivationResult.fail("blocked:" + Tags.BLOCK_MOVE);
+                }
                 running.recast();
                 return ActivationResult.ok();
             }

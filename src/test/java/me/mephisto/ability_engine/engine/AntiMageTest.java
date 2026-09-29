@@ -187,6 +187,21 @@ class AntiMageTest {
     }
 
     @Test
+    void thePoolStaysWhereItBurstNotOnWhoeverItHit() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(4, 1, 0));             // a direct hit
+        t.engine.loadouts().activate(p, Slots.ABILITY_2);
+        t.time.advance(10);
+        assertTrue(t.engine.tags().has(enemy, Tags.SILENCED));
+        t.world.move(enemy, new Vec3(20, 1, 0));            // they run
+        UUID late = t.spawn(4, 1, 0);                       // someone walks onto the spot
+        t.world.team(late, "red");
+        t.time.advance(50);                                 // past the burst's 2s silence
+        assertFalse(t.engine.tags().has(enemy, Tags.SILENCED), "the pool didn't follow them");
+        assertTrue(t.engine.tags().has(late, Tags.SILENCED), "it's still on the ground where it burst");
+    }
+
+    @Test
     void caughtInYourOwnFlaskFasterWardReadyAndOneDaggerInfusion() throws IOException {
         setup();
         t.engine.statuses().apply(p, "slow", 20, enemy); // the ward is used up

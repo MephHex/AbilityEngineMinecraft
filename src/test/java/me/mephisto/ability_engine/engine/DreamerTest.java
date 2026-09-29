@@ -229,6 +229,22 @@ class DreamerTest {
     }
 
     @Test
+    void rootedTheSwapWaitsTheWindowStaysOpen() throws IOException {
+        setup();
+        UUID echo = placeEcho();
+        Vec3 echoWas = pos(echo);
+        t.engine.statuses().apply(p, "root", 20, null);
+        assertEquals(java.util.Optional.of(Tags.ROOTED), t.engine.loadouts().crowdControl(p, Slots.ABILITY_3),
+                "the icon shows the barrier");
+        assertEquals("blocked:block.move", t.engine.loadouts().activate(p, Slots.ABILITY_3).reason());
+        assertEquals(new Vec3(0, 1, 0), pos(p), "no swap while rooted");
+        assertTrue(t.engine.instances().awaitingRecast(p, "dream_echo"), "the recast isn't used up");
+        t.time.advance(21);
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
+        assertEquals(echoWas, pos(p), "root over: swapped");
+    }
+
+    @Test
     void theEchoSpawnsFacingHer() throws IOException {
         setup();
         UUID echo = placeEcho();                         // ~4 blocks ahead of her (+x)

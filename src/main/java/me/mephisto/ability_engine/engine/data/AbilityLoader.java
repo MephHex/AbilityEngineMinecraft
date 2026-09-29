@@ -329,6 +329,7 @@ public final class AbilityLoader {
                 .survivesDeath(p.getBool("survives_death", false))
                 .refreshOnKill(refreshOnKill(p))
                 .charges(charges(p))
+                .recastMovement(p.getBool("recast_movement", false))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))

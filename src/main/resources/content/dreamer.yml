@@ -151,6 +151,7 @@ abilities:
   # Crescent Rush makes it dash too.
   dream_echo:
     cooldown: 360                    # 18s, starts once you swap or the echo fades
+    recast_movement: true            # the swap moves you: not while rooted (the window stays open)
     display:
       name: "Dream Echo"
       icon: ARMOR_STAND

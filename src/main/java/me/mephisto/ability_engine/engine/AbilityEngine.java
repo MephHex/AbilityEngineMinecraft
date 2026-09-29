@@ -86,7 +86,7 @@ public final class AbilityEngine {
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
         this.quivers = new QuiverManager(tags, statuses,
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
-        this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags, abilities);
+        this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags, abilities, instances);
         this.targeting = new TargetingManager(this);
         this.stats = new me.mephisto.ability_engine.engine.stats.StatSheets(loadouts, platform.world());
         this.combat = new me.mephisto.ability_engine.engine.combat.CombatTracker(platform.clock());

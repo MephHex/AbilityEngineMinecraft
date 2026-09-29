@@ -297,6 +297,21 @@ class VanguardTest {
         assertFalse(t.engine.tags().has(p, Tags.SLOWED));
     }
 
+    @Test
+    void rootedShieldRushWaitsButTheShieldStillGoesUp() throws IOException {
+        setup();
+        UUID first = enemy(5, 0);
+        t.engine.statuses().apply(p, "root", 20, null);
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success(), "raising the shield works rooted");
+        assertEquals(java.util.Optional.of(Tags.ROOTED), t.engine.loadouts().crowdControl(p, Slots.ABILITY_3));
+        assertEquals("blocked:block.move", t.engine.loadouts().activate(p, Slots.ABILITY_3).reason());
+        assertTrue(t.engine.barriers().has(p), "the shield stays up");
+        t.time.advance(21);
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success(), "root over: the rush");
+        t.time.advance(10);
+        assertTrue(t.engine.tags().has(first, Tags.STUNNED));
+    }
+
     // ---- Ultimate: Hero's Descent -------------------------------------------------------------------
 
     /** Launch, wait for the top of the arc: the landing preview opens. */

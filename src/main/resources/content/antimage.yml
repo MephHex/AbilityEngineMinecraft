@@ -211,13 +211,18 @@ abilities:
         visual: LINGERING_POTION
         motion:
           - { type: gravity, amount: 0.05 }
-        on: { spawned: toss, hit_entity: burst, hit_block: burst }
+        on: { spawned: toss, hit_entity: pin, hit_block: pin }
       toss:
         type: play_cue
         cue: flask_throw
+      pin:
+        type: remember_spot          # where it burst, on the ground: the pool stays HERE (not on whoever it hit)
+        of: hit
+        store: spot
+        next: burst
       burst:
         type: apply_effects
-        targets: { type: radius, center: hit, radius: 3.5 }
+        targets: { type: radius, center: spot, radius: 3.5 }
         effects:
           - { id: damage, base: 0.9 }             # 90% base damage
           - { id: status, status: silence, duration: 40 }   # 2s
@@ -225,11 +230,11 @@ abilities:
       burst_cue:
         type: play_cue
         cue: null_burst
-        at: hit
+        at: spot
         next: caught
       caught:
         type: in_range               # were YOU in the burst?
-        center: hit
+        center: spot
         radius: 3.5
         on: { inside: rush, outside: pool }
       rush:
@@ -287,14 +292,14 @@ abilities:
         type: end_cast
       pulse:
         type: apply_effects          # standing in the pool: silenced
-        targets: { type: radius, center: hit, radius: 3 }
+        targets: { type: radius, center: spot, radius: 3 }
         effects:
           - { id: status, status: silence, duration: 15 }
         next: pulse_cue
       pulse_cue:
         type: play_cue
         cue: null_pool               # (drawn at 3 blocks: keep it in step with the radius above)
-        at: hit
+        at: spot
         next: pulse_wait
       pulse_wait:
         type: delay

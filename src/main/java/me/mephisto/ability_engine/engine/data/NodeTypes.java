@@ -147,6 +147,8 @@ public final class NodeTypes {
             if (ports.size() < 2) throw p.error("on", "give at least two ports to pick from");
             return new me.mephisto.ability_engine.engine.nodes.control.RandomNode(ports);
         });
+        t.register("remember_spot", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.RememberSpotNode(
+                p.requireString("of"), p.requireString("store"), p.getBool("ground", true)));
         t.register("ward_reset", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.WardResetNode());
         t.register("spell_shield", (p, e) -> {
             double max = p.requireDouble("max");
