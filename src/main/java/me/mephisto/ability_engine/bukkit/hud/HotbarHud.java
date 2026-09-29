@@ -143,7 +143,7 @@ public final class HotbarHud {
 
         for (String slot : Slots.ALL) {
             if (onWeapon(slot)) continue; // primary/secondary are described on the weapon itself
-            ability(character.get(), slot).ifPresent(a -> inv.setItem(position(slot), icon(slot, a)));
+            ability(character.get(), slot).ifPresent(a -> inv.setItem(position(slot), unseenInHand(slot, icon(slot, a))));
         }
         for (ResourceDef def : character.get().resources().values()) {
             if (def.hotbarSlot() > 0) inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
@@ -367,7 +367,7 @@ public final class HotbarHud {
                 inv.setItem(WEAPON_SLOT, cc.isEmpty() ? weapon(p, c) : barrier(c.name(), cc));
             } else if (!onWeapon(slot)) {
                 Ability a = ability(c, slot).get();
-                inv.setItem(position(slot), cc.isEmpty() ? icon(slot, a) : barrier(a.display().name(), cc));
+                inv.setItem(position(slot), unseenInHand(slot, cc.isEmpty() ? icon(slot, a) : barrier(a.display().name(), cc)));
             }
         }
         refresh(p); // counters and sweeps back on the restored icons
@@ -584,6 +584,19 @@ public final class HotbarHud {
         }
         meta.lore(lore);
         return tag(item, meta);
+    }
+
+    /**
+     * The offhand (the ultimate's icon) would show the item in the player's left hand, first and third
+     * person. There it gets vanilla's empty model (minecraft:air): nothing is drawn, in the hand or the
+     * slot, but the slot still shows the cooldown count and sweep, and the tooltip still works.
+     */
+    private ItemStack unseenInHand(String slot, ItemStack item) {
+        if (position(slot) != OFFHAND_SLOT) return item;
+        ItemMeta meta = item.getItemMeta();
+        meta.setItemModel(NamespacedKey.minecraft("air"));
+        item.setItemMeta(meta);
+        return item;
     }
 
     private ItemStack tag(ItemStack item, ItemMeta meta) {
