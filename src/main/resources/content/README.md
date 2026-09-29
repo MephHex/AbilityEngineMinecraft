@@ -206,9 +206,14 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **Dash:** `to: <key>` dashes straight to a stored spot and stops there (or where it touches the ground).
 - **Barrier:** `projectiles_only: true` only stops projectiles (rays, dashes and melee pass).
 - **Statuses:** `damage_dealt: 1.25` (+25% damage dealt), `damage_taken: 0.8` (20% less damage taken).
-  They apply to every hit, vanilla ones too.
+  They apply to every hit, vanilla ones too. `attack_speed: 0.6` makes the holder's basic attacks
+  (primary / melee) 40% slower: their cooldown is divided by it, and a crossbow must be drawn 1/0.6 as
+  long before it loads (Hunter's Paralysis). Above 1 is faster.
+- **Status particles:** anyone with `state.silenced` gets a teal ring over the head, `state.poisoned`
+  green poison swirls, `state.paralyzed` yellow sparks (teal / cyan = anti-magic: silence, Counterspell,
+  Null Ward).
 - **Buffs** (what tethers with `copy_positive` copy, like Radiant Bond): any status with a **`buff.*` tag**
-  (e.g. `tags: [state.hasted, buff.tonic]`), on-hit effects, `damage_dealt` above 1 or `damage_taken` below 1.
+  (e.g. `tags: [state.hasted, buff.tonic]`), on-hit effects, `damage_dealt` above 1, `damage_taken` below 1 or `attack_speed` above 1.
   `positive: true` / `positive: false` overrides it: e.g. Soul Rend's charge and Hunter's Rhythm have a
   `buff.*` tag, but they're `positive: false` so they aren't shared. Beneficial vanilla potion effects
   (drunk potions, beacons, /effect) are copied too. Buffs that only exist while an ability runs (its

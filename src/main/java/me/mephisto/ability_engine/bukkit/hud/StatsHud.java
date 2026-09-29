@@ -181,21 +181,31 @@ public final class StatsHud {
         UUID id = p.getUniqueId();
         var character = engine.loadouts().baseCharacterOf(id).orElse(null);
         boolean crossbow = character != null && character.quiver() != null && "CROSSBOW".equalsIgnoreCase(character.weapon());
+        double slowed = engine.stats().attackSpeedMultiplier(id); // Paralysis: 0.6
+        String why = slowed == 1 ? null : String.format("Right now x%.2f (slowed attacks)", slowed);
         if (crossbow) {
             if (engine.quivers().rapidFire(id)) {
-                double perSecond = primaryCooldown(character).map(t -> 20.0 / t).orElse(0.0);
+                double perSecond = primaryCooldown(character).map(t -> 20.0 / t).orElse(0.0) * slowed;
                 return new Stat(Material.FEATHER, "Draw speed: rapid fire", NamedTextColor.GREEN,
-                        List.of(String.format("No drawing: %.1f shots a second", perSecond)));
+                        lines(why, String.format("No drawing: %.1f shots a second", perSecond)));
             }
             int quickCharge = engine.quivers().reloadSpeed(id);
-            double draw = Math.max(0, 1.25 - 0.25 * quickCharge);
-            return new Stat(Material.FEATHER, String.format("Draw time: %.2fs", draw), NamedTextColor.GREEN, List.of(
+            double draw = Math.max(0, 1.25 - 0.25 * quickCharge) / slowed;
+            return new Stat(Material.FEATHER, String.format("Draw time: %.2fs", draw), NamedTextColor.GREEN, lines(why,
                     "Quick Charge " + quickCharge + " (Hunter's Rhythm makes", "it faster)"));
         }
-        double perSecond = sheet.attackSpeed() > 0 ? sheet.attackSpeed()
-                : character == null ? 0 : primaryCooldown(character).map(t -> 20.0 / t).orElse(0.0);
+        double perSecond = (sheet.attackSpeed() > 0 ? sheet.attackSpeed()
+                : character == null ? 0 : primaryCooldown(character).map(t -> 20.0 / t).orElse(0.0)) * slowed;
         return new Stat(Material.FEATHER, String.format("Attack speed: %.2f/s", perSecond), NamedTextColor.GREEN,
-                List.of("Basic attacks per second"));
+                lines(why, "Basic attacks per second"));
+    }
+
+    /** The lines, with an extra first one when there is a reason to show. */
+    private static List<String> lines(String first, String... rest) {
+        List<String> out = new ArrayList<>();
+        if (first != null) out.add(first);
+        out.addAll(List.of(rest));
+        return out;
     }
 
     private java.util.Optional<Integer> primaryCooldown(CharacterDef character) {
