@@ -209,7 +209,7 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
   They apply to every hit, vanilla ones too. `attack_speed: 0.6` makes the holder's basic attacks
   (primary / melee) 40% slower: their cooldown is divided by it, and a crossbow must be drawn 1/0.6 as
   long before it loads (Hunter's Paralysis). Above 1 is faster.
-- **Status particles:** anyone with `state.silenced` gets a teal ring over the head, `state.poisoned`
+- **Status particles:** anyone with `state.silenced` gives off teal wisps fading to near-black, `state.poisoned`
   green poison swirls, `state.paralyzed` yellow sparks (teal / cyan = anti-magic: silence, Counterspell,
   Null Ward).
 - **Buffs** (what tethers with `copy_positive` copy, like Radiant Bond): any status with a **`buff.*` tag**

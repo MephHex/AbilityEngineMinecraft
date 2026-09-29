@@ -16,7 +16,7 @@ import java.util.function.BiConsumer;
 
 /**
  * Particles on an entity for as long as it has a tag, so everyone can read its state at a glance:
- * silenced (a teal ring over the head: teal / cyan is the anti-magic colour), poisoned (green poison
+ * silenced (teal wisps fading to near-black: teal / cyan is the anti-magic colour), poisoned (green poison
  * swirls, like the vanilla effect), paralyzed (yellow sparks crackling over the body).
  */
 final class StatusAuras {
@@ -31,7 +31,7 @@ final class StatusAuras {
 
     /** Bind the auras. */
     static void bindAll(TagBindings b) {
-        bind(b, me.mephisto.ability_engine.engine.tag.Tags.SILENCED, 3, StatusAuras::silenced);
+        bind(b, me.mephisto.ability_engine.engine.tag.Tags.SILENCED, 4, StatusAuras::silenced);
         bind(b, me.mephisto.ability_engine.engine.tag.Tags.POISONED, 4, StatusAuras::poisoned);
         bind(b, me.mephisto.ability_engine.engine.tag.Tags.PARALYZED, 3, StatusAuras::paralyzed);
     }
@@ -61,17 +61,13 @@ final class StatusAuras {
         if (tasks.isEmpty()) RUNNING.remove(entity);
     }
 
-    /** A small spinning teal ring over the head. */
+    /** Teal wisps fading to near-black cyan, drifting up off the body, like the Null Flask's burst. */
     private static void silenced(LivingEntity e, int step) {
-        var teal = new Particle.DustTransition(BukkitCuePlayer.ANTI_MAGIC, BukkitCuePlayer.ANTI_MAGIC_DEEP, 0.7f);
-        Location top = e.getLocation().add(0, e.getHeight() + 0.35, 0);
-        double spin = step * 0.35;
-        for (int i = 0; i < 6; i++) {
-            double a = spin + Math.PI * 2 * i / 6;
-            e.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, top.getX() + Math.cos(a) * 0.45, top.getY(),
-                    top.getZ() + Math.sin(a) * 0.45, 1, 0, 0, 0, 0, teal);
-        }
-        if (step % 5 == 0) e.getWorld().spawnParticle(Particle.GLOW, top, 1, 0.2, 0.05, 0.2, 0);
+        var teal = new Particle.DustTransition(BukkitCuePlayer.ANTI_MAGIC, BukkitCuePlayer.ANTI_MAGIC_DARK, 0.9f);
+        Location body = e.getLocation().add(0, e.getHeight() * 0.5, 0);
+        double w = e.getWidth() * 0.5;
+        e.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, body, 4, w, e.getHeight() * 0.4, w, 0, teal);
+        if (step % 4 == 0) e.getWorld().spawnParticle(Particle.GLOW, body, 1, w, e.getHeight() * 0.3, w, 0);
     }
 
     /** Vanilla-style poison swirls rising off the body, and now and then a green drip. */

@@ -66,10 +66,10 @@ statuses:
       every: 10                      # ...3% of their max HP every 0.5s = 18% total
       effects:
         - { id: damage, max_hp: 0.03, damage_type: fire }    # 3% of their max HP, ignores armor
-  paralyzed:                         # Paralysis: slowed, silenced (no abilities; basic attacks still work)
-    duration: 40                     # 2s    and basic attacks 40% slower
+  paralyzed:                         # Paralysis: slowed, and basic attacks 40% slower
+    duration: 40                     # 2s
     stacking: refresh
-    tags: [state.slowed, state.silenced, state.paralyzed]   # silenced: no abilities (the crossbow still shoots)
+    tags: [state.slowed, state.paralyzed]
     attack_speed: 0.6                # basic attacks: cooldown / 0.6, a crossbow's draw takes 1/0.6 as long
 
 # Magic a bolt can carry. When an infused bolt hits, its infusions' on_hit effects land on the target too.
@@ -97,7 +97,7 @@ infusions:
   paralysis:
     name: "Paralysis"
     color: "#F4E04D"
-    description: ["Paralyzes: slowed, silenced and 40% slower", "basic attacks for 2s."]
+    description: ["Paralyzes: slowed and 40% slower", "basic attacks for 2s."]
     on_hit:
       - { id: status, status: paralyzed }
   vitality:
