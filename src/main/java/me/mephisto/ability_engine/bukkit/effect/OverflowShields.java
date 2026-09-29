@@ -24,6 +24,8 @@ public final class OverflowShields {
     private static final NamespacedKey CAP_KEY = new NamespacedKey("ability_engine", "overflow_cap");
 
     private final Map<UUID, Double> decayPerTick = new HashMap<>();
+    /** Shields that vanish at a set time (server tick), whatever is left of them. */
+    private final Map<UUID, Integer> expiresAt = new HashMap<>();
 
     public void start(Plugin plugin) {
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 5, 5);
@@ -31,7 +33,14 @@ public final class OverflowShields {
 
     /** Add shield (Minecraft health units), capped at {@code cap}, decaying {@code decayPerSecond}. */
     public void add(LivingEntity e, double amount, double cap, double decayPerSecond) {
+        add(e, amount, cap, decayPerSecond, 0);
+    }
+
+    /** ... and with {@code lastsTicks} above 0, the whole shield is gone that long after this add. */
+    public void add(LivingEntity e, double amount, double cap, double decayPerSecond, int lastsTicks) {
         if (amount <= 0) return;
+        if (lastsTicks > 0) expiresAt.put(e.getUniqueId(), Bukkit.getCurrentTick() + lastsTicks);
+        else expiresAt.remove(e.getUniqueId());
         AttributeInstance max = e.getAttribute(Attribute.MAX_ABSORPTION);
         if (max != null) {
             AttributeModifier old = max.getModifier(CAP_KEY);
@@ -43,6 +52,12 @@ public final class OverflowShields {
     }
 
     private void tick() {
+        int now = Bukkit.getCurrentTick();
+        for (UUID id : List.copyOf(expiresAt.keySet())) {
+            if (now < expiresAt.get(id)) continue;
+            expiresAt.remove(id);
+            if (Bukkit.getEntity(id) instanceof LivingEntity living && living.isValid()) clear(living);
+        }
         for (UUID id : List.copyOf(decayPerTick.keySet())) {
             Entity entity = Bukkit.getEntity(id);
             if (!(entity instanceof LivingEntity living) || !living.isValid()) {
@@ -57,6 +72,7 @@ public final class OverflowShields {
 
     public void clear(LivingEntity living) {
         decayPerTick.remove(living.getUniqueId());
+        expiresAt.remove(living.getUniqueId());
         living.setAbsorptionAmount(0);
         AttributeInstance max = living.getAttribute(Attribute.MAX_ABSORPTION);
         if (max != null) {

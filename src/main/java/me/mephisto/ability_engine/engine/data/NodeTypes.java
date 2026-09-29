@@ -239,6 +239,8 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.gameplay.StrikeConstructsNode(range,
                     p.getDouble("angle", 0), p.getDouble("width", 0.6));
         });
+        t.register("start_line", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.StartLineNode(
+                p.requireString("cue"), p.requireString("to"), p.getInt("every", 2)));
         t.register("play_cue", (p, e) -> new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null)));
         return t;
     }

@@ -115,7 +115,9 @@ class CopperGolemTest {
         setup();
         t.world.move(enemy, new Vec3(12, 1, 0));
         use(Slots.ABILITY_1);
-        t.time.advance(10);
+        t.time.advance(3);
+        assertTrue(t.render.lines.stream().anyMatch(l -> l[0].equals("anchor_chain")), "a chain follows the pick");
+        t.time.advance(7);
         assertEquals(34 * 0.9, t.damage(enemy), 1e-9);
         assertTrue(t.engine.tags().has(enemy, Tags.STUNNED));
         t.time.advance(15);
@@ -186,7 +188,7 @@ class CopperGolemTest {
         assertEquals(0, t.damage(enemy), 1e-9, "winding up");
         t.time.advance(1);
         assertEquals(34 * 0.8, t.damage(enemy), 1e-9, "the first ring");
-        assertTrue(t.knockbackVec.get(enemy).y() > 0.5, "knocked up");
+        assertEquals(0.45, t.knockbackVec.get(enemy).y(), 1e-9, "knocked up (a small hop)");
         assertEquals(0, t.damage(far), 1e-9, "not reached yet");
         t.time.advance(10);
         assertEquals(34 * 0.8, t.damage(far), 1e-9, "the last ring");

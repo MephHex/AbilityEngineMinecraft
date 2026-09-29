@@ -11,7 +11,8 @@ import org.bukkit.entity.LivingEntity;
  * Effect id "shield": absorption hearts (yellow), eaten by damage before health. Params (design HP,
  * like damage): {@code amount}, or {@code max_hp: 0.4} (40% of the target's max HP); {@code max} (the
  * total it can build up to; default: no cap beyond what's given), {@code decay} per second (default 0:
- * lasts until it's broken).
+ * lasts until it's broken), {@code lasts} ticks (whatever is left disappears that long after the last
+ * shield given; default 0: no limit).
  */
 public final class ShieldEffect implements Effect {
 
@@ -32,7 +33,7 @@ public final class ShieldEffect implements Effect {
         double amount = me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx) / scale; // flat, or max_hp share
         double max = p.getDouble("max", 0) / scale;
         double cap = max > 0 ? max : living.getAbsorptionAmount() + amount;
-        shields.add(living, amount, cap, p.getDouble("decay", 0) / scale);
+        shields.add(living, amount, cap, p.getDouble("decay", 0) / scale, p.getInt("lasts", 0));
     }
 
     @Override
@@ -40,5 +41,6 @@ public final class ShieldEffect implements Effect {
         me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, false);
         if (params.getDouble("max", 0) < 0) throw params.error("max", "must be >= 0");
         if (params.getDouble("decay", 0) < 0) throw params.error("decay", "must be >= 0");
+        if (params.getInt("lasts", 0) < 0) throw params.error("lasts", "must be >= 0 (ticks; 0 = no limit)");
     }
 }
