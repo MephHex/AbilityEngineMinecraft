@@ -17,11 +17,14 @@ import java.util.Set;
  *                             credited to whoever applied the status
  * @param attackSpeed          the holder's basic attacks (primary / melee) come this much faster: their cooldown
  *                             is divided by it, a crossbow's draw takes longer (Paralysis: 0.6 = 40% slower)
+ * @param moveSpeed            the holder's movement speed is multiplied by this PER STACK (0.9 with 5 stacks =
+ *                             x0.59), e.g. a slow that builds up
  */
 public record StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                         List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                         boolean breakOnDamage, boolean once,
-                        boolean positive, double damageDealt, double damageTaken, double attackSpeed) {
+                        boolean positive, double damageDealt, double damageTaken, double attackSpeed,
+                        double moveSpeed) {
 
     public StatusDef {
         grantedTags = Set.copyOf(grantedTags);
@@ -39,7 +42,15 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
                      List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                      boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken) {
         this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
-                positive, damageDealt, damageTaken, 1);
+                positive, damageDealt, damageTaken, 1, 1);
+    }
+
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken,
+                     double attackSpeed) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                positive, damageDealt, damageTaken, attackSpeed, 1);
     }
 
     /** Without positive / damage / attack speed modifiers. */

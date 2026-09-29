@@ -19,11 +19,12 @@ import java.util.Map;
  * @param stats     max HP, armor, base damage, move speed, attack speed
  * @param ward      a passive debuff immunity that recharges out of combat (null = none)
  * @param statusItems statuses shown as hotbar items while the player has them (e.g. a weapon infusion)
+ * @param whenHit   a passive reaction to enemy basic attacks landing on them (null = none)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
                            java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
-                           java.util.List<StatusItem> statusItems) {
+                           java.util.List<StatusItem> statusItems, WhenHit whenHit) {
 
     /**
      * A status shown as a hotbar item while the player has it, its stack size = the status's stacks (e.g.
@@ -43,10 +44,29 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * doesn't land; blocking one uses it up, and the out-of-combat timer starts over.
      *
      * @param hotbarSlot 1-9: where its item shows (glints when ready, counts down otherwise); 0 = hidden
+     * @param absorb     0: blocks the next debuff. Above 0 it's a BARRIER instead: it takes this share off the
+     *                   next hit's damage (0.5 = half), and debuffs land as usual
      */
-    public record Ward(String name, int outOfCombatTicks, int hotbarSlot, String icon, java.util.List<String> description) {
+    public record Ward(String name, int outOfCombatTicks, int hotbarSlot, String icon, java.util.List<String> description,
+                       double absorb) {
         public Ward {
             description = java.util.List.copyOf(description);
+        }
+
+        public Ward(String name, int outOfCombatTicks, int hotbarSlot, String icon, java.util.List<String> description) {
+            this(name, outOfCombatTicks, hotbarSlot, icon, description, 0);
+        }
+
+        public boolean isBarrier() { return absorb > 0; }
+    }
+
+    /**
+     * A passive reaction to being hit by an enemy's BASIC attack (primary / secondary / melee): the holder's
+     * cooldowns in {@code slots} go down by {@code reduceCooldownTicks}.
+     */
+    public record WhenHit(int reduceCooldownTicks, java.util.List<String> slots) {
+        public WhenHit {
+            slots = java.util.List.copyOf(slots);
         }
     }
 
@@ -59,9 +79,15 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * @param moveSpeed   x vanilla walking speed; slows and haste multiply on top of it
      * @param attackSpeed basic attacks per second: the primary's cooldown becomes 20 / this ticks;
      *                    0 = the primary's own cooldown (e.g. a crossbow, whose draw is its fire rate)
+     * @param scale       model size (1.0 = normal; the hitbox grows with it)
      */
-    public record Stats(double health, double armor, double baseDamage, double moveSpeed, double attackSpeed) {
-        public static final Stats DEFAULT = new Stats(200, 0, 40, 1.0, 0);
+    public record Stats(double health, double armor, double baseDamage, double moveSpeed, double attackSpeed,
+                        double scale) {
+        public static final Stats DEFAULT = new Stats(200, 0, 40, 1.0, 0, 1.0);
+
+        public Stats(double health, double armor, double baseDamage, double moveSpeed, double attackSpeed) {
+            this(health, armor, baseDamage, moveSpeed, attackSpeed, 1.0);
+        }
     }
 
     /** Holding sneak while falling: slow falling (the Umbrella's parasol). */
@@ -123,6 +149,13 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, java.util.List.of());
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, null);
+    }
+
     public CharacterDef {
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
         resources = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(resources));
@@ -139,7 +172,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         Map<String, String> changed = new LinkedHashMap<>(slots);
         changed.putAll(form.slots());
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
-                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems);
+                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems, whenHit);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

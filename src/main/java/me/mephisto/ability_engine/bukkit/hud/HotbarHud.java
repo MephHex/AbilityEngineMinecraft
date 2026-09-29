@@ -421,7 +421,10 @@ public final class HotbarHud {
         meta.displayName(plain("[Passive] ", NamedTextColor.YELLOW).append(plain(ward.name(), NamedTextColor.WHITE)));
         List<Component> lore = new ArrayList<>();
         for (String line : ward.description()) lore.add(plain(line, NamedTextColor.GRAY));
-        lore.add(ready ? plain("Ready: the next debuff won't land", NamedTextColor.GREEN)
+        String readyText = ward.isBarrier()
+                ? String.format("Ready: takes %.0f%% of the next hit", ward.absorb() * 100)
+                : "Ready: the next debuff won't land";
+        lore.add(ready ? plain(readyText, NamedTextColor.GREEN)
                 : plain("Recharging: " + seconds + "s out of combat", NamedTextColor.RED));
         meta.lore(lore);
         meta.setEnchantmentGlintOverride(ready ? Boolean.TRUE : null);

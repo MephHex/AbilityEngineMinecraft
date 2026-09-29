@@ -227,7 +227,7 @@ public final class BukkitCuePlayer implements CuePlayer {
             w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 1.4f);
         });
 
-        // ---- AntiMage ----
+        // ---- Gunner ----
         // Silence reads as anti-magic: teal / cyan, never the green of heals or the purple of spells.
         c.register("null_burst", loc -> {
             var teal = new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.4f);
@@ -323,6 +323,89 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ITEM_SHIELD_BLOCK, 1f, 1.4f);
         });
         c.register("ward_ready", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 0.8f, 1.8f));
+
+        // ---- Copper Golem ----
+        c.register("barrier_break", loc -> { // Cuprous Might: the copper barrier takes a hit and cracks
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 40, 0.5, 0.7, 0.5, 0.1,
+                    org.bukkit.Material.COPPER_BLOCK.createBlockData());
+            loc.getWorld().spawnParticle(Particle.WAX_OFF, loc, 15, 0.5, 0.7, 0.5, 0.2);
+            loc.getWorld().playSound(loc, Sound.BLOCK_COPPER_BREAK, 1f, 0.7f);
+            loc.getWorld().playSound(loc, Sound.ITEM_SHIELD_BREAK, 0.7f, 1.3f);
+        });
+        c.register("golem_swing", loc -> {
+            loc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc.clone().add(0, 0.3, 0), 2, 0.6, 0.1, 0.6, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_IRON_GOLEM_ATTACK, 0.8f, 1.2f);
+        });
+        c.register("anchor_throw", loc -> {
+            loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_THROW, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_CHAIN_PLACE, 0.8f, 0.8f);
+        });
+        c.registerLine("anchor_chain", (w, from, to) -> { // the chain, grey links from you to the pick
+            Vector d = to.clone().subtract(from);
+            double len = d.length();
+            if (len < 0.1) return;
+            var iron = new Particle.DustOptions(org.bukkit.Color.fromRGB(150, 150, 160), 0.9f);
+            for (double t = 0; t <= len; t += 0.4) {
+                Vector q = from.clone().add(d.clone().multiply(t / len));
+                w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0, 0, 0, 0, iron);
+            }
+            w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.BLOCK_CHAIN_HIT, 1f, 0.8f);
+        });
+        c.register("anchor_land", loc -> {
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 25, 0.5, 0.2, 0.5, 0.1,
+                    org.bukkit.Material.COPPER_BLOCK.createBlockData());
+            loc.getWorld().playSound(loc, Sound.BLOCK_ANVIL_LAND, 0.6f, 0.7f);
+        });
+        c.register("rust_step", loc -> { // a layer of rust: verdigris flakes
+            var verdigris = new Particle.DustOptions(org.bukkit.Color.fromRGB(80, 160, 130), 1.1f);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 12, 0.4, 0.6, 0.4, 0, verdigris);
+            loc.getWorld().spawnParticle(Particle.SCRAPE, loc, 4, 0.4, 0.6, 0.4, 0);
+            loc.getWorld().playSound(loc, Sound.BLOCK_COPPER_STEP, 0.8f, 0.6f);
+        });
+        c.register("rust_burst", loc -> { // bursting out of the rust
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 80, 2.2, 0.8, 2.2, 0.2,
+                    org.bukkit.Material.OXIDIZED_COPPER.createBlockData());
+            loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 3, 1.5, 0.4, 1.5, 0);
+            loc.getWorld().playSound(loc, Sound.BLOCK_COPPER_BREAK, 1f, 0.5f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.4f);
+        });
+        c.register("conduction_slam", loc -> {
+            loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 0.6, 0.2, 0.6, 0.3);
+            loc.getWorld().playSound(loc, Sound.ENTITY_IRON_GOLEM_DAMAGE, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_ANVIL_LAND, 0.8f, 0.5f);
+        });
+        for (int r = 2; r <= 8; r += 2) { // Conduction Field's rings, on the ground
+            final double radius = r;
+            c.register("shockwave_" + r, loc -> {
+                int points = (int) (radius * 10);
+                for (int i = 0; i < points; i++) {
+                    double a = Math.PI * 2 * i / points;
+                    double x = loc.getX() + Math.cos(a) * radius, z = loc.getZ() + Math.sin(a) * radius;
+                    loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, x, loc.getY() + 0.2, z, 1, 0, 0.1, 0, 0.02);
+                    if (i % 3 == 0) {
+                        loc.getWorld().spawnParticle(Particle.BLOCK, x, loc.getY() + 0.1, z, 2, 0.1, 0.1, 0.1, 0,
+                                org.bukkit.Material.COPPER_BLOCK.createBlockData());
+                    }
+                }
+                loc.getWorld().playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.35f, 1.6f);
+            });
+        }
+        c.register("rod_charge", loc -> {
+            loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc.clone().add(0, 1.5, 0), 40, 0.3, 1.2, 0.3, 0.2);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 1f, 0.6f);
+        });
+        c.register("lightning_strike", loc -> {
+            loc.getWorld().strikeLightningEffect(loc); // the look and sound only: the ability does the damage
+            loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc, 80, 2.5, 0.5, 2.5, 0.4);
+        });
+        c.register("electric_field", loc -> { // Lightning Rod's field: its 5-block edge
+            for (int i = 0; i < 36; i++) {
+                double a = Math.PI * 2 * i / 36;
+                loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc.getX() + Math.cos(a) * 5, loc.getY() - 0.8,
+                        loc.getZ() + Math.sin(a) * 5, 1, 0, 0.15, 0, 0.02);
+            }
+            loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc, 10, 2.5, 0.2, 2.5, 0.1);
+        });
 
         // ---- Vanguard ----
         c.register("leap_off", loc -> {

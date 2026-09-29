@@ -1,0 +1,377 @@
+# content: copper_golem
+# The Copper Golem: a big, slow bruiser. Grapples in with his anchor-pickaxe, rusts into a shield that
+# bursts out, knocks everyone up with travelling shockwaves, and becomes a living lightning rod.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Cuprous Might):
+#   - A copper barrier: after 5s out of combat, the first hit he takes breaks it, and it takes half of that
+#     hit's damage. Shown in hotbar slot 9 (a copper block): glinting = ready, otherwise the seconds left.
+#   - Enemy basic attacks landing on him take 0.5s off his ability cooldowns (1, 2 and 3).
+#   - He's 20% bigger than a normal player (model and hitbox).
+
+statuses:
+  rusting:                           # Rustbreaker: stiffening up, slower with every stack
+    duration: 60
+    stacking: stack
+    max_stacks: 8
+    move_speed: 0.9                  # x0.9 per stack: 8 stacks = x0.43
+    tags: [state.rusting]
+    positive: false                  # his own, and not a buff
+  rust_locked:                       # Rustbreaker at full charge: seized up (a stun he puts on himself)
+    duration: 20
+    tags: [state.stunned, block.ability, block.move]
+    positive: false
+  rod_charging:                      # Lightning Rod's channel: slowed
+    duration: 30
+    tags: [state.slowed]
+    positive: false
+  lightning_rod:                     # Lightning Rod is up: faster, and Rustbreaker rusts quicker
+    duration: 120                    # 6s (the field's time)
+    tags: [state.hasted, state.lightning_rod, buff.lightning_rod]
+
+abilities:
+
+  # PRIMARY (LMB): a heavy pickaxe swing: 100% base damage to everyone in front (a wide arc, 3.5 blocks).
+  golem_primary:
+    cooldown: 20                     # his attack speed (1/s) sets it
+    display:
+      name: "Anchor Swing"
+      description:
+        - "A heavy swing: 100% base damage to"
+        - "everyone in front (3.5 blocks, wide)."
+    nodes:
+      swing:
+        type: apply_effects
+        targets: { type: cone, range: 3.5, angle: 100 }
+        effects:
+          - { id: damage, base: 1.0 }             # 100% base damage
+        next: swing_cue
+      swing_cue:
+        type: play_cue
+        cue: golem_swing
+
+  # 1: Groundbreaker. Throw the anchor-pickaxe (about 20 blocks). An enemy it hits takes 90% base damage and
+  # is stunned for 1s, and the chain pulls you to them. A block it hits: the chain pulls you there
+  # (a grappling hook).
+  golem_ab1:
+    cooldown: 200                    # 10s
+    display:
+      name: "Groundbreaker"
+      icon: TRIPWIRE_HOOK
+      description:
+        - "Throw your anchor-pickaxe. An enemy hit:"
+        - "90% base damage, stunned 1s, and you're"
+        - "pulled to them. A wall or the ground:"
+        - "you're pulled there (grappling hook)."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.8
+        size: 0.5
+        lifetime: 12                 # about 20 blocks
+        visual: IRON_PICKAXE
+        on: { spawned: throw_cue, hit_entity: hooked, hit_block: anchored }
+      throw_cue:
+        type: play_cue
+        cue: anchor_throw
+      hooked:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.9 }             # 90% base damage
+          - { id: status, status: stun, duration: 20 }   # 1s
+        next: hooked_chain
+      hooked_chain:
+        type: play_cue
+        cue: anchor_chain            # the chain between you
+        at: caster
+        to: hit
+        next: pull
+      pull:
+        type: dash                   # pulled to them (stops when you reach them)
+        to: hit
+        speed: 1.6
+        range: 25
+        on: { hit: landed, miss: landed }
+      anchored:
+        type: play_cue
+        cue: anchor_chain
+        at: caster
+        to: hit
+        next: grapple
+      grapple:
+        type: dash                   # pulled to where it bit in
+        to: hit
+        speed: 1.6
+        range: 25
+        on: { hit: landed, miss: landed }
+      landed:
+        type: play_cue
+        cue: anchor_land
+
+  # 2: Rustbreaker. Rust over 2s: you build up a shield (15 every 0.25s, up to 120) but get slower and slower.
+  # At full charge you seize up (stunned 1s), then burst out: 130% base damage within 4.5 blocks, and the
+  # enemies hit are disarmed for 2s (no basic attacks). During Lightning Rod: it rusts in 0.8s and the stun
+  # is only 0.5s.
+  golem_ab2:
+    cooldown: 280                    # 14s
+    display:
+      name: "Rustbreaker"
+      icon: OXIDIZED_COPPER
+      description:
+        - "Rust for 2s: a shield builds up (120)"
+        - "but you slow down more and more. Then"
+        - "stunned 1s, and burst out: 130% base"
+        - "damage (4.5 blocks) and 2s disarm."
+        - "Lightning Rod: 0.8s to rust, 0.5s stun."
+    nodes:
+      which:
+        type: has_tag                # Lightning Rod up?
+        tag: state.lightning_rod
+        on: { has: rust_fast, lacks: rust }
+      rust:
+        type: repeat                 # 8 steps, 0.25s apart: 2s
+        times: 8
+        every: 5
+        on: { each: step, out: seize }
+      rust_fast:
+        type: repeat                 # Lightning Rod: 8 steps, 0.1s apart: 0.8s
+        times: 8
+        every: 2
+        on: { each: step, out: seize_fast }
+      step:
+        type: apply_effects          # a layer of rust: shield up, slower
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: shield, amount: 15, max: 120 }
+          - { id: status, status: rusting }
+        next: step_cue
+      step_cue:
+        type: play_cue
+        cue: rust_step
+      seize:
+        type: apply_effects          # full charge: seized up for 1s
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: rust_locked, duration: 20 }
+        next: seized
+      seized:
+        type: delay
+        ticks: 20
+        cast_bar: true
+        next: burst
+      seize_fast:
+        type: apply_effects          # Lightning Rod: only 0.5s
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: rust_locked, duration: 10 }
+        next: seized_fast
+      seized_fast:
+        type: delay
+        ticks: 10
+        cast_bar: true
+        next: burst
+      burst:
+        type: apply_effects          # burst out of the rust
+        targets: { type: radius, radius: 4.5 }
+        effects:
+          - { id: damage, base: 1.3 }             # 130% base damage
+          - { id: status, status: disarm, duration: 40 }   # 2s: no basic attacks
+        next: shake_off
+      shake_off:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: rusting }
+          - { id: remove_status, status: rust_locked }
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: rust_burst
+
+  # 3: Conduction Field. Raise the pickaxe (0.25s), slam it down: a shockwave rolls out from where you
+  # stand, a ring growing 2 blocks every 0.15s out to 8 blocks. Everyone it passes takes 80% base damage
+  # and is knocked up.
+  golem_ab3:
+    cooldown: 200                    # 10s
+    display:
+      name: "Conduction Field"
+      icon: COPPER_BULB
+      description:
+        - "0.25s wind-up, then slam: a shockwave"
+        - "rolls out to 8 blocks. Everyone it passes:"
+        - "80% base damage and knocked up."
+    nodes:
+      windup:
+        type: delay
+        ticks: 5                     # 0.25s
+        cast_bar: true
+        next: here
+      here:
+        type: remember_spot          # the wave rolls out from where you slammed (even if you move)
+        of: caster
+        store: center
+        next: slam
+      slam:
+        type: play_cue
+        cue: conduction_slam
+        at: center
+        next: wave
+      wave:
+        type: repeat                 # 4 rings, 3 ticks apart
+        times: 4
+        every: 3
+        on: { each: ring, out: ~ }
+      ring:
+        type: switch
+        key: repeat_index
+        on: { "1": ring1, "2": ring2, "3": ring3, "4": ring4 }
+      ring1:
+        type: apply_effects
+        targets: { type: radius, center: center, radius: 2 }
+        effects: &wave_hit
+          - { id: damage, base: 0.8 }             # 80% base damage
+          - { id: knockback, from: center, radius: 8, center: 0.15, edge: 0.15, lift: 0.85 }   # up
+        next: ring1_cue
+      ring1_cue:
+        type: play_cue
+        cue: shockwave_2
+        at: center
+      ring2:
+        type: apply_effects
+        targets: { type: radius, center: center, radius: 4, inner: 2 }
+        effects: *wave_hit
+        next: ring2_cue
+      ring2_cue:
+        type: play_cue
+        cue: shockwave_4
+        at: center
+      ring3:
+        type: apply_effects
+        targets: { type: radius, center: center, radius: 6, inner: 4 }
+        effects: *wave_hit
+        next: ring3_cue
+      ring3_cue:
+        type: play_cue
+        cue: shockwave_6
+        at: center
+      ring4:
+        type: apply_effects
+        targets: { type: radius, center: center, radius: 8, inner: 6 }
+        effects: *wave_hit
+        next: ring4_cue
+      ring4_cue:
+        type: play_cue
+        cue: shockwave_8
+        at: center
+
+  # ULTIMATE (F): Lightning Rod. Channel for 1.5s (slowed), then lightning strikes you: 220% base damage to
+  # everyone within 5 blocks, and they're paralyzed (slowed, slower attacks) for 2s. Then for 6s you're
+  # charged: faster, an electric field (5 blocks) around you damages enemies inside every 0.5s (30% base
+  # damage) and keeps them paralyzed, and Rustbreaker rusts in 0.8s with only a 0.5s stun.
+  golem_ult1:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Lightning Rod"
+      icon: LIGHTNING_ROD
+      description:
+        - "Channel 1.5s: lightning strikes you, 220%"
+        - "base damage (5 blocks) and paralysis. 6s:"
+        - "faster, and an electric field around you"
+        - "shocks and paralyzes enemies inside."
+        - "Rustbreaker: quicker, 0.5s stun."
+    nodes:
+      channel:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: rod_charging }
+        next: charge_cue
+      charge_cue:
+        type: play_cue
+        cue: rod_charge
+        next: wait
+      wait:
+        type: delay
+        ticks: 30                    # 1.5s
+        cast_bar: true
+        next: strike
+      strike:
+        type: apply_effects          # the bolt: everyone near you
+        targets: { type: radius, radius: 5 }
+        effects:
+          - { id: damage, base: 2.2 }             # 220% base damage
+          - { id: status, status: paralyzed, duration: 40 }   # 2s
+        next: strike_cue
+      strike_cue:
+        type: play_cue
+        cue: lightning_strike
+        next: charged
+      charged:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: lightning_rod }
+        next: field
+      field:
+        type: fork                   # the 6s, and the field's pulses, side by side
+        on: { out: field_time, also: pulse }
+      field_time:
+        type: delay
+        ticks: 120                   # 6s
+        boss_bar: true
+        next: field_end
+      field_end:
+        type: end_cast
+      pulse:
+        type: apply_effects          # the field follows you
+        targets: { type: radius, radius: 5 }
+        effects:
+          - { id: damage, base: 0.3 }             # 30% base damage
+          - { id: status, status: paralyzed, duration: 15 }
+        next: pulse_cue
+      pulse_cue:
+        type: play_cue
+        cue: electric_field          # (drawn at 5 blocks: keep it in step with the radius above)
+        next: pulse_wait
+      pulse_wait:
+        type: delay
+        ticks: 10                    # every 0.5s
+        next: pulse
+
+characters:
+  copper_golem:
+    name: "Copper Golem"
+    weapon: IRON_PICKAXE             # the anchor-pickaxe
+    stats:                           # see docs/character-stats.md
+      health: 320                    # max HP
+      armor: 45                      # damage taken x 100 / (100 + armor)
+      base_damage: 34                # abilities deal % of this
+      move_speed: 0.92               # x vanilla walking speed
+      attack_speed: 1.0              # swings per second
+      scale: 1.2                     # 20% bigger (model and hitbox)
+    ward:                            # PASSIVE: Cuprous Might (the barrier)
+      name: "Cuprous Might"
+      out_of_combat: 100             # 5s without dealing or taking damage
+      absorb: 0.5                    # the first hit: half its damage
+      hotbar: 9
+      icon: COPPER_BLOCK
+      description:
+        - "After 5s out of combat, a copper barrier"
+        - "takes half of the next hit, then breaks."
+        - "Enemy basic attacks on you: your abilities"
+        - "come back 0.5s sooner."
+    when_hit:                        # PASSIVE: enemy basic attacks on him take 0.5s off abilities 1-3
+      reduce_cooldowns: 10
+    slots:
+      primary: golem_primary         # LMB: Anchor Swing
+      ability_1: golem_ab1           # 1: Groundbreaker
+      ability_2: golem_ab2           # 2: Rustbreaker
+      ability_3: golem_ab3           # 3: Conduction Field
+      ultimate: golem_ult1           # F: Lightning Rod

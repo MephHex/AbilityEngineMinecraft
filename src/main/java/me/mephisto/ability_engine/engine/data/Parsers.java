@@ -45,8 +45,12 @@ public final class Parsers {
             case "key" -> new KeyQuery(p.requireString("key"));
             case "hitscan" -> new HitscanQuery(p.requireDouble("range"), p.getDouble("ray_size", 0.2), p.getBool("blocks", false),
                     hitscanAllies(p));
-            case "radius" -> new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
-                    p.getInt("max", 0), p.getBool("include_caster", false));
+            case "radius" -> {
+                double inner = p.getDouble("inner", 0);
+                if (inner < 0 || inner >= p.requireDouble("radius")) throw p.error("inner", "must be between 0 and radius");
+                yield new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
+                        p.getInt("max", 0), p.getBool("include_caster", false), inner);
+            }
             case "cone" -> new ConeQuery(p.requireDouble("range"), p.requireDouble("angle"), p.getInt("max", 0));
             case "cursor" -> new CursorQuery(p.requireDouble("range"));
             case "line" -> new LineQuery(p.requireDouble("range"), p.getDouble("width", 1.0));
@@ -254,15 +258,17 @@ public final class Parsers {
         if (taken < 0) throw p.error("damage_taken", "must be >= 0 (0.8 = 20% less damage taken)");
         double attackSpeed = p.getDouble("attack_speed", 1);
         if (attackSpeed <= 0) throw p.error("attack_speed", "must be above 0 (0.6 = basic attacks 40% slower)");
+        double moveSpeed = p.getDouble("move_speed", 1);
+        if (moveSpeed <= 0) throw p.error("move_speed", "must be above 0 (0.9 = 10% slower per stack)");
         // A buff (copied by tethers like Radiant Bond): said so, or recognisably one: a buff.* tag, on-hit
         // effects, more damage dealt or less taken, faster attacks. positive: false opts one out (e.g. an ult's charge).
         boolean looksPositive = base.grantedTags().stream().anyMatch(t -> t.startsWith(BUFF_TAG_PREFIX))
-                || !onHit.isEmpty() || dealt > 1 || taken < 1 || attackSpeed > 1;
+                || !onHit.isEmpty() || dealt > 1 || taken < 1 || attackSpeed > 1 || moveSpeed > 1;
         boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
                 p.getBool("break_on_damage", false), p.getBool("once", false),
-                positive, dealt, taken, attackSpeed);
+                positive, dealt, taken, attackSpeed, moveSpeed);
     }
 
     private Parsers() {}

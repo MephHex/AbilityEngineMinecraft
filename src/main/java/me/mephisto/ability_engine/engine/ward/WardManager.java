@@ -28,11 +28,14 @@ import java.util.UUID;
  *   <li>{@link #reset} makes it ready at once (an ability that refreshes it).</li>
  * </ul>
  * A new character starts with it ready.
+ * <p>A BARRIER ({@code absorb:} above 0) works the same way, but instead of blocking a debuff it takes that
+ * share off the next hit's damage ({@link #absorbHit}); debuffs land as usual and there's no immunity tag.
  */
 public final class WardManager {
 
     public static final String BLOCK_CUE = "ward_block";
     public static final String READY_CUE = "ward_ready";
+    public static final String BARRIER_CUE = "barrier_break";
 
     /** The ward's state, for the HUD. */
     public record State(CharacterDef.Ward ward, boolean ready, long rechargeTicks) {}
@@ -105,8 +108,24 @@ public final class WardManager {
         return since == Long.MIN_VALUE ? Long.MIN_VALUE : since + def.outOfCombatTicks();
     }
 
+    /**
+     * A hit is landing on {@code victim}: a ready barrier takes its share off (and is used up). Returns what's
+     * left of the damage (all of it without a ready barrier).
+     */
+    public double absorbHit(UUID victim, double amount) {
+        if (amount <= 0) return amount;
+        Optional<CharacterDef.Ward> def = defOf(victim).filter(CharacterDef.Ward::isBarrier);
+        if (def.isEmpty()) return amount;
+        Ward w = wards.computeIfAbsent(victim, k -> new Ward());
+        if (!w.ready) return amount;
+        w.ready = false;
+        w.usedAt = clock.now();
+        world.positionOf(new EntityTarget(victim)).ifPresent(p -> cues.play(BARRIER_CUE, p.world(), p.position()));
+        return amount * (1 - def.get().absorb());
+    }
+
     private boolean blocks(UUID target, StatusDef def, UUID source) {
-        if (defOf(target).isEmpty() || !StatusManager.isDebuff(target, def, source)) return false;
+        if (defOf(target).filter(d -> !d.isBarrier()).isEmpty() || !StatusManager.isDebuff(target, def, source)) return false;
         Ward w = wards.computeIfAbsent(target, k -> new Ward()); // a new character starts ready
         if (!w.ready) return false;
         w.ready = false;
@@ -127,8 +146,8 @@ public final class WardManager {
             anyone = true;
             Ward w = wards.computeIfAbsent(id, k -> new Ward());
             if (!w.ready && clock.now() >= readyAt(id, def.get(), w)) becomeReady(id, w);
-            // Tags are wiped on death: put it back while ready.
-            if (w.ready && !tags.has(id, Tags.DEBUFF_IMMUNE)) {
+            // Tags are wiped on death: put it back while ready. (A barrier has no tag.)
+            if (w.ready && !def.get().isBarrier() && !tags.has(id, Tags.DEBUFF_IMMUNE)) {
                 w.tagged = false;
                 tag(id, w);
             }
@@ -141,7 +160,7 @@ public final class WardManager {
 
     private void becomeReady(UUID entity, Ward w) {
         w.ready = true;
-        tag(entity, w);
+        if (defOf(entity).filter(CharacterDef.Ward::isBarrier).isEmpty()) tag(entity, w);
         world.positionOf(new EntityTarget(entity)).ifPresent(p -> cues.play(READY_CUE, p.world(), p.position()));
     }
 

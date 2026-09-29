@@ -310,7 +310,7 @@ Full sheets and reasoning: `docs/character-stats.md`.
 - **summon_clone:** `health_share: 0.6` instead of `health:`, i.e. 60% of `of`'s max HP.
 - **In game:** the stat items are in the top row of the inventory. Hover one to see the value right now.
 
-## Added for the AntiMage
+## Added for the AntiMage (now the Gunner)
 
 - **Characters:** `ward: { name, out_of_combat, hotbar, icon, description }` is a passive debuff
   immunity. After `out_of_combat` ticks without dealing or taking damage, the next **debuff** doesn't
@@ -356,7 +356,7 @@ slot, so an ability is only silenced when it's in an ability slot.
   fixed spot: it doesn't follow the entity afterwards. With `ground: true` (default) it's dropped onto the
   ground below. For example, Volatile Nullifier's pool stays where the flask burst.
 
-## Added for the gunslinger AntiMage
+## Added for the Gunner
 
 - **Resources (ammo):** `reload: <ticks>` - once it's empty, it refills to max that long after the last
   spend. `shown_while: <tag>` / `hidden_while: <tag>` - only shown on the hotbar while you have (or don't
@@ -386,3 +386,19 @@ slot, so an ability is only silenced when it's in an ability slot.
   that was already paid for, so the gun reloads after the last shot).
 - **Cues:** shotgun_blast, buckshot_blast, revolver_shot (lines: `at: caster, to: aim`), rounds_loaded,
   spell_blocked, keg_throw, keg_blast.
+
+## Added for the Copper Golem
+
+- **Stats:** `scale: 1.2` - model size (and hitbox), 1.0 = normal.
+- **Ward:** `absorb: 0.5` turns it into a BARRIER: instead of blocking a debuff, it takes that share off the
+  next hit's damage (after armor), then recharges out of combat like a ward. Debuffs land as usual.
+- **Characters:** `when_hit: { reduce_cooldowns: <ticks>, slots: [...] }` - an enemy's basic attack
+  (primary / secondary / melee) landing on them takes that much off their cooldowns in `slots` (default
+  ability_1-3).
+- **Statuses:** `move_speed: 0.9` multiplies the holder's speed PER STACK (5 stacks = x0.59): a slow that
+  builds up.
+- **Radius query:** `inner: 4` - a ring: only what's farther than that from the centre (on the ground), e.g.
+  one band of a shockwave rolling outward.
+- **Cues:** barrier_break, golem_swing, anchor_throw, anchor_chain (line), anchor_land, rust_step,
+  rust_burst, conduction_slam, shockwave_2 / _4 / _6 / _8 (rings of that radius), rod_charge,
+  lightning_strike, electric_field (5 blocks).

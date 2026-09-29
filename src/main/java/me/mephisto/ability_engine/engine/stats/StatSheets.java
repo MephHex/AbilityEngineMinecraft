@@ -74,6 +74,18 @@ public final class StatSheets {
     }
 
     /**
+     * The entity's statuses' {@code move_speed}, each to the power of its stacks, multiplied together
+     * (a slow that builds up). 1 = normal. The platform applies it on top of the sheet's move speed.
+     */
+    public double moveSpeedMultiplier(UUID entity) {
+        double m = 1;
+        for (ActiveStatus s : statuses.on(entity)) {
+            if (s.def().moveSpeed() != 1) m *= Math.pow(s.def().moveSpeed(), Math.max(1, s.stacks()));
+        }
+        return m;
+    }
+
+    /**
      * Cooldown of an ability for this caster: the character's primary follows their attack speed
      * ({@code 20 / attack_speed} ticks) when the sheet has one; everything else its own cooldown.
      * Basic attacks (whatever is in the primary / melee slot now) are then divided by
