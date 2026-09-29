@@ -312,6 +312,8 @@ Full sheets and reasoning: `docs/character-stats.md`.
   sits in hotbar slot `hotbar`: glinting when ready, otherwise the count is the seconds left.
 - **Debuff:** a status that isn't a buff (see Buffs), put on you by someone else. Your own statuses and
   buffs never count. The tag `state.debuff_immune` blocks debuffs too (without using anything up).
+  To test: `{ id: status, status: stun, from: world }` puts a status on as if from nobody, so it's a
+  debuff even on the caster (`self_stun_test` does this). Or run `/ae apply <status> [ticks]` in game.
 - **Nodes:**
   - has_status `{ status, target, min_stacks, mine }` -> has / lacks. `mine: true` = only if the caster
     put it there, e.g. your own mark.

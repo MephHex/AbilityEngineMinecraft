@@ -96,6 +96,17 @@ class AntiMageTest {
     }
 
     @Test
+    void theSelfStunTestCountsAsADebuff() throws IOException {
+        setup();
+        t.time.advance(1);
+        assertTrue(t.engine.activator().activate(p, "self_stun_test").success());
+        assertFalse(t.engine.tags().has(p, Tags.STUNNED), "from: world - blocked like an enemy's stun");
+        assertFalse(wardReady());
+        assertTrue(t.engine.activator().activate(p, "self_stun_test").success());
+        assertTrue(t.engine.tags().has(p, Tags.STUNNED), "the ward is used up: this one lands");
+    }
+
+    @Test
     void buffsAndHerOwnStatusesArentDebuffs() throws IOException {
         setup();
         t.engine.statuses().apply(p, "null_rush", p);      // her own
