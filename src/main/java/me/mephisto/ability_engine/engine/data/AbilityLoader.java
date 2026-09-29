@@ -196,8 +196,10 @@ public final class AbilityLoader {
         if (quiver != null && hotbar > 0 && hotbar >= quiver.hotbarSlot() && hotbar < quiver.hotbarSlot() + quiver.size()) {
             throw w.error("hotbar", "slot " + hotbar + " is used by the quiver");
         }
+        double absorb = w.getDouble("absorb", 0);
+        if (absorb < 0 || absorb > 1) throw w.error("absorb", "must be between 0 and 1 (0.5 = half the next hit)");
         return new CharacterDef.Ward(w.getString("name", "Ward"), ticks, hotbar, w.getString("icon", null),
-                w.has("description") ? w.getStringList("description") : List.of());
+                w.has("description") ? w.getStringList("description") : List.of(), absorb);
     }
 
     /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */
@@ -206,13 +208,14 @@ public final class AbilityLoader {
         if (!p.has("stats")) return d;
         Params s = p.getParams("stats");
         for (String key : s.keys()) {
-            if (!java.util.Set.of("health", "armor", "base_damage", "move_speed", "attack_speed").contains(key)) {
-                throw s.error(key, "unknown stat, expected health, armor, base_damage, move_speed or attack_speed");
+            if (!java.util.Set.of("health", "armor", "base_damage", "move_speed", "attack_speed", "scale").contains(key)) {
+                throw s.error(key, "unknown stat, expected health, armor, base_damage, move_speed, attack_speed or scale");
             }
         }
         var stats = new CharacterDef.Stats(s.getDouble("health", d.health()), s.getDouble("armor", d.armor()),
                 s.getDouble("base_damage", d.baseDamage()), s.getDouble("move_speed", d.moveSpeed()),
-                s.getDouble("attack_speed", d.attackSpeed()));
+                s.getDouble("attack_speed", d.attackSpeed()), s.getDouble("scale", d.scale()));
+        if (stats.scale() < 0.1 || stats.scale() > 3) throw s.error("scale", "must be between 0.1 and 3 (1.0 = normal size)");
         if (stats.health() <= 0) throw s.error("health", "must be above 0");
         if (stats.armor() < 0) throw s.error("armor", "must be >= 0");
         if (stats.baseDamage() < 0) throw s.error("base_damage", "must be >= 0");
@@ -265,7 +268,25 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p));
+                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p), whenHit(p));
+    }
+
+    /** {@code when_hit: { reduce_cooldowns: <ticks>, slots: [...] }} (enemy basic attacks landing on them). */
+    private static CharacterDef.WhenHit whenHit(Params p) {
+        if (!p.has("when_hit")) return null;
+        Params w = p.getParams("when_hit");
+        int ticks = w.requireInt("reduce_cooldowns");
+        if (ticks < 1) throw w.error("reduce_cooldowns", "must be at least 1 tick");
+        List<String> slots = w.has("slots") ? w.getStringList("slots")
+                : List.of(me.mephisto.ability_engine.engine.loadout.Slots.ABILITY_1,
+                        me.mephisto.ability_engine.engine.loadout.Slots.ABILITY_2,
+                        me.mephisto.ability_engine.engine.loadout.Slots.ABILITY_3);
+        for (String slot : slots) {
+            if (!me.mephisto.ability_engine.engine.loadout.Slots.ALL.contains(slot)) {
+                throw w.error("slots", "unknown slot '" + slot + "', expected " + me.mephisto.ability_engine.engine.loadout.Slots.ALL);
+            }
+        }
+        return new CharacterDef.WhenHit(ticks, slots);
     }
 
     /** {@code status_items: [ { status, hotbar, icon, name, description, glint_weapon } ]}. */

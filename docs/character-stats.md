@@ -214,6 +214,23 @@ off one debuff after 6s out of combat; Counterspell blocks a spell and loads mag
 Magic rounds (the next 3 shots of either gun, or Buckshot): Blind 1.5s, Weakness 3s (-25% damage, 30% slower
 attacks) or Silence 1.5s.
 
+### Copper Golem: Bruiser
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **320** | **45** (31%) | **34** | **0.92** | **1.0** (20 ticks) | 464 | 34 |
+
+20% bigger than a player. Cuprous Might: after 5s out of combat a copper barrier takes half of the next hit;
+enemy basic attacks landing on him take 0.5s off his abilities' cooldowns.
+
+| Ability | Damage |
+|---|---|
+| Anchor Swing (primary) | **100%** in a wide 3.5-block arc |
+| Groundbreaker | **90%** + 1s stun, pulled to them; on a block: a grappling hook |
+| Rustbreaker | shield up to 120 over 2s (slower and slower), 1s stun on himself, then **130%** (4.5 blocks) + 2s disarm |
+| Conduction Field | **80%** + knock-up, a ring rolling out to 8 blocks |
+| Lightning Rod (ult) | **220%** (5 blocks) + 2s paralysis, then 6s: faster, a field that deals **30%** every 0.5s and keeps them paralyzed |
+
 ### Test kit (Pyro)
 
 No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).

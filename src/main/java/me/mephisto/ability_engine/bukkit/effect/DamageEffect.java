@@ -73,6 +73,7 @@ public final class DamageEffect implements Effect {
             log.debug(() -> "damage: absorbed by a spell shield (" + design + ")");
             return;
         }
+        me.mephisto.ability_engine.engine.combat.HitReactions.onHit(ctx); // e.g. basic attacks on a golem cut his cooldowns
         double amount = design / scale;
         // Vanilla ignores a hit landing within ~10 ticks of the last one. Rapid channels need this.
         if (ctx.params().getBool("ignore_iframes", false)) living.setNoDamageTicks(0);

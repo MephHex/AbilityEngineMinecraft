@@ -54,6 +54,8 @@ public final class StatsHud {
     private final NamespacedKey healthKey;
     private final NamespacedKey speedKey;
     private final NamespacedKey attackSpeedKey;
+    private final NamespacedKey scaleKey;
+    private final NamespacedKey statusSpeedKey;
     /** Per player: the lore last drawn, so items are only replaced when something changed. */
     private final Map<UUID, List<String>> shown = new HashMap<>();
 
@@ -64,6 +66,8 @@ public final class StatsHud {
         this.healthKey = new NamespacedKey("ability_engine", "character_health");
         this.speedKey = new NamespacedKey("ability_engine", "character_speed");
         this.attackSpeedKey = new NamespacedKey("ability_engine", "character_attack_speed");
+        this.scaleKey = new NamespacedKey("ability_engine", "character_scale");
+        this.statusSpeedKey = new NamespacedKey("ability_engine", "status_speed");
     }
 
     public void start() {
@@ -72,6 +76,12 @@ public final class StatsHud {
                 if (!engine.loadouts().has(p.getUniqueId())) continue;
                 draw(p);
                 syncAttackSpeed(p);
+            }
+        });
+        // Statuses that change move speed by stacks (Rustbreaker's rust) build up fast: keep up every 2 ticks.
+        engine.scheduler().every(2, 2, () -> {
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (engine.loadouts().has(p.getUniqueId())) syncStatusSpeed(p);
             }
         });
     }
@@ -97,9 +107,33 @@ public final class StatsHud {
             speed.addModifier(new AttributeModifier(speedKey, speed.getBaseValue() * (stats.moveSpeed() - 1),
                     AttributeModifier.Operation.ADD_NUMBER));
         }
+        AttributeInstance size = p.getAttribute(Attribute.SCALE);
+        if (size != null) {
+            strip(size, scaleKey);
+            if (stats.scale() != 1) {
+                size.addModifier(new AttributeModifier(scaleKey, stats.scale() - 1, AttributeModifier.Operation.ADD_SCALAR));
+            }
+        }
         shown.remove(p.getUniqueId());
         draw(p);
         syncAttackSpeed(p);
+        syncStatusSpeed(p);
+    }
+
+    /**
+     * Statuses' {@code move_speed} (per stack, e.g. a slow that builds up), multiplied onto the speed after
+     * everything else. Only touched when it changes.
+     */
+    private void syncStatusSpeed(Player p) {
+        AttributeInstance speed = p.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (speed == null) return;
+        double wanted = engine.stats().moveSpeedMultiplier(p.getUniqueId()) - 1;
+        AttributeModifier ours = speed.getModifier(statusSpeedKey);
+        if (ours == null ? Math.abs(wanted) < 1e-6 : Math.abs(ours.getAmount() - wanted) < 1e-6) return;
+        strip(speed, statusSpeedKey);
+        if (Math.abs(wanted) >= 1e-6) {
+            speed.addModifier(new AttributeModifier(statusSpeedKey, wanted, AttributeModifier.Operation.MULTIPLY_SCALAR_1));
+        }
     }
 
     /**
@@ -140,6 +174,8 @@ public final class StatsHud {
         strip(p.getAttribute(Attribute.MAX_HEALTH), healthKey);
         strip(p.getAttribute(Attribute.MOVEMENT_SPEED), speedKey);
         strip(p.getAttribute(Attribute.ATTACK_SPEED), attackSpeedKey);
+        strip(p.getAttribute(Attribute.SCALE), scaleKey);
+        strip(p.getAttribute(Attribute.MOVEMENT_SPEED), statusSpeedKey);
         p.setHealthScaled(false);
         AttributeInstance health = p.getAttribute(Attribute.MAX_HEALTH);
         if (health != null && p.getHealth() > health.getValue()) p.setHealth(health.getValue());

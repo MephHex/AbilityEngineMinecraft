@@ -18,6 +18,7 @@ import java.util.UUID;
  *       it took off goes to the tether's owner instead; {@code mirror} of what's left ALSO hits the owner
  *       (a soul: hurting it hurts its owner)</li>
  *   <li>armor on what's left, except the share that pierces it (the max_hp part of a hit)</li>
+ *   <li>a ready barrier (a ward with {@code absorb}) takes its share off, and is used up</li>
  * </ol>
  * Redirected damage is final: it isn't modified again (no armor either).
  */
@@ -53,6 +54,7 @@ public final class DamageModifiers {
         }
         double share = Math.max(0, Math.min(1, pierceShare));
         amount = engine.stats().afterArmor(victim, amount * (1 - share)) + amount * share;
+        if (attacker == null || !attacker.equals(victim)) amount = engine.wards().absorbHit(victim, amount);
         return new Result(Math.max(0, amount), redirects);
     }
 
