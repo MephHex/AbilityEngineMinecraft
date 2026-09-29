@@ -66,10 +66,10 @@ statuses:
       every: 10                      # ...3% of their max HP every 0.5s = 18% total
       effects:
         - { id: damage, max_hp: 0.03, damage_type: fire }    # 3% of their max HP, ignores armor
-  paralyzed:                         # Paralysis: slowed and silenced (no abilities)
+  paralyzed:                         # Paralysis: slowed and silenced (no abilities; basic attacks still work)
     duration: 40                     # 2s
     stacking: refresh
-    tags: [state.slowed, state.silenced, block.ability]
+    tags: [state.slowed, state.silenced]   # silenced: no abilities (the crossbow still shoots)
 
 # Magic a bolt can carry. When an infused bolt hits, its infusions' on_hit effects land on the target too.
 # color: how bolts carrying it are tinted in the quiver (several infusions mix their colors).

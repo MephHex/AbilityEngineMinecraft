@@ -83,6 +83,8 @@ public final class HotbarHud {
      * @param rapid    rapid fire (no drawing: the crossbow always shows the next bolt ready)
      */
     private record QuiverShown(long revision, int reloadSpeed, boolean rapid) {}
+    /** Per player: which crowd control each slot showed last ("" = none), so icons swap only on a change. */
+    private final Map<UUID, Map<String, String>> ccShown = new HashMap<>();
     /** Per player: the ward item last drawn ("ready" or seconds left), so it's only redrawn when it changes. */
     private final Map<UUID, String> wardShown = new HashMap<>();
     /** Per player: the kit last drawn (with any form applied), so a form starting or ending redraws it. */
@@ -149,6 +151,7 @@ public final class HotbarHud {
         drawBolts(p, character.get());
         wardShown.remove(p.getUniqueId());
         updateWard(p);
+        ccShown.remove(p.getUniqueId()); // the next update puts barriers back if still crowd-controlled
         quiverShown.put(p.getUniqueId(), quiverState(p));
         if (stats != null) stats.apply(p); // max HP, speed, and the stat items in the inventory
         refresh(p);
@@ -206,6 +209,7 @@ public final class HotbarHud {
                 if (!now.get().equals(renderedAs.get(p.getUniqueId()))) render(p);
                 updateGauges(p);
                 updateWard(p);
+                updateCrowdControl(p);
                 updateGlints(p);
                 syncQuiver(p); // reload speed follows statuses that expire on their own
             }
@@ -276,7 +280,8 @@ public final class HotbarHud {
         if (!boltsChanged && p.isHandRaised()) return; // only the speed changed: after the draw
         if (boltsChanged) drawBolts(p, c.get());
         ItemStack held = p.getInventory().getItem(WEAPON_SLOT);
-        if (isHudItem(held)) {
+        // (A crowd-control barrier on the weapon stays until it ends; updateCrowdControl puts the weapon back.)
+        if (isHudItem(held) && engine.loadouts().crowdControl(id, Slots.PRIMARY).isEmpty()) {
             boolean loadedNow = engine.quivers().isLoaded(id);
             boolean shownLoaded = held.getItemMeta() instanceof CrossbowMeta cm && cm.hasChargedProjectiles();
             p.getInventory().setItem(WEAPON_SLOT, weapon(p, c.get()));
@@ -332,6 +337,57 @@ public final class HotbarHud {
     }
 
     // ---- resource gauges -------------------------------------------------------------------
+
+    // ---- crowd control: blocked slots show a barrier -------------------------------------------
+
+    /**
+     * An icon whose slot can't be used right now (stunned: all; silenced: abilities; disarmed: primary
+     * fire, on the weapon; rooted: movement abilities) turns into a barrier until it can. The passive
+     * (ward) never does.
+     */
+    private void updateCrowdControl(Player p) {
+        UUID id = p.getUniqueId();
+        Optional<CharacterDef> character = engine.loadouts().characterOf(id);
+        if (character.isEmpty()) return;
+        CharacterDef c = character.get();
+        Map<String, String> now = new HashMap<>();
+        for (String slot : Slots.ALL) {
+            if (ability(c, slot).isEmpty()) continue;
+            now.put(slot, engine.loadouts().crowdControl(id, slot).orElse(""));
+        }
+        Map<String, String> before = ccShown.getOrDefault(id, Map.of());
+        if (now.equals(before)) return;
+        ccShown.put(id, now);
+        PlayerInventory inv = p.getInventory();
+        for (var entry : now.entrySet()) {
+            String slot = entry.getKey();
+            String cc = entry.getValue();
+            if (cc.equals(before.get(slot))) continue;
+            if (Slots.PRIMARY.equals(slot)) {                        // primary fire lives on the weapon
+                inv.setItem(WEAPON_SLOT, cc.isEmpty() ? weapon(p, c) : barrier(c.name(), cc));
+            } else if (!onWeapon(slot)) {
+                Ability a = ability(c, slot).get();
+                inv.setItem(position(slot), cc.isEmpty() ? icon(slot, a) : barrier(a.display().name(), cc));
+            }
+        }
+        refresh(p); // counters and sweeps back on the restored icons
+    }
+
+    private ItemStack barrier(String name, String ccTag) {
+        String why = switch (ccTag) {
+            case me.mephisto.ability_engine.engine.tag.Tags.STUNNED -> "Stunned";
+            case me.mephisto.ability_engine.engine.tag.Tags.SILENCED -> "Silenced";
+            case me.mephisto.ability_engine.engine.tag.Tags.DISARMED -> "Disarmed";
+            case me.mephisto.ability_engine.engine.tag.Tags.ROOTED -> "Rooted";
+            default -> "Blocked";
+        };
+        ItemStack item = new ItemStack(Material.BARRIER);
+        ItemMeta meta = item.getItemMeta();
+        meta.setMaxStackSize(MAX_COUNT);
+        meta.displayName(plain(name + " - " + why, NamedTextColor.RED));
+        meta.lore(List.of(plain("Can't be used while " + why.toLowerCase(java.util.Locale.ROOT) + ".", NamedTextColor.GRAY)));
+        return tag(item, meta);
+    }
 
     /**
      * The character's ward (passive debuff immunity): glinting while ready, otherwise the stack counts the
@@ -436,6 +492,7 @@ public final class HotbarHud {
         sweepEnds.remove(p.getUniqueId()); // next refresh re-sends every sweep
         quiverShown.remove(p.getUniqueId());
         wardShown.remove(p.getUniqueId());
+        ccShown.remove(p.getUniqueId());
         renderedAs.remove(p.getUniqueId());
         PlayerInventory inv = p.getInventory();
         ItemStack[] contents = inv.getContents();

@@ -81,9 +81,10 @@ public final class QuiverManager {
         return true;
     }
 
-    /** Would a manual reload (drawing the weapon) be allowed right now? Not while blocked (stunned, casting) or rapid firing. */
+    /** Would a manual reload (drawing the weapon) be allowed right now? Not while blocked (stunned, casting), disarmed or rapid firing. */
     public boolean canLoad(UUID owner) {
-        return has(owner) && !isLoaded(owner) && !tags.has(owner, Tags.BLOCK_ABILITY) && !rapidFire(owner);
+        return has(owner) && !isLoaded(owner) && !tags.has(owner, Tags.BLOCK_ABILITY) && !tags.has(owner, Tags.DISARMED)
+                && !rapidFire(owner);
     }
 
     /** A manual reload finished (the platform saw the weapon drawn): load, unless that isn't allowed. */

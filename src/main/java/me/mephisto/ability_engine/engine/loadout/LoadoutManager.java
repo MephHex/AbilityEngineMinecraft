@@ -23,6 +23,7 @@ public final class LoadoutManager {
     private final ResourceManager resources;
     private final QuiverManager quivers;
     private final me.mephisto.ability_engine.engine.tag.TagManager tags;
+    private final me.mephisto.ability_engine.engine.ability.AbilityRegistry abilities;
     private final Map<UUID, String> assigned = new HashMap<>();
     private final java.util.List<java.util.function.Consumer<UUID>> assignListeners = new java.util.ArrayList<>();
 
@@ -30,7 +31,9 @@ public final class LoadoutManager {
     public void onAssign(java.util.function.Consumer<UUID> listener) { assignListeners.add(listener); }
 
     public LoadoutManager(CharacterRegistry characters, AbilityActivator activator, ResourceManager resources,
-                          QuiverManager quivers, me.mephisto.ability_engine.engine.tag.TagManager tags) {
+                          QuiverManager quivers, me.mephisto.ability_engine.engine.tag.TagManager tags,
+                          me.mephisto.ability_engine.engine.ability.AbilityRegistry abilities) {
+        this.abilities = abilities;
         this.characters = characters;
         this.activator = activator;
         this.resources = resources;
@@ -81,6 +84,44 @@ public final class LoadoutManager {
         return characterOf(player).map(c -> c.abilityIn(slot));
     }
 
+    /** Basic attacks: what silence doesn't stop, and disarm does. */
+    public static boolean isBasicAttack(String slot) {
+        return Slots.PRIMARY.equals(slot) || Slots.MELEE.equals(slot);
+    }
+
+    /**
+     * Which crowd control keeps this slot from being used right now, if any (for the HUD, and silence /
+     * disarm are enforced here):
+     * <ul>
+     *   <li>stunned: every slot</li>
+     *   <li>disarmed: basic attacks (primary, melee)</li>
+     *   <li>silenced: everything but basic attacks</li>
+     *   <li>rooted (block.move): movement abilities (dashes, blinks)</li>
+     * </ul>
+     * A passive isn't a slot, so it's never blocked. Empty = free.
+     */
+    public Optional<String> crowdControl(UUID player, String slot) {
+        if (tags.has(player, me.mephisto.ability_engine.engine.tag.Tags.STUNNED)) return Optional.of(me.mephisto.ability_engine.engine.tag.Tags.STUNNED);
+        if (isBasicAttack(slot)) {
+            if (tags.has(player, me.mephisto.ability_engine.engine.tag.Tags.DISARMED)) return Optional.of(me.mephisto.ability_engine.engine.tag.Tags.DISARMED);
+        } else if (tags.has(player, me.mephisto.ability_engine.engine.tag.Tags.SILENCED)) {
+            return Optional.of(me.mephisto.ability_engine.engine.tag.Tags.SILENCED);
+        }
+        if (tags.has(player, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_MOVE)) {
+            boolean movement = abilityIn(player, slot).flatMap(abilities::find)
+                    .map(me.mephisto.ability_engine.engine.ability.Ability::movement).orElse(false);
+            if (movement) return Optional.of(me.mephisto.ability_engine.engine.tag.Tags.ROOTED);
+        }
+        return Optional.empty();
+    }
+
+    /** Silence and disarm, which depend on the slot (stun and root are the abilities' own blocked_by). */
+    private Optional<ActivationResult> slotBlocked(UUID player, String slot) {
+        boolean basic = isBasicAttack(slot);
+        String tag = basic ? me.mephisto.ability_engine.engine.tag.Tags.DISARMED : me.mephisto.ability_engine.engine.tag.Tags.SILENCED;
+        return tags.has(player, tag) ? Optional.of(ActivationResult.fail("blocked:" + tag)) : Optional.empty();
+    }
+
     public ActivationResult activate(UUID player, String slot) {
         return activate(player, slot, true);
     }
@@ -91,6 +132,8 @@ public final class LoadoutManager {
         if (character.isEmpty()) return ActivationResult.fail("no_character");
         String abilityId = character.get().abilityIn(slot);
         if (abilityId == null) return ActivationResult.fail("empty_slot:" + slot);
+        var blocked = slotBlocked(player, slot);
+        if (blocked.isPresent()) return blocked.get();
         return activator.activate(player, abilityId, freshPress, java.util.Map.of(Keys.SLOT.name(), slot));
     }
 
@@ -100,6 +143,8 @@ public final class LoadoutManager {
         if (character.isEmpty()) return ActivationResult.fail("no_character");
         String abilityId = character.get().abilityIn(slot);
         if (abilityId == null) return ActivationResult.fail("empty_slot:" + slot);
+        var blocked = slotBlocked(player, slot);
+        if (blocked.isPresent()) return blocked.get();
         return activator.activateOnId(player, abilityId, target, java.util.Map.of(Keys.SLOT.name(), slot));
     }
 

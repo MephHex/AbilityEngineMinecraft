@@ -10,7 +10,10 @@ package me.mephisto.ability_engine.engine.tag;
  */
 public final class Tags {
     public static final String STUNNED = "state.stunned";
+    /** No abilities, but basic attacks (primary / melee) still work (checked per slot by the loadout). */
     public static final String SILENCED = "state.silenced";
+    /** No basic attacks (primary / melee); abilities still work (checked per slot by the loadout). */
+    public static final String DISARMED = "state.disarmed";
     public static final String ROOTED = "state.rooted";
     public static final String CHANNELING = "state.channeling";
     public static final String SLOWED = "state.slowed";

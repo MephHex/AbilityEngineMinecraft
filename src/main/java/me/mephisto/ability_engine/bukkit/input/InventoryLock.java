@@ -33,6 +33,12 @@ public final class InventoryLock implements Listener {
         if (e.getWhoClicked() instanceof Player p && engine.loadouts().has(p.getUniqueId())) e.setCancelled(true);
     }
 
+    /** A HUD icon (e.g. a crowd-control barrier) is never placed as a block. */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onPlace(org.bukkit.event.block.BlockPlaceEvent e) {
+        if (engine.loadouts().has(e.getPlayer().getUniqueId())) e.setCancelled(true);
+    }
+
     @EventHandler(priority = EventPriority.LOW)
     public void onPickup(EntityPickupItemEvent e) {
         if (e.getEntity() instanceof Player p && engine.loadouts().has(p.getUniqueId())) e.setCancelled(true);
