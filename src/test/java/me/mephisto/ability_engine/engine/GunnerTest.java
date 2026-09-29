@@ -21,11 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The AntiMage, the gunslinger (fixtures/antimage.yml): 210 HP, 15 armor, base damage 38. She stands at the
+ * The Gunner (fixtures/gunner.yml): 210 HP, 15 armor, base damage 38. She stands at the
  * origin on a floor, looking +x, team blue; the enemy stands 2.5 blocks in front, team red (no sheet: 200 HP,
  * no armor).
  */
-class AntiMageTest {
+class GunnerTest {
 
     private static final List<String> ROUNDS = List.of("gun_blind", "gun_weakness", "gun_silence");
 
@@ -48,7 +48,7 @@ class AntiMageTest {
         t.world.floor(0);
         p = t.spawn(0, 1, 0);
         t.world.team(p, "blue");
-        t.engine.loadouts().assign(p, "antimage");
+        t.engine.loadouts().assign(p, "gunner");
         enemy = t.spawn(2.5, 1, 0);
         t.world.team(enemy, "red");
     }
@@ -214,7 +214,7 @@ class AntiMageTest {
         t.time.advance(30);
         assertEquals(38 * 0.55, t.damage(enemy), 1e-9);
         assertEquals(5, ammo("bullets"));
-        assertFalse(t.engine.instances().isRunning(p, "antimage_revolver"), "over");
+        assertFalse(t.engine.instances().isRunning(p, "gunner_revolver"), "over");
     }
 
     /** RMB held: it repeats every 4 ticks, {@code repeats} times. */
@@ -441,7 +441,7 @@ class AntiMageTest {
         List<String> loaded = ROUNDS.stream().filter(id -> t.engine.statuses().has(p, id)).toList();
         assertEquals(1, loaded.size());
         assertEquals(3, stacks(loaded.get(0)));
-        assertFalse(t.engine.instances().isRunning(p, "antimage_ab3"), "one spell, then it's over");
+        assertFalse(t.engine.instances().isRunning(p, "gunner_ab3"), "one spell, then it's over");
 
         t.time.advance(11);
         enemyUses("hex", true);
@@ -459,7 +459,7 @@ class AntiMageTest {
         assertTrue(t.engine.spellShields().hasBlock(p), "and doesn't use it up");
         t.time.advance(41);
         assertFalse(t.engine.spellShields().hasBlock(p), "2s: gone");
-        assertFalse(t.engine.instances().isRunning(p, "antimage_ab3"));
+        assertFalse(t.engine.instances().isRunning(p, "gunner_ab3"));
         t.time.advance(11);
         enemyUses("hex", true);
         assertTrue(t.engine.tags().has(p, Tags.SILENCED));
@@ -518,7 +518,7 @@ class AntiMageTest {
         shotgun();
         assertEquals(38 * 2.0, t.damage(near), 1e-9, "the shotgun");
 
-        t.engine.cooldowns().clear(p, "antimage_ult1");
+        t.engine.cooldowns().clear(p, "gunner_ult1");
         keg = plantKeg();
         UUID other = foe(keg.x() + 3.5, keg.z() - 3);       // past Buckshot's 9 blocks
         t.world.look(p, new Vec3(1, 0, 0.3));

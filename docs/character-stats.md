@@ -192,7 +192,7 @@ damage (30) (see Q5).
 | Arcane Barrage: direct hit | 220 x charge (40-100%) | **730%** x charge |
 | Arcane Barrage: terrain blast | 90 x charge | **300%** x charge |
 
-### AntiMage: Gunslinger Anti-Caster
+### Gunner: Gunslinger Anti-Caster
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
@@ -214,7 +214,7 @@ off one debuff after 6s out of combat; Counterspell blocks a spell and loads mag
 Magic rounds (the next 3 shots of either gun, or Buckshot): Blind 1.5s, Weakness 3s (-25% damage, 30% slower
 attacks) or Silence 1.5s.
 
-### Test kits (Gunner, Pyro, Tidecaller)
+### Test kit (Pyro)
 
 No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).
 

@@ -227,7 +227,7 @@ public final class BukkitCuePlayer implements CuePlayer {
             w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7f, 1.4f);
         });
 
-        // ---- AntiMage ----
+        // ---- Gunner ----
         // Silence reads as anti-magic: teal / cyan, never the green of heals or the purple of spells.
         c.register("null_burst", loc -> {
             var teal = new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.4f);

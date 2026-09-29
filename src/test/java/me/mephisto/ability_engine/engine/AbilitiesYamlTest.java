@@ -39,7 +39,7 @@ class AbilitiesYamlTest {
         assertTrue(report.isClean(), String.join("\n", report.errors()));
         assertEquals(51, report.abilities());
         assertEquals(32, report.statuses());
-        assertEquals(10, report.characters());
+        assertEquals(8, report.characters());
         assertEquals(5, report.infusions());
     }
 

@@ -310,7 +310,7 @@ Full sheets and reasoning: `docs/character-stats.md`.
 - **summon_clone:** `health_share: 0.6` instead of `health:`, i.e. 60% of `of`'s max HP.
 - **In game:** the stat items are in the top row of the inventory. Hover one to see the value right now.
 
-## Added for the AntiMage
+## Added for the AntiMage (now the Gunner)
 
 - **Characters:** `ward: { name, out_of_combat, hotbar, icon, description }` is a passive debuff
   immunity. After `out_of_combat` ticks without dealing or taking damage, the next **debuff** doesn't
@@ -356,7 +356,7 @@ slot, so an ability is only silenced when it's in an ability slot.
   fixed spot: it doesn't follow the entity afterwards. With `ground: true` (default) it's dropped onto the
   ground below. For example, Volatile Nullifier's pool stays where the flask burst.
 
-## Added for the gunslinger AntiMage
+## Added for the Gunner
 
 - **Resources (ammo):** `reload: <ticks>` - once it's empty, it refills to max that long after the last
   spend. `shown_while: <tag>` / `hidden_while: <tag>` - only shown on the hotbar while you have (or don't

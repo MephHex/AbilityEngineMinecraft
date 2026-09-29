@@ -1,5 +1,5 @@
-# content: antimage
-# The AntiMage, reworked as a gunslinger who hunts casters: a shotgun and a revolver, a flask that shuts
+# content: gunner
+# The Gunner: a gunslinger who hunts casters: a shotgun and a revolver, a flask that shuts
 # down spells, and a counterspell that turns a blocked spell into speed and loaded magic rounds.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
@@ -69,7 +69,7 @@ abilities:
 
   # PRIMARY (LMB): the shotgun. A wide blast: 130% base damage to everyone in a 45 degree cone, 7 blocks.
   # 2 shells, then it reloads by itself (1.5s after the last shot). Shooting your Powder Keg sets it off.
-  antimage_shotgun:
+  gunner_shotgun:
     cooldown: 14                     # 0.7s between shots
     display:
       name: "Scattergun"
@@ -122,7 +122,7 @@ abilities:
   # up to 6), taken out of the cylinder as they load (the ammo count drops). Let go and they fire, one every
   # 3 ticks, at the first enemy in line (30 blocks): the first 55% base damage, the rest 45% each.
   # A click is one bullet. 6 bullets, then it reloads by itself (2s after the last shot).
-  antimage_revolver:
+  gunner_revolver:
     cooldown: 8                      # 0.4s between clicks
     display:
       name: "Six-Shooter"
@@ -213,7 +213,7 @@ abilities:
 
   # 1: Buckshot. A heavy shotgun blast in a wider cone (70 degrees, 9 blocks): 160% base damage, a slight
   # knockback and 1.5s slow. The recoil throws you backwards. Uses a magic round, and fills the shotgun.
-  antimage_ab1:
+  gunner_ab1:
     cooldown: 160                    # 8s
     display:
       name: "Buckshot"
@@ -273,7 +273,7 @@ abilities:
   # 2: lob a flask that bounces once, then bursts: 90% base damage and 2s silence around it, and it leaves
   # a 4s pool that silences anyone standing in it. Caught in the burst yourself: faster for 3s, Null Ward is
   # ready again at once, and your next 3 shots get magic rounds (Blind, Weakness or Silence, at random).
-  antimage_ab2:
+  gunner_ab2:
     cooldown: 240                    # 12s
     display:
       name: "Volatile Nullifier"
@@ -393,7 +393,7 @@ abilities:
   # 3: Counterspell. For 2s, the first enemy SPELL that reaches you is blocked: its damage and its debuffs
   # (basic attacks and damage over time still land). Block one and you're faster for 3s, and your next 3
   # shots get magic rounds (Blind, Weakness or Silence, at random).
-  antimage_ab3:
+  gunner_ab3:
     cooldown: 240                    # 12s
     display:
       name: "Counterspell"
@@ -455,7 +455,7 @@ abilities:
   # ULTIMATE (F): Powder Keg. Throw a keg: where it lands it sits for 2.5s, then explodes (5 blocks): 200%
   # base damage, sets them on fire (12% of their max HP over 3s) and blows them away from the centre.
   # Shoot it (either gun, or Buckshot) to set it off early. A direct hit on an enemy explodes at once.
-  antimage_ult1:
+  gunner_ult1:
     cooldown: 900                    # placeholder until ults charge from damage
     display:
       name: "Powder Keg"
@@ -506,8 +506,8 @@ abilities:
         at: keg
 
 characters:
-  antimage:
-    name: "AntiMage"
+  gunner:
+    name: "Gunner"
     weapon: NETHERITE_HOE            # the shotgun
     forms:                           # the revolver in your hand after an RMB shot (until the next LMB)
       - { while: state.revolver, weapon: IRON_HOE }
@@ -535,9 +535,9 @@ characters:
         - "After 6s out of combat, the next debuff"
         - "doesn't land. Blocking one uses it up."
     slots:
-      primary: antimage_shotgun      # LMB: Scattergun
-      secondary: antimage_revolver   # RMB: Six-Shooter (hold to load a volley)
-      ability_1: antimage_ab1        # 1: Buckshot
-      ability_2: antimage_ab2        # 2: Volatile Nullifier
-      ability_3: antimage_ab3        # 3: Counterspell
-      ultimate: antimage_ult1        # F: Powder Keg
+      primary: gunner_shotgun      # LMB: Scattergun
+      secondary: gunner_revolver   # RMB: Six-Shooter (hold to load a volley)
+      ability_1: gunner_ab1        # 1: Buckshot
+      ability_2: gunner_ab2        # 2: Volatile Nullifier
+      ability_3: gunner_ab3        # 3: Counterspell
+      ultimate: gunner_ult1        # F: Powder Keg
