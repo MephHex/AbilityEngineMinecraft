@@ -86,8 +86,8 @@ public final class AbilityActivator {
     }
 
     public ActivationResult activate(UUID caster, Ability ability, boolean freshPress, Map<String, Object> presets) {
-        // Aiming something already? Its own key does nothing (holding a key auto-repeats it, which the
-        // server can't tell from a real second press, so it must never confirm). Other abilities switch.
+        // Aiming something already? Its own key does nothing here: the input layer confirms a real second
+        // press with TargetingManager.confirm (it can tell one from a held key's auto-repeat). Others switch.
         Optional<Ability> aiming = engine.targeting().current(caster);
         if (aiming.isPresent()) {
             if (aiming.get().id().equals(ability.id())) return ActivationResult.targeting();

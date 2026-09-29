@@ -42,11 +42,25 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     private me.mephisto.ability_engine.bukkit.hud.BossBarHud bossBar;
     private DamageEffect damage;
 
+    /** The key that confirms what a player is aiming: the aimed ability's own key (LMB without a character). */
+    private String confirmKeyOf(java.util.UUID id) {
+        if (!engine.loadouts().has(id)) return "LMB";
+        String aimed = engine.targeting().current(id).map(a -> a.id()).orElse(null);
+        if (aimed == null) return "LMB";
+        for (String slot : me.mephisto.ability_engine.engine.loadout.Slots.ALL) {
+            if (engine.loadouts().abilityIn(id, slot).filter(aimed::equals).isPresent()) {
+                return keybinds.actionFor(slot).map(me.mephisto.ability_engine.bukkit.input.InputAction::defaultKey).orElse("LMB");
+            }
+        }
+        return "LMB";
+    }
+
     @Override
     public void onEnable() {
         BukkitWorldQuery worldQuery = new BukkitWorldQuery();
         BukkitConstructRenderer constructRenderer = new BukkitConstructRenderer(getLogger());
         var cloneSpawner = new me.mephisto.ability_engine.bukkit.platform.BukkitCloneSpawner();
+        BukkitIndicatorRenderer indicators = new BukkitIndicatorRenderer(this);
         Platform platform = new Platform(
                 new PaperClock(),
                 new PaperTaskScheduler(this),
@@ -54,7 +68,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
                 new BukkitMovementControl(),
                 new BukkitProjectileRenderer(getLogger()),
                 BukkitCuePlayer.withDefaults(this, getLogger()),
-                new BukkitIndicatorRenderer(this),
+                indicators,
                 constructRenderer,
                 cloneSpawner,
                 getLogger());
@@ -72,6 +86,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
 
         saveDefaultConfig();
         keybinds = new Keybinds();
+        indicators.setConfirmKey(id -> confirmKeyOf(id)); // "Aiming X · 3 confirm": the aimed ability's own key
         hud = new HotbarHud(this, engine, keybinds);
         var statsHud = new me.mephisto.ability_engine.bukkit.hud.StatsHud(this, engine, damage);
         hud.setStats(statsHud);

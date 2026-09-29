@@ -237,7 +237,7 @@ abilities:
       lower:
         type: end_cast               # the shield comes down (and the 4s timer stops)
 
-  # ULTIMATE (F): launch into the sky, choose where to land (LMB; or you land where you look after 3s),
+  # ULTIMATE (F): launch into the sky, choose where to land (F again; or you land where you look after 3s),
   # then crash down: a shockwave throws enemies away (harder the closer they are) and gives you and
   # allies nearby a large absorption shield.
   vanguard_ult1:
@@ -246,7 +246,7 @@ abilities:
       name: "Hero's Descent"
       icon: FIREWORK_STAR
       description:
-        - "Launch into the sky, pick a spot (LMB),"
+        - "Launch into the sky, pick a spot (F),"
         - "crash down: 60 damage, enemies thrown away,"
         - "you and nearby allies get 120 absorption."
     active_tags: [state.descending, block.ability]
@@ -275,7 +275,7 @@ abilities:
           - { id: status, status: hovering }
         next: choose
       choose:
-        type: choose_spot            # a preview circle follows your crosshair: LMB to land there
+        type: choose_spot            # a preview circle follows your crosshair: F again to land there
         range: 40
         radius: 6
         timeout: 60                  # 3s, then: wherever you're looking

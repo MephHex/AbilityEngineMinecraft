@@ -88,7 +88,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 ### Targeting (aim previews)
 
 Add `targeting: { shape: circle|line|cone|point, range, radius/width/angle, ground: true, max_drop }`
-to show a preview first: LMB confirms, RMB cancels. No time limit unless you add `timeout: <ticks>`.
+to show a preview first: pressing the ability's key again confirms, RMB cancels (players without a
+character, casting /ae bind items, confirm with LMB). No time limit unless you add `timeout: <ticks>`.
 `/ae quickcast` skips the preview.
 
 - The preview ray ignores entities (you can place things under someone).
@@ -189,7 +190,7 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
   engine flies: forward `speed` per tick, `up` launch speed, pulled down by `gravity`; ends on landing,
   or at the top of the arc with `until: apex`),
   choose_spot `{ range, radius, timeout, ground, max_drop, store }` -> out / none (mid-cast aim
-  preview: LMB picks the spot; on timeout or RMB it uses where you look; `none` if that's nothing),
+  preview: the ability's key again picks the spot; on timeout or RMB it uses where you look; `none` if that's nothing),
   link `{ name, target, range, damage_taken, redirect, copy_positive, cue }` (a tether from the caster
   to someone; see below), find_link `{ name, store }` -> found / none, unlink `{ name }`,
   start_cooldown (start the cooldown now; for `cooldown_starts: manual`), end_cast (end the whole
