@@ -31,12 +31,21 @@ public final class CrossbowListener implements Listener {
     public void onLoad(EntityLoadCrossbowEvent e) {
         if (!(e.getEntity() instanceof Player p) || !ours(p)) return;
         e.setConsumeItem(false); // the arrows in the hotbar are the quiver's display, not ammo
+        // Slower attacks (Paralysis): the draw has to be held that much longer. Let go sooner and it
+        // doesn't load, like letting go of a vanilla crossbow early.
+        double speed = engine.stats().attackSpeedMultiplier(p.getUniqueId());
+        boolean drawnLongEnough = speed >= 1 || p.getActiveItemUsedTime() >= drawTicks(p) / speed;
         // Stunned (or anything blocking abilities) since the draw started: it doesn't load.
-        if (!engine.quivers().tryLoad(p.getUniqueId())) e.setCancelled(true);
+        if (!drawnLongEnough || !engine.quivers().tryLoad(p.getUniqueId())) e.setCancelled(true);
         // Next tick, after vanilla has charged the item: redraw it from the engine, and shift the bolts.
         engine.scheduler().after(1, () -> {
             if (p.isOnline()) hud.refresh(p);
         });
+    }
+
+    /** Vanilla's draw: 1.25s, 0.25s less per Quick Charge level (the HUD sets it from the reload speed). */
+    private int drawTicks(Player p) {
+        return Math.max(0, 25 - 5 * engine.quivers().reloadSpeed(p.getUniqueId()));
     }
 
     /** Safety net: a quiver character's crossbow never fires a vanilla arrow. */

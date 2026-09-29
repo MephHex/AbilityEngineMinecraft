@@ -15,11 +15,13 @@ import java.util.Set;
  * @param once                 a buff used up by the first hit that applies its on_hit effects
  * @param tickEvery            damage/heal over time: run {@code tickEffects} on the holder every N ticks (0 = never),
  *                             credited to whoever applied the status
+ * @param attackSpeed          the holder's basic attacks (primary / melee) come this much faster: their cooldown
+ *                             is divided by it, a crossbow's draw takes longer (Paralysis: 0.6 = 40% slower)
  */
 public record StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                         List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                         boolean breakOnDamage, boolean once,
-                        boolean positive, double damageDealt, double damageTaken) {
+                        boolean positive, double damageDealt, double damageTaken, double attackSpeed) {
 
     public StatusDef {
         grantedTags = Set.copyOf(grantedTags);
@@ -35,9 +37,17 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      */
     public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                      List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                positive, damageDealt, damageTaken, 1);
+    }
+
+    /** Without positive / damage / attack speed modifiers. */
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                      boolean breakOnDamage, boolean once) {
         this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
-                false, 1, 1);
+                false, 1, 1, 1);
     }
 
     /** Without break_on_damage / once. */

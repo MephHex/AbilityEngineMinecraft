@@ -260,21 +260,30 @@ public final class BukkitCuePlayer implements CuePlayer {
         });
         c.registerLoop("spellshield", e -> spellShield(plugin, e));
         c.register("spellshield_absorb", loc -> {
-            loc.getWorld().spawnParticle(Particle.ENCHANTED_HIT, loc, 12, 0.5, 0.7, 0.5, 0.1);
+            loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc, 16, 0.6, 0.8, 0.6, 0,
+                    new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.1f));
+            loc.getWorld().spawnParticle(Particle.GLOW, loc, 4, 0.5, 0.7, 0.5, 0);
             loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, 1.6f);
         });
         c.register("spellshield_blast", loc -> {
-            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 60, 2.2, 0.8, 2.2, 0.15);
+            loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc, 90, 2.4, 0.8, 2.4, 0,
+                    new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.5f));
+            loc.getWorld().spawnParticle(Particle.GLOW, loc, 30, 2.2, 0.8, 2.2, 0.1);
+            loc.getWorld().spawnParticle(Particle.NAUTILUS, loc.clone().add(0, 1, 0), 50, 0.3, 0.3, 0.3, 2);
             loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 1, 0.3, 1, 0);
             loc.getWorld().playSound(loc, Sound.ENTITY_EVOKER_CAST_SPELL, 1f, 0.8f);
             loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.5f);
         });
-        c.register("spellshield_purge", loc -> {
-            loc.getWorld().spawnParticle(Particle.SMOKE, loc, 60, 2.5, 0.6, 2.5, 0.05);
+        c.register("spellshield_purge", loc -> { // enemy buffs stripped: dark cyan motes and smoke
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 50, 2.5, 0.6, 2.5, 0,
+                    new Particle.DustOptions(ANTI_MAGIC_DEEP, 1.3f));
+            loc.getWorld().spawnParticle(Particle.SMOKE, loc, 30, 2.5, 0.6, 2.5, 0.05);
             loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_DEACTIVATE, 1f, 1.2f);
         });
-        c.register("ward_block", loc -> {
-            loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 20, 0.4, 0.6, 0.4, 0.2);
+        c.register("ward_block", loc -> { // Null Ward shrugs a debuff off: a teal flash
+            loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc, 25, 0.5, 0.7, 0.5, 0,
+                    new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.2f));
+            loc.getWorld().spawnParticle(Particle.GLOW, loc, 8, 0.4, 0.6, 0.4, 0.05);
             loc.getWorld().playSound(loc, Sound.ITEM_SHIELD_BLOCK, 1f, 1.4f);
         });
         c.register("ward_ready", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 0.8f, 1.8f));
@@ -585,9 +594,11 @@ public final class BukkitCuePlayer implements CuePlayer {
         };
     }
 
-    /** Counterspell: a shimmering sphere around the caster. */
+    /** Counterspell: a shimmering teal sphere around the caster (anti-magic colours). */
     private static CueHandle spellShield(Plugin plugin, Entity entity) {
         entity.getWorld().playSound(entity.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.8f);
+        entity.getWorld().playSound(entity.getLocation(), Sound.BLOCK_CONDUIT_ACTIVATE, 0.6f, 1.6f);
+        var teal = new Particle.DustTransition(ANTI_MAGIC, ANTI_MAGIC_DEEP, 1.0f);
         int[] tick = {0};
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!entity.isValid()) return;
@@ -596,7 +607,12 @@ public final class BukkitCuePlayer implements CuePlayer {
             for (int i = 0; i < 10; i++) { // a slowly turning band of points on a 1.3-block sphere
                 double theta = (tick[0] * 0.2) + i * Math.PI * 2 / 10;
                 double phi = Math.PI * (0.25 + 0.5 * ((i + tick[0]) % 5) / 4.0);
-                w.spawnParticle(Particle.END_ROD, c.getX() + 1.3 * Math.sin(phi) * Math.cos(theta),
+                w.spawnParticle(Particle.DUST_COLOR_TRANSITION, c.getX() + 1.3 * Math.sin(phi) * Math.cos(theta),
+                        c.getY() + 1.3 * Math.cos(phi), c.getZ() + 1.3 * Math.sin(phi) * Math.sin(theta), 1, 0, 0, 0, 0, teal);
+            }
+            if (tick[0] % 3 == 0) { // a glint somewhere on the sphere
+                double theta = Math.random() * Math.PI * 2, phi = Math.random() * Math.PI;
+                w.spawnParticle(Particle.GLOW, c.getX() + 1.3 * Math.sin(phi) * Math.cos(theta),
                         c.getY() + 1.3 * Math.cos(phi), c.getZ() + 1.3 * Math.sin(phi) * Math.sin(theta), 1, 0, 0, 0, 0);
             }
             tick[0]++;

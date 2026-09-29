@@ -34,6 +34,10 @@ public final class Tags {
     /** Abilities ignore them: projectiles, rays and dashes pass through, area effects skip them. */
     public static final String UNTARGETABLE = "state.untargetable";
     public static final String BLINDED = "state.blinded";
+    /** Poisoned (on Bukkit: green poison swirls). */
+    public static final String POISONED = "state.poisoned";
+    /** Paralyzed (on Bukkit: yellow sparks). The status itself carries the slow, silence and attack speed. */
+    public static final String PARALYZED = "state.paralyzed";
     /** Frozen (on Bukkit: frozen, blue hearts and the powder-snow slow; no vanilla freeze damage). */
     public static final String FROZEN = "state.frozen";
     /** Can fly (on Bukkit: creative-style flight; no fall damage from the landing after it ends). */

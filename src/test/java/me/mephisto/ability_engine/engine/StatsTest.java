@@ -46,10 +46,12 @@ class StatsTest {
         t.load(map(
                 "abilities", map("hit", hit, "flat", flat, "percent", percent, "mend", mend, "soul", soul,
                         "mixed", mixed, "mixed_heal", mixedHeal,
-                        "jab", map("cooldown", 30, "nodes", map("n", map("type", "print", "message", "jab")))),
+                        "jab", map("cooldown", 30, "nodes", map("n", map("type", "print", "message", "jab"))),
+                        "zap", map("cooldown", 30, "nodes", map("n", map("type", "print", "message", "zap")))),
+                "statuses", map("sluggish", map("duration", 100, "tags", list("state.sluggish"), "attack_speed", 0.5)),
                 "characters", map(
                         "bruiser", map("stats", map("health", 300, "armor", 100, "base_damage", 40,
-                                "move_speed", 0.9, "attack_speed", 2.0), "slots", map("primary", "jab")),
+                                "move_speed", 0.9, "attack_speed", 2.0), "slots", map("primary", "jab", "ability_1", "zap")),
                         "plain", map("slots", map("primary", "jab")))));
     }
 
@@ -156,6 +158,22 @@ class StatsTest {
     }
 
     @Test
+    void slowedAttacksStretchOnlyTheBasicAttack() {
+        setup();
+        UUID bruiser = character("bruiser");
+        UUID plain = character("plain");
+        t.engine.statuses().apply(bruiser, "sluggish", 100, null);
+        t.engine.statuses().apply(plain, "sluggish", 100, null);
+        assertEquals(0.5, t.engine.stats().attackSpeedMultiplier(bruiser), 1e-9);
+        assertTrue(t.engine.loadouts().activate(bruiser, Slots.PRIMARY).success());
+        assertEquals(20, t.engine.cooldowns().remainingTicks(bruiser, "jab"), "2 attacks/s at half speed: 1 a second");
+        assertTrue(t.engine.loadouts().activate(bruiser, Slots.ABILITY_1).success());
+        assertEquals(30, t.engine.cooldowns().remainingTicks(bruiser, "zap"), "abilities keep their cooldown");
+        assertTrue(t.engine.loadouts().activate(plain, Slots.PRIMARY).success());
+        assertEquals(60, t.engine.cooldowns().remainingTicks(plain, "jab"), "its own 30, at half speed");
+    }
+
+    @Test
     void aSoulsHealthCanFollowItsOwnersMaxHp() {
         setup();
         UUID bruiser = character("bruiser");
@@ -172,9 +190,11 @@ class StatsTest {
                 "abilities", map("jab", map("nodes", map("n", map("type", "print", "message", "x")))),
                 "characters", map(
                         "a", map("stats", map("health", 0), "slots", map("primary", "jab")),
-                        "b", map("stats", map("speed", 2), "slots", map("primary", "jab")))), "test");
+                        "b", map("stats", map("speed", 2), "slots", map("primary", "jab"))),
+                "statuses", map("broken", map("duration", 20, "attack_speed", 0))), "test");
         String errors = String.join("\n", report.errors());
         assertTrue(errors.contains("health: must be above 0"), errors);
         assertTrue(errors.contains("unknown stat"), errors);
+        assertTrue(errors.contains("attack_speed: must be above 0"), errors);
     }
 }

@@ -88,7 +88,7 @@ public final class AbilityEngine {
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
         this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags, abilities, instances);
         this.targeting = new TargetingManager(this);
-        this.stats = new me.mephisto.ability_engine.engine.stats.StatSheets(loadouts, platform.world());
+        this.stats = new me.mephisto.ability_engine.engine.stats.StatSheets(loadouts, platform.world(), statuses);
         this.combat = new me.mephisto.ability_engine.engine.combat.CombatTracker(platform.clock());
         this.spellShields = new me.mephisto.ability_engine.engine.combat.SpellShields(platform.world(), platform.cues());
         this.wards = new me.mephisto.ability_engine.engine.ward.WardManager(loadouts, tags, combat, platform.clock(),
