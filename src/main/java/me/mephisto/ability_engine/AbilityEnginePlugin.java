@@ -113,6 +113,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.WitherGuard(engine), this);
         pm.registerEvents(projectileRenderer, this); // bodies drop nothing
         new me.mephisto.ability_engine.bukkit.status.HearingGlow(engine, this).start(); // the hearing passive's private glow
+        var veilVisibility = new me.mephisto.ability_engine.bukkit.status.VeilVisibility(engine, this); // Into the Veil
+        pm.registerEvents(veilVisibility, this);
+        veilVisibility.start();
         var traits = new me.mephisto.ability_engine.bukkit.status.Traits(engine);
         pm.registerEvents(traits, this);
         traits.start();

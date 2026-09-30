@@ -43,6 +43,7 @@ public final class HitscanQuery implements TargetQuery {
         java.util.function.Predicate<java.util.UUID> through = allies
                 ? id -> id.equals(ctx.caster()) || !teams.allies(ctx.caster(), id)
                         || ctx.engine().tags().has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE)
+                        || ctx.engine().veils().blocks(ctx.caster(), id)
                 : teams.passThroughFor(ctx.caster());
         Optional<SweepHit> hit = world.sweep(a.world(), a.eye(), a.eye().add(a.direction().multiply(range)), raySize, through);
         // An enemy's frontal barrier stops the ray like a wall.

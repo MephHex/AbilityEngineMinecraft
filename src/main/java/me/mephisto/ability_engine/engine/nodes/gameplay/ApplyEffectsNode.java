@@ -118,6 +118,7 @@ public final class ApplyEffectsNode implements GraphNode {
     private boolean allowed(ExecutionContext ctx, Target target) {
         if (!(target instanceof EntityTarget e) || e.id().equals(ctx.caster())) return true;
         if (ctx.engine().tags().has(e.id(), me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE)) return false;
+        if (ctx.engine().veils().blocks(ctx.caster(), e.id())) return false; // across a veil: out of reach
         boolean ally = ctx.engine().teams().allies(ctx.caster(), e.id());
         return switch (affects) {
             case ENEMIES -> !ally;

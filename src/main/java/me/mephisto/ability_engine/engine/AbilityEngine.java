@@ -141,6 +141,7 @@ public final class AbilityEngine {
     public LoadoutManager loadouts() { return loadouts; }
     public TargetingManager targeting() { return targeting; }
     public Teams teams() { return teams; }
+    public me.mephisto.ability_engine.engine.team.Veils veils() { return teams.veils(); }
     public me.mephisto.ability_engine.engine.barrier.BarrierSystem barriers() { return barriers; }
     public InfusionRegistry infusions() { return infusions; }
     public QuiverManager quivers() { return quivers; }

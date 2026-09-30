@@ -8,7 +8,8 @@
 #   - Moving toward a heard enemy within 15 blocks: +15% move speed.
 #   - Hotbar slot 9 ("Chorus Ear"): the stack is how many are heard right now; empty when none.
 #
-# ULTIMATE: Into the Veil (a 1v1 duel in a dream arena) isn't built yet.
+# ULTIMATE (F): Into the Veil. A 1v1 duel where you stand: for 7s you and your target only see each other,
+#   and nobody else can hit, heal or buff either of you (nor can you two touch anyone else).
 
 statuses:
   heard_rush:                        # moving toward a heard enemy
@@ -25,6 +26,10 @@ statuses:
     duration: 80
     stacking: refresh
     tags: [state.darkness, state.blinded]
+  veil_fury:                         # Into the Veil: you hit harder while the duel lasts
+    duration: 140                    # 7s
+    damage_dealt: 1.2                # +20%
+    tags: [buff.veil_fury]
   whisper_wither:                    # Binding Whisper: withering, like Wither II (black hearts)
     duration: 80                     # 4s...
     stacking: refresh
@@ -296,6 +301,85 @@ abilities:
       end:
         type: end_cast
 
+  # ULTIMATE (F): Into the Veil. Pick an enemy in front of you (20 blocks). They get a 0.5s warning (a
+  # whisper and a pulse of darkness), then you're both pulled into the veil for 7s, right where you stand:
+  # you only see each other, and nobody else can hit, heal or buff either of you (you can't touch anyone
+  # else either). You hit 20% harder, and your abilities' cooldowns are reset as you enter. If they die in
+  # there it ends at once and you heal 8 HP; if you die, it ends too. Nobody in front of you: nothing spent.
+  whisperer_ult1:
+    cooldown: 900                    # placeholder until ults charge from damage
+    cooldown_starts: manual          # only once someone is picked
+    display:
+      name: "Into the Veil"
+      icon: SCULK_SHRIEKER
+      description:
+        - "Pull an enemy (20 blocks) into a 7s duel:"
+        - "you only see each other; no one else can"
+        - "touch either of you. +20% damage, your"
+        - "cooldowns reset. Win: heal 8 HP."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 20, ray_size: 0.5 }
+        on: { hit: picked, miss: ~ }
+      picked:
+        type: start_cooldown
+        next: warn
+      warn:
+        type: apply_effects          # the warning: a pulse of darkness
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: darkness, duration: 10 }
+        next: warn_cue
+      warn_cue:
+        type: play_cue
+        cue: veil_warning
+        at: target
+        next: warn_wait
+      warn_wait:
+        type: delay
+        ticks: 10                    # 0.5s
+        next: enter
+      enter:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: veil_fury }
+        next: fresh
+      fresh:
+        type: reset_cooldowns        # your abilities are ready again
+        slots: [ability_1, ability_2, ability_3]
+        next: enter_cue
+      enter_cue:
+        type: play_cue
+        cue: veil_enter
+        at: target
+        next: duel
+      duel:
+        type: veil
+        target: target
+        duration: 140                # 7s (a boss bar)
+        on: { won: won, out: over }
+      won:
+        type: apply_effects          # they died in there: heal 8 HP
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: heal, amount: 80 }
+          - { id: remove_status, status: veil_fury }
+        next: over_cue
+      over:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: veil_fury }
+        next: over_cue
+      over_cue:
+        type: play_cue
+        cue: veil_exit
+
 characters:
   whisperer:
     name: "Whisperer"
@@ -323,3 +407,4 @@ characters:
       ability_1: whisperer_ab1       # 1: Dream Step (press again: back to the rift)
       ability_2: whisperer_ab2       # 2: Binding Whisper
       ability_3: whisperer_ab3       # 3: Chorus Shade
+      ultimate: whisperer_ult1       # F: Into the Veil

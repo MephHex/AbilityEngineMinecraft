@@ -432,8 +432,14 @@ slot, so an ability is only silenced when it's in an ability slot.
   for `max_distance` blocks, then hovers there for `hover` ticks (still looking), then expires.
 - **Projectile:** `health: 60` gives it a body enemies can hit and kill (an `"entity:..."` visual, on your
   team); killed, the projectile exits `destroyed`. `through_blocks: true` - terrain doesn't stop it.
+- **veil** `{ target, duration }` -> won / out: a duel. The caster and the target are pulled into a veil
+  for `duration` ticks (a boss bar): they can only affect each other (shots, rays, dashes and effects skip
+  anyone across it), and on Bukkit they only see each other (everyone else is hidden from them and them
+  from everyone). `won` as soon as the target dies; the veil also lifts if the caster dies.
+- **reset_cooldowns** `{ slots: [...] }`: the caster's abilities in those slots are ready at once.
 - **Keys:** a stored projectile (`store:`) can be used like a spot: where it is, or where it ended (e.g. `center: shade`).
 - **Tags:** `state.darkness` (vanilla Darkness), `state.withered` (Wither's black hearts; the status does the
   damage, not vanilla).
 - **Cues:** sickle_rake, dream_step, dream_arrive, dream_rift, rift_close, whisper_bind, whisper_tether_1..4
-  (lines), whisper_curse, whisper_snap, shade_aura, shade_execute, shade_dissolve.
+  (lines), whisper_curse, whisper_snap, shade_aura, shade_execute, shade_dissolve, veil_warning, veil_enter,
+  veil_exit.

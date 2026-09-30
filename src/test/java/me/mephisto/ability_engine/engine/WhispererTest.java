@@ -287,4 +287,83 @@ class WhispererTest {
         assertEquals(60 + 200, t.damage(enemy), 1e-9, "6 HP, then all of their max HP");
         assertTrue(t.render.cues.contains("shade_execute"));
     }
+
+    // ---- Ultimate: Into the Veil -------------------------------------------------------------------------
+
+    /** An enemy ability: 100 damage to whoever it's aimed at (or 100 healing, for "mend"). */
+    private void loadHelpers() {
+        t.load(me.mephisto.ability_engine.engine.testkit.Yml.abilities(
+                "punch", me.mephisto.ability_engine.engine.testkit.Yml.map("nodes", me.mephisto.ability_engine.engine.testkit.Yml.map(
+                        "hit", me.mephisto.ability_engine.engine.testkit.Yml.map("type", "apply_effects",
+                                "targets", me.mephisto.ability_engine.engine.testkit.Yml.map("type", "key", "key", "target"),
+                                "affects", "all",
+                                "effects", me.mephisto.ability_engine.engine.testkit.Yml.list(
+                                        me.mephisto.ability_engine.engine.testkit.Yml.map("id", "damage", "amount", 100)))))));
+    }
+
+    private void punch(UUID from, UUID to) {
+        t.engine.activator().activateOnId(from, "punch", new EntityTarget(to), java.util.Map.of());
+    }
+
+    @Test
+    void intoTheVeilWarnsThenIsolatesTheTwo() throws IOException {
+        setup();
+        loadHelpers();
+        UUID enemyFriend = foe(2, 3);                       // on the target's side
+        UUID myFriend = t.spawn(-2, 1, 0);
+        t.world.team(myFriend, "blue");
+        use(Slots.ABILITY_2);                               // (a cooldown to see reset)
+        use(Slots.ULTIMATE);
+        assertTrue(t.engine.tags().has(enemy, "state.darkness"), "the warning pulse");
+        assertFalse(t.engine.veils().isVeiled(p), "not yet: 0.5s warning");
+        t.time.advance(10);
+        assertTrue(t.engine.veils().isVeiled(p));
+        assertEquals(enemy, t.engine.veils().partnerOf(p).orElseThrow());
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "whisperer_ab2"), "cooldowns reset");
+
+        double mine = t.damage(p);
+        punch(enemyFriend, p);
+        assertEquals(mine, t.damage(p), 1e-9, "their friend can't reach you");
+        double theirs = t.damage(enemy);
+        punch(myFriend, enemy);
+        assertEquals(theirs, t.damage(enemy), 1e-9, "nor can yours reach them");
+        punch(enemy, p);
+        assertTrue(t.damage(p) > mine, "but the two of you can hit each other");
+        use(Slots.PRIMARY);
+        assertEquals(theirs + 50 * 1.2, t.damage(enemy), 1e-9, "+20% damage");
+        double friendBefore = t.damage(enemyFriend);
+        t.world.move(enemyFriend, new Vec3(1.5, 1, 0));    // right in front of you
+        t.time.advance(12);
+        use(Slots.PRIMARY);
+        assertEquals(friendBefore, t.damage(enemyFriend), 1e-9, "you can't touch anyone outside either");
+
+        t.time.advance(140);
+        assertFalse(t.engine.veils().isVeiled(p), "7s: over");
+        assertFalse(t.engine.veils().isVeiled(enemy));
+        punch(enemyFriend, p);
+        assertTrue(t.damage(p) > mine + 100 * 100 / 110.0 - 1e-6, "back in the fight");
+    }
+
+    @Test
+    void winningTheDuelEndsItAtOnceAndHeals() throws IOException {
+        setup();
+        use(Slots.ULTIMATE);
+        t.time.advance(12);
+        assertTrue(t.engine.veils().isVeiled(p));
+        t.world.kill(enemy);
+        t.time.advance(1);
+        assertFalse(t.engine.veils().isVeiled(p), "they died: it ends");
+        assertEquals(80, t.healed.get(p), 1e-9, "8 HP");
+        assertFalse(t.engine.statuses().has(p, "veil_fury"));
+    }
+
+    @Test
+    void nobodyInFrontSpendsNothing() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(0, 1, 25));
+        use(Slots.ULTIMATE);
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "whisperer_ult1"));
+        t.time.advance(20);
+        assertFalse(t.engine.veils().isVeiled(p));
+    }
 }

@@ -500,6 +500,22 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ENTITY_VEX_DEATH, 0.8f, 0.7f);
         });
 
+        c.register("veil_warning", loc -> { // 0.5s before the pull: the target should notice
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 25, 0.4, 0.8, 0.4, 0.04);
+            loc.getWorld().spawnParticle(Particle.SQUID_INK, loc, 15, 0.5, 0.8, 0.5, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_WARDEN_NEARBY_CLOSEST, 1f, 1.3f);
+            loc.getWorld().playSound(loc, Sound.AMBIENT_SOUL_SAND_VALLEY_ADDITIONS, 1f, 0.8f);
+        });
+        c.register("veil_enter", loc -> {
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 80, 0.6, 1, 0.6, 0.2);
+            loc.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1, 0, 0, 0, 0);
+            loc.getWorld().playSound(loc, Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 0.8f, 0.7f);
+        });
+        c.register("veil_exit", loc -> {
+            loc.getWorld().spawnParticle(Particle.PORTAL, loc, 60, 0.5, 1, 0.5, 0.6);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1f, 0.6f);
+        });
+
         // ---- Vanguard ----
         c.register("leap_off", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);
