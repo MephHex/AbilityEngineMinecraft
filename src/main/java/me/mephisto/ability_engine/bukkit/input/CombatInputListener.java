@@ -79,6 +79,8 @@ public final class CombatInputListener implements Listener {
     private final HotbarHud hud;
     private final Map<UUID, Map<InputAction, Long>> lastPress = new HashMap<>();
     private final Map<UUID, Long> scrollIgnoreUntil = new HashMap<>();
+    /** Right clicks before this tick are the client picking a held RMB back up after a slot snap-back. */
+    private final Map<UUID, Long> rmbEchoUntil = new HashMap<>();
 
     /** Players who started a charge with the spyglass: watched every tick for letting go. */
     private final java.util.Set<UUID> scoping = new java.util.HashSet<>();
@@ -146,7 +148,7 @@ public final class CombatInputListener implements Listener {
      * Loaded: a fresh press shoots, through the engine (the primary slot), never vanilla's own shot.
      */
     private void crossbowRightClick(Player p, PlayerInteractEvent e) {
-        boolean freshPress = sinceLast(p, InputAction.RIGHT_CLICK) > RIGHT_CLICK_HOLD_GAP;
+        boolean freshPress = sinceLast(p, InputAction.RIGHT_CLICK) > RIGHT_CLICK_HOLD_GAP && !rmbEcho(p);
         if (engine.quivers().rapidFire(p.getUniqueId())) { // no drawing: every press, and holding, shoots
             e.setCancelled(true);
             if (p.isHandRaised()) p.clearActiveItem(); // the client started a draw: stop it
@@ -314,7 +316,7 @@ public final class CombatInputListener implements Listener {
     private void rightClick(Player p) {
         long since = sinceLast(p, InputAction.RIGHT_CLICK);
         if (since == 0) return; // entity click can also send a use-item packet: same tick = same click
-        boolean freshPress = since > RIGHT_CLICK_HOLD_GAP;
+        boolean freshPress = since > RIGHT_CLICK_HOLD_GAP && !rmbEcho(p);
         if (aiming(p)) {
             if (!freshPress || inGrace(p)) return;
             engine.targeting().cancel(p.getUniqueId(), "cancelled");
@@ -331,6 +333,7 @@ public final class CombatInputListener implements Listener {
         Player p = e.getPlayer();
         if (!inCombat(p)) return;
         e.setCancelled(true); // snap back to the weapon
+        settleHands(p);
 
         long now = Bukkit.getCurrentTick();
         int slot = e.getNewSlot();
@@ -342,6 +345,27 @@ public final class CombatInputListener implements Listener {
         }
         if (now < scrollIgnoreUntil.getOrDefault(p.getUniqueId(), 0L)) return;
         key(p, InputAction.hotbar(slot));
+    }
+
+    /**
+     * The client changes slots before our snap-back reaches it (a round trip), and in the meantime it stops
+     * drawing the crossbow. Vanilla stops the draw on the server too, but the cancelled event skips that,
+     * so the server's draw would carry on while the client's starts over: do it here. And if RMB was held,
+     * the client picks it back up once it's on the weapon again: that right click continues the hold, it
+     * isn't a fresh press (which would shoot a loaded bolt, cancel an aim preview, or start a new volley).
+     */
+    private void settleHands(Player p) {
+        boolean drawing = p.isHandRaised() && hud.usesCrossbow(p);
+        if (drawing) p.clearActiveItem();
+        if (drawing || ticksSince(p, InputAction.RIGHT_CLICK) <= RIGHT_CLICK_HOLD_GAP) {
+            // Back on the weapon after about the ping, then up to 4 ticks until the client re-sends "use".
+            long window = 6 + Math.min(20, (p.getPing() + 49) / 50);
+            rmbEchoUntil.put(p.getUniqueId(), Bukkit.getCurrentTick() + window);
+        }
+    }
+
+    private boolean rmbEcho(Player p) {
+        return Bukkit.getCurrentTick() < rmbEchoUntil.getOrDefault(p.getUniqueId(), 0L);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -375,6 +399,7 @@ public final class CombatInputListener implements Listener {
     public void onQuit(PlayerQuitEvent e) {
         lastPress.remove(e.getPlayer().getUniqueId());
         scrollIgnoreUntil.remove(e.getPlayer().getUniqueId());
+        rmbEchoUntil.remove(e.getPlayer().getUniqueId());
     }
 
     // ---- firing -------------------------------------------------------------------------------
