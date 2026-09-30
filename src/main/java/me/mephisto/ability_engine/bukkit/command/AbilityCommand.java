@@ -64,6 +64,19 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
                 castAs(sender, args);
                 return true;
             }
+            case "char" -> {
+                if (args.length < 2) return false;
+                if (args.length >= 3) {
+                    charFor(sender, args[2], args[1]);
+                    return true;
+                }
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("From the console or a command block, name who: /ae char <character|none> <player|selector>");
+                    return true;
+                }
+                equip(player, args[1], sender);
+                return true;
+            }
             case "debug" -> {
                 engine.log().setDebug(!engine.log().isDebug());
                 sender.sendMessage(ChatColor.GOLD + "Debug logging " + (engine.log().isDebug() ? "ON" : "OFF"));
@@ -81,17 +94,6 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
         UUID id = player.getUniqueId();
 
         switch (sub) {
-            case "char" -> {
-                if (args.length < 2) return false;
-                if (args[1].equalsIgnoreCase("none")) {
-                    hud.unequip(player);
-                    player.sendMessage(ChatColor.GREEN + "Character removed. Vanilla controls (and /ae bind items) are back.");
-                } else if (hud.equip(player, args[1])) {
-                    player.sendMessage(ChatColor.GREEN + "Playing " + args[1] + ". LMB fire, 1/2/3 abilities, F ultimate.");
-                } else {
-                    player.sendMessage(ChatColor.RED + "Unknown character " + args[1]);
-                }
-            }
             case "cast" -> {
                 if (args.length < 2) return false;
                 ActivationResult r = engine.activator().activate(id, args[1]);
@@ -178,6 +180,47 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
             }
         }
         return true;
+    }
+
+    /**
+     * /ae char <character|none> <player|selector>: pick a character for someone else. Works from the
+     * console and command blocks (e.g. a champ-select button: /ae char gunner @p).
+     */
+    private void charFor(CommandSender sender, String character, String who) {
+        List<Entity> targets;
+        try {
+            targets = Bukkit.selectEntities(sender, who);
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(ChatColor.RED + "Bad selector: " + e.getMessage());
+            return;
+        }
+        List<Player> players = targets.stream().filter(e -> e instanceof Player).map(e -> (Player) e).toList();
+        if (players.isEmpty()) {
+            sender.sendMessage(ChatColor.RED + "No players matched " + who);
+            return;
+        }
+        int ok = 0;
+        for (Player p : players) if (equip(p, character, null)) ok++;
+        if (ok == 0) sender.sendMessage(ChatColor.RED + "Unknown character " + character);
+        else if (!(players.size() == 1 && sender == players.get(0))) {
+            sender.sendMessage(ChatColor.GREEN + (character.equalsIgnoreCase("none") ? "Removed the character from " : "Gave " + character + " to ")
+                    + ok + " player" + (ok == 1 ? "" : "s") + ".");
+        }
+    }
+
+    /** Equip (or with "none", unequip) a character, telling the player. Errors go to {@code errorsTo} when set. */
+    private boolean equip(Player player, String character, CommandSender errorsTo) {
+        if (character.equalsIgnoreCase("none")) {
+            hud.unequip(player);
+            player.sendMessage(ChatColor.GREEN + "Character removed. Vanilla controls (and /ae bind items) are back.");
+            return true;
+        }
+        if (hud.equip(player, character)) {
+            player.sendMessage(ChatColor.GREEN + "Playing " + character + ". LMB fire, 1/2/3 abilities, F ultimate.");
+            return true;
+        }
+        if (errorsTo != null) errorsTo.sendMessage(ChatColor.RED + "Unknown character " + character);
+        return false;
     }
 
     /**
@@ -302,6 +345,11 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("char")) {
             return filter(Stream.concat(Stream.of("none"), engine.characters().ids().stream().sorted()), args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("char")) {
+            String prefix = args[2].toLowerCase();
+            return Stream.concat(Stream.of("@p", "@a", "@s"), Bukkit.getOnlinePlayers().stream().map(Player::getName))
+                    .filter(o -> o.toLowerCase().startsWith(prefix)).toList();
         }
         return List.of();
     }

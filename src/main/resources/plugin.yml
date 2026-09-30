@@ -7,7 +7,7 @@ api-version: '1.21'
 commands:
   ae:
     description: AbilityEngine commands
-    usage: /ae <cast|bind|unbind|cdclear|list|status|apply|setres|reload|debug> [args]
+    usage: /ae <char|cast|castas|bind|unbind|cdclear|list|status|apply|setres|reload|debug> [args]
     permission: abilityengine.admin
 
 permissions:
