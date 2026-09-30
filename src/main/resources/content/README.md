@@ -426,9 +426,13 @@ slot, so an ability is only silenced when it's in an ability slot.
   - input_held `{ within }` -> held / free: is the ability's key still held (it repeated within the last
     `within` ticks)? Needs a `charge` with `release_gap` listening in the same cast (`bar: false` hides its
     cast bar). A tap never counts as held.
-- **Motion:** `{ type: seek_heard, range, speed, base, turn }` - homes on the nearest enemy the caster hears
-  (hearing passive) within `range`, at `speed`; with none, flies straight at `base`. Paused while steered.
-- **Keys:** a stored projectile (`store:`) can be used like a spot while it flies (e.g. `center: shade`).
+- **Motion:** `{ type: seek, range, speed, base, turn, max_distance, hover }` - a seeker: it homes at `speed`
+  on the nearest enemy the caster hears (hearing passive), however far, else on any enemy within `range` of
+  it; while it homes, distance doesn't count (only `lifetime`). With no target it flies straight at `base`
+  for `max_distance` blocks, then hovers there for `hover` ticks (still looking), then expires.
+- **Projectile:** `health: 60` gives it a body enemies can hit and kill (an `"entity:..."` visual, on your
+  team); killed, the projectile exits `destroyed`. `through_blocks: true` - terrain doesn't stop it.
+- **Keys:** a stored projectile (`store:`) can be used like a spot: where it is, or where it ended (e.g. `center: shade`).
 - **Tags:** `state.darkness` (vanilla Darkness), `state.withered` (Wither's black hearts; the status does the
   damage, not vanilla).
 - **Cues:** sickle_rake, dream_step, dream_arrive, dream_rift, rift_close, whisper_bind, whisper_tether_1..4

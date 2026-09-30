@@ -84,7 +84,7 @@ public final class ProjectileSystem {
     public ProjectileHandle launch(ProjectileSpec spec, String worldName, Vec3 position, Vec3 velocity, Resumer resumer,
                                    Vec3 sweepFrom, String tint) {
         Projectile p = new Projectile(spec, worldName, position, velocity, resumer,
-                renderer.spawn(worldName, position, velocity, spec, tint));
+                renderer.spawn(worldName, position, velocity, spec, tint, resumer.context().instance().caster()));
         p.sweepFrom = sweepFrom;
         active.add(p);
         var instance = resumer.context().instance();
@@ -132,6 +132,10 @@ public final class ProjectileSystem {
             p.visual.remove();
             return;
         }
+        if (p.visual.destroyed()) { // its body was killed
+            finish(p, Ports.DESTROYED, null);
+            return;
+        }
         if (++p.ticksLived > p.spec.lifetimeTicks()
                 || (p.spec.range() > 0 && p.unguidedDistance >= p.spec.range())) {
             finish(p, Ports.EXPIRED, null);
@@ -157,7 +161,13 @@ public final class ProjectileSystem {
             next = p.position.add(p.velocity);
         } else {
             for (MotionModifier m : p.motion) {
-                if (m instanceof SeekHeard && p.isGuided()) continue; // being steered: steering wins
+                if (m instanceof Seek seek) {
+                    if (!seek.steer(p, ctx)) { // hovered its time out
+                        finish(p, Ports.EXPIRED, null);
+                        return;
+                    }
+                    continue;
+                }
                 p.velocity = m.apply(p.position, p.velocity, ctx);
             }
             next = p.position.add(p.velocity);
@@ -172,11 +182,14 @@ public final class ProjectileSystem {
         Vec3 from = p.sweepFrom != null ? p.sweepFrom : p.position;
         p.sweepFrom = null;
         // Enemies it already pierced are flown through, like allies.
-        var passThrough = teams.passThroughFor(ctx.caster()).or(p.pierced::contains);
+        var body = p.visual.body().orElse(null);
+        var passThrough = teams.passThroughFor(ctx.caster()).or(p.pierced::contains).or(id -> id.equals(body));
 
         // One pass per thing it touches this tick: a pierced enemy continues the sweep from there.
         while (true) {
-            var hit = world.sweep(p.world, from, next, p.spec.size() / 2, passThrough);
+            var hit = p.spec.throughBlocks()
+                    ? entitySweep(p.world, from, next, p.spec.size() / 2, passThrough) // terrain doesn't stop it
+                    : world.sweep(p.world, from, next, p.spec.size() / 2, passThrough);
 
             // Constructs and barriers are engine objects the world doesn't know about: check them too, nearest wins.
             double worldDist = hit.map(h -> h.position().distance(p.position)).orElse(Double.MAX_VALUE);
@@ -235,6 +248,29 @@ public final class ProjectileSystem {
             }
             return;
         }
+    }
+
+    /** How far from an entity's centre a sweep touches it (about half a player's height). */
+    private static final double ENTITY_REACH = 0.9;
+
+    /** The first living entity along the segment (blocks ignored): for projectiles that fly through terrain. */
+    private Optional<SweepHit> entitySweep(String w, Vec3 from, Vec3 to, double radius,
+                                           java.util.function.Predicate<UUID> passThrough) {
+        Vec3 seg = to.subtract(from);
+        double lenSq = seg.lengthSquared();
+        Vec3 mid = from.add(seg.multiply(0.5));
+        double t0 = Double.MAX_VALUE;
+        SweepHit best = null;
+        for (var e : world.livingEntitiesNear(new PointTarget(w, mid), Math.sqrt(lenSq) / 2 + radius + ENTITY_REACH)) {
+            if (passThrough.test(e.id())) continue;
+            double t = lenSq < 1e-12 ? 0 : Math.max(0, Math.min(1, e.center().subtract(from).dot(seg) / lenSq));
+            Vec3 closest = from.add(seg.multiply(t));
+            if (closest.distance(e.center()) <= radius + ENTITY_REACH && t < t0) {
+                t0 = t;
+                best = new SweepHit(new EntityTarget(e.id()), closest, null);
+            }
+        }
+        return Optional.ofNullable(best);
     }
 
     /** Keeps sliding: has slide, touched ground (not a wall), and still has some speed along it. */

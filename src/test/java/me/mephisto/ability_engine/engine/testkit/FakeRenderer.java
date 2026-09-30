@@ -90,6 +90,25 @@ public final class FakeRenderer implements ProjectileRenderer, CuePlayer, Indica
         }
     }
 
+    /** Projectiles with a body (health): tests kill them with {@link FakeBody#kill}. */
+    public final List<FakeBody> bodies = new ArrayList<>();
+
+    public final class FakeBody implements ProjectileVisual {
+        boolean removed;
+        boolean killed;
+        public Vec3 at;
+
+        /** Enemies killed its body. */
+        public void kill() { killed = true; }
+
+        @Override public void moveTo(Vec3 p) { at = p; }
+        @Override public boolean destroyed() { return killed; }
+        @Override public void remove() {
+            if (!removed) alive--;
+            removed = true;
+        }
+    }
+
     @Override
     public ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint) {
         tints.add(tint);
@@ -107,6 +126,11 @@ public final class FakeRenderer implements ProjectileRenderer, CuePlayer, Indica
     public ProjectileVisual spawn(String world, Vec3 position, ProjectileSpec spec) {
         spawned++;
         alive++;
+        if (spec.health() > 0) {
+            FakeBody body = new FakeBody();
+            bodies.add(body);
+            return body;
+        }
         return new ProjectileVisual() {
             boolean removed;
             @Override public void moveTo(Vec3 p) {}

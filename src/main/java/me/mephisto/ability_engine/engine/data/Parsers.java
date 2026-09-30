@@ -107,7 +107,15 @@ public final class Parsers {
                 .slide(slide(p))
                 .visualSize(p.getDouble("visual_size", 0))
                 .faceFlight(p.getBool("face_flight", false))
+                .health(health(p))
+                .throughBlocks(p.getBool("through_blocks", false))
                 .build();
+    }
+
+    private static double health(Params p) {
+        double health = p.getDouble("health", 0);
+        if (health < 0) throw p.error("health", "must be >= 0 (0 = it can't be hit)");
+        return health;
     }
 
     private static double slide(Params p) {
@@ -126,9 +134,10 @@ public final class Parsers {
                 case "drag" -> new Drag(m.requireDouble("amount"));
                 case "homing" -> new Homing(m.requireString("key"), m.getDouble("turn", 0.15));
                 case "accelerate" -> new Accelerate(m.requireDouble("amount"), m.requireDouble("max"));
-                case "seek_heard" -> new me.mephisto.ability_engine.engine.projectile.SeekHeard(m.getDouble("range", 20),
-                        m.requireDouble("speed"), m.requireDouble("base"), m.getDouble("turn", 0.3));
-                default -> throw m.error("type", "unknown motion '" + type + "' (gravity, drag, homing, accelerate, seek_heard)");
+                case "seek" -> new me.mephisto.ability_engine.engine.projectile.Seek(m.getDouble("range", 6),
+                        m.requireDouble("speed"), m.requireDouble("base"), m.getDouble("turn", 0.3),
+                        m.getDouble("max_distance", 0), m.getInt("hover", 0));
+                default -> throw m.error("type", "unknown motion '" + type + "' (gravity, drag, homing, accelerate, seek)");
             });
         }
         return out;

@@ -22,7 +22,91 @@ import java.util.logging.Logger;
  * flown by the game itself (see ArrowVisual), tinted when the bolt is infused. Collision is always the
  * engine's ray sweep.
  */
-public final class BukkitProjectileRenderer implements ProjectileRenderer {
+public final class BukkitProjectileRenderer implements ProjectileRenderer, org.bukkit.event.Listener {
+
+    /** Design HP per Minecraft health point (config damage-scale), for projectile bodies' health. */
+    private java.util.function.DoubleSupplier damageScale = () -> 10;
+    /** Living projectile bodies (a Chorus Shade): they drop nothing when killed. */
+    private final java.util.Set<java.util.UUID> bodies = new java.util.HashSet<>();
+
+    public void setDamageScale(java.util.function.DoubleSupplier damageScale) { this.damageScale = damageScale; }
+
+    @org.bukkit.event.EventHandler
+    public void onBodyDeath(org.bukkit.event.entity.EntityDeathEvent e) {
+        if (!bodies.remove(e.getEntity().getUniqueId())) return;
+        e.getDrops().clear();
+        e.setDroppedExp(0);
+    }
+
+    /**
+     * A projectile with {@code health}: its {@code "entity:<type>"} visual is a real target (not an ability
+     * visual, not invulnerable) with that health, on the owner's team, so enemies can hit and kill it. The
+     * engine still moves it (no AI, no gravity) and ends the projectile when it dies.
+     */
+    @Override
+    public ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint, java.util.UUID owner) {
+        if (spec.health() <= 0 || spec.visual() == null || !spec.visual().regionMatches(true, 0, ENTITY_PREFIX, 0, ENTITY_PREFIX.length())) {
+            return spawn(world, position, velocity, spec, tint);
+        }
+        Location loc = Convert.location(world, position);
+        if (loc == null) return NONE;
+        Class<? extends Entity> cls;
+        try {
+            cls = EntityType.valueOf(spec.visual().substring(ENTITY_PREFIX.length()).trim().toUpperCase(Locale.ROOT)).getEntityClass();
+        } catch (IllegalArgumentException e) {
+            cls = null;
+        }
+        if (cls == null || !org.bukkit.entity.LivingEntity.class.isAssignableFrom(cls)) return spawn(world, position, velocity, spec, tint);
+        double health = Math.max(1, spec.health() / damageScale.getAsDouble());
+        Entity owned = org.bukkit.Bukkit.getEntity(owner);
+        org.bukkit.scoreboard.Team team = owned == null ? null
+                : org.bukkit.Bukkit.getScoreboardManager().getMainScoreboard().getEntityTeam(owned);
+        Entity body = loc.getWorld().spawn(loc, cls, e -> {
+            e.setPersistent(false);
+            e.setGravity(false);
+            e.setSilent(true);
+            if (e instanceof org.bukkit.entity.LivingEntity living) {
+                living.setCollidable(false);
+                var max = living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+                if (max != null) max.setBaseValue(health);
+                living.setHealth(health);
+                living.setRemoveWhenFarAway(false);
+            }
+            if (e instanceof org.bukkit.entity.Mob mob) mob.setAI(false);
+            if (team != null) team.addEntity(e);
+        });
+        bodies.add(body.getUniqueId());
+        double yOffset = body.getBoundingBox().getHeight() / 2;
+        body.teleport(loc.clone().subtract(0, yOffset, 0));
+        return new ProjectileVisual() {
+            @Override
+            public void moveTo(Vec3 p) {
+                if (body.isValid()) body.teleport(new Location(body.getWorld(), p.x(), p.y() - yOffset, p.z(),
+                        body.getLocation().getYaw(), body.getLocation().getPitch()));
+            }
+
+            @Override
+            public void moveTo(Vec3 p, Vec3 v) {
+                if (!body.isValid()) return;
+                Location at = new Location(body.getWorld(), p.x(), p.y() - yOffset, p.z());
+                if (v != null && !v.isZero()) at.setDirection(Convert.bukkit(v)); // faces where it flies
+                else at.setDirection(body.getLocation().getDirection());
+                body.teleport(at);
+            }
+
+            @Override
+            public boolean destroyed() { return body.isDead() || !body.isValid(); }
+
+            @Override
+            public java.util.Optional<java.util.UUID> body() { return java.util.Optional.of(body.getUniqueId()); }
+
+            @Override
+            public void remove() {
+                bodies.remove(body.getUniqueId());
+                if (body.isValid() && !body.isDead()) body.remove();
+            }
+        };
+    }
 
     private static final String ENTITY_PREFIX = "entity:";
 

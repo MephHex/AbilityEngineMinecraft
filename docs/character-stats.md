@@ -244,7 +244,7 @@ Hears enemies below 40% HP within 30 blocks (they glow for them only; +15% speed
 | Sickle Rake (primary) | **100%** (5 HP), 3 blocks |
 | Dream Step | blink 8 blocks, blinds 1.5s around the exit; press again within 3s to return to the rift |
 | Binding Whisper | 2s tether (7 blocks, breaks past 9 / out of sight 0.5s / stunned or silenced: 40% cd back); held: Darkness + 4 HP wither over 4s |
-| Chorus Shade | 6 HP flat; executes below 10% HP; homes on heard enemies; hold to steer |
+| Chorus Shade | 6 HP flat; executes below 10% HP; flies through terrain, 12 blocks then hovers 3s; homes on heard enemies (any distance) or anyone within 6; enemies can kill it (6 HP) |
 | Into the Veil (ult) | not built yet |
 
 ### Test kit (Pyro)

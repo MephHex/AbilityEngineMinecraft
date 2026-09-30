@@ -14,4 +14,10 @@ public interface ProjectileRenderer {
     default ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint) {
         return spawn(world, position, spec);
     }
+
+    /** @param owner who launched it (a hittable body joins their team) */
+    default ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint,
+                                   java.util.UUID owner) {
+        return spawn(world, position, velocity, spec, tint);
+    }
 }
