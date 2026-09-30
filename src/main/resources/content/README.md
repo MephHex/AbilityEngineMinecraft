@@ -88,8 +88,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 ### Targeting (aim previews)
 
 Add `targeting: { shape: circle|line|cone|point, range, radius/width/angle, ground: true, max_drop }`
-to show a preview first: pressing the ability's key again confirms, RMB cancels (players without a
-character, casting /ae bind items, confirm with LMB). No time limit unless you add `timeout: <ticks>`.
+to show a preview first: LMB (or the ability's key again) confirms, RMB cancels. No time limit
+unless you add `timeout: <ticks>`.
 `/ae quickcast` skips the preview.
 
 - The preview ray ignores entities (you can place things under someone).

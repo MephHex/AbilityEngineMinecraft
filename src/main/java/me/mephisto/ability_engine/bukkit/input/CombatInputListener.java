@@ -40,10 +40,10 @@ import java.util.UUID;
  * primary fire, and Q / F never drop or swap the weapon. Without one: vanilla behaviour
  * (and /ae bind debug items).
  *
- * <p>While AIMING (targeting preview): pressing the aimed ability's own key again confirms, RMB
- * cancels, another ability's key switches. LMB does nothing then (unless LMB is that ability's key).
- * A held key never confirms: its OS auto-repeat is told apart from a second press by waiting a
- * moment for more repeats. Players without a character (/ae bind debug items) confirm with LMB.
+ * <p>While AIMING (targeting preview): LMB confirms (instantly: a click never waits on the hotbar
+ * snap-back the way a second number-key press does), and so does pressing the aimed ability's own key
+ * again. RMB cancels, another ability's key switches. A held key never confirms: its OS auto-repeat is
+ * told apart from a second press by waiting a moment for more repeats. Recasts stay on the key.
  *
  * <p>Crossbow characters (a CROSSBOW weapon with a quiver) handle it like vanilla: hold RMB to draw
  * (CrossbowListener loads the next bolt when it's drawn), then press RMB again to shoot, which fires the
@@ -253,7 +253,7 @@ public final class CombatInputListener implements Listener {
         if (ticksSince(p, InputAction.DROP) <= DROP_SWING_ECHO_TICKS) return;
         if (sinceLast(p, InputAction.LEFT_CLICK) == 0) return; // the swing of this same click already counted
         if (aiming(p)) {
-            if (lmbConfirms(p)) confirm(p);
+            confirm(p);
             return;
         }
         UUID id = p.getUniqueId();
@@ -279,16 +279,11 @@ public final class CombatInputListener implements Listener {
         // Swinging at an entity reports both a swing and a hit in the same tick: count it once.
         if (sinceLast(p, InputAction.LEFT_CLICK) == 0) return;
         if (aiming(p)) {
-            if (lmbConfirms(p)) confirm(p);
+            confirm(p);
             return;
         }
         if (hud.usesCrossbow(p) || hud.usesScope(p)) return; // crossbows shoot with RMB, spyglasses charge with it
         fire(p, InputAction.LEFT_CLICK, true);
-    }
-
-    /** While aiming, LMB only confirms when it IS the aimed ability's key, or for debug players. */
-    private boolean lmbConfirms(Player p) {
-        return !inCombat(p) || aimedWith(p, InputAction.LEFT_CLICK);
     }
 
     /** Is this input the key of the ability being aimed right now? */
