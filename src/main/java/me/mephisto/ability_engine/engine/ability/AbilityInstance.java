@@ -36,6 +36,7 @@ public final class AbilityInstance {
     private String endReason;
     private boolean started;
     private Runnable recastHandler;
+    private long recastBufferedUntil = Long.MIN_VALUE;
     private boolean cooldownPending;
     private boolean tagsReleased;
     private Runnable keepAlive;
@@ -119,6 +120,9 @@ public final class AbilityInstance {
 
     private boolean cooldownOnEnd = true;
 
+    /** Its cooldown is still waiting (for the recast window, or a start_cooldown node). */
+    public boolean cooldownPending() { return cooldownPending; }
+
     /** The cooldown waits for a start_cooldown node; a cast that ends without one costs no cooldown. */
     public void deferCooldownManually() {
         cooldownPending = true;
@@ -188,6 +192,19 @@ public final class AbilityInstance {
         keepAlive = null;
         gauge = null;
         if (h != null && isActive()) h.run();
+    }
+
+    /**
+     * A recast press that came before the window opened (mid-dash, while the orb is still spawning): the
+     * window that opens by {@code untilTick} takes it, instead of the press being lost.
+     */
+    public void bufferRecast(long untilTick) { recastBufferedUntil = untilTick; }
+
+    /** A buffered recast press still in time? One-shot: taking it clears it. */
+    public boolean takeBufferedRecast() {
+        boolean pending = engine.clock().now() <= recastBufferedUntil;
+        recastBufferedUntil = Long.MIN_VALUE;
+        return pending;
     }
 
     // ---- charge (set by a charge node while it charges) -----------------------------------------
