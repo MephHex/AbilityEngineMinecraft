@@ -195,4 +195,49 @@ class RecastTest {
         t.engine.activator().activate(caster, "old_style");
         assertEquals(100, t.engine.cooldowns().remainingTicks(caster, "old_style"));
     }
+
+    /** Cast, 5 ticks of wind-up (a dash, a throw), then a recast window. */
+    private static void loadLateWindow(TestEngine t, int windUp) {
+        t.load(me.mephisto.ability_engine.engine.testkit.Yml.abilities("late_window", me.mephisto.ability_engine.engine.testkit.Yml.map(
+                "cooldown", 100,
+                "nodes", me.mephisto.ability_engine.engine.testkit.Yml.map(
+                        "go", me.mephisto.ability_engine.engine.testkit.Yml.map("type", "delay", "ticks", windUp, "next", "wait"),
+                        "wait", me.mephisto.ability_engine.engine.testkit.Yml.map("type", "await_recast", "window", 40,
+                                "on", me.mephisto.ability_engine.engine.testkit.Yml.map("recast", "done")),
+                        "done", me.mephisto.ability_engine.engine.testkit.Yml.map("type", "play_cue", "cue", "recast_done")),
+                "start", "go")));
+    }
+
+    @Test
+    void aSecondPressBeforeTheWindowOpensRecastsWhenItDoes() throws IOException {
+        TestEngine t = shipped();
+        UUID caster = t.spawn(0, 1, 0);
+        loadLateWindow(t, 5);
+        assertTrue(t.engine.activator().activate(caster, "late_window").success());
+        t.time.advance(2);
+        ActivationResult early = t.engine.activator().activate(caster, "late_window");
+        assertEquals(me.mephisto.ability_engine.engine.ability.activation.AbilityActivator.BUFFERED, early.reason(),
+                "kept for the window, not a second cast");
+        assertEquals(1, t.engine.instances().count());
+        assertFalse(t.render.cues.contains("recast_done"));
+        t.time.advance(5);                                   // the window opens at 5: the press lands then
+        assertTrue(t.render.cues.contains("recast_done"), "recast as the window opened");
+        assertEquals(0, t.engine.instances().count());
+        assertTrue(t.engine.cooldowns().remainingTicks(caster, "late_window") > 90, "the cooldown runs now");
+    }
+
+    @Test
+    void aPressLongBeforeTheWindowIsForgotten() throws IOException {
+        TestEngine t = shipped();
+        UUID caster = t.spawn(0, 1, 0);
+        loadLateWindow(t, 20);
+        t.engine.activator().activate(caster, "late_window");
+        t.time.advance(1);
+        t.engine.activator().activate(caster, "late_window");
+        t.time.advance(25);                                  // the window opened at 20: too late for that press
+        assertFalse(t.render.cues.contains("recast_done"));
+        assertEquals(1, t.engine.instances().count(), "still waiting for a real recast");
+        assertTrue(t.engine.activator().activate(caster, "late_window").success());
+        assertTrue(t.render.cues.contains("recast_done"));
+    }
 }

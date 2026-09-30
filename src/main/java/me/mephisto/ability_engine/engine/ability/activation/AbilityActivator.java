@@ -5,6 +5,7 @@ import me.mephisto.ability_engine.engine.ability.Ability;
 import me.mephisto.ability_engine.engine.ability.AbilityInstance;
 
 import me.mephisto.ability_engine.engine.graph.Keys;
+import me.mephisto.ability_engine.engine.nodes.control.AwaitRecastNode;
 import me.mephisto.ability_engine.engine.tag.Tags;
 import me.mephisto.ability_engine.engine.targeting.AimPoint;
 import me.mephisto.ability_engine.engine.target.PointTarget;
@@ -20,6 +21,11 @@ import java.util.UUID;
  * Naming follows Unreal GAS: check (CanActivateAbility), commit (CommitAbility), activate.
  */
 public final class AbilityActivator {
+
+    /** How long an early recast press is kept for the window to open (0.4s). */
+    public static final int RECAST_BUFFER_TICKS = 8;
+    /** The failure reason for a press kept for a recast window that isn't open yet: nothing to report. */
+    public static final String BUFFERED = "buffered";
 
     private final AbilityEngine engine;
 
@@ -141,8 +147,23 @@ public final class AbilityActivator {
             }
         }
 
+        // Pressed again before the recast window opened (mid-dash, the orb still spawning): keep the press
+        // for a moment and recast as soon as the window opens, rather than dropping it.
+        // (Its cooldown waits for that window, so this used to start a second, free cast instead.)
+        AbilityInstance early = null;
+        if (freshPress && ability.graph().anyNode(n -> n instanceof AwaitRecastNode)) {
+            for (AbilityInstance running : engine.instances().of(caster)) {
+                if (running.ability().id().equals(ability.id()) && running.isActive()) early = running;
+            }
+            if (early != null) {
+                early.bufferRecast(engine.clock().now() + RECAST_BUFFER_TICKS);
+                if (early.cooldownPending() && ability.cooldownAfterRecast() && ability.charges() <= 1) return ActivationResult.fail(BUFFERED);
+            }
+        }
+
         ActivationResult check = check(caster, ability);
         if (!check.success()) return check;
+        if (early != null) early.takeBufferedRecast(); // it can cast again anyway: a new cast, not a recast
 
         // Abilities with a preview open a targeting session instead: nothing is spent yet.
         if (ability.targeting() != null && !engine.targeting().isQuickCast(caster)) {

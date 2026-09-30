@@ -64,6 +64,11 @@ public final class AwaitRecastNode implements GraphNode {
 
         private void tick() {
             if (done) return;
+            // Pressed before the window opened: replay that press now, as a real one (same checks).
+            if (instance.takeBufferedRecast()) {
+                ctx.engine().activator().activate(instance.caster(), instance.ability(), true);
+                if (done) return;
+            }
             waited++;
             boolean anchorGone = whileKey != null
                     && !(ctx.blackboard().raw(whileKey) instanceof ProjectileHandle h && h.isAlive());

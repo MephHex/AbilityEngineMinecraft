@@ -23,6 +23,11 @@ public final class AbilityGraph {
     public GraphNode node(String nodeId) { return nodes.get(nodeId); }
     public Set<String> nodeIds() { return nodes.keySet(); }
 
+    /** Does any node in the graph match? */
+    public boolean anyNode(java.util.function.Predicate<GraphNode> test) {
+        return nodes.values().stream().anyMatch(test);
+    }
+
     /** Next node for (node, port), or null if that port isn't wired (the branch ends). */
     public String next(String fromNodeId, String port) {
         Map<String, String> out = edges.get(fromNodeId);

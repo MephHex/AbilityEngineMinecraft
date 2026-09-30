@@ -3,6 +3,7 @@ package me.mephisto.ability_engine.bukkit.input;
 import me.mephisto.ability_engine.bukkit.effect.DamageEffect;
 import me.mephisto.ability_engine.bukkit.hud.HotbarHud;
 import me.mephisto.ability_engine.engine.AbilityEngine;
+import me.mephisto.ability_engine.engine.ability.activation.AbilityActivator;
 import me.mephisto.ability_engine.engine.ability.activation.ActivationResult;
 import me.mephisto.ability_engine.engine.loadout.Slots;
 import net.kyori.adventure.text.Component;
@@ -64,6 +65,11 @@ public final class CombatInputListener implements Listener {
      * OS's initial delay, can't be told apart from a quick second tap.)
      */
     private static final long KEY_REPEAT_GAP = 3;
+    /**
+     * The longest OS delay before a held key starts repeating (1s, the slowest setting). A press within
+     * KEY_REPEAT_GAP of one that followed at least this much quiet can't be a repeat yet: it's a double tap.
+     */
+    private static final long KEY_REPEAT_DELAY_MAX = 20;
     /** Clicks this soon after a preview opened are echoes of the press that opened it (arm swing etc.). */
     private static final long CLICK_GRACE_TICKS = 3;
     /** A scroll-wheel notch always lands next to the weapon; ignore everything briefly after one. */
@@ -78,6 +84,8 @@ public final class CombatInputListener implements Listener {
     private final Keybinds keybinds;
     private final HotbarHud hud;
     private final Map<UUID, Map<InputAction, Long>> lastPress = new HashMap<>();
+    /** The quiet before each action's last press: tells a quick double tap from a held key's repeats. */
+    private final Map<UUID, Map<InputAction, Long>> gapBeforeLast = new HashMap<>();
     private final Map<UUID, Long> scrollIgnoreUntil = new HashMap<>();
     /** Right clicks before this tick are the client picking a held RMB back up after a slot snap-back. */
     private final Map<UUID, Long> rmbEchoUntil = new HashMap<>();
@@ -387,7 +395,12 @@ public final class CombatInputListener implements Listener {
     }
 
     private void key(Player p, InputAction action) {
-        boolean freshPress = sinceLast(p, action) > KEY_REPEAT_GAP;
+        long gap = sinceLast(p, action);
+        Long before = gapBeforeLast.computeIfAbsent(p.getUniqueId(), k -> new EnumMap<>(InputAction.class)).put(action, gap);
+        // A held key's repeats only start after the OS's delay, so a press this soon after a first press
+        // (one that came out of silence) is a second tap, e.g. a quick recast.
+        boolean doubleTap = gap > 0 && (before == null || before >= KEY_REPEAT_DELAY_MAX);
+        boolean freshPress = gap > KEY_REPEAT_GAP || doubleTap;
         if (aimedWith(p, action)) { // the aimed ability's own key again: confirm (never a held key)
             if (freshPress && !inGrace(p)) confirmUnlessHeld(p, action);
             return;
@@ -398,6 +411,7 @@ public final class CombatInputListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         lastPress.remove(e.getPlayer().getUniqueId());
+        gapBeforeLast.remove(e.getPlayer().getUniqueId());
         scrollIgnoreUntil.remove(e.getPlayer().getUniqueId());
         rmbEchoUntil.remove(e.getPlayer().getUniqueId());
     }
@@ -414,6 +428,8 @@ public final class CombatInputListener implements Listener {
             if (result.openedTargeting()) return; // the preview's action bar takes over
             if (result.success()) {
                 hud.refresh(p);
+            } else if (AbilityActivator.BUFFERED.equals(result.reason())) {
+                // an early recast press: it lands as the window opens, nothing to report
             } else if (freshPress && !(Slots.PRIMARY.equals(slot) && result.reason().startsWith("on_cooldown"))) {
                 // Clicking primary fire faster than its fire rate is normal; don't nag about it.
                 p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));
