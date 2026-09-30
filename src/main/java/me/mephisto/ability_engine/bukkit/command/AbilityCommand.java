@@ -67,7 +67,7 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
             case "char" -> {
                 if (args.length < 2) return false;
                 if (args.length >= 3) {
-                    charFor(sender, args[2], args[1]);
+                    charFor(sender, args[1], args[2]);
                     return true;
                 }
                 if (!(sender instanceof Player player)) {
