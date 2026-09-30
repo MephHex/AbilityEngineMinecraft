@@ -25,6 +25,9 @@ import java.util.List;
  *                       nearly still or hits a wall. 0 = it stops where it lands
  * @param visualSize     the visual's scale when it should differ from the hitbox (0 = {@code size})
  * @param faceFlight     the visual turns to point along its flight (a thrown pickaxe, head first)
+ * @param health         above 0: the projectile has a body enemies can hit and kill (design HP); when it's
+ *                       killed the projectile ends ("destroyed")
+ * @param throughBlocks  it flies through terrain (only entities stop it)
  */
 public record ProjectileSpec(
         double speed,
@@ -42,7 +45,9 @@ public record ProjectileSpec(
         int pierce,
         double slide,
         double visualSize,
-        boolean faceFlight
+        boolean faceFlight,
+        double health,
+        boolean throughBlocks
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
@@ -90,6 +95,8 @@ public record ProjectileSpec(
         private double slide = 0;
         private double visualSize = 0;
         private boolean faceFlight = false;
+        private double health = 0;
+        private boolean throughBlocks = false;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -107,10 +114,12 @@ public record ProjectileSpec(
         public Builder slide(double v) { slide = v; return this; }
         public Builder visualSize(double v) { visualSize = v; return this; }
         public Builder faceFlight(boolean v) { faceFlight = v; return this; }
+        public Builder health(double v) { health = v; return this; }
+        public Builder throughBlocks(boolean v) { throughBlocks = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
-                    motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight);
+                    motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks);
         }
     }
 }

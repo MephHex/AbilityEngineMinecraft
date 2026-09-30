@@ -21,10 +21,6 @@ statuses:
     duration: 50
     move_speed: 0.8                  # -20%
     positive: false
-  shade_control:                     # steering the Chorus Shade: slower
-    duration: 4
-    move_speed: 0.7                  # -30%
-    positive: false
   darkness:                          # vanilla Darkness (the world pulses dark)
     duration: 80
     stacking: refresh
@@ -215,65 +211,36 @@ abilities:
         effects:
           - { id: remove_status, status: binding_focus }
 
-  # 3: Chorus Shade. Send a Shade flying out (8 blocks/s, 5s). It homes on the nearest HEARD enemy within
-  # 20 blocks (12 blocks/s), else flies straight. Keep holding 3 to steer it with your crosshair instead
-  # (you're 30% slower while you do). Enemies within 4 blocks of it are in Darkness. The first enemy it
-  # hits takes 6 HP, and if that leaves them below 10% HP they're executed. Then it dissolves.
+  # 3: Chorus Shade. Send a Shade out. It flies through terrain and has a body enemies can hit: 60 design HP
+  # (6 HP) kills it. It homes (12 blocks/s) on the nearest HEARD enemy however far, or else on any enemy
+  # within 6 blocks of it; while it homes only its 8s lifetime limits it. With nobody to chase it flies
+  # straight on (8 blocks/s) for 12 blocks, then hovers there for 3s, still looking. Enemies within 4 blocks
+  # of it are in Darkness. The first enemy it hits takes 6 HP, and if that leaves them below 10% HP they're
+  # executed. Then it dissolves.
   whisperer_ab3:
     cooldown: 320                    # 16s
     display:
       name: "Chorus Shade"
       icon: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
       description:
-        - "A Shade flies out and homes on heard"
-        - "enemies. Hold 3 to steer it (you're"
-        - "slower). Darkness around it. Hit: 6 HP,"
-        - "and executes below 10% HP."
+        - "A Shade flies out through walls (12"
+        - "blocks, then hovers 3s). Homes on heard"
+        - "enemies, or anyone within 6 blocks."
+        - "Darkness around it; enemies can kill it."
+        - "Hit: 6 HP, executes below 10% HP."
     nodes:
       launch:
         type: projectile
         speed: 0.4                   # 8 blocks/s
         size: 0.8
-        lifetime: 100                # 5s
+        lifetime: 160                # 8s at most (the limit while it homes)
         visual: "entity:VEX"
+        health: 60                   # its body: enemies can kill it (6 HP)
+        through_blocks: true         # terrain doesn't stop it
         motion:
-          - { type: seek_heard, range: 20, speed: 0.6, base: 0.4, turn: 0.35 }   # 12 blocks/s homing
+          - { type: seek, range: 6, speed: 0.6, base: 0.4, turn: 0.35, max_distance: 12, hover: 60 }
         store: shade
-        on: { spawned: listen, hit_entity: strike, hit_block: fade, expired: fade }
-      listen:
-        type: fork                   # listen for the key being held, steer, and the aura, side by side
-        on: { out: key, also: loops }
-      key:
-        type: charge                 # only listens: holding 3 repeats the key, which marks it "held"
-        ticks: 100
-        bar: false
-        release_gap: 100
-        store: key_held
-        on: { out: ~, early: ~ }
-      loops:
-        type: fork
-        on: { out: steer_check, also: aura }
-      steer_check:
-        type: input_held             # still holding 3? (held keys reach the server in bursts: allow 0.4s)
-        within: 8
-        on: { held: steer, free: steer_wait }
-      steer:
-        type: steer_projectile       # at your crosshair (its homing pauses meanwhile)
-        ability: whisperer_ab3
-        turn: 0.35
-        range: 40
-        on: { out: steering_cost, gone: ~ }
-      steering_cost:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: status, status: shade_control }
-        next: steer_wait
-      steer_wait:
-        type: delay
-        ticks: 1
-        next: steer_check
+        on: { spawned: aura, hit_entity: strike, expired: fade, destroyed: slain }
       aura:
         type: apply_effects          # enemies near it: Darkness, kept at 2s
         targets: { type: radius, center: shade, radius: 4 }
@@ -319,6 +286,12 @@ abilities:
       fade:
         type: play_cue
         cue: shade_dissolve
+        at: shade                    # where it ended
+        next: end
+      slain:
+        type: play_cue               # an enemy killed it
+        cue: shade_dissolve
+        at: shade
         next: end
       end:
         type: end_cast
@@ -349,4 +322,4 @@ characters:
       primary: whisperer_primary     # LMB: Sickle Rake (no RMB)
       ability_1: whisperer_ab1       # 1: Dream Step (press again: back to the rift)
       ability_2: whisperer_ab2       # 2: Binding Whisper
-      ability_3: whisperer_ab3       # 3: Chorus Shade (hold 3 to steer it)
+      ability_3: whisperer_ab3       # 3: Chorus Shade

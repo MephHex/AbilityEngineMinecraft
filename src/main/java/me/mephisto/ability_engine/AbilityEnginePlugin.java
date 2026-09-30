@@ -61,12 +61,13 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         BukkitConstructRenderer constructRenderer = new BukkitConstructRenderer(getLogger());
         var cloneSpawner = new me.mephisto.ability_engine.bukkit.platform.BukkitCloneSpawner();
         BukkitIndicatorRenderer indicators = new BukkitIndicatorRenderer(this);
+        BukkitProjectileRenderer projectileRenderer = new BukkitProjectileRenderer(getLogger());
         Platform platform = new Platform(
                 new PaperClock(),
                 new PaperTaskScheduler(this),
                 worldQuery,
                 new BukkitMovementControl(),
-                new BukkitProjectileRenderer(getLogger()),
+                projectileRenderer,
                 BukkitCuePlayer.withDefaults(this, getLogger()),
                 indicators,
                 constructRenderer,
@@ -80,6 +81,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         shields.start(this);
         damage = BukkitEffects.registerBuiltins(engine.effects(), shields); // before loading: effects are validated at load time
         cloneSpawner.setDamageScale(() -> damage.scale()); // a soul's health is in design HP, like damage
+        projectileRenderer.setDamageScale(() -> damage.scale()); // a projectile's body too (the Chorus Shade)
         worldQuery.setDamageScale(() -> damage.scale());   // mobs' max HP, for % max HP damage
         TagBindings tagBindings = TagBindings.withDefaults();
         engine.tags().addListener(tagBindings);
@@ -109,6 +111,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.FrostAndFlight(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BondPotions(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.WitherGuard(engine), this);
+        pm.registerEvents(projectileRenderer, this); // bodies drop nothing
         new me.mephisto.ability_engine.bukkit.status.HearingGlow(engine, this).start(); // the hearing passive's private glow
         var traits = new me.mephisto.ability_engine.bukkit.status.Traits(engine);
         pm.registerEvents(traits, this);

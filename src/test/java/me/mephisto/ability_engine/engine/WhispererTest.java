@@ -208,34 +208,73 @@ class WhispererTest {
 
     // ---- Ability 3: Chorus Shade -----------------------------------------------------------------------
 
-    @Test
-    void theShadeFliesStraightWithNoOneHeard() throws IOException {
-        setup();
-        t.world.move(enemy, new Vec3(5, 1, 4));             // off to the side, healthy
-        UUID ahead = foe(12, 0);
-        use(Slots.ABILITY_3);
-        t.time.advance(40);
-        assertEquals(60, t.damage(ahead), 1e-9, "straight on: 6 HP");
-        assertEquals(0, t.damage(enemy), 1e-9);
-        assertFalse(t.engine.instances().isRunning(p, "whisperer_ab3"), "it dissolved");
+    private me.mephisto.ability_engine.engine.testkit.FakeRenderer.FakeBody shade() {
+        return t.render.bodies.get(t.render.bodies.size() - 1);
     }
 
     @Test
-    void itHomesOnAHeardEnemyAndDarkensAround() throws IOException {
+    void itFliesTwelveBlocksThenHoversThreeSecondsThenFades() throws IOException {
         setup();
-        t.world.move(enemy, new Vec3(8, 1, 6));
+        t.world.move(enemy, new Vec3(40, 1, 40));           // far away, healthy: not a target
+        use(Slots.ABILITY_3);
+        t.time.advance(35);                                 // 12 blocks at 0.4 a tick: 30 ticks
+        double x = shade().at.x();
+        assertEquals(12, x, 0.8, "stopped at its max distance: " + shade().at);
+        t.time.advance(40);
+        assertEquals(x, shade().at.x(), 1e-9, "hovering");
+        assertTrue(t.engine.instances().isRunning(p, "whisperer_ab3"));
+        t.time.advance(25);                                 // 3s of hovering
+        assertFalse(t.engine.instances().isRunning(p, "whisperer_ab3"), "gone");
+        assertTrue(t.render.cues.contains("shade_dissolve"));
+    }
+
+    @Test
+    void anEnemyWalkingUpToTheHoveringShadeGetsChased() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(40, 1, 40));
+        use(Slots.ABILITY_3);
+        t.time.advance(40);                                 // hovering at x=12
+        t.world.move(enemy, new Vec3(12, 1, 5));            // within 6 blocks of it
+        t.time.advance(20);
+        assertEquals(60, t.damage(enemy), 1e-9, "it homed on them");
+    }
+
+    @Test
+    void itHomesOnAHeardEnemyHoweverFar() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(10, 1, 20));           // way off to the side, far past 6 blocks
         hurt(enemy, 0.3);                                   // heard
-        UUID ahead = foe(20, 0);
         t.time.advance(5);
         use(Slots.ABILITY_3);
         boolean darkened = false;
-        for (int i = 0; i < 60 && t.damage(enemy) == 0; i++) {
+        for (int i = 0; i < 150 && t.damage(enemy) == 0; i++) {
             t.time.advance(1);
             darkened |= t.engine.tags().has(enemy, "state.darkness");
         }
-        assertEquals(60, t.damage(enemy), 1e-9, "it found them");
-        assertTrue(darkened, "Darkness near the shade");
-        assertEquals(0, t.damage(ahead), 1e-9);
+        assertEquals(60, t.damage(enemy), 1e-9, "found them past its 12 blocks: homing doesn't count distance");
+        assertTrue(darkened, "Darkness around the shade as it came");
+    }
+
+    @Test
+    void terrainDoesntStopIt() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(8, 1, 0));
+        t.world.box(3.8, 4.2, -3, 3, 6);                    // a wall between them
+        use(Slots.ABILITY_3);
+        t.time.advance(25);
+        assertEquals(60, t.damage(enemy), 1e-9, "through the wall");
+    }
+
+    @Test
+    void enemiesCanKillIt() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(40, 1, 40));
+        use(Slots.ABILITY_3);
+        t.time.advance(5);
+        shade().kill();
+        t.time.advance(1);
+        assertFalse(t.engine.instances().isRunning(p, "whisperer_ab3"), "slain");
+        assertTrue(t.render.cues.contains("shade_dissolve"));
     }
 
     @Test
@@ -246,32 +285,5 @@ class WhispererTest {
         t.time.advance(10);
         assertEquals(60 + 200, t.damage(enemy), 1e-9, "6 HP, then all of their max HP");
         assertTrue(t.render.cues.contains("shade_execute"));
-    }
-
-    @Test
-    void holdingTheKeySteersItAndSlowsYou() throws IOException {
-        setup();
-        t.world.move(enemy, new Vec3(30, 1, 30));           // out of the way
-        UUID side = foe(3, 10);
-        use(Slots.ABILITY_3);
-        t.world.look(p, new Vec3(0.3, 0, 1));               // turn toward the one on the side
-        for (int i = 0; i < 40 && t.damage(side) == 0; i++) {
-            t.time.advance(1);
-            t.engine.loadouts().activate(p, Slots.ABILITY_3, false); // 3 held: the key repeats
-            if (i == 5) assertEquals(0.7, t.engine.stats().moveSpeedMultiplier(p), 1e-9, "30% slower while steering");
-        }
-        assertEquals(60, t.damage(side), 1e-9, "steered into them");
-    }
-
-    @Test
-    void aTapDoesntSteer() throws IOException {
-        setup();
-        t.world.move(enemy, new Vec3(30, 1, 30));
-        UUID side = foe(3, 10);
-        use(Slots.ABILITY_3);
-        t.world.look(p, new Vec3(0.3, 0, 1));
-        t.time.advance(40);
-        assertEquals(0, t.damage(side), 1e-9, "not held: it flew straight on");
-        assertEquals(1.0, t.engine.stats().moveSpeedMultiplier(p), 1e-9);
     }
 }

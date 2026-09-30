@@ -22,13 +22,13 @@ public final class KeyQuery implements TargetQuery {
 
     /**
      * Blackboard value as a Target. Accepts a Target, a raw entity UUID (e.g. "caster"), or a projectile
-     * stored with {@code store:} (where it is right now, while it flies).
+     * stored with {@code store:} (where it is now, or where it ended).
      */
     public static Optional<Target> read(ExecutionContext ctx, String key) {
         Object raw = ctx.blackboard().raw(key);
         if (raw instanceof Target t) return Optional.of(t);
         if (raw instanceof UUID id) return Optional.of(new EntityTarget(id));
-        if (raw instanceof me.mephisto.ability_engine.engine.projectile.ProjectileHandle p && p.isAlive() && p.world() != null) {
+        if (raw instanceof me.mephisto.ability_engine.engine.projectile.ProjectileHandle p && p.world() != null) {
             return Optional.of(new PointTarget(p.world(), p.position()));
         }
         return Optional.empty();

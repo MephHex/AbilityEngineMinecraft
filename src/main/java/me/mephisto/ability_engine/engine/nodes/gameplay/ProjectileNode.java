@@ -26,7 +26,8 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class ProjectileNode implements GraphNode {
 
-    private static final Set<String> OUTPUTS = Set.of(Ports.SPAWNED, Ports.HIT_ENTITY, Ports.HIT_BLOCK, Ports.EXPIRED);
+    private static final Set<String> OUTPUTS = Set.of(Ports.SPAWNED, Ports.HIT_ENTITY, Ports.HIT_BLOCK, Ports.EXPIRED,
+            Ports.DESTROYED);
     private static final double MUZZLE_OFFSET = 0.5;
 
     private final ProjectileSpec spec;
