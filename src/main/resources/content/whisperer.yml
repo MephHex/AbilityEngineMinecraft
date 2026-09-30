@@ -1,0 +1,352 @@
+# content: whisperer
+# The Whisperer: a diver of the dream Chorus. Hears the wounded, slips through the veil to reach them,
+# binds them with a whisper, and sends a Shade to finish them off.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Heard in Dreams): enemies below 40% HP within 30 blocks are "heard" by the Chorus:
+#   - They glow for the Whisperer only (other players don't see it), through walls.
+#   - Moving toward a heard enemy within 15 blocks: +15% move speed.
+#   - Hotbar slot 9 ("Chorus Ear"): the stack is how many are heard right now; empty when none.
+#
+# ULTIMATE: Into the Veil (a 1v1 duel in a dream arena) isn't built yet.
+
+statuses:
+  heard_rush:                        # moving toward a heard enemy
+    duration: 8                      # kept up while it lasts (the hearing refreshes every 0.2s)
+    stacking: refresh
+    move_speed: 1.15                 # +15%
+    tags: [state.heard_rush]
+    positive: false                  # the passive's own boost: not a buff to share or strip
+  binding_focus:                     # holding a Binding Whisper: slower
+    duration: 50
+    move_speed: 0.8                  # -20%
+    positive: false
+  shade_control:                     # steering the Chorus Shade: slower
+    duration: 4
+    move_speed: 0.7                  # -30%
+    positive: false
+  darkness:                          # vanilla Darkness (the world pulses dark)
+    duration: 80
+    stacking: refresh
+    tags: [state.darkness]
+  whisper_wither:                    # Binding Whisper: withering, like Wither II (black hearts)
+    duration: 80                     # 4s...
+    stacking: refresh
+    tags: [state.withered]
+    tick:
+      every: 20                      # ...1 HP (10 design HP) a second = 4 HP
+      effects:
+        - { id: damage, amount: 10, damage_type: magic }
+
+abilities:
+
+  # PRIMARY (LMB): Sickle Rake. A melee hit on the enemy in front (3 blocks): 100% base damage (50 = 5 HP).
+  whisperer_primary:
+    cooldown: 12                     # 0.6s between hits (the attack_speed stat sets it)
+    display:
+      name: "Sickle Rake"
+      description:
+        - "A melee rake (3 blocks): 100% base"
+        - "damage. 0.6s between hits."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 3, ray_size: 0.6 }
+        on: { hit: rake, miss: whiff }
+      whiff:
+        type: play_cue
+        cue: sweep
+      rake:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 1.0 }             # 100% base damage
+        next: rake_cue
+      rake_cue:
+        type: play_cue
+        cue: sickle_rake
+        at: target
+
+  # 1: Dream Step. Slip through the veil: blink up to 8 blocks where you look (walls stop you). Enemies within
+  # 3 blocks of where you come out are blinded for 1.5s. A rift stays where you left for 3s: press 1 again
+  # (the icon glints) to step back into it. The cooldown starts when the rift closes or is used.
+  whisperer_ab1:
+    cooldown: 200                    # 10s
+    recast_movement: true            # stepping back is a move too: a root stops it (the rift waits)
+    display:
+      name: "Dream Step"
+      icon: PHANTOM_MEMBRANE
+      description:
+        - "Blink up to 8 blocks; enemies near where"
+        - "you come out are blinded 1.5s. A rift stays"
+        - "for 3s: press again to step back to it."
+    nodes:
+      rift_here:
+        type: remember_spot          # where you left: the rift
+        of: caster
+        store: rift
+        next: step_cue
+      step_cue:
+        type: play_cue
+        cue: dream_step
+        next: step
+      step:
+        type: dash                   # so fast it's a blink; walls stop it, enemies don't
+        speed: 4
+        range: 8
+        pierce: true
+        on: { hit: arrive, miss: arrive }
+      arrive:
+        type: apply_effects
+        targets: { type: radius, radius: 3 }
+        effects:
+          - { id: status, status: blinded, duration: 30 }   # 1.5s
+        next: arrive_cue
+      arrive_cue:
+        type: play_cue
+        cue: dream_arrive
+        next: split
+      split:
+        type: fork                   # the rift's 3s, and its shimmer, side by side
+        on: { out: back, also: shimmer }
+      back:
+        type: await_recast
+        window: 60                   # 3s
+        on: { recast: return, timeout: closed }
+      return:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: teleport, to: rift }
+        next: return_cue
+      return_cue:
+        type: play_cue
+        cue: dream_arrive
+        next: done
+      closed:
+        type: play_cue
+        cue: rift_close
+        at: rift
+        next: done
+      done:
+        type: end_cast
+      shimmer:
+        type: play_cue
+        cue: dream_rift
+        at: rift
+        next: shimmer_wait
+      shimmer_wait:
+        type: delay
+        ticks: 5
+        next: shimmer
+
+  # 2: Binding Whisper. Tether an enemy in front of you (7 blocks) and charge it for 2s; you can move and
+  # attack meanwhile, 20% slower. It holds while they stay within 9 blocks and in sight (a wall for more
+  # than 0.5s breaks it), and until you're stunned or silenced. Held all the way: Darkness and a wither
+  # (4 HP) for 4s. Broken: 40% of the cooldown back. No one to tether: nothing is spent.
+  whisperer_ab2:
+    cooldown: 240                    # 12s
+    cooldown_starts: manual          # only once someone is tethered
+    display:
+      name: "Binding Whisper"
+      icon: SCULK_VEIN
+      description:
+        - "Tether an enemy (7 blocks), charge 2s."
+        - "Held: Darkness + wither (4 HP) for 4s."
+        - "Breaks past 9 blocks, out of sight, or"
+        - "if you're stunned/silenced: 40% cd back."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 7, ray_size: 0.4 }
+        on: { hit: bind, miss: ~ }
+      bind:
+        type: start_cooldown
+        next: focus
+      focus:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: binding_focus }
+        next: bind_cue
+      bind_cue:
+        type: play_cue
+        cue: whisper_bind
+        at: target
+        next: hold
+      hold:
+        type: tether
+        target: target
+        duration: 40                 # 2s
+        range: 9                     # breaks past this (cast range 7)
+        sight_grace: 10              # a wall in between for more than 0.5s breaks it
+        break_on: [state.stunned, state.silenced]
+        cue: whisper_tether          # drawn as whisper_tether_1..4 as it charges
+        stages: 4
+        on: { complete: curse, broken: snap }
+      curse:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: darkness }       # 4s
+          - { id: status, status: whisper_wither } # 4 HP over 4s
+        next: curse_cue
+      curse_cue:
+        type: play_cue
+        cue: whisper_curse
+        at: target
+        next: unfocus
+      snap:
+        type: reduce_cooldown        # broken: 40% of the 12s back
+        ability: whisperer_ab2
+        ticks: 96
+        next: snap_cue
+      snap_cue:
+        type: play_cue
+        cue: whisper_snap
+        at: target
+        next: unfocus
+      unfocus:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: binding_focus }
+
+  # 3: Chorus Shade. Send a Shade flying out (8 blocks/s, 5s). It homes on the nearest HEARD enemy within
+  # 20 blocks (12 blocks/s), else flies straight. Keep holding 3 to steer it with your crosshair instead
+  # (you're 30% slower while you do). Enemies within 4 blocks of it are in Darkness. The first enemy it
+  # hits takes 6 HP, and if that leaves them below 10% HP they're executed. Then it dissolves.
+  whisperer_ab3:
+    cooldown: 320                    # 16s
+    display:
+      name: "Chorus Shade"
+      icon: VEX_ARMOR_TRIM_SMITHING_TEMPLATE
+      description:
+        - "A Shade flies out and homes on heard"
+        - "enemies. Hold 3 to steer it (you're"
+        - "slower). Darkness around it. Hit: 6 HP,"
+        - "and executes below 10% HP."
+    nodes:
+      launch:
+        type: projectile
+        speed: 0.4                   # 8 blocks/s
+        size: 0.8
+        lifetime: 100                # 5s
+        visual: "entity:VEX"
+        motion:
+          - { type: seek_heard, range: 20, speed: 0.6, base: 0.4, turn: 0.35 }   # 12 blocks/s homing
+        store: shade
+        on: { spawned: listen, hit_entity: strike, hit_block: fade, expired: fade }
+      listen:
+        type: fork                   # listen for the key being held, steer, and the aura, side by side
+        on: { out: key, also: loops }
+      key:
+        type: charge                 # only listens: holding 3 repeats the key, which marks it "held"
+        ticks: 100
+        bar: false
+        release_gap: 100
+        store: key_held
+        on: { out: ~, early: ~ }
+      loops:
+        type: fork
+        on: { out: steer_check, also: aura }
+      steer_check:
+        type: input_held             # still holding 3? (held keys reach the server in bursts: allow 0.4s)
+        within: 8
+        on: { held: steer, free: steer_wait }
+      steer:
+        type: steer_projectile       # at your crosshair (its homing pauses meanwhile)
+        ability: whisperer_ab3
+        turn: 0.35
+        range: 40
+        on: { out: steering_cost, gone: ~ }
+      steering_cost:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: shade_control }
+        next: steer_wait
+      steer_wait:
+        type: delay
+        ticks: 1
+        next: steer_check
+      aura:
+        type: apply_effects          # enemies near it: Darkness, kept at 2s
+        targets: { type: radius, center: shade, radius: 4 }
+        effects:
+          - { id: status, status: darkness, duration: 40 }
+        next: aura_cue
+      aura_cue:
+        type: play_cue
+        cue: shade_aura
+        at: shade
+        next: aura_wait
+      aura_wait:
+        type: delay
+        ticks: 5
+        next: aura
+      strike:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, amount: 60 }            # 6 HP
+        next: finish_check
+      finish_check:
+        type: health_below           # left below 10%: executed
+        target: hit
+        share: 0.1
+        on: { below: execute, above: dissolve }
+      execute:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, max_hp: 1.0, knockback: false, ignore_iframes: true }   # all of it, true damage
+        next: execute_cue
+      execute_cue:
+        type: play_cue
+        cue: shade_execute
+        at: hit
+        next: dissolve
+      dissolve:
+        type: play_cue
+        cue: shade_dissolve
+        at: hit
+        next: end
+      fade:
+        type: play_cue
+        cue: shade_dissolve
+        next: end
+      end:
+        type: end_cast
+
+characters:
+  whisperer:
+    name: "Whisperer"
+    weapon: NETHERITE_HOE            # the sickle
+    stats:                           # see docs/character-stats.md
+      health: 200                    # max HP
+      armor: 10                      # damage taken x 100 / (100 + armor)
+      base_damage: 50                # abilities deal % of this (100% = 5 HP)
+      move_speed: 1.05               # x vanilla walking speed
+      attack_speed: 1.67             # rakes per second (0.6s)
+    hearing:                         # PASSIVE: Heard in Dreams
+      below: 0.4                     # below 40% HP...
+      range: 30                      # ...within 30 blocks: heard
+      toward: { range: 15, status: heard_rush }   # moving toward one within 15: +15% speed
+      hotbar: 9
+      icon: ECHO_SHARD
+      name: "Chorus Ear"
+      description:
+        - "Enemies below 40% HP within 30 blocks"
+        - "are heard: they glow for you only, even"
+        - "through walls. Moving toward one within"
+        - "15 blocks: +15% move speed."
+    slots:
+      primary: whisperer_primary     # LMB: Sickle Rake (no RMB)
+      ability_1: whisperer_ab1       # 1: Dream Step (press again: back to the rift)
+      ability_2: whisperer_ab2       # 2: Binding Whisper
+      ability_3: whisperer_ab3       # 3: Chorus Shade (hold 3 to steer it)

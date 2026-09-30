@@ -231,6 +231,22 @@ enemy basic attacks landing on him take 0.5s off his abilities' cooldowns.
 | Conduction Field | **80%** + knock-up, a ring rolling out to 8 blocks |
 | Lightning Rod (ult) | **220%** (5 blocks) + 2s paralysis, then 6s: faster, a field that deals **30%** every 0.5s and keeps them paralyzed |
 
+### Whisperer: Diver
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **200** | **10** (9%) | **50** | **1.05** | **1.67** (12 ticks) | 220 | 83 |
+
+Hears enemies below 40% HP within 30 blocks (they glow for them only; +15% speed moving toward one within 15).
+
+| Ability | Damage |
+|---|---|
+| Sickle Rake (primary) | **100%** (5 HP), 3 blocks |
+| Dream Step | blink 8 blocks, blinds 1.5s around the exit; press again within 3s to return to the rift |
+| Binding Whisper | 2s tether (7 blocks, breaks past 9 / out of sight 0.5s / stunned or silenced: 40% cd back); held: Darkness + 4 HP wither over 4s |
+| Chorus Shade | 6 HP flat; executes below 10% HP; homes on heard enemies; hold to steer |
+| Into the Veil (ult) | not built yet |
+
 ### Test kit (Pyro)
 
 No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).

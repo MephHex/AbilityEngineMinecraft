@@ -10,6 +10,8 @@ import java.util.List;
  */
 public interface ProjectileHandle {
     boolean isAlive();
+    /** The world it flies in. */
+    default String world() { return null; }
     Vec3 position();
     Vec3 velocity();
     /** Replace velocity (direction and speed) from the next tick on. */

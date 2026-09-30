@@ -40,6 +40,7 @@ final class Projectile implements ProjectileHandle {
     }
 
     @Override public boolean isAlive() { return !done; }
+    @Override public String world() { return world; }
     @Override public Vec3 position() { return position; }
     @Override public Vec3 velocity() { return velocity; }
 

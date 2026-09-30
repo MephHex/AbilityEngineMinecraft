@@ -126,7 +126,9 @@ public final class Parsers {
                 case "drag" -> new Drag(m.requireDouble("amount"));
                 case "homing" -> new Homing(m.requireString("key"), m.getDouble("turn", 0.15));
                 case "accelerate" -> new Accelerate(m.requireDouble("amount"), m.requireDouble("max"));
-                default -> throw m.error("type", "unknown motion '" + type + "' (gravity, drag, homing, accelerate)");
+                case "seek_heard" -> new me.mephisto.ability_engine.engine.projectile.SeekHeard(m.getDouble("range", 20),
+                        m.requireDouble("speed"), m.requireDouble("base"), m.getDouble("turn", 0.3));
+                default -> throw m.error("type", "unknown motion '" + type + "' (gravity, drag, homing, accelerate, seek_heard)");
             });
         }
         return out;

@@ -417,6 +417,89 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, loc, 10, 2.5, 0.2, 2.5, 0.1);
         });
 
+        // ---- Whisperer ----
+        c.register("sickle_rake", loc -> {
+            loc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 1, 0.1, 0.1, 0.1, 0);
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 3, 0.2, 0.3, 0.2, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 1.4f);
+        });
+        c.register("dream_step", loc -> { // slipping into the veil
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 40, 0.3, 0.8, 0.3, 0.05);
+            loc.getWorld().spawnParticle(Particle.SQUID_INK, loc, 10, 0.3, 0.6, 0.3, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 0.9f, 0.8f);
+        });
+        c.register("dream_arrive", loc -> { // out of the veil: a dark flash
+            loc.getWorld().spawnParticle(Particle.PORTAL, loc, 60, 0.4, 0.8, 0.4, 0.6);
+            loc.getWorld().spawnParticle(Particle.SMOKE, loc, 25, 1.5, 0.6, 1.5, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 0.7f, 0.6f);
+        });
+        c.register("dream_rift", loc -> { // the rift left behind, shimmering
+            var rift = new Particle.DustTransition(org.bukkit.Color.fromRGB(120, 50, 170), org.bukkit.Color.fromRGB(20, 5, 30), 1.1f);
+            loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc.clone().add(0, 1, 0), 8, 0.15, 0.7, 0.15, 0, rift);
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc.clone().add(0, 1, 0), 3, 0.1, 0.6, 0.1, 0.01);
+        });
+        c.register("rift_close", loc -> {
+            loc.getWorld().spawnParticle(Particle.SQUID_INK, loc.clone().add(0, 1, 0), 15, 0.2, 0.6, 0.2, 0.03);
+            loc.getWorld().playSound(loc, Sound.BLOCK_PORTAL_TRIGGER, 0.3f, 2f);
+        });
+        c.register("whisper_bind", loc -> {
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 12, 0.3, 0.6, 0.3, 0.03);
+            loc.getWorld().playSound(loc, Sound.ENTITY_WARDEN_NEARBY_CLOSE, 0.8f, 1.2f);
+        });
+        // Binding Whisper's tether, stage 1 (loose, faint) to 4 (taut, bright), redrawn every 2 ticks,
+        // with a whisper rising in pitch.
+        for (int stage = 1; stage <= 4; stage++) {
+            final int st = stage;
+            c.registerLine("whisper_tether_" + stage, (w, from, to) -> {
+                Vector d = to.clone().subtract(from);
+                double len = d.length();
+                if (len < 0.1) return;
+                float t = (st - 1) / 3f;
+                var dark = new Particle.DustTransition(org.bukkit.Color.fromRGB(70 + (int) (110 * t), 20 + (int) (30 * t), 110 + (int) (120 * t)),
+                        org.bukkit.Color.fromRGB(10, 0, 20), 0.7f + 0.5f * t);
+                double sag = 0.6 * (1 - t);                 // it tightens as it charges
+                double step = 0.45 - 0.1 * t;
+                for (double k = 0; k <= len; k += step) {
+                    double f = k / len;
+                    Vector q = from.clone().add(d.clone().multiply(f)).add(new Vector(0, -sag * 4 * f * (1 - f), 0));
+                    w.spawnParticle(Particle.DUST_COLOR_TRANSITION, q.getX(), q.getY(), q.getZ(), 1, 0.02, 0.02, 0.02, 0, dark);
+                    if (st >= 3 && Math.random() < 0.15 * st) {
+                        w.spawnParticle(Particle.ENCHANT, q.getX(), q.getY(), q.getZ(), 1, 0.1, 0.1, 0.1, 0.4);
+                    }
+                }
+                Location mid = new Location(w, (from.getX() + to.getX()) / 2, (from.getY() + to.getY()) / 2, (from.getZ() + to.getZ()) / 2);
+                w.spawnParticle(Particle.SCULK_SOUL, mid, st, 0.3, 0.3, 0.3, 0.01);
+                if (Math.random() < 0.25) w.playSound(mid, Sound.ENTITY_WARDEN_HEARTBEAT, 0.4f + 0.15f * st, 0.8f + 0.3f * st);
+                if (Math.random() < 0.2) w.playSound(mid, Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 0.15f + 0.05f * st, 1.2f + 0.2f * st);
+            });
+        }
+        c.register("whisper_curse", loc -> { // held all the way
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 30, 0.4, 0.8, 0.4, 0.05);
+            loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 60, 0.5, 1, 0.5, 1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_WARDEN_SONIC_CHARGE, 0.8f, 1.6f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_WITHER_AMBIENT, 0.5f, 1.8f);
+        });
+        c.register("whisper_snap", loc -> { // broken
+            loc.getWorld().spawnParticle(Particle.SMOKE, loc, 15, 0.3, 0.5, 0.3, 0.03);
+            loc.getWorld().playSound(loc, Sound.BLOCK_SCULK_SENSOR_CLICKING_STOP, 1f, 0.7f);
+        });
+        c.register("shade_aura", loc -> { // around the Chorus Shade: its 4-block Darkness
+            var dark = new Particle.DustOptions(org.bukkit.Color.fromRGB(40, 10, 60), 1.2f);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 12, 1.5, 0.8, 1.5, 0, dark);
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 2, 0.3, 0.3, 0.3, 0.01);
+            loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 6, 0.5, 0.5, 0.5, 0.6);
+        });
+        c.register("shade_execute", loc -> {
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 40, 0.4, 0.9, 0.4, 0.08);
+            loc.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1, 0, 0, 0, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.3f);
+        });
+        c.register("shade_dissolve", loc -> {
+            loc.getWorld().spawnParticle(Particle.SQUID_INK, loc, 20, 0.3, 0.4, 0.3, 0.05);
+            loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 20, 0.4, 0.4, 0.4, 0.8);
+            loc.getWorld().playSound(loc, Sound.ENTITY_VEX_DEATH, 0.8f, 0.7f);
+        });
+
         // ---- Vanguard ----
         c.register("leap_off", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);

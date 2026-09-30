@@ -63,6 +63,7 @@ public final class AbilityEngine {
     private final me.mephisto.ability_engine.engine.stats.StatSheets stats;
     private final me.mephisto.ability_engine.engine.combat.CombatTracker combat;
     private final me.mephisto.ability_engine.engine.ward.WardManager wards;
+    private final me.mephisto.ability_engine.engine.ward.HearingManager hearing;
     private final me.mephisto.ability_engine.engine.combat.SpellShields spellShields;
 
     public AbilityEngine(Platform platform) {
@@ -93,6 +94,8 @@ public final class AbilityEngine {
         this.spellShields = new me.mephisto.ability_engine.engine.combat.SpellShields(platform.world(), platform.cues());
         this.wards = new me.mephisto.ability_engine.engine.ward.WardManager(loadouts, tags, combat, platform.clock(),
                 platform.cues(), platform.world(), platform.scheduler(), statuses);
+        this.hearing = new me.mephisto.ability_engine.engine.ward.HearingManager(loadouts, platform.world(), teams, statuses,
+                summons, platform.scheduler());
         // Debuff immunity from anything else (a status granting state.debuff_immune): blocks without using it up.
         statuses.addGuard((target, def, source) -> tags.has(target, me.mephisto.ability_engine.engine.tag.Tags.DEBUFF_IMMUNE)
                 && me.mephisto.ability_engine.engine.status.StatusManager.isDebuff(target, def, source));
@@ -148,6 +151,7 @@ public final class AbilityEngine {
     public me.mephisto.ability_engine.engine.combat.CombatTracker combat() { return combat; }
     /** Characters' wards: debuff immunity that recharges out of combat. */
     public me.mephisto.ability_engine.engine.ward.WardManager wards() { return wards; }
+    public me.mephisto.ability_engine.engine.ward.HearingManager hearing() { return hearing; }
     /** Spell shields: spell damage absorbed as charge. */
     public me.mephisto.ability_engine.engine.combat.SpellShields spellShields() { return spellShields; }
     /** Randomness for gameplay rolls (random infusions...). Tests swap in a seeded one. */
