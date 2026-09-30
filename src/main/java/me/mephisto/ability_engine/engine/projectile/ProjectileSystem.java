@@ -156,7 +156,10 @@ public final class ProjectileSystem {
             p.velocity = flying.velocity();
             next = p.position.add(p.velocity);
         } else {
-            for (MotionModifier m : p.motion) p.velocity = m.apply(p.position, p.velocity, ctx);
+            for (MotionModifier m : p.motion) {
+                if (m instanceof SeekHeard && p.isGuided()) continue; // being steered: steering wins
+                p.velocity = m.apply(p.position, p.velocity, ctx);
+            }
             next = p.position.add(p.velocity);
         }
         p.redirected = false;

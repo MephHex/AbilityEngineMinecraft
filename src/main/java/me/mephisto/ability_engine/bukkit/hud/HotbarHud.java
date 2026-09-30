@@ -89,6 +89,8 @@ public final class HotbarHud {
     private final Map<UUID, String> wardShown = new HashMap<>();
     /** Per player: what each status item slot last showed ("status:stacks", "" = nothing). */
     private final Map<UUID, Map<Integer, String>> statusItemsShown = new HashMap<>();
+    /** Per player: how many heard enemies the hearing item last showed (-1 = not drawn yet). */
+    private final Map<UUID, Integer> hearingShown = new HashMap<>();
     /** Per player: whether the weapon was last drawn glinting (a glint_weapon status item). */
     private final Map<UUID, Boolean> weaponGlint = new HashMap<>();
     /** Per player: the kit last drawn (with any form applied), so a form starting or ending redraws it. */
@@ -156,6 +158,8 @@ public final class HotbarHud {
         statusItemsShown.remove(p.getUniqueId());
         weaponGlint.put(p.getUniqueId(), weaponGlints(p.getUniqueId(), character.get()));
         updateStatusItems(p);
+        hearingShown.remove(p.getUniqueId());
+        updateHearing(p);
         wardShown.remove(p.getUniqueId());
         updateWard(p);
         ccShown.remove(p.getUniqueId()); // the next update puts barriers back if still crowd-controlled
@@ -216,6 +220,7 @@ public final class HotbarHud {
                 if (!now.get().equals(renderedAs.get(p.getUniqueId()))) render(p);
                 updateGauges(p);
                 updateStatusItems(p);
+                updateHearing(p);
                 updateWard(p);
                 updateCrowdControl(p);
                 updateGlints(p);
@@ -562,6 +567,36 @@ public final class HotbarHud {
         }
     }
 
+    /** The hearing passive's item: its stack is how many enemies are heard right now; empty with none. */
+    private void updateHearing(Player p) {
+        UUID id = p.getUniqueId();
+        CharacterDef.Hearing hearing = engine.loadouts().baseCharacterOf(id).map(CharacterDef::hearing).orElse(null);
+        if (hearing == null || hearing.hotbarSlot() <= 0) return;
+        int count = engine.hearing().heard(id).size();
+        if (Integer.valueOf(count).equals(hearingShown.get(id))) return;
+        hearingShown.put(id, count);
+        int pos = hearing.hotbarSlot() - 1;
+        ItemStack there = p.getInventory().getItem(pos);
+        if (there != null && !isHudItem(there)) return; // the player's own item: leave it
+        p.getInventory().setItem(pos, count == 0 ? null : hearingItem(hearing, count));
+    }
+
+    private ItemStack hearingItem(CharacterDef.Hearing hearing, int count) {
+        Material m = hearing.icon() == null ? null : Material.matchMaterial(hearing.icon());
+        ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.ECHO_SHARD);
+        item.setAmount(Math.min(MAX_COUNT, count));
+        ItemMeta meta = item.getItemMeta();
+        meta.setMaxStackSize(MAX_COUNT);
+        meta.displayName(plain("[Passive] ", NamedTextColor.YELLOW).append(plain(hearing.name(), NamedTextColor.LIGHT_PURPLE)));
+        List<Component> lore = new ArrayList<>();
+        for (String line : hearing.description()) lore.add(plain(line, NamedTextColor.GRAY));
+        lore.add(plain(count + (count == 1 ? " enemy heard" : " enemies heard"), NamedTextColor.LIGHT_PURPLE));
+        meta.lore(lore);
+        meta.setEnchantmentGlintOverride(true);
+        meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+        return tag(item, meta);
+    }
+
     private ItemStack statusItem(CharacterDef.StatusItem entry, int stacks) {
         Material m = entry.icon() == null ? null : Material.matchMaterial(entry.icon());
         ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.GLOWSTONE_DUST);
@@ -610,6 +645,7 @@ public final class HotbarHud {
         renderedAs.remove(p.getUniqueId());
         statusItemsShown.remove(p.getUniqueId());
         weaponGlint.remove(p.getUniqueId());
+        hearingShown.remove(p.getUniqueId());
         PlayerInventory inv = p.getInventory();
         ItemStack[] contents = inv.getContents();
         for (int i = 0; i < contents.length; i++) {

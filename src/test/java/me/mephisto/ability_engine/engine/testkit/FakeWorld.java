@@ -138,6 +138,15 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     public Optional<Vec3> movementOf(UUID entity) { return Optional.ofNullable(moving.get(entity)); }
     public void floor(double y) { floorY = y; }
 
+    /** Health as a share of max (0..1), set by tests (unset = unknown). */
+    public final Map<UUID, Double> healthFraction = new HashMap<>();
+
+    @Override
+    public java.util.OptionalDouble healthFraction(UUID entity) {
+        Double f = healthFraction.get(entity);
+        return f == null ? java.util.OptionalDouble.empty() : java.util.OptionalDouble.of(f);
+    }
+
     @Override
     public Optional<Aim> aimOf(UUID entity) {
         Vec3 pos = entities.get(entity);

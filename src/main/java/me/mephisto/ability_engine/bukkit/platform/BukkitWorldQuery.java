@@ -197,6 +197,14 @@ public final class BukkitWorldQuery implements WorldQuery {
                 : java.util.OptionalDouble.of(attribute.getValue() * damageScale.getAsDouble());
     }
 
+    @Override
+    public java.util.OptionalDouble healthFraction(UUID entity) {
+        if (!(Bukkit.getEntity(entity) instanceof LivingEntity living) || living.isDead()) return java.util.OptionalDouble.empty();
+        var attribute = living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        double max = attribute == null ? 0 : attribute.getValue();
+        return max <= 0 ? java.util.OptionalDouble.empty() : java.util.OptionalDouble.of(living.getHealth() / max);
+    }
+
     /** Null if the entity can be targeted, otherwise the reason (shown in debug traces). */
     private static String whyNotTargetable(Entity e) {
         if (!(e instanceof LivingEntity living)) return "not a living entity";

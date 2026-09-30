@@ -33,6 +33,13 @@ public final class ChargeNode implements GraphNode {
     private final boolean fireWhenFull;
     private final int releaseGap;
     private final Load load;
+    private boolean showBar = true;
+
+    /** {@code bar: false}: no cast bar (e.g. a charge that only listens for the key being held). */
+    public ChargeNode withoutBar() {
+        showBar = false;
+        return this;
+    }
 
     /** Loading a resource while held (see the class comment); {@code start} are loaded on the press itself. */
     public record Load(String resource, int every, int max, int start) {
@@ -96,7 +103,7 @@ public final class ChargeNode implements GraphNode {
 
         void start() {
             instance.setReleaseHandler(handler);
-            bar = instance.showProgress(ticks);
+            if (showBar) bar = instance.showProgress(ticks);
             // Fully charged: fires by itself, or (fire_when_full: false) just stays full until let go.
             if (fireWhenFull) task = ctx.engine().scheduler().after(ticks, this::fire);
             if (releaseGap > 0) instance.setInputRepeat(onRepeat);

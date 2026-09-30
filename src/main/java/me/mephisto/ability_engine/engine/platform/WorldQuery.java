@@ -47,6 +47,9 @@ public interface WorldQuery {
     /** Max health in design HP (like damage), for entities without a character. Empty = unknown. */
     default java.util.OptionalDouble maxHealth(UUID entity) { return java.util.OptionalDouble.empty(); }
 
+    /** Current health as a share of max health (0..1), e.g. "below 40%". Empty = unknown. */
+    default java.util.OptionalDouble healthFraction(UUID entity) { return java.util.OptionalDouble.empty(); }
+
     /**
      * Which way the entity is moving right now, horizontally (walking, strafing, backpedalling),
      * as a unit vector. Empty when standing still. Default: unknown (always empty).

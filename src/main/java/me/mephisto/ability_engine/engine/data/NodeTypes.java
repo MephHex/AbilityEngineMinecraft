@@ -131,9 +131,10 @@ public final class NodeTypes {
             if (from < 0 || from > 1) throw p.error("from", "must be between 0 and 1");
             int min = p.getInt("min", 0);
             if (min < 0 || min > p.requireInt("ticks")) throw p.error("min", "must be between 0 and ticks");
-            return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
+            var charge = new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
                     p.getString("store", "charge"), min, p.getBool("fire_when_full", true), p.getInt("release_gap", 0),
                     chargeLoad(p));
+            return p.getBool("bar", true) ? charge : charge.withoutBar();
         });
         t.register("has_status", (p, e) -> {
             String status = p.requireString("status");
@@ -239,6 +240,20 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.gameplay.StrikeConstructsNode(range,
                     p.getDouble("angle", 0), p.getDouble("width", 0.6));
         });
+        t.register("tether", (p, e) -> {
+            int duration = p.requireInt("duration");
+            if (duration < 1) throw p.error("duration", "must be at least 1 tick");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.TetherNode(p.getString("target", "target"), duration,
+                    p.requireDouble("range"), p.getInt("sight_grace", 10), p.getStringSet("break_on", Set.of()),
+                    p.requireString("cue"), p.getInt("stages", 4));
+        });
+        t.register("health_below", (p, e) -> {
+            double share = p.requireDouble("share");
+            if (share <= 0 || share > 1) throw p.error("share", "a share of max HP, e.g. 0.1");
+            return new me.mephisto.ability_engine.engine.nodes.control.HealthBelowNode(p.getString("target", "target"), share);
+        });
+        t.register("input_held", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.InputHeldNode(
+                p.getInt("within", 4)));
         t.register("start_line", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.StartLineNode(
                 p.requireString("cue"), p.requireString("to"), p.getInt("every", 2)));
         t.register("play_cue", (p, e) -> new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null)));

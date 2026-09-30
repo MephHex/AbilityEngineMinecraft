@@ -24,7 +24,20 @@ import java.util.Map;
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
                            java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
-                           java.util.List<StatusItem> statusItems, WhenHit whenHit) {
+                           java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing) {
+
+    /**
+     * A passive that "hears" wounded enemies: enemies below {@code belowHealth} (a share of max HP) within
+     * {@code range} blocks are heard. Moving toward a heard enemy within {@code towardRange} keeps
+     * {@code towardStatus} on the holder (e.g. faster). The platform shows them (a glow only the holder
+     * sees) and the count in hotbar slot {@code hotbarSlot}.
+     */
+    public record Hearing(double belowHealth, double range, double towardRange, String towardStatus,
+                          int hotbarSlot, String icon, String name, java.util.List<String> description) {
+        public Hearing {
+            description = java.util.List.copyOf(description);
+        }
+    }
 
     /**
      * A status shown as a hotbar item while the player has it, its stack size = the status's stacks (e.g.
@@ -156,6 +169,13 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, null);
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit, null);
+    }
+
     public CharacterDef {
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
         resources = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(resources));
@@ -172,7 +192,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         Map<String, String> changed = new LinkedHashMap<>(slots);
         changed.putAll(form.slots());
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
-                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems, whenHit);
+                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems, whenHit, hearing);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

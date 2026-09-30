@@ -268,7 +268,25 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p), whenHit(p));
+                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p));
+    }
+
+    /** {@code hearing: { below, range, toward: { range, status }, hotbar, icon, name, description }}. */
+    private CharacterDef.Hearing hearing(Params p) {
+        if (!p.has("hearing")) return null;
+        Params h = p.getParams("hearing");
+        double below = h.requireDouble("below");
+        if (below <= 0 || below > 1) throw h.error("below", "a share of max HP, e.g. 0.4");
+        Params toward = h.getParams("toward");
+        String status = toward.getString("status", null);
+        if (status != null && engine.statusDefs().find(status).isEmpty()) {
+            throw toward.error("status", "unknown status '" + status + "' (define it under 'statuses:')");
+        }
+        int hotbar = h.getInt("hotbar", 0);
+        if (hotbar < 0 || hotbar > 9) throw h.error("hotbar", "expected a hotbar slot 1-9 (or 0: not shown)");
+        return new CharacterDef.Hearing(below, h.getDouble("range", 30), toward.getDouble("range", 15), status,
+                hotbar, h.getString("icon", null), h.getString("name", "Hearing"),
+                h.has("description") ? h.getStringList("description") : List.of());
     }
 
     /** {@code when_hit: { reduce_cooldowns: <ticks>, slots: [...] }} (enemy basic attacks landing on them). */

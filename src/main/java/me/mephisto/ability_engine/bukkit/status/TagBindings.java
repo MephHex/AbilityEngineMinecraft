@@ -63,6 +63,13 @@ public final class TagBindings implements TagListener {
         b.bind(Tags.STUNNED,
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, PotionEffect.INFINITE_DURATION, 3, false, false)),
                 e -> e.removePotionEffect(PotionEffectType.NAUSEA));
+        // The Whisperer: vanilla Darkness, and Wither's black hearts (its damage is the ability's: see WitherGuard)
+        b.bind("state.darkness",
+                e -> e.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, PotionEffect.INFINITE_DURATION, 0, false, false)),
+                e -> e.removePotionEffect(PotionEffectType.DARKNESS));
+        b.bind("state.withered",
+                e -> e.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, PotionEffect.INFINITE_DURATION, 1, false, true)),
+                e -> e.removePotionEffect(PotionEffectType.WITHER));
         StatusAuras.bindAll(b);   // silenced / poisoned / paralyzed: particles on them while it lasts
         return b;
     }

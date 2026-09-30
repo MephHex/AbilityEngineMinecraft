@@ -217,9 +217,15 @@ public final class AbilityInstance {
     /** The held input repeated (still held). Returns false if nothing is watching. */
     public boolean inputRepeated() {
         if (!chargingOnRepeats()) return false;
+        lastInputRepeat = engine.clock().now();
         inputRepeat.run();
         return true;
     }
+
+    /** When the input last repeated while a charge listened (Long.MIN_VALUE = never): see input_held. */
+    private long lastInputRepeat = Long.MIN_VALUE;
+
+    public long lastInputRepeat() { return lastInputRepeat; }
 
     /** The held input was let go: fire the charge. One-shot. */
     public void release() {

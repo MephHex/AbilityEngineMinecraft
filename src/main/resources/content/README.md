@@ -410,3 +410,26 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Cues:** barrier_break, golem_swing, anchor_throw, anchor_chain (line), anchor_land, rust_step,
   rust_burst, conduction_slam, shockwave_2 / _4 / _6 / _8 (rings of that radius), rod_charge,
   lightning_strike, electric_field (5 blocks).
+
+## Added for the Whisperer
+
+- **Characters:** `hearing: { below, range, toward: { range, status }, hotbar, icon, name, description }` - a
+  passive that hears wounded enemies: enemies below `below` of their max HP within `range` blocks. They glow
+  for this player only (through walls), the item in hotbar slot `hotbar` counts them (empty with none), and
+  moving toward one within `toward.range` keeps `toward.status` on you (e.g. faster).
+- **Nodes:**
+  - tether `{ target, duration, range, sight_grace, break_on, cue, stages }` -> complete / broken: hold a
+    tether for `duration` ticks; it breaks past `range` blocks, after a wall has been in the way for more than
+    `sight_grace` ticks, or when you get a `break_on` tag. Drawn as `<cue>_1` .. `<cue>_<stages>` as it
+    charges (fills the cast bar).
+  - health_below `{ target, share }` -> below / above: e.g. an execute below 10% HP.
+  - input_held `{ within }` -> held / free: is the ability's key still held (it repeated within the last
+    `within` ticks)? Needs a `charge` with `release_gap` listening in the same cast (`bar: false` hides its
+    cast bar). A tap never counts as held.
+- **Motion:** `{ type: seek_heard, range, speed, base, turn }` - homes on the nearest enemy the caster hears
+  (hearing passive) within `range`, at `speed`; with none, flies straight at `base`. Paused while steered.
+- **Keys:** a stored projectile (`store:`) can be used like a spot while it flies (e.g. `center: shade`).
+- **Tags:** `state.darkness` (vanilla Darkness), `state.withered` (Wither's black hearts; the status does the
+  damage, not vanilla).
+- **Cues:** sickle_rake, dream_step, dream_arrive, dream_rift, rift_close, whisper_bind, whisper_tether_1..4
+  (lines), whisper_curse, whisper_snap, shade_aura, shade_execute, shade_dissolve.
