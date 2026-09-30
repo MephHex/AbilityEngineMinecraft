@@ -18,13 +18,15 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Duels in a veil (Into the Veil) on Bukkit: the two duelists only see each other. Every other player is
- * hidden from them, and they're hidden from every other player, for as long as the veil lasts. Only the two
+ * Duels in a veil (Into the Veil) on Bukkit: the two duelists only see each other. Every other living thing
+ * near them (players, mannequins, mobs, others' summons) is hidden from them, and they (with their own
+ * summons) are hidden from every other player, for as long as the veil lasts. Only the two
  * of them see and hear its ambience (dark motes at the edge of their sight, souls, whispers), and their
  * abilities' visuals (see AudienceWorld). Everyone else sees only two drifting motes where they are: red for
  * the one who cast it, green for the one pulled in. Vanilla hits across the veil (a mob, a bow) are
@@ -47,24 +49,46 @@ public final class VeilVisibility implements Listener {
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1, 2);
     }
 
+    /** How far around a duel other entities are hidden from the duelists (and the duel from others). */
+    private static final double REACH = 64;
+
     private void tick() {
         ticks += 2;
         var veils = engine.veils();
         var online = Bukkit.getOnlinePlayers();
-        for (Player viewer : online) {
-            Set<UUID> mine = hidden.computeIfAbsent(viewer.getUniqueId(), k -> new HashSet<>());
-            for (Player other : online) {
-                if (other.equals(viewer)) continue;
-                boolean hide = veils.blocks(viewer.getUniqueId(), other.getUniqueId());
-                if (hide && (mine.add(other.getUniqueId()) || viewer.canSee(other))) {
-                    viewer.hideEntity(plugin, other); // (again, if something else showed them meanwhile)
-                } else if (!hide && mine.remove(other.getUniqueId())) {
-                    // (someone hidden by an ability, e.g. state.hidden, stays hidden)
-                    if (!engine.tags().has(other.getUniqueId(), Tags.HIDDEN)) viewer.showEntity(plugin, other);
+        // Everything that could need hiding: whoever is in a veil, and every living thing near one
+        // (players, mannequins, mobs, summons). Ability visuals keep their own visibility.
+        Map<UUID, Entity> candidates = new HashMap<>();
+        for (UUID id : veils.veiled()) {
+            Entity e = Bukkit.getEntity(id);
+            if (e == null || !e.isValid()) continue;
+            candidates.put(id, e);
+            for (Entity near : e.getNearbyEntities(REACH, REACH, REACH)) {
+                if (near instanceof org.bukkit.entity.LivingEntity && !me.mephisto.ability_engine.bukkit.platform.VisualEntities.isVisual(near)) {
+                    candidates.put(near.getUniqueId(), near);
                 }
             }
-            mine.removeIf(id -> Bukkit.getPlayer(id) == null); // left the server
-            if (veils.isVeiled(viewer.getUniqueId()) && ticks % 10 == 0) ambience(viewer);
+        }
+        for (Player viewer : online) {
+            UUID v = viewer.getUniqueId();
+            Set<UUID> mine = hidden.computeIfAbsent(v, k -> new HashSet<>());
+            for (Entity other : candidates.values()) {
+                if (other.getUniqueId().equals(v)) continue;
+                // across a veil (summons count as their owner's): a duelist and anyone else, either way round
+                boolean hide = veils.blocks(v, other.getUniqueId());
+                if (hide && (mine.add(other.getUniqueId()) || viewer.canSee(other))) {
+                    viewer.hideEntity(plugin, other); // (again, if something else showed them meanwhile)
+                }
+            }
+            // show again what's no longer across a veil (or is gone)
+            for (UUID id : List.copyOf(mine)) {
+                Entity other = Bukkit.getEntity(id);
+                if (other != null && other.isValid() && veils.blocks(v, id)) continue;
+                mine.remove(id);
+                // (someone hidden by an ability, e.g. state.hidden, stays hidden)
+                if (other != null && other.isValid() && !engine.tags().has(id, Tags.HIDDEN)) viewer.showEntity(plugin, other);
+            }
+            if (veils.isVeiled(v) && ticks % 10 == 0) ambience(viewer);
         }
         hidden.keySet().removeIf(id -> Bukkit.getPlayer(id) == null);
         markers(online);
