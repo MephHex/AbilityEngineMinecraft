@@ -42,14 +42,15 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     private me.mephisto.ability_engine.bukkit.hud.BossBarHud bossBar;
     private DamageEffect damage;
 
-    /** The key that confirms what a player is aiming: the aimed ability's own key (LMB without a character). */
+    /** What confirms what a player is aiming: LMB, or the aimed ability's own key again. */
     private String confirmKeyOf(java.util.UUID id) {
         if (!engine.loadouts().has(id)) return "LMB";
         String aimed = engine.targeting().current(id).map(a -> a.id()).orElse(null);
         if (aimed == null) return "LMB";
         for (String slot : me.mephisto.ability_engine.engine.loadout.Slots.ALL) {
             if (engine.loadouts().abilityIn(id, slot).filter(aimed::equals).isPresent()) {
-                return keybinds.actionFor(slot).map(me.mephisto.ability_engine.bukkit.input.InputAction::defaultKey).orElse("LMB");
+                return keybinds.actionFor(slot).map(me.mephisto.ability_engine.bukkit.input.InputAction::defaultKey)
+                        .filter(key -> !key.equals("LMB")).map(key -> "LMB / " + key).orElse("LMB");
             }
         }
         return "LMB";
