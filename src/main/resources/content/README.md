@@ -435,7 +435,10 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **veil** `{ target, duration }` -> won / out: a duel. The caster and the target are pulled into a veil
   for `duration` ticks (a boss bar): they can only affect each other (shots, rays, dashes and effects skip
   anyone across it), and on Bukkit they only see each other (everyone else is hidden from them and them
-  from everyone). `won` as soon as the target dies; the veil also lifts if the caster dies.
+  from everyone). `won` as soon as the target dies; the veil also lifts if the caster dies. Their abilities'
+  cues and projectile/construct visuals are shown only to the two of them (everyone else sees a red mote
+  for the caster and a green one for the target); their summons and projectile bodies count as theirs, so
+  they work inside the veil.
 - **reset_cooldowns** `{ slots: [...] }`: the caster's abilities in those slots are ready at once.
 - **Keys:** a stored projectile (`store:`) can be used like a spot: where it is, or where it ended (e.g. `center: shade`).
 - **Tags:** `state.darkness` (vanilla Darkness), `state.withered` (Wither's black hearts; the status does the

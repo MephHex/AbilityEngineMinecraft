@@ -25,8 +25,10 @@ import java.util.UUID;
 /**
  * Duels in a veil (Into the Veil) on Bukkit: the two duelists only see each other. Every other player is
  * hidden from them, and they're hidden from every other player, for as long as the veil lasts. Only the two
- * of them see and hear its ambience (dark motes at the edge of their sight, souls, whispers). Vanilla hits
- * across the veil (a mob, a bow) are cancelled; the engine already keeps abilities apart.
+ * of them see and hear its ambience (dark motes at the edge of their sight, souls, whispers), and their
+ * abilities' visuals (see AudienceWorld). Everyone else sees only two drifting motes where they are: red for
+ * the one who cast it, green for the one pulled in. Vanilla hits across the veil (a mob, a bow) are
+ * cancelled; the engine already keeps abilities apart.
  */
 public final class VeilVisibility implements Listener {
 
@@ -65,6 +67,27 @@ public final class VeilVisibility implements Listener {
             if (veils.isVeiled(viewer.getUniqueId()) && ticks % 10 == 0) ambience(viewer);
         }
         hidden.keySet().removeIf(id -> Bukkit.getPlayer(id) == null);
+        markers(online);
+    }
+
+    private static final Particle.DustOptions CASTER = new Particle.DustOptions(Color.fromRGB(220, 30, 40), 1.6f);
+    private static final Particle.DustOptions PULLED = new Particle.DustOptions(Color.fromRGB(60, 220, 110), 1.6f);
+
+    /** What outsiders see of a duel: a red mote (the caster) and a green one (the one pulled in). */
+    private void markers(java.util.Collection<? extends Player> online) {
+        var veils = engine.veils();
+        for (UUID id : veils.veiled()) {
+            Entity e = Bukkit.getEntity(id);
+            if (e == null || !e.isValid()) continue;
+            Location at = e.getLocation().add(0, e.getHeight() * 0.6, 0);
+            Particle.DustOptions color = veils.isInitiator(id) ? CASTER : PULLED;
+            UUID partner = veils.partnerOf(id).orElse(null);
+            for (Player viewer : online) {
+                UUID v = viewer.getUniqueId();
+                if (v.equals(id) || v.equals(partner) || !viewer.getWorld().equals(at.getWorld())) continue;
+                viewer.spawnParticle(Particle.DUST, at, 3, 0.1, 0.15, 0.1, 0, color);
+            }
+        }
     }
 
     /** Only the duelist sees and hears it. */

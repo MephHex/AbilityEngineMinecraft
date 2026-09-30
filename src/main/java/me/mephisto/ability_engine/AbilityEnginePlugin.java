@@ -82,6 +82,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         damage = BukkitEffects.registerBuiltins(engine.effects(), shields); // before loading: effects are validated at load time
         cloneSpawner.setDamageScale(() -> damage.scale()); // a soul's health is in design HP, like damage
         projectileRenderer.setDamageScale(() -> damage.scale()); // a projectile's body too (the Chorus Shade)
+        projectileRenderer.setAudience(engine::audienceOf);      // a duel in a veil: only the two see their shots
         worldQuery.setDamageScale(() -> damage.scale());   // mobs' max HP, for % max HP damage
         TagBindings tagBindings = TagBindings.withDefaults();
         engine.tags().addListener(tagBindings);

@@ -320,6 +320,9 @@ class WhispererTest {
         assertTrue(t.engine.veils().isVeiled(p));
         assertEquals(enemy, t.engine.veils().partnerOf(p).orElseThrow());
         assertEquals(0, t.engine.cooldowns().remainingTicks(p, "whisperer_ab2"), "cooldowns reset");
+        assertTrue(t.engine.statuses().has(p, "veil_shroud") && t.engine.statuses().has(enemy, "veil_shroud"),
+                "both in Darkness");
+        assertFalse(t.engine.tags().has(p, Tags.BLINDED), "Darkness only, no blindness");
 
         double mine = t.damage(p);
         punch(enemyFriend, p);
@@ -354,6 +357,7 @@ class WhispererTest {
         t.time.advance(1);
         assertFalse(t.engine.veils().isVeiled(p), "they died: it ends");
         assertEquals(80, t.healed.get(p), 1e-9, "8 HP");
+        assertFalse(t.engine.statuses().has(p, "veil_shroud"), "the Darkness ends with it");
         assertFalse(t.engine.statuses().has(p, "veil_fury"));
     }
 
@@ -365,5 +369,43 @@ class WhispererTest {
         assertEquals(0, t.engine.cooldowns().remainingTicks(p, "whisperer_ult1"));
         t.time.advance(20);
         assertFalse(t.engine.veils().isVeiled(p));
+    }
+
+    @Test
+    void inTheVeilTheirAbilitiesAreSeenOnlyByTheTwo() throws IOException {
+        setup();
+        use(Slots.ULTIMATE);
+        t.time.advance(12);
+        int publicBefore = t.render.cues.size();
+        use(Slots.PRIMARY);                                 // a rake: its cue
+        assertEquals(publicBefore, t.render.cues.size(), "nobody else sees it");
+        Object[] last = t.render.privateCues.get(t.render.privateCues.size() - 1);
+        assertEquals("sickle_rake", last[0]);
+        assertEquals(java.util.Set.of(p, enemy), last[1], "only the two of them");
+    }
+
+    @Test
+    void theirSummonsAreInTheVeilWithThem() throws IOException {
+        setup();
+        use(Slots.ULTIMATE);
+        t.time.advance(12);
+        UUID body = UUID.randomUUID();
+        UUID outsider = foe(3, 3);
+        assertTrue(t.engine.veils().blocks(outsider, p));
+        // (a summon or a projectile's body counts as its owner)
+        t.engine.veils().setOwnerResolver(id -> id.equals(body) ? java.util.Optional.of(p) : java.util.Optional.empty());
+        assertFalse(t.engine.veils().blocks(body, enemy), "your summon reaches your duel partner");
+        assertTrue(t.engine.veils().blocks(body, outsider), "but nobody outside");
+    }
+
+    @Test
+    void theShadeCanHitTheDuelPartner() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(8, 1, 0));
+        use(Slots.ULTIMATE);                                // (in front, 8 blocks)
+        t.time.advance(12);
+        use(Slots.ABILITY_3);
+        t.time.advance(30);
+        assertEquals(60 * 1.2, t.damage(enemy), 1e-9, "the Shade hit them (+20% in the veil)");
     }
 }

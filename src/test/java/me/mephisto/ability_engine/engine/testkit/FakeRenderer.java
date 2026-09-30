@@ -150,6 +150,19 @@ public final class FakeRenderer implements ProjectileRenderer, CuePlayer, Indica
     @Override
     public void playLine(String cueId, String world, Vec3 from, Vec3 to) { lines.add(new Object[]{cueId, from, to}); }
 
+    /** Cues shown only to an audience (a duel in a veil): id, and who sees it. */
+    public final List<Object[]> privateCues = new ArrayList<>();
+
+    @Override
+    public void play(String cueId, String world, Vec3 position, java.util.Set<java.util.UUID> audience) {
+        privateCues.add(new Object[]{cueId, audience});
+    }
+
+    @Override
+    public void playLine(String cueId, String world, Vec3 from, Vec3 to, java.util.Set<java.util.UUID> audience) {
+        privateCues.add(new Object[]{cueId, audience});
+    }
+
     @Override
     public ConstructVisual spawn(ConstructHandle construct, String visual) {
         constructsAlive++;

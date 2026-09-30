@@ -96,6 +96,8 @@ public final class AbilityEngine {
                 platform.cues(), platform.world(), platform.scheduler(), statuses);
         this.hearing = new me.mephisto.ability_engine.engine.ward.HearingManager(loadouts, platform.world(), teams, statuses,
                 summons, platform.scheduler());
+        // A duel in a veil: a summon or a projectile's body is on its owner's side of it.
+        teams.veils().setOwnerResolver(id -> summons.ownerOf(id).or(() -> projectiles.bodyOwner(id)));
         // Debuff immunity from anything else (a status granting state.debuff_immune): blocks without using it up.
         statuses.addGuard((target, def, source) -> tags.has(target, me.mephisto.ability_engine.engine.tag.Tags.DEBUFF_IMMUNE)
                 && me.mephisto.ability_engine.engine.status.StatusManager.isDebuff(target, def, source));
@@ -120,6 +122,40 @@ public final class AbilityEngine {
     public WorldQuery world() { return platform.world(); }
     public me.mephisto.ability_engine.engine.platform.MovementControl movement() { return platform.movement(); }
     public CuePlayer cues() { return platform.cues(); }
+
+    /**
+     * Cues caused by {@code actor} (their abilities): if they're in a veil, only the two in it see and hear
+     * them; otherwise everyone does.
+     */
+    public CuePlayer cuesFor(java.util.UUID actor) {
+        CuePlayer base = platform.cues();
+        var veils = veils();
+        return new CuePlayer() {
+            @Override
+            public void play(String cueId, String world, me.mephisto.ability_engine.engine.math.Vec3 position) {
+                var audience = veils.audienceOf(actor);
+                if (audience.isEmpty()) base.play(cueId, world, position);
+                else base.play(cueId, world, position, audience);
+            }
+
+            @Override
+            public void playLine(String cueId, String world, me.mephisto.ability_engine.engine.math.Vec3 from,
+                                 me.mephisto.ability_engine.engine.math.Vec3 to) {
+                var audience = veils.audienceOf(actor);
+                if (audience.isEmpty()) base.playLine(cueId, world, from, to);
+                else base.playLine(cueId, world, from, to, audience);
+            }
+
+            @Override
+            public me.mephisto.ability_engine.engine.platform.CueHandle start(String cueId, java.util.UUID entity) {
+                var audience = veils.audienceOf(actor);
+                return audience.isEmpty() ? base.start(cueId, entity) : base.start(cueId, entity, audience);
+            }
+        };
+    }
+
+    /** Who may see what {@code actor} does right now: the two in its veil, or empty = everyone. */
+    public java.util.Set<java.util.UUID> audienceOf(java.util.UUID actor) { return veils().audienceOf(actor); }
     public IndicatorRenderer indicators() { return platform.indicators(); }
     public EngineLog log() { return log; }
 

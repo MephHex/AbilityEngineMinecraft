@@ -31,11 +31,11 @@ public final class PlayCueNode implements GraphNode {
         Optional<Target> at = atKey == null ? Optional.of(new EntityTarget(ctx.caster())) : KeyQuery.read(ctx, atKey);
         var from = at.flatMap(ctx.engine().world()::positionOf);
         if (toKey == null) {
-            from.ifPresent(p -> ctx.engine().cues().play(cueId, p.world(), p.position()));
+            from.ifPresent(p -> ctx.engine().cuesFor(ctx.caster()).play(cueId, p.world(), p.position()));
         } else {
             var to = KeyQuery.read(ctx, toKey).flatMap(ctx.engine().world()::positionOf);
             if (from.isPresent() && to.isPresent()) {
-                ctx.engine().cues().playLine(cueId, from.get().world(), from.get().position(), to.get().position());
+                ctx.engine().cuesFor(ctx.caster()).playLine(cueId, from.get().world(), from.get().position(), to.get().position());
             }
         }
         return NodeResult.NEXT;

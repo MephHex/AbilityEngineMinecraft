@@ -60,6 +60,11 @@ public final class SummonManager {
                 .map(Summon::entity).findFirst();
     }
 
+    /** Whose summon this entity is, if it is one. */
+    public Optional<UUID> ownerOf(UUID entity) {
+        return active.stream().filter(s -> s.entity().equals(entity)).map(Summon::owner).findFirst();
+    }
+
     /** Is this entity someone's summon (a clone, a soul)? Its death is no one's kill. */
     public boolean isSummon(UUID entity) {
         return active.stream().anyMatch(s -> s.entity().equals(entity));

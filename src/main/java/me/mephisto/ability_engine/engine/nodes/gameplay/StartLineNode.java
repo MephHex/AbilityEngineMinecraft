@@ -50,7 +50,7 @@ public final class StartLineNode implements GraphNode {
             } else {
                 to = KeyQuery.read(ctx, toKey).flatMap(ctx.engine().world()::positionOf).map(p -> p.position());
             }
-            to.ifPresent(p -> ctx.engine().cues().playLine(cue, from.get().world(), from.get().position(), p));
+            to.ifPresent(p -> ctx.engine().cuesFor(ctx.caster()).playLine(cue, from.get().world(), from.get().position(), p));
         });
         ctx.instance().onEnd(() -> task[0].cancel());
         return NodeResult.NEXT;

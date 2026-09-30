@@ -21,4 +21,19 @@ public interface CuePlayer {
      * stop it. The engine stops it when the cast that started it ends. Default: not supported.
      */
     default CueHandle start(String cueId, UUID entity) { return CueHandle.NONE; }
+
+    // ---- for an audience: only these entities (players) see and hear it (e.g. a duel in a veil) ----------
+    // Defaults: everyone does (platforms that can't restrict it).
+
+    default void play(String cueId, String world, Vec3 position, java.util.Set<UUID> audience) {
+        play(cueId, world, position);
+    }
+
+    default void playLine(String cueId, String world, Vec3 from, Vec3 to, java.util.Set<UUID> audience) {
+        playLine(cueId, world, from, to);
+    }
+
+    default CueHandle start(String cueId, UUID entity, java.util.Set<UUID> audience) {
+        return start(cueId, entity);
+    }
 }

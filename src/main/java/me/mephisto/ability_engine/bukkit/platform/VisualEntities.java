@@ -22,6 +22,34 @@ public final class VisualEntities implements Listener {
 
     public static void mark(Entity e) {
         e.getPersistentDataContainer().set(KEY, PersistentDataType.BYTE, (byte) 1);
+        java.util.Set<java.util.UUID> audience = AUDIENCE.get();
+        if (audience != null && !audience.isEmpty()) restrict(e, audience);
+    }
+
+    // ---- an audience: visuals only some players see (a duel in a veil) ----------------------------------
+
+    /** While set, visuals spawned (and marked) are shown only to these players. */
+    private static final ThreadLocal<java.util.Set<java.util.UUID>> AUDIENCE = new ThreadLocal<>();
+
+    /** Run {@code body}: the visuals it spawns are seen only by {@code audience} (empty = everyone). */
+    public static <T> T withAudience(java.util.Set<java.util.UUID> audience, java.util.function.Supplier<T> body) {
+        java.util.Set<java.util.UUID> before = AUDIENCE.get();
+        AUDIENCE.set(audience == null || audience.isEmpty() ? null : audience);
+        try {
+            return body.get();
+        } finally {
+            AUDIENCE.set(before);
+        }
+    }
+
+    /** Only {@code audience} (players) can see this entity. */
+    public static void restrict(Entity e, java.util.Set<java.util.UUID> audience) {
+        var plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(VisualEntities.class);
+        e.setVisibleByDefault(false);
+        for (java.util.UUID id : audience) {
+            org.bukkit.entity.Player p = org.bukkit.Bukkit.getPlayer(id);
+            if (p != null) p.showEntity(plugin, e);
+        }
     }
 
     public static boolean isVisual(Entity e) {

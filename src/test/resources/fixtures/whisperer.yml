@@ -8,8 +8,9 @@
 #   - Moving toward a heard enemy within 15 blocks: +15% move speed.
 #   - Hotbar slot 9 ("Chorus Ear"): the stack is how many are heard right now; empty when none.
 #
-# ULTIMATE (F): Into the Veil. A 1v1 duel where you stand: for 7s you and your target only see each other,
-#   and nobody else can hit, heal or buff either of you (nor can you two touch anyone else).
+# ULTIMATE (F): Into the Veil. A 1v1 duel where you stand: for 7s you and your target only see each other
+#   (in Darkness), and nobody else can hit, heal or buff either of you (nor can you two touch anyone else).
+#   Your abilities are seen only by the two of you; everyone else sees a red mote (you) and a green one.
 
 statuses:
   heard_rush:                        # moving toward a heard enemy
@@ -26,6 +27,10 @@ statuses:
     duration: 80
     stacking: refresh
     tags: [state.darkness, state.blinded]
+  veil_shroud:                       # Into the Veil: both duelists are in Darkness while it lasts
+    duration: 140                    # 7s (taken off when the duel ends early)
+    tags: [state.darkness]
+    positive: false
   veil_fury:                         # Into the Veil: you hit harder while the duel lasts
     duration: 140                    # 7s
     damage_dealt: 1.2                # +20%
@@ -346,6 +351,13 @@ abilities:
         on_hit: false
         effects:
           - { id: status, status: veil_fury }
+          - { id: status, status: veil_shroud }
+        next: shroud
+      shroud:
+        type: apply_effects          # the target: Darkness too
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: veil_shroud }
         next: fresh
       fresh:
         type: reset_cooldowns        # your abilities are ready again
@@ -368,6 +380,7 @@ abilities:
         effects:
           - { id: heal, amount: 80 }
           - { id: remove_status, status: veil_fury }
+          - { id: remove_status, status: veil_shroud }
         next: over_cue
       over:
         type: apply_effects
@@ -375,6 +388,14 @@ abilities:
         on_hit: false
         effects:
           - { id: remove_status, status: veil_fury }
+          - { id: remove_status, status: veil_shroud }
+        next: lift_shroud
+      lift_shroud:
+        type: apply_effects          # (the target's Darkness ends with the duel too)
+        targets: { type: key, key: target }
+        affects: all
+        effects:
+          - { id: remove_status, status: veil_shroud }
         next: over_cue
       over_cue:
         type: play_cue
