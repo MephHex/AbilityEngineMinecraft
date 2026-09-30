@@ -154,6 +154,7 @@ class WhispererTest {
         assertFalse(t.engine.tags().has(enemy, "state.darkness"), "still charging");
         t.time.advance(2);
         assertTrue(t.engine.tags().has(enemy, "state.darkness"));
+        assertTrue(t.engine.tags().has(enemy, Tags.BLINDED), "and blinded");
         assertTrue(t.engine.tags().has(enemy, "state.withered"));
         assertEquals(1.0, t.engine.stats().moveSpeedMultiplier(p), 1e-9, "the slow is gone");
         t.time.advance(81);
@@ -249,10 +250,10 @@ class WhispererTest {
         boolean darkened = false;
         for (int i = 0; i < 150 && t.damage(enemy) == 0; i++) {
             t.time.advance(1);
-            darkened |= t.engine.tags().has(enemy, "state.darkness");
+            darkened |= t.engine.tags().has(enemy, "state.darkness") && t.engine.tags().has(enemy, Tags.BLINDED);
         }
         assertEquals(60, t.damage(enemy), 1e-9, "found them past its 12 blocks: homing doesn't count distance");
-        assertTrue(darkened, "Darkness around the shade as it came");
+        assertTrue(darkened, "Darkness and Blindness around the shade as it came");
     }
 
     @Test

@@ -21,10 +21,10 @@ statuses:
     duration: 50
     move_speed: 0.8                  # -20%
     positive: false
-  darkness:                          # vanilla Darkness (the world pulses dark)
+  darkness:                          # vanilla Darkness (the world pulses dark) and Blindness
     duration: 80
     stacking: refresh
-    tags: [state.darkness]
+    tags: [state.darkness, state.blinded]
   whisper_wither:                    # Binding Whisper: withering, like Wither II (black hearts)
     duration: 80                     # 4s...
     stacking: refresh
@@ -139,7 +139,7 @@ abilities:
 
   # 2: Binding Whisper. Tether an enemy in front of you (7 blocks) and charge it for 2s; you can move and
   # attack meanwhile, 20% slower. It holds while they stay within 9 blocks and in sight (a wall for more
-  # than 0.5s breaks it), and until you're stunned or silenced. Held all the way: Darkness and a wither
+  # than 0.5s breaks it), and until you're stunned or silenced. Held all the way: Darkness, Blindness and a wither
   # (4 HP) for 4s. Broken: 40% of the cooldown back. No one to tether: nothing is spent.
   whisperer_ab2:
     cooldown: 240                    # 12s
@@ -149,7 +149,7 @@ abilities:
       icon: SCULK_VEIN
       description:
         - "Tether an enemy (7 blocks), charge 2s."
-        - "Held: Darkness + wither (4 HP) for 4s."
+        - "Held: Darkness, Blindness + wither (4 HP), 4s."
         - "Breaks past 9 blocks, out of sight, or"
         - "if you're stunned/silenced: 40% cd back."
     nodes:
@@ -215,7 +215,7 @@ abilities:
   # (6 HP) kills it. It homes (12 blocks/s) on the nearest HEARD enemy however far, or else on any enemy
   # within 6 blocks of it; while it homes only its 8s lifetime limits it. With nobody to chase it flies
   # straight on (8 blocks/s) for 12 blocks, then hovers there for 3s, still looking. Enemies within 4 blocks
-  # of it are in Darkness. The first enemy it hits takes 6 HP, and if that leaves them below 10% HP they're
+  # of it are in Darkness and blinded. The first enemy it hits takes 6 HP, and if that leaves them below 10% HP they're
   # executed. Then it dissolves.
   whisperer_ab3:
     cooldown: 320                    # 16s
@@ -226,7 +226,7 @@ abilities:
         - "A Shade flies out through walls (12"
         - "blocks, then hovers 3s). Homes on heard"
         - "enemies, or anyone within 6 blocks."
-        - "Darkness around it; enemies can kill it."
+        - "Darkness + Blindness around it; killable."
         - "Hit: 6 HP, executes below 10% HP."
     nodes:
       launch:
@@ -242,7 +242,7 @@ abilities:
         store: shade
         on: { spawned: aura, hit_entity: strike, expired: fade, destroyed: slain }
       aura:
-        type: apply_effects          # enemies near it: Darkness, kept at 2s
+        type: apply_effects          # enemies near it: Darkness and Blindness, kept at 2s
         targets: { type: radius, center: shade, radius: 4 }
         effects:
           - { id: status, status: darkness, duration: 40 }
