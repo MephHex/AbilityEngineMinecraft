@@ -8,7 +8,9 @@
 #   - Moving toward a heard enemy within 15 blocks: +15% move speed.
 #   - Hotbar slot 9 ("Chorus Ear"): the stack is how many are heard right now; empty when none.
 #
-# ULTIMATE: Into the Veil (a 1v1 duel in a dream arena) isn't built yet.
+# ULTIMATE (F): Into the Veil. A 1v1 duel where you stand: for 7s you and your target only see each other
+#   (in Darkness), and nobody else can hit, heal or buff either of you (nor can you two touch anyone else).
+#   Your abilities are seen only by the two of you; everyone else sees a red mote (you) and a green one.
 
 statuses:
   heard_rush:                        # moving toward a heard enemy
@@ -21,10 +23,18 @@ statuses:
     duration: 50
     move_speed: 0.8                  # -20%
     positive: false
-  darkness:                          # vanilla Darkness (the world pulses dark)
+  darkness:                          # vanilla Darkness (the world pulses dark) and Blindness
     duration: 80
     stacking: refresh
+    tags: [state.darkness, state.blinded]
+  veil_shroud:                       # Into the Veil: both duelists are in Darkness while it lasts
+    duration: 140                    # 7s (taken off when the duel ends early)
     tags: [state.darkness]
+    positive: false
+  veil_fury:                         # Into the Veil: you hit harder while the duel lasts
+    duration: 140                    # 7s
+    damage_dealt: 1.2                # +20%
+    tags: [buff.veil_fury]
   whisper_wither:                    # Binding Whisper: withering, like Wither II (black hearts)
     duration: 80                     # 4s...
     stacking: refresh
@@ -139,7 +149,7 @@ abilities:
 
   # 2: Binding Whisper. Tether an enemy in front of you (7 blocks) and charge it for 2s; you can move and
   # attack meanwhile, 20% slower. It holds while they stay within 9 blocks and in sight (a wall for more
-  # than 0.5s breaks it), and until you're stunned or silenced. Held all the way: Darkness and a wither
+  # than 0.5s breaks it), and until you're stunned or silenced. Held all the way: Darkness, Blindness and a wither
   # (4 HP) for 4s. Broken: 40% of the cooldown back. No one to tether: nothing is spent.
   whisperer_ab2:
     cooldown: 240                    # 12s
@@ -149,7 +159,7 @@ abilities:
       icon: SCULK_VEIN
       description:
         - "Tether an enemy (7 blocks), charge 2s."
-        - "Held: Darkness + wither (4 HP) for 4s."
+        - "Held: Darkness, Blindness + wither (4 HP), 4s."
         - "Breaks past 9 blocks, out of sight, or"
         - "if you're stunned/silenced: 40% cd back."
     nodes:
@@ -215,7 +225,7 @@ abilities:
   # (6 HP) kills it. It homes (12 blocks/s) on the nearest HEARD enemy however far, or else on any enemy
   # within 6 blocks of it; while it homes only its 8s lifetime limits it. With nobody to chase it flies
   # straight on (8 blocks/s) for 12 blocks, then hovers there for 3s, still looking. Enemies within 4 blocks
-  # of it are in Darkness. The first enemy it hits takes 6 HP, and if that leaves them below 10% HP they're
+  # of it are in Darkness and blinded. The first enemy it hits takes 6 HP, and if that leaves them below 10% HP they're
   # executed. Then it dissolves.
   whisperer_ab3:
     cooldown: 320                    # 16s
@@ -226,7 +236,7 @@ abilities:
         - "A Shade flies out through walls (12"
         - "blocks, then hovers 3s). Homes on heard"
         - "enemies, or anyone within 6 blocks."
-        - "Darkness around it; enemies can kill it."
+        - "Darkness + Blindness around it; killable."
         - "Hit: 6 HP, executes below 10% HP."
     nodes:
       launch:
@@ -242,7 +252,7 @@ abilities:
         store: shade
         on: { spawned: aura, hit_entity: strike, expired: fade, destroyed: slain }
       aura:
-        type: apply_effects          # enemies near it: Darkness, kept at 2s
+        type: apply_effects          # enemies near it: Darkness and Blindness, kept at 2s
         targets: { type: radius, center: shade, radius: 4 }
         effects:
           - { id: status, status: darkness, duration: 40 }
@@ -296,6 +306,101 @@ abilities:
       end:
         type: end_cast
 
+  # ULTIMATE (F): Into the Veil. Pick an enemy in front of you (20 blocks). They get a 0.5s warning (a
+  # whisper and a pulse of darkness), then you're both pulled into the veil for 7s, right where you stand:
+  # you only see each other, and nobody else can hit, heal or buff either of you (you can't touch anyone
+  # else either). You hit 20% harder, and your abilities' cooldowns are reset as you enter. If they die in
+  # there it ends at once and you heal 8 HP; if you die, it ends too. Nobody in front of you: nothing spent.
+  whisperer_ult1:
+    cooldown: 900                    # placeholder until ults charge from damage
+    cooldown_starts: manual          # only once someone is picked
+    display:
+      name: "Into the Veil"
+      icon: SCULK_SHRIEKER
+      description:
+        - "Pull an enemy (20 blocks) into a 7s duel:"
+        - "you only see each other; no one else can"
+        - "touch either of you. +20% damage, your"
+        - "cooldowns reset. Win: heal 8 HP."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 20, ray_size: 0.5 }
+        on: { hit: picked, miss: ~ }
+      picked:
+        type: start_cooldown
+        next: warn
+      warn:
+        type: apply_effects          # the warning: a pulse of darkness
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: darkness, duration: 10 }
+        next: warn_cue
+      warn_cue:
+        type: play_cue
+        cue: veil_warning
+        at: target
+        next: warn_wait
+      warn_wait:
+        type: delay
+        ticks: 10                    # 0.5s
+        next: enter
+      enter:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: veil_fury }
+          - { id: status, status: veil_shroud }
+        next: shroud
+      shroud:
+        type: apply_effects          # the target: Darkness too
+        targets: { type: key, key: target }
+        effects:
+          - { id: status, status: veil_shroud }
+        next: fresh
+      fresh:
+        type: reset_cooldowns        # your abilities are ready again
+        slots: [ability_1, ability_2, ability_3]
+        next: enter_cue
+      enter_cue:
+        type: play_cue
+        cue: veil_enter
+        at: target
+        next: duel
+      duel:
+        type: veil
+        target: target
+        duration: 140                # 7s (a boss bar)
+        on: { won: won, out: over }
+      won:
+        type: apply_effects          # they died in there: heal 8 HP
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: heal, amount: 80 }
+          - { id: remove_status, status: veil_fury }
+          - { id: remove_status, status: veil_shroud }
+        next: over_cue
+      over:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: veil_fury }
+          - { id: remove_status, status: veil_shroud }
+        next: lift_shroud
+      lift_shroud:
+        type: apply_effects          # (the target's Darkness ends with the duel too)
+        targets: { type: key, key: target }
+        affects: all
+        effects:
+          - { id: remove_status, status: veil_shroud }
+        next: over_cue
+      over_cue:
+        type: play_cue
+        cue: veil_exit
+
 characters:
   whisperer:
     name: "Whisperer"
@@ -323,3 +428,4 @@ characters:
       ability_1: whisperer_ab1       # 1: Dream Step (press again: back to the rift)
       ability_2: whisperer_ab2       # 2: Binding Whisper
       ability_3: whisperer_ab3       # 3: Chorus Shade
+      ultimate: whisperer_ult1       # F: Into the Veil

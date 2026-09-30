@@ -54,6 +54,11 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
 
     @Override
     public ConstructVisual spawn(ConstructHandle construct, String visual) {
+        java.util.Set<java.util.UUID> audience = engine == null ? java.util.Set.of() : engine.audienceOf(construct.owner());
+        return VisualEntities.withAudience(audience, () -> spawnFor(construct, visual)); // a duel: only the two see it
+    }
+
+    private ConstructVisual spawnFor(ConstructHandle construct, String visual) {
         Location center = Convert.location(construct.world(), construct.position());
         if (center == null) return NONE;
         float size = (float) construct.size();

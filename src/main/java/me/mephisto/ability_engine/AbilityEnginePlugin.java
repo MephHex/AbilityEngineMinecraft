@@ -82,6 +82,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         damage = BukkitEffects.registerBuiltins(engine.effects(), shields); // before loading: effects are validated at load time
         cloneSpawner.setDamageScale(() -> damage.scale()); // a soul's health is in design HP, like damage
         projectileRenderer.setDamageScale(() -> damage.scale()); // a projectile's body too (the Chorus Shade)
+        projectileRenderer.setAudience(engine::audienceOf);      // a duel in a veil: only the two see their shots
         worldQuery.setDamageScale(() -> damage.scale());   // mobs' max HP, for % max HP damage
         TagBindings tagBindings = TagBindings.withDefaults();
         engine.tags().addListener(tagBindings);
@@ -113,6 +114,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.WitherGuard(engine), this);
         pm.registerEvents(projectileRenderer, this); // bodies drop nothing
         new me.mephisto.ability_engine.bukkit.status.HearingGlow(engine, this).start(); // the hearing passive's private glow
+        var veilVisibility = new me.mephisto.ability_engine.bukkit.status.VeilVisibility(engine, this); // Into the Veil
+        pm.registerEvents(veilVisibility, this);
+        veilVisibility.start();
         var traits = new me.mephisto.ability_engine.bukkit.status.Traits(engine);
         pm.registerEvents(traits, this);
         traits.start();

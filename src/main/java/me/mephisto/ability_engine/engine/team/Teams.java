@@ -39,9 +39,15 @@ public final class Teams {
     /** Lets untargetable entities (state.untargetable) be passed through like allies. */
     public void setTags(me.mephisto.ability_engine.engine.tag.TagManager tags) { this.tags = tags; }
 
-    /** What the caster's shots, rays and dashes go through: allies, and anyone untargetable. */
+    private final Veils veils = new Veils();
+
+    /** Duels in a veil: who can only affect whom (see Veils). */
+    public Veils veils() { return veils; }
+
+    /** What the caster's shots, rays and dashes go through: allies, anyone untargetable, anyone across a veil. */
     public Predicate<UUID> passThroughFor(UUID caster) {
         return id -> allies(caster, id)
-                || (tags != null && tags.has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE));
+                || (tags != null && tags.has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE))
+                || veils.blocks(caster, id);
     }
 }

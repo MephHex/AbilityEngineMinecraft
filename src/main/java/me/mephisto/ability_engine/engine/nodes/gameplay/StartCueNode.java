@@ -31,7 +31,7 @@ public final class StartCueNode implements GraphNode {
                 : KeyQuery.read(ctx, onKey).filter(t -> t instanceof EntityTarget)
                         .map(t -> ((EntityTarget) t).id()).orElse(null);
         if (entity != null) {
-            CueHandle handle = ctx.engine().cues().start(cueId, entity);
+            CueHandle handle = ctx.engine().cuesFor(ctx.caster()).start(cueId, entity);
             ctx.instance().onEnd(handle::stop);
         }
         return NodeResult.NEXT;

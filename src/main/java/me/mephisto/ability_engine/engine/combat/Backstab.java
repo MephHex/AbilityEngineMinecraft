@@ -37,7 +37,7 @@ public final class Backstab {
         Vec3 toAttacker = flat(from.get().position().subtract(at.get().position()));
         if (f.isZero() || toAttacker.isZero()) return 1.0;
         if (Math.toDegrees(f.angleTo(toAttacker)) < BEHIND_DEGREES) return 1.0;
-        ctx.engine().cues().play(CRIT_CUE, at.get().world(), at.get().position());
+        ctx.engine().cuesFor(ctx.caster()).play(CRIT_CUE, at.get().world(), at.get().position());
         return mult;
     }
 

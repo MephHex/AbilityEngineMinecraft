@@ -254,6 +254,17 @@ public final class NodeTypes {
         });
         t.register("input_held", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.InputHeldNode(
                 p.getInt("within", 4)));
+        t.register("veil", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.VeilNode(
+                p.getString("target", "target"), p.requireInt("duration")));
+        t.register("reset_cooldowns", (p, e) -> {
+            java.util.List<String> slots = p.getStringList("slots");
+            for (String slot : slots) {
+                if (!me.mephisto.ability_engine.engine.loadout.Slots.ALL.contains(slot)) {
+                    throw p.error("slots", "unknown slot '" + slot + "', expected " + me.mephisto.ability_engine.engine.loadout.Slots.ALL);
+                }
+            }
+            return new me.mephisto.ability_engine.engine.nodes.control.ResetCooldownsNode(slots);
+        });
         t.register("start_line", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.StartLineNode(
                 p.requireString("cue"), p.requireString("to"), p.getInt("every", 2)));
         t.register("play_cue", (p, e) -> new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null)));

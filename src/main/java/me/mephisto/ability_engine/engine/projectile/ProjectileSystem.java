@@ -95,6 +95,16 @@ public final class ProjectileSystem {
 
     public int activeCount() { return active.size(); }
 
+    /** Whose projectile this entity is the body of (a projectile with health), if it is one. */
+    public Optional<UUID> bodyOwner(UUID entity) {
+        for (Projectile p : active) {
+            if (!p.done && p.visual.body().filter(entity::equals).isPresent()) {
+                return Optional.of(p.resumer.context().caster());
+            }
+        }
+        return Optional.empty();
+    }
+
     /** The caster's most recent projectile from this ability, if it's still flying. */
     public Optional<ProjectileHandle> latest(UUID caster, String abilityId) {
         Map<String, Projectile> mine = latest.get(caster);

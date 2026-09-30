@@ -124,7 +124,7 @@ public final class TetherNode implements GraphNode {
             var to = engine.world().positionOf(target);
             if (from.isEmpty() || to.isEmpty()) return;
             int stage = Math.min(stages, 1 + (int) ((double) ticks / duration * stages));
-            engine.cues().playLine(cue + "_" + stage, from.get().world(), from.get().position(), to.get().position());
+            engine.cuesFor(ctx.caster()).playLine(cue + "_" + stage, from.get().world(), from.get().position(), to.get().position());
         }
 
         private void finish(String port) {

@@ -31,6 +31,13 @@ public final class BukkitProjectileRenderer implements ProjectileRenderer, org.b
 
     public void setDamageScale(java.util.function.DoubleSupplier damageScale) { this.damageScale = damageScale; }
 
+    /** Who may see a player's projectiles (a duel in a veil: just the two), empty = everyone. */
+    private java.util.function.Function<java.util.UUID, java.util.Set<java.util.UUID>> audienceOf = id -> java.util.Set.of();
+
+    public void setAudience(java.util.function.Function<java.util.UUID, java.util.Set<java.util.UUID>> audienceOf) {
+        this.audienceOf = audienceOf;
+    }
+
     @org.bukkit.event.EventHandler
     public void onBodyDeath(org.bukkit.event.entity.EntityDeathEvent e) {
         if (!bodies.remove(e.getEntity().getUniqueId())) return;
@@ -45,6 +52,13 @@ public final class BukkitProjectileRenderer implements ProjectileRenderer, org.b
      */
     @Override
     public ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint, java.util.UUID owner) {
+        java.util.Set<java.util.UUID> audience = owner == null ? java.util.Set.of() : audienceOf.apply(owner);
+        ProjectileVisual visual = VisualEntities.withAudience(audience, () -> spawnFor(world, position, velocity, spec, tint, owner));
+        if (!audience.isEmpty()) visual.body().map(org.bukkit.Bukkit::getEntity).ifPresent(b -> VisualEntities.restrict(b, audience));
+        return visual;
+    }
+
+    private ProjectileVisual spawnFor(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint, java.util.UUID owner) {
         if (spec.health() <= 0 || spec.visual() == null || !spec.visual().regionMatches(true, 0, ENTITY_PREFIX, 0, ENTITY_PREFIX.length())) {
             return spawn(world, position, velocity, spec, tint);
         }

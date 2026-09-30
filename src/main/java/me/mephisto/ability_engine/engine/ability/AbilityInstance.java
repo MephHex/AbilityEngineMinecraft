@@ -75,7 +75,7 @@ public final class AbilityInstance {
         started = true;
         engine.tags().grantAll(caster, ability.activeTags());
         if (ability.aura() != null) {
-            var aura = engine.cues().start(ability.aura(), caster);
+            var aura = engine.cuesFor(caster).start(ability.aura(), caster);
             onEnd(aura::stop);
         }
         openBranch(); // guard branch: stops the instance completing while the mode is still starting up

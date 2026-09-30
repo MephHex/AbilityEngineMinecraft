@@ -500,6 +500,22 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ENTITY_VEX_DEATH, 0.8f, 0.7f);
         });
 
+        c.register("veil_warning", loc -> { // 0.5s before the pull: the target should notice
+            loc.getWorld().spawnParticle(Particle.SCULK_SOUL, loc, 25, 0.4, 0.8, 0.4, 0.04);
+            loc.getWorld().spawnParticle(Particle.SQUID_INK, loc, 15, 0.5, 0.8, 0.5, 0.02);
+            loc.getWorld().playSound(loc, Sound.ENTITY_WARDEN_NEARBY_CLOSEST, 1f, 1.3f);
+            loc.getWorld().playSound(loc, Sound.AMBIENT_SOUL_SAND_VALLEY_ADDITIONS, 1f, 0.8f);
+        });
+        c.register("veil_enter", loc -> {
+            loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 80, 0.6, 1, 0.6, 0.2);
+            loc.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1, 0, 0, 0, 0);
+            loc.getWorld().playSound(loc, Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 0.8f, 0.7f);
+        });
+        c.register("veil_exit", loc -> {
+            loc.getWorld().spawnParticle(Particle.PORTAL, loc, 60, 0.5, 1, 0.5, 0.6);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1f, 0.6f);
+        });
+
         // ---- Vanguard ----
         c.register("leap_off", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);
@@ -590,6 +606,44 @@ public final class BukkitCuePlayer implements CuePlayer {
     private final Map<String, LineCue> lines = new HashMap<>();
 
     public void registerLine(String cueId, LineCue cue) { lines.put(cueId, cue); }
+
+    // ---- for an audience (a duel in a veil): only those players see and hear it -------------------------
+
+    @Override
+    public void play(String cueId, String world, Vec3 position, java.util.Set<UUID> audience) {
+        Consumer<Location> action = cues.get(cueId);
+        World w = Bukkit.getWorld(world);
+        if (action == null || w == null) {
+            play(cueId, world, position); // (reports an unknown cue)
+            return;
+        }
+        World seen = AudienceWorld.of(w, audience);
+        VisualEntities.withAudience(audience, () -> {
+            action.accept(new Location(seen, position.x(), position.y(), position.z()));
+            return null;
+        });
+    }
+
+    @Override
+    public void playLine(String cueId, String world, Vec3 from, Vec3 to, java.util.Set<UUID> audience) {
+        LineCue cue = lines.get(cueId);
+        World w = Bukkit.getWorld(world);
+        if (cue == null || w == null) {
+            playLine(cueId, world, from, to);
+            return;
+        }
+        World seen = AudienceWorld.of(w, audience);
+        VisualEntities.withAudience(audience, () -> {
+            cue.play(seen, Convert.bukkit(from), Convert.bukkit(to));
+            return null;
+        });
+    }
+
+    /** A looping cue: the display entities it spawns are shown only to the audience (its particles aren't). */
+    @Override
+    public CueHandle start(String cueId, UUID entityId, java.util.Set<UUID> audience) {
+        return VisualEntities.withAudience(audience, () -> start(cueId, entityId));
+    }
 
     @Override
     public void playLine(String cueId, String world, Vec3 from, Vec3 to) {
