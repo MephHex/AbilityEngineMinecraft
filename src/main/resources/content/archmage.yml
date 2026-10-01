@@ -23,7 +23,7 @@ abilities:
     nodes:
       fire:
         type: projectile
-        speed: 0.9
+        speed: 1.5
         size: 0.5
         range: 30                    # blocks it may fly UNGUIDED; guided distance doesn't count
         lifetime: 120                # hard cap: 6s no matter what
@@ -109,7 +109,7 @@ abilities:
         on_hit: true                 # buffs apply to the target hit
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.85 }            # 85% base damage
+          - { id: damage, base: 1 }            # 85% base damage
       stun_target:
         type: apply_effects
         on_hit: true                 # buffs apply to the main target (not again via the explosion)
@@ -126,7 +126,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3 }
         effects:
-          - { id: damage, base: 1.65 }            # 165% base damage
+          - { id: damage, base: 1.65, max_health: 0.1 }            # 165% base damage
         next: explode_cue
       explode_cue:
         type: play_cue
@@ -150,7 +150,7 @@ abilities:
         - "teleport there, up to 12 blocks."
     targeting:
       shape: circle                  # circle | line | cone | point
-      range: 12                      # the confirmed spot arrives as "aim"
+      range: 15                      # the confirmed spot arrives as "aim"
       radius: 0.6                    # size of the preview
       ground: true                   # lands on the ground straight below where you aim, at most
                                      # 6 blocks below your feet (default max_drop). Deeper (off a
@@ -209,7 +209,7 @@ abilities:
       place:
         type: construct
         store: binding               # centre of the geometry, used as the blast centre
-        height: 1.5                  # floats 1 block above the ground
+        height: 1                  # floats 1 block above the ground
         size: 0.8                    # hitbox radius
         fragile: 30                  # enemies can break it for 1.5s (raise it to test breaking)
         fuse: 60                     # shatters by itself after 3s
@@ -225,10 +225,10 @@ abilities:
         on: { empowered: stun_shatter, default: shatter }
       shatter:
         type: apply_effects
-        targets: { type: radius, center: binding, radius: 5 }
+        targets: { type: radius, center: binding, radius: 8 }
         effects:
           - { id: damage, base: 1.0 }             # 100% base damage
-          - { id: knockback, from: binding, radius: 5, center: 1.4, edge: 0.4, lift: 0.35 }
+          - { id: knockback, from: binding, radius: 8, center: 1.4, edge: 0.4, lift: 0.35 }
         next: shatter_cue
       shatter_cue:
         type: play_cue
@@ -237,10 +237,10 @@ abilities:
       stun_shatter:
         type: apply_effects
         on_hit: true                 # the recast Missile's shatter carries your buffs to everyone caught
-        targets: { type: radius, center: binding, radius: 5 }
+        targets: { type: radius, center: binding, radius: 8 }
         effects:
           - { id: damage, base: 1.0 }
-          - { id: knockback, from: binding, radius: 5, center: 1.4, edge: 0.4, lift: 0.35 }
+          - { id: knockback, from: binding, radius: 8, center: 1.4, edge: 0.4, lift: 0.35 }
           - { id: status, status: stun, duration: 10 }
           - { id: status, status: glowing, duration: 60 }
         next: stun_cue
@@ -430,8 +430,8 @@ characters:
     weapon: BREEZE_ROD
     stats:                           # see docs/character-stats.md
       health: 175                    # max HP
-      armor: 5                       # damage taken x 100 / (100 + armor)
-      base_damage: 30                # abilities deal % of this
+      armor: 10                       # damage taken x 100 / (100 + armor)
+      base_damage: 40                # abilities deal % of this
       move_speed: 1.0                # x vanilla walking speed
       attack_speed: 1.25             # basic attacks per second
     resources:

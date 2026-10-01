@@ -30,6 +30,9 @@ import java.util.UUID;
  * A new character starts with it ready.
  * <p>A BARRIER ({@code absorb:} above 0) works the same way, but instead of blocking a debuff it takes that
  * share off the next hit's damage ({@link #absorbHit}); debuffs land as usual and there's no immunity tag.
+ * <p>A REFLEX ({@code cast: <ability>}) goes off when the next enemy hit lands ({@link #hitTaken}): it casts
+ * that ability (at the attacker, the next tick). It's ready again {@code cooldown} ticks later, or sooner once
+ * the holder has been out of combat for {@code out_of_combat}.
  */
 public final class WardManager {
 
@@ -54,6 +57,16 @@ public final class WardManager {
     private final WorldQuery world;
     private final Map<UUID, Ward> wards = new HashMap<>();
     private final TaskScheduler scheduler;
+    /** Casts a reflex's ability: (holder, attacker, ability id). Wired up by the engine. */
+    private Reflexes reflexes = (holder, attacker, ability) -> {};
+
+    @FunctionalInterface
+    public interface Reflexes {
+        void cast(UUID holder, UUID attacker, String ability);
+    }
+
+    public void setReflexes(Reflexes reflexes) { this.reflexes = reflexes; }
+
     /** Runs only while someone has a ward (so an idle engine has no tasks). */
     private me.mephisto.ability_engine.engine.platform.TaskHandle ticker;
 
@@ -105,7 +118,28 @@ public final class WardManager {
 
     private long readyAt(UUID entity, CharacterDef.Ward def, Ward w) {
         long since = Math.max(combat.lastCombat(entity), w.usedAt);
-        return since == Long.MIN_VALUE ? Long.MIN_VALUE : since + def.outOfCombatTicks();
+        long outOfCombat = since == Long.MIN_VALUE ? Long.MIN_VALUE : since + def.outOfCombatTicks();
+        if (def.cooldownTicks() > 0 && w.usedAt != Long.MIN_VALUE) {
+            return Math.min(outOfCombat, w.usedAt + def.cooldownTicks()); // a reflex: its cooldown, or out of combat
+        }
+        return outOfCombat;
+    }
+
+    /**
+     * An enemy's hit landed on {@code victim} (for real: some damage got through). A ready reflex goes off: it's
+     * used up, and its ability is cast at the attacker on the next tick.
+     */
+    public void hitTaken(UUID victim, UUID attacker) {
+        Optional<CharacterDef.Ward> def = defOf(victim).filter(CharacterDef.Ward::isReflex);
+        if (def.isEmpty()) return;
+        Ward w = wards.computeIfAbsent(victim, k -> new Ward());
+        if (!w.ready) return;
+        w.ready = false;
+        w.usedAt = clock.now();
+        String ability = def.get().cast();
+        scheduler.after(1, () -> {
+            if (world.isAlive(victim)) reflexes.cast(victim, attacker, ability);
+        });
     }
 
     /**
@@ -125,7 +159,7 @@ public final class WardManager {
     }
 
     private boolean blocks(UUID target, StatusDef def, UUID source) {
-        if (defOf(target).filter(d -> !d.isBarrier()).isEmpty() || !StatusManager.isDebuff(target, def, source)) return false;
+        if (defOf(target).filter(CharacterDef.Ward::isImmunity).isEmpty() || !StatusManager.isDebuff(target, def, source)) return false;
         Ward w = wards.computeIfAbsent(target, k -> new Ward()); // a new character starts ready
         if (!w.ready) return false;
         w.ready = false;
@@ -147,7 +181,7 @@ public final class WardManager {
             Ward w = wards.computeIfAbsent(id, k -> new Ward());
             if (!w.ready && clock.now() >= readyAt(id, def.get(), w)) becomeReady(id, w);
             // Tags are wiped on death: put it back while ready. (A barrier has no tag.)
-            if (w.ready && !def.get().isBarrier() && !tags.has(id, Tags.DEBUFF_IMMUNE)) {
+            if (w.ready && def.get().isImmunity() && !tags.has(id, Tags.DEBUFF_IMMUNE)) {
                 w.tagged = false;
                 tag(id, w);
             }
@@ -160,7 +194,7 @@ public final class WardManager {
 
     private void becomeReady(UUID entity, Ward w) {
         w.ready = true;
-        if (defOf(entity).filter(CharacterDef.Ward::isBarrier).isEmpty()) tag(entity, w);
+        if (defOf(entity).filter(CharacterDef.Ward::isImmunity).isPresent()) tag(entity, w);
         world.positionOf(new EntityTarget(entity)).ifPresent(p -> cues.play(READY_CUE, p.world(), p.position()));
     }
 

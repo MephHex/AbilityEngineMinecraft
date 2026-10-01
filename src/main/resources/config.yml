@@ -14,7 +14,7 @@ keybinds:
   hotbar_3: ability_3
   swap_hands: ultimate   # F (the ultimate's icon sits in the offhand slot)
   drop: none             # Q: free
-  # 7, 8, 9: free. They show indicators (resource gauges, a Hunter's quiver).
+  # 7, 8, 9: free. They show indicators (resource gauges, an Alchemist's quiver).
 
 # Ability damage is written in "design HP". This many design HP = 1 Minecraft health point
 # (half a heart). 10 means a 20-health player has 200 design HP.
@@ -23,6 +23,17 @@ damage-scale: 10
 # Armor: damage taken x armor-constant / (armor-constant + armor). With 100, every armor point is +1%
 # effective HP: 25 armor = 20% less damage, 100 armor = 50% less. (Characters' armor: stats: in the kits.)
 armor-constant: 100
+
+# While a player has a character, their inventory is a display (the HUD): nothing can be moved.
+# Free some of it here, e.g. for an item plugin's bag. Read again on every /ae reload.
+inventory:
+  # Slots of the main inventory (the 3 rows above the hotbar) players may use: plain clicks and drags
+  # in, out and between them. Numbered 9-35, left to right, top row first (9-17, 18-26, 27-35).
+  # Keep 9-13 out of it: the character's stat items sit there.
+  # A 3x3 bag on the right:  [15, 16, 17, 24, 25, 26, 33, 34, 35]
+  free-slots: []
+  # The 2x2 crafting grid (and taking what it makes) as well.
+  free-crafting: false
 
 # ---- Development helpers -------------------------------------------------------------------
 # Both are read again on every /ae reload. Leave them off on a real server.

@@ -7,13 +7,13 @@ from here.
 ### Decisions
 
 - **Players see their stats:** the top row of the inventory holds one item per stat. Hovering one shows
-  its value right now: current health, Strength on base damage, a slow on move speed, the Hunter's draw.
+  its value right now: current health, Strength on base damage, a slow on move speed, the Alchemist's draw.
 - **Armor applies to everything** (abilities, basic attacks, vanilla hits, falls) **except damage over
   time and % max HP hits.** Damage over time is % max HP now: poison, frost and flame are 5% / 5% / 3%
   of the target's max HP a tick, the shared burn 2.5%. Tether redirect and soul mirror damage stay
   final: not reduced again.
 - **Heals and shields are flat**, unless an effect says `max_hp:`.
-- **Hunter has no attack speed stat:** his crossbow draw (and Hunter's Rhythm) is his fire rate, and the
+- **Alchemist has no attack speed stat:** his crossbow draw (and Hunter's Rhythm) is his fire rate, and the
   stat item shows the draw time instead.
 - **Placeholders fixed:** Arcane Bolt deals 100% base damage on a direct hit (35% splash on the ground).
   The Umbrella has a real primary, Spear Poke (a 3.5-block line, 100%).
@@ -152,7 +152,7 @@ Fastest and most fragile melee. He wins by getting behind people (backstab x1.5)
 | Crescent Rush (and its echo) | 55 each, x1.5 from behind | **140%** |
 | Dream Tempest (per 0.2s pulse) | 10 (150 over 3s) | **25%** (375% total) |
 
-### Hunter: Marksman
+### Alchemist: Marksman
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
@@ -247,6 +247,23 @@ Hears enemies below 40% HP within 30 blocks (they glow for them only; +15% speed
 | Chorus Shade | 6 HP flat; executes below 10% HP; flies through terrain, 12 blocks then hovers 3s; homes on heard enemies (any distance) or anyone within 6; enemies can kill it (6 HP) |
 | Into the Veil (ult) | 7s 1v1 in place, both in Darkness: only the two see and can affect each other (their abilities' visuals too; outsiders see a red and a green mote); +20% damage, cooldowns reset; win: heal 8 HP |
 
+### Fae: Support / Trapper
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **160** | **5** (5%) | **35** | **1.00** | **1.5** (13 ticks) | 168 | 47 (more with splash) |
+
+Half size. Always floats 1 block above the ground (no flying, no fall damage). The next enemy hit
+on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
+
+| Ability | Damage |
+|---|---|
+| Blossom Shot (primary) | **90%** within 2.2 blocks of where it bursts |
+| Seed Bomb | 3 charges; latches onto friend or foe (or waits 15s on the ground): 2s later **110%** to enemies within 3.5 blocks, or heals allies within 3.5 blocks 5 HP |
+| Perch | sit on an ally: untouchable; they're +20% faster, +2 HP per basic attack; again: +35% speed 2s (5s cd) or fly to another ally; hold: off |
+| Deathcap Snare | hidden trap: **100%** within 3 blocks + 8% max HP poison, 35% slow and nausea for 4s |
+| Wild Hunt (ult) | 8s free flight; latch an enemy: 3.5s stun, dragged along on a 4-block vine |
+
 ### Test kit (Pyro)
 
 No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).
@@ -256,21 +273,21 @@ No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).
 ## 3. Sanity check: time to kill with basic attacks only
 
 Seconds of basic attacks (first hit at 0s) for the row character to kill the column character, from full
-health, with armor, and without abilities, crits or passives. Hunter is at his base draw speed, so he's
+health, with armor, and without abilities, crits or passives. Alchemist is at his base draw speed, so he's
 roughly 2x faster with full Rhythm.
 
-| Attacker ↓ / target → | Vanguard | Reaver | Umbrella | Dreamer | Hunter | Arcanist |
+| Attacker ↓ / target → | Vanguard | Reaver | Umbrella | Dreamer | Alchemist | Arcanist |
 |---|---|---|---|---|---|---|
 | **Vanguard** | 6.4 | 4.3 | 3.6 | 2.9 | 2.9 | 2.9 |
 | **Essence Reaver** | 6.6 | 4.8 | 4.2 | 3.0 | 3.0 | 3.0 |
 | **Umbrella** | 8.0 | 5.6 | 4.8 | 3.2 | 3.2 | 3.2 |
 | **Dreamer** | 5.0 | 3.5 | 3.0 | 2.0 | 2.0 | 2.0 |
-| **Hunter** (base draw) | 11.2 | 7.5 | 6.2 | 5.0 | 5.0 | 5.0 |
+| **Alchemist** (base draw) | 11.2 | 7.5 | 6.2 | 5.0 | 5.0 | 5.0 |
 | **Arcanist** | 10.4 | 8.0 | 6.4 | 4.8 | 4.8 | 4.8 |
 
 What it shows:
 
-- The squishies (Dreamer, Hunter, Arcanist) all die in about 2-3s to melee.
+- The squishies (Dreamer, Alchemist, Arcanist) all die in about 2-3s to melee.
 - The Vanguard takes about 2x as long to kill as anyone else.
 - The Dreamer kills fastest; from behind, divide his row by 1.5.
 - The ranged kits are slow with basic attacks alone, as expected, since their abilities carry them.
@@ -317,7 +334,7 @@ would be a later step, not part of the first version.
    later doesn't change a running poison) or live on each tick?
 3. **Heals and shields:** keep them **flat** (proposed for now), or as **% of the caster's max HP**, so
    tanky characters heal and shield more?
-4. **Hunter's attack speed:** leave the crossbow draw and Rhythm as the fire rate (proposed), or should
+4. **Alchemist's attack speed:** leave the crossbow draw and Rhythm as the fire rate (proposed), or should
    attack speed also shorten the draw?
 5. **Placeholders:** should the Arcanist's bolt go from 4 → 100% (30)? And should the Umbrella get a real
    melee primary (a spear poke, 16 ticks) instead of `test_blast`?

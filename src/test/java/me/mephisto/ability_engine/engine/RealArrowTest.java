@@ -15,24 +15,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Projectiles flown by the game itself (FlyingVisual: a real arrow). The engine never moves them; it
- * reads them each tick and checks the stretch they're about to fly. The Hunter's bolt is one.
+ * reads them each tick and checks the stretch they're about to fly. The Alchemist's bolt is one.
  */
 class RealArrowTest {
 
     private TestEngine t;
-    private UUID hunter;
+    private UUID alchemist;
 
     private void setup() throws IOException {
         t = new TestEngine();
         t.render.realArrows = true;
         ShippedContent.loadClean(t.engine);
-        hunter = t.spawn(0, 1, 0); // looks +x
-        t.engine.loadouts().assign(hunter, "hunter");
-        t.engine.quivers().tryLoad(hunter);
+        alchemist = t.spawn(0, 1, 0); // looks +x
+        t.engine.loadouts().assign(alchemist, "alchemist");
+        t.engine.quivers().tryLoad(alchemist);
     }
 
     private FakeRenderer.FakeArrow shoot() {
-        assertTrue(t.engine.loadouts().activate(hunter, "primary").success());
+        assertTrue(t.engine.loadouts().activate(alchemist, "primary").success());
         assertEquals(1, t.render.arrows.size(), "a real arrow, not an engine-drawn visual");
         return t.render.arrows.get(0);
     }
@@ -64,7 +64,7 @@ class RealArrowTest {
         setup();
         UUID ally = t.spawn(5, 1, 0);
         UUID enemy = t.spawn(9, 1, 0);
-        t.world.team(hunter, "blue");
+        t.world.team(alchemist, "blue");
         t.world.team(ally, "blue");
         shoot();
         t.time.advance(10);
@@ -76,8 +76,8 @@ class RealArrowTest {
     void aParasolGuardAbsorbsIt() throws IOException {
         setup();
         UUID guard = t.spawn(8, 1, 0);
-        t.world.look(guard, new Vec3(-1, 0, 0)); // facing the hunter
-        t.world.team(hunter, "blue");
+        t.world.look(guard, new Vec3(-1, 0, 0)); // facing the alchemist
+        t.world.team(alchemist, "blue");
         t.world.team(guard, "red");
         assertTrue(t.engine.activator().activate(guard, "parasol_guard").success());
         FakeRenderer.FakeArrow arrow = shoot();

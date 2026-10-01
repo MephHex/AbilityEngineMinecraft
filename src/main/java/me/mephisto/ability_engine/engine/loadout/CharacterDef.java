@@ -20,11 +20,30 @@ import java.util.Map;
  * @param ward      a passive debuff immunity that recharges out of combat (null = none)
  * @param statusItems statuses shown as hotbar items while the player has them (e.g. a weapon infusion)
  * @param whenHit   a passive reaction to enemy basic attacks landing on them (null = none)
+ * @param hover     a passive flight, at most so high above the ground (null = none)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
                            java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
-                           java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing) {
+                           java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover) {
+
+    /**
+     * A passive hover (the platform's), one of two kinds:
+     * <ul>
+     *   <li>{@code fly: false}: always floating {@code height} blocks (whole blocks) above the ground, walking
+     *       at that level; no flying</li>
+     *   <li>{@code fly: true}: flying at will, but at most {@code height} blocks above the ground below;
+     *       higher, they're brought back down. It holds off during {@code state.dashing}, and they can't fly
+     *       while they can't move</li>
+     * </ul>
+     * Free flight ({@code state.flying}) overrides either while it lasts.
+     *
+     * @param speed  flying speed (fly: true), x vanilla (creative) flight, scaled by their move speed and slows
+     * @param visual what they ride, shown under their feet (a platform visual id, e.g. an item; null = nothing)
+     */
+    public record Hover(double height, double speed, String visual, boolean fly) {
+        public Hover(double height, double speed, String visual) { this(height, speed, visual, true); }
+    }
 
     /**
      * A passive that "hears" wounded enemies: enemies below {@code belowHealth} (a share of max HP) within
@@ -61,7 +80,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      *                   next hit's damage (0.5 = half), and debuffs land as usual
      */
     public record Ward(String name, int outOfCombatTicks, int hotbarSlot, String icon, java.util.List<String> description,
-                       double absorb) {
+                       double absorb, String cast, int cooldownTicks) {
         public Ward {
             description = java.util.List.copyOf(description);
         }
@@ -70,7 +89,22 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
             this(name, outOfCombatTicks, hotbarSlot, icon, description, 0);
         }
 
+        public Ward(String name, int outOfCombatTicks, int hotbarSlot, String icon, java.util.List<String> description,
+                    double absorb) {
+            this(name, outOfCombatTicks, hotbarSlot, icon, description, absorb, null, 0);
+        }
+
         public boolean isBarrier() { return absorb > 0; }
+
+        /**
+         * A REFLEX ({@code cast:}): instead of blocking a debuff, the next enemy hit that lands casts this ability
+         * (at whoever hit them). Ready again {@code cooldownTicks} after it went off, or sooner after
+         * {@code outOfCombatTicks} out of combat.
+         */
+        public boolean isReflex() { return cast != null; }
+
+        /** The plain kind: debuff immunity (neither a barrier nor a reflex). */
+        public boolean isImmunity() { return !isBarrier() && !isReflex(); }
     }
 
     /**
@@ -176,6 +210,14 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit, null);
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, null);
+    }
+
     public CharacterDef {
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
         resources = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(resources));
@@ -192,7 +234,8 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         Map<String, String> changed = new LinkedHashMap<>(slots);
         changed.putAll(form.slots());
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
-                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems, whenHit, hearing);
+                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems, whenHit, hearing,
+                hover);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

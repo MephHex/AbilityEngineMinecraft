@@ -140,7 +140,12 @@ public final class AbilityInstance {
 
     /** Start showing a bar that fills over {@code durationTicks}. Returns a token for {@link #clearProgress}. */
     public CastProgress showProgress(long durationTicks) {
-        progress = new CastProgress(engine.clock().now(), Math.max(1, durationTicks));
+        return showProgress(engine.clock().now(), durationTicks);
+    }
+
+    /** Like {@link #showProgress(long)}, for a phase that began at {@code startTick} (shown part-filled). */
+    public CastProgress showProgress(long startTick, long durationTicks) {
+        progress = new CastProgress(startTick, Math.max(1, durationTicks));
         return progress;
     }
 

@@ -24,6 +24,7 @@ final class Projectile implements ProjectileHandle {
     boolean done;
     boolean redirected;         // velocity was set from outside: a self-flying visual must be told
     int piercesLeft;
+    boolean clearOfCaster;      // hits_caster: it has flown clear of the caster, who can be hit from now on
     int hoverTicks;             // seek: time spent hovering at its max distance
     Vec3 heading;               // seek: the way it flies when it isn't homing
     final java.util.Set<java.util.UUID> pierced = new java.util.HashSet<>(); // already hit: fly through them

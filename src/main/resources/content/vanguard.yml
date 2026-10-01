@@ -322,7 +322,7 @@ characters:
     name: "Vanguard"
     weapon: IRON_SWORD
     stats:                           # see docs/character-stats.md
-      health: 300                    # max HP
+      health: 320                    # max HP
       armor: 40                      # damage taken x 100 / (100 + armor)
       base_damage: 45                # abilities deal % of this
       move_speed: 0.95               # x vanilla walking speed

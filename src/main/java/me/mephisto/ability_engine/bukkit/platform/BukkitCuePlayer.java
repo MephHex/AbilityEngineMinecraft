@@ -131,10 +131,10 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.FALLING_WATER, loc, 8, 0.3, 0.3, 0.3, 0);
             loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_SPLASH, 0.8f, 1.4f);
         });
-        // ---- Hunter ----
+        // ---- Alchemist ----
         c.register("crossbow_shot", loc -> loc.getWorld().playSound(loc, Sound.ITEM_CROSSBOW_SHOOT, 1f, 1f));
         c.register("dry_fire", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_DISPENSER_FAIL, 0.6f, 1.6f));
-        c.register("hunter_dash", loc -> {
+        c.register("alchemist_dash", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 10, 0.3, 0.1, 0.3, 0.02);
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.7f, 1.6f);
         });
@@ -516,6 +516,119 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ENTITY_ILLUSIONER_MIRROR_MOVE, 1f, 0.6f);
         });
 
+        // ---- Fae ----
+        var petal = new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 150, 205), 1.0f);
+        var moss = new Particle.DustOptions(org.bukkit.Color.fromRGB(110, 200, 90), 1.1f);
+        var toxin = new Particle.DustOptions(org.bukkit.Color.fromRGB(130, 40, 150), 1.2f);
+        c.register("fae_blossom_shot", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AZALEA_LEAVES_PLACE, 0.8f, 1.6f));
+        c.register("fae_blossom_burst", loc -> {
+            loc.getWorld().spawnParticle(Particle.CHERRY_LEAVES, loc, 25, 1.0, 0.6, 1.0, 0.02);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 20, 1.1, 0.5, 1.1, 0, petal);
+            loc.getWorld().playSound(loc, Sound.BLOCK_CHERRY_LEAVES_BREAK, 1f, 1.3f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_BEE_STING, 0.4f, 1.6f);
+        });
+        c.register("fae_spore_burst", loc -> { // the passive: a puff of spores knocking enemies back
+            loc.getWorld().spawnParticle(Particle.SPORE_BLOSSOM_AIR, loc, 80, 2.0, 0.8, 2.0, 0.05);
+            loc.getWorld().spawnParticle(Particle.CLOUD, loc, 20, 1.5, 0.3, 1.5, 0.08);
+            loc.getWorld().playSound(loc, Sound.BLOCK_SPORE_BLOSSOM_BREAK, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PUFFER_FISH_BLOW_UP, 0.7f, 1.4f);
+        });
+        c.register("fae_seed_throw", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_SNOWBALL_THROW, 0.8f, 1.4f));
+        // Seed Bomb: green, with leaves (TINTED_LEAVES takes the leaves' colour)
+        org.bukkit.Color leafGreen = org.bukkit.Color.fromRGB(80, 170, 50);
+        org.bukkit.Color leafLight = org.bukkit.Color.fromRGB(150, 210, 80);
+        var seedGlow = new Particle.DustOptions(org.bukkit.Color.fromRGB(120, 230, 90), 0.8f);
+        c.register("fae_seed_idle", loc -> { // a seed lying there: a faint green shimmer, a leaf now and then
+            loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 0.2, 0), 3, 0.15, 0.1, 0.15, 0, seedGlow);
+            if (Math.random() < 0.4) loc.getWorld().spawnParticle(Particle.TINTED_LEAVES, loc.clone().add(0, 0.5, 0),
+                    1, 0.2, 0.1, 0.2, 0, Math.random() < 0.5 ? leafGreen : leafLight);
+        });
+        c.register("fae_seed_wilt", loc -> {
+            loc.getWorld().spawnParticle(Particle.TINTED_LEAVES, loc, 8, 0.25, 0.2, 0.25, 0, leafGreen);
+            loc.getWorld().spawnParticle(Particle.COMPOSTER, loc, 6, 0.2, 0.2, 0.2, 0);
+            loc.getWorld().playSound(loc, Sound.BLOCK_CROP_BREAK, 0.6f, 0.8f);
+        });
+        c.registerLoop("fae_seed_latched", e -> { // a seed on an enemy: ticking
+            e.getWorld().playSound(e.getLocation(), Sound.BLOCK_BIG_DRIPLEAF_TILT_DOWN, 1f, 1.2f);
+            return greenLeaves(plugin, e, leafGreen, moss, 3);
+        });
+        c.registerLoop("fae_seed_latched_ally", e -> { // a seed on an ally: about to bloom
+            e.getWorld().playSound(e.getLocation(), Sound.BLOCK_SWEET_BERRY_BUSH_PLACE, 1f, 1.3f);
+            return greenLeaves(plugin, e, leafLight, seedGlow, 4);
+        });
+        c.register("fae_seed_burst", loc -> {
+            loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 2, 0.5, 0.3, 0.5, 0);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 40, 1.8, 0.8, 1.8, 0, moss);
+            loc.getWorld().spawnParticle(Particle.TINTED_LEAVES, loc, 35, 1.8, 0.9, 1.8, 0.05, leafGreen);
+            loc.getWorld().spawnParticle(Particle.TINTED_LEAVES, loc, 20, 1.5, 0.9, 1.5, 0.05, leafLight);
+            loc.getWorld().spawnParticle(Particle.COMPOSTER, loc, 25, 1.6, 0.8, 1.6, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.6f, 1.6f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BIG_DRIPLEAF_BREAK, 1f, 0.8f);
+        });
+        c.register("fae_seed_bloom", loc -> {
+            loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 30, 1.6, 0.8, 1.6, 0);
+            loc.getWorld().spawnParticle(Particle.TINTED_LEAVES, loc, 25, 1.4, 0.8, 1.4, 0, leafLight);
+            loc.getWorld().playSound(loc, Sound.BLOCK_FLOWERING_AZALEA_PLACE, 1f, 1.2f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 0.4f, 1.8f);
+        });
+        c.register("fae_flit", loc -> {
+            loc.getWorld().spawnParticle(Particle.SPORE_BLOSSOM_AIR, loc, 20, 0.3, 0.3, 0.3, 0.05);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ALLAY_ITEM_THROWN, 1f, 1.4f);
+        });
+        c.register("fae_perch", loc -> {
+            loc.getWorld().spawnParticle(Particle.CHERRY_LEAVES, loc.clone().add(0, 1, 0), 20, 0.4, 0.3, 0.4, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ALLAY_ITEM_GIVEN, 1f, 1.2f);
+        });
+        c.register("fae_unperch", loc -> {
+            loc.getWorld().spawnParticle(Particle.FALLING_SPORE_BLOSSOM, loc, 12, 0.3, 0.3, 0.3, 0);
+            loc.getWorld().playSound(loc, Sound.ENTITY_ALLAY_ITEM_TAKEN, 1f, 1f);
+        });
+        c.register("fae_gust", loc -> {
+            loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.06);
+            loc.getWorld().spawnParticle(Particle.CHERRY_LEAVES, loc, 15, 0.6, 0.4, 0.6, 0.1);
+            loc.getWorld().playSound(loc, Sound.ENTITY_BREEZE_WIND_BURST, 0.6f, 1.6f);
+        });
+        c.register("fae_trap_throw", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_SNOWBALL_THROW, 0.6f, 0.9f));
+        c.register("fae_trap_wilt", loc -> {
+            loc.getWorld().spawnParticle(Particle.SMOKE, loc, 6, 0.2, 0.1, 0.2, 0.01);
+            loc.getWorld().playSound(loc, Sound.BLOCK_FUNGUS_BREAK, 0.5f, 0.8f);
+        });
+        c.register("fae_trap_spring", loc -> {
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 60, 1.6, 0.6, 1.6, 0, toxin);
+            loc.getWorld().spawnParticle(Particle.SNEEZE, loc, 30, 1.2, 0.4, 1.2, 0.02);
+            loc.getWorld().spawnParticle(Particle.CRIMSON_SPORE, loc, 40, 1.5, 0.8, 1.5, 0);
+            loc.getWorld().playSound(loc, Sound.BLOCK_FUNGUS_BREAK, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PUFFER_FISH_STING, 1f, 0.7f);
+        });
+        c.register("fae_wings", loc -> {
+            loc.getWorld().spawnParticle(Particle.SPORE_BLOSSOM_AIR, loc, 60, 0.6, 0.6, 0.6, 0.1);
+            loc.getWorld().spawnParticle(Particle.CHERRY_LEAVES, loc, 30, 0.8, 0.4, 0.8, 0.05);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_FLAP, 1f, 1.6f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 0.5f, 1.8f);
+        });
+        c.register("fae_latch", loc -> {
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 25, 0.4, 0.6, 0.4, 0, moss);
+            loc.getWorld().playSound(loc, Sound.BLOCK_VINE_PLACE, 1f, 0.7f);
+            loc.getWorld().playSound(loc, Sound.ITEM_LEAD_TIED, 1f, 1f);
+        });
+        c.registerLine("fae_vine", (w, from, to) -> { // the vine, redrawn every other tick
+            Vector d = to.clone().subtract(from);
+            double len = d.length();
+            if (len < 0.1) return;
+            for (double k = 0; k <= len; k += 0.35) {
+                Vector q = from.clone().add(d.clone().multiply(k / len));
+                w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0.02, 0.02, 0.02, 0, moss);
+            }
+            if (Math.random() < 0.3) {
+                Vector mid = from.clone().add(d.clone().multiply(0.5));
+                w.spawnParticle(Particle.CHERRY_LEAVES, mid.getX(), mid.getY(), mid.getZ(), 1, 0.2, 0.2, 0.2, 0);
+            }
+        });
+        c.register("fae_release", loc -> {
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 15, 0.4, 0.6, 0.4, 0, moss);
+            loc.getWorld().playSound(loc, Sound.ITEM_LEAD_BREAK, 1f, 1f);
+        });
+
         // ---- Vanguard ----
         c.register("leap_off", loc -> {
             loc.getWorld().spawnParticle(Particle.CLOUD, loc, 15, 0.4, 0.1, 0.4, 0.05);
@@ -751,13 +864,25 @@ public final class BukkitCuePlayer implements CuePlayer {
     }
 
     /** Particles around an entity every {@code period} ticks while the cue runs. */
-    /** Sparks around the Hunter during Overdrive, but none while invisible (they'd give them away). */
+    /** Sparks around the Alchemist during Overdrive, but none while invisible (they'd give them away). */
     private static CueHandle overdrive(Plugin plugin, Entity entity) {
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!entity.isValid() || (entity instanceof LivingEntity l && l.hasPotionEffect(PotionEffectType.INVISIBILITY))) return;
             Vector c = entity.getBoundingBox().getCenter();
             entity.getWorld().spawnParticle(Particle.CRIT, c.getX(), c.getY(), c.getZ(), 3, 0.35, 0.5, 0.35, 0.01);
         }, 0, 3);
+        return task::cancel;
+    }
+
+    /** Green dust and a falling leaf or two around an entity every {@code period} ticks (a latched seed). */
+    private static CueHandle greenLeaves(Plugin plugin, Entity entity, org.bukkit.Color leaf, Particle.DustOptions dust,
+                                         int period) {
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!entity.isValid()) return;
+            Vector c = entity.getBoundingBox().getCenter();
+            entity.getWorld().spawnParticle(Particle.DUST, c.getX(), c.getY(), c.getZ(), 3, 0.3, 0.45, 0.3, 0, dust);
+            entity.getWorld().spawnParticle(Particle.TINTED_LEAVES, c.getX(), c.getY() + 0.3, c.getZ(), 1, 0.3, 0.3, 0.3, 0, leaf);
+        }, 0, period);
         return task::cancel;
     }
 

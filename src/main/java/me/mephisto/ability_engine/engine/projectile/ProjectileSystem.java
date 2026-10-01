@@ -193,7 +193,15 @@ public final class ProjectileSystem {
         p.sweepFrom = null;
         // Enemies it already pierced are flown through, like allies.
         var body = p.visual.body().orElse(null);
-        var passThrough = teams.passThroughFor(ctx.caster()).or(p.pierced::contains).or(id -> id.equals(body));
+        java.util.function.Predicate<java.util.UUID> flownThrough = p.spec.hitsAllies()
+                ? teams.passThroughAlliesHitFor(ctx.caster())
+                : teams.passThroughFor(ctx.caster());
+        if (p.spec.hitsCaster() && !p.clearOfCaster) p.clearOfCaster = clearOfCaster(p, ctx.caster());
+        if (p.clearOfCaster) { // hits_caster: the caster isn't flown through any more (allies still are)
+            var allies = flownThrough;
+            flownThrough = id -> !id.equals(ctx.caster()) && allies.test(id);
+        }
+        var passThrough = flownThrough.or(p.pierced::contains).or(id -> id.equals(body));
 
         // One pass per thing it touches this tick: a pierced enemy continues the sweep from there.
         while (true) {
@@ -281,6 +289,19 @@ public final class ProjectileSystem {
             }
         }
         return Optional.ofNullable(best);
+    }
+
+    /**
+     * hits_caster: it's launched from inside the caster, so they only become hittable once it's out of
+     * their hitbox (center to top is 0.9 for a player; a little more, so a throw at your own feet counts too).
+     */
+    private static final double CASTER_CLEAR = 1.1;
+
+    private boolean clearOfCaster(Projectile p, UUID caster) {
+        return world.positionOf(new EntityTarget(caster))
+                .filter(at -> at.world().equals(p.world))
+                .map(at -> at.position().distance(p.position) > CASTER_CLEAR + p.spec.size() / 2)
+                .orElse(false);
     }
 
     /** Keeps sliding: has slide, touched ground (not a wall), and still has some speed along it. */

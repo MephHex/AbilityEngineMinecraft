@@ -173,7 +173,7 @@ abilities:
         - "Up to 3s: heal quickly and take 40% less"
         - "damage. Can't move, attack or use abilities."
         - "Press again to stop early."
-    mode: { type: channel, period: 5, duration: 60 }     # a heal every 0.25s for 3s
+    mode: { type: channel, period: 5, duration: 40 }     # a heal every 0.25s for 3s
     cancel_on_repress: true
     aura: meditation                 # a looping cue for the whole cast
     active_tags: [state.meditating, state.resistant, block.move, block.ability]
@@ -183,7 +183,7 @@ abilities:
         type: apply_effects
         targets: { type: self }
         effects:
-          - { id: heal, amount: 12 }  # 12 x 12 pulses = 144 over the full 3s
+          - { id: heal, amount: 6 } 
 
   # ULTIMATE 2 (F): Soul Rend. Your next basic attack (within 10s) is a rend: the enemy you strike is
   # knocked back and stunned while flying, and their SOUL is torn out where they stood.
@@ -306,7 +306,7 @@ abilities:
         type: in_range
         center: soul
         target: target
-        radius: 12
+        radius: 30
         on: { inside: watch, outside: fled }
       fled:
         type: dismiss_summon         # they ran: the soul vanishes...

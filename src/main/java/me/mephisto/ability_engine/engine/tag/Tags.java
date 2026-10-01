@@ -42,6 +42,10 @@ public final class Tags {
     public static final String FROZEN = "state.frozen";
     /** Can fly (on Bukkit: creative-style flight; no fall damage from the landing after it ends). */
     public static final String FLYING = "state.flying";
+    /** In the middle of a dash (granted by the dash itself to whoever it moves), e.g. a hover passive holds off. */
+    public static final String DASHING = "state.dashing";
+    /** Nauseous (on Bukkit: vanilla Nausea, the wobbling screen). */
+    public static final String NAUSEOUS = "state.nauseous";
     /** Debuffs (non-buff statuses from others) don't land; see the character ward. */
     public static final String DEBUFF_IMMUNE = "state.debuff_immune";
 

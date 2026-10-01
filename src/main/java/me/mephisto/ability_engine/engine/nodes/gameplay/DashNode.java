@@ -31,6 +31,11 @@ import java.util.Set;
  * is WALKING instead of where they look (strafe left = dash left; always flat), or straight ahead
  * (flat) when they stand still. The cast stays running while dashing, so the
  * ability's active_tags (e.g. block.ability) last exactly as long as the dash.
+ * <p>{@code follow: true} (with {@code to: <entity key>}) flies AFTER that entity: it re-aims at a spot just
+ * above them every tick, so it catches someone on the move, and exits "hit" (with hit = them) on reaching
+ * them. Only walls stop it (anyone in the way is flown past, floors are glided along); it gives up ("miss")
+ * after flying {@code range} blocks' worth of ticks, or if they're gone.
+ * <p>Whoever dashes has the tag {@code state.dashing} meanwhile (e.g. a hover passive holds off).
  */
 public final class DashNode implements GraphNode {
 
@@ -56,6 +61,12 @@ public final class DashNode implements GraphNode {
     private final boolean towardCursor; // dash toward the caster's cursor point instead of along their aim
     private String toKey;               // dash to the point in this key (stopping there), e.g. a chosen landing spot
     private double stopShort;           // with toKey: stop this many blocks before it (e.g. in front of the caster)
+    private boolean follow;             // with toKey: chase the entity in it (re-aimed every tick) until reaching them
+
+    /** Above the followed entity's centre: where a follow dash arrives (over their head, not into their body). */
+    private static final double FOLLOW_ABOVE = 1.2;
+    /** A follow dash has arrived within this many blocks of that spot (or one tick's flight, if faster). */
+    private static final double FOLLOW_ARRIVE = 0.8;
 
     public DashNode(double speed, double range, double radius, boolean flat) {
         this(speed, range, radius, flat, false, null);
@@ -92,6 +103,14 @@ public final class DashNode implements GraphNode {
                     boolean alongMovement, String moverKey, boolean towardCursor, String toKey, double stopShort) {
         this(speed, range, radius, flat, pierce, store, alongMovement, moverKey, towardCursor, toKey);
         this.stopShort = Math.max(0, stopShort);
+    }
+
+    /** @param follow with {@code toKey}: chase the entity there, re-aimed every tick (see the class comment) */
+    public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
+                    boolean alongMovement, String moverKey, boolean towardCursor, String toKey, double stopShort,
+                    boolean follow) {
+        this(speed, range, radius, flat, pierce, store, alongMovement, moverKey, towardCursor, toKey, stopShort);
+        this.follow = follow && toKey != null;
     }
 
     public DashNode(double speed, double range, double radius, boolean flat, boolean pierce, String store,
@@ -134,7 +153,18 @@ public final class DashNode implements GraphNode {
             if (flat) dir = new Vec3(dir.x(), 0, dir.z());
             maxRange = Math.min(range, dir.length());
         }
-        if (toKey != null) { // straight to a stored point (e.g. a landing spot), stopping there
+        UUID chased = null;
+        if (follow) { // after an entity, wherever they go
+            if (!(me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, toKey).orElse(null) instanceof EntityTarget e)
+                    || e.id().equals(mover) || !engine.world().isAlive(e.id())) {
+                return NodeResult.out(Ports.MISS);
+            }
+            chased = e.id();
+            Optional<PointTarget> at = engine.world().positionOf(e);
+            if (at.isEmpty()) return NodeResult.out(Ports.MISS);
+            dir = at.get().position().add(0, FOLLOW_ABOVE, 0).subtract(start.get().position());
+            if (dir.isZero()) dir = Vec3.UP;
+        } else if (toKey != null) { // straight to a stored point (e.g. a landing spot), stopping there
             var point = me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, toKey).flatMap(engine.world()::positionOf);
             if (point.isEmpty()) return NodeResult.out(Ports.MISS);
             dir = point.get().position().subtract(start.get().position());
@@ -149,7 +179,9 @@ public final class DashNode implements GraphNode {
         // An echo dashing turns to face where it's going first. Never a player's camera (the caster's, or an
         // enemy being dragged).
         if (!mover.equals(ctx.caster()) && engine.summons().isSummon(mover)) engine.movement().face(mover, dir);
-        new Dash(ctx, ctx.suspend(), dir, start.get(), mover, maxRange).begin();
+        Dash dash = new Dash(ctx, ctx.suspend(), dir, start.get(), mover, maxRange);
+        dash.chased = chased;
+        dash.begin();
         return NodeResult.SUSPENDED;
     }
 
@@ -171,6 +203,8 @@ public final class DashNode implements GraphNode {
         private final UUID mover;
         private final double maxRange;
         private final java.util.Set<UUID> passed = new java.util.HashSet<>(); // pierce: each enemy once
+        private UUID chased;      // follow: who it flies after (null = not following)
+        private boolean tagged;   // state.dashing granted to the mover
 
         Dash(ExecutionContext ctx, Resumer resumer, Vec3 dir, PointTarget start, UUID mover, double maxRange) {
             this.mover = mover;
@@ -187,8 +221,11 @@ public final class DashNode implements GraphNode {
                 if (done) return;
                 done = true;
                 if (task != null) task.cancel();
+                untag();
                 ctx.engine().movement().stop(mover);
             });
+            ctx.engine().tags().grant(mover, me.mephisto.ability_engine.engine.tag.Tags.DASHING);
+            tagged = true;
             tick();
             if (!done) task = ctx.engine().scheduler().every(1, 1, this::tick);
         }
@@ -202,6 +239,7 @@ public final class DashNode implements GraphNode {
                 return;
             }
             Vec3 here = pos.get().position();
+            if (chased != null && !aimAtChased(here)) return; // arrived, or they're gone
             if (last != null) {
                 if (here.distance(last) >= speed * 0.2) {
                     moving = true;
@@ -211,7 +249,8 @@ public final class DashNode implements GraphNode {
                 }
             }
             boolean stuck = stillTicks >= (moving ? STUCK_TICKS : START_GRACE_TICKS);
-            if (here.distance(start.position()) >= maxRange || ++ticks > maxTicks || stuck) {
+            boolean outOfRange = chased == null && here.distance(start.position()) >= maxRange; // (a chase: ticks only)
+            if (outOfRange || ++ticks > maxTicks || stuck) {
                 finish(Ports.MISS);
                 return;
             }
@@ -244,8 +283,8 @@ public final class DashNode implements GraphNode {
                 return;
             }
             var through = engine.teams().passThroughFor(ctx.caster());
-            Optional<SweepHit> hit = engine.world().sweep(pos.get().world(), here, ahead, radius,
-                    id -> id.equals(mover) || through.test(id)); // (someone dragged doesn't bump into themselves)
+            Optional<SweepHit> hit = engine.world().sweep(pos.get().world(), here, ahead, radius, // (a chase: nobody stops it,
+                    id -> chased != null || id.equals(mover) || through.test(id)); // someone dragged doesn't bump into themselves)
             if (hit.isPresent()) {
                 if (hit.get().target() instanceof EntityTarget enemy) {
                     ctx.put(Keys.HIT, enemy);
@@ -264,7 +303,7 @@ public final class DashNode implements GraphNode {
          * wall (or looking straight down), which ends the dash.
          */
         private boolean glideAlongFloor(SweepHit block) {
-            if (toKey != null) return false; // heading for a point on the ground: touching down is arriving
+            if (toKey != null && chased == null) return false; // heading for a point on the ground: touching down is arriving
             if (block.normal() == null || block.normal().y() < 0.6 || dir.y() >= 0) return false;
             Vec3 flat = new Vec3(dir.x(), 0, dir.z());
             if (flat.length() < 0.2) return false;
@@ -285,10 +324,38 @@ public final class DashNode implements GraphNode {
             branch.suspend().resume(Ports.PASSED);
         }
 
+        /**
+         * Follow: turn toward the spot above whoever it chases. Returns false once that's settled: they're gone
+         * (miss), or it's there (hit, with hit = them).
+         */
+        private boolean aimAtChased(Vec3 here) {
+            Optional<PointTarget> at = ctx.engine().world().isAlive(chased)
+                    ? ctx.engine().world().positionOf(new EntityTarget(chased)) : Optional.empty();
+            if (at.isEmpty()) {
+                finish(Ports.MISS);
+                return false;
+            }
+            Vec3 toward = at.get().position().add(0, FOLLOW_ABOVE, 0).subtract(here);
+            if (toward.length() <= Math.max(FOLLOW_ARRIVE, speed) + stopShort) {
+                ctx.put(Keys.HIT, new EntityTarget(chased));
+                finish(Ports.HIT);
+                return false;
+            }
+            dir = toward.normalize();
+            return true;
+        }
+
+        private void untag() {
+            if (!tagged) return;
+            tagged = false;
+            ctx.engine().tags().revoke(mover, me.mephisto.ability_engine.engine.tag.Tags.DASHING);
+        }
+
         private void finish(String port) {
             if (done) return;
             done = true;
             if (task != null) task.cancel();
+            untag();
             ctx.engine().movement().stop(mover);
             if (store != null) {
                 ctx.engine().world().positionOf(new EntityTarget(mover)).ifPresent(p -> {

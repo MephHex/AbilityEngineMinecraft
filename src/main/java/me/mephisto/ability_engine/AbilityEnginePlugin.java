@@ -41,20 +41,8 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     private CastBarHud castBar;
     private me.mephisto.ability_engine.bukkit.hud.BossBarHud bossBar;
     private DamageEffect damage;
-
-    /** What confirms what a player is aiming: LMB, or the aimed ability's own key again. */
-    private String confirmKeyOf(java.util.UUID id) {
-        if (!engine.loadouts().has(id)) return "LMB";
-        String aimed = engine.targeting().current(id).map(a -> a.id()).orElse(null);
-        if (aimed == null) return "LMB";
-        for (String slot : me.mephisto.ability_engine.engine.loadout.Slots.ALL) {
-            if (engine.loadouts().abilityIn(id, slot).filter(aimed::equals).isPresent()) {
-                return keybinds.actionFor(slot).map(me.mephisto.ability_engine.bukkit.input.InputAction::defaultKey)
-                        .filter(key -> !key.equals("LMB")).map(key -> "LMB / " + key).orElse("LMB");
-            }
-        }
-        return "LMB";
-    }
+    private InventoryLock inventoryLock;
+    private me.mephisto.ability_engine.bukkit.status.HoverFlight hover;
 
     @Override
     public void onEnable() {
@@ -90,12 +78,12 @@ public final class AbilityEnginePlugin extends JavaPlugin {
 
         saveDefaultConfig();
         keybinds = new Keybinds();
-        indicators.setConfirmKey(id -> confirmKeyOf(id)); // "Aiming X · 3 confirm": the aimed ability's own key
         hud = new HotbarHud(this, engine, keybinds);
         var statsHud = new me.mephisto.ability_engine.bukkit.hud.StatsHud(this, engine, damage);
         hud.setStats(statsHud);
         statsHud.start();
         hud.start();
+        inventoryLock = new InventoryLock(engine);
         files = new AbilityFiles(this, engine, getFile());
         LoadReport report = reloadAll();
         getLogger().info("Loaded " + report);
@@ -106,7 +94,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new CombatInputListener(engine, keybinds, hud), this);
         pm.registerEvents(new CrossbowListener(engine, hud), this);
         pm.registerEvents(worldQuery.movementTracker(), this);
-        pm.registerEvents(new InventoryLock(engine), this);
+        pm.registerEvents(inventoryLock, this);
         pm.registerEvents(new VisualEntities(), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.BarrierGuard(engine), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DamageModifierListener(engine), this);
@@ -121,6 +109,10 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         var traits = new me.mephisto.ability_engine.bukkit.status.Traits(engine);
         pm.registerEvents(traits, this);
         traits.start();
+        hover = new me.mephisto.ability_engine.bukkit.status.HoverFlight(engine); // the Fae's flight
+        pm.registerEvents(hover, this);
+        hover.start();
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.RideGuard(engine), this); // perched riders stay on
         pm.registerEvents(constructRenderer, this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DreamListeners(engine, this), this);
         castBar = new CastBarHud(engine);
@@ -154,6 +146,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         keybinds.load(getConfig(), getLogger());
         damage.setScale(getConfig().getDouble("damage-scale", 10));
         engine.stats().setArmorConstant(getConfig().getDouble("armor-constant", 100));
+        inventoryLock.load(getConfig(), getLogger());
         LoadReport report = files.reload();
         for (Player p : getServer().getOnlinePlayers()) {
             if (!engine.loadouts().has(p.getUniqueId())) engine.loadouts().clear(p.getUniqueId());
@@ -168,6 +161,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         for (Player p : getServer().getOnlinePlayers()) hud.clear(p); // don't save HUD items to disk
         if (bossBar != null) bossBar.stop();
         if (castBar != null) castBar.stop();                        // give players their real XP back
+        if (hover != null) hover.stop();
         engine.shutdown(); // cancels casts, removes projectiles, undoes stuns
         engine = null;
     }

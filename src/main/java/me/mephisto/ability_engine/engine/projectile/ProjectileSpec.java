@@ -28,6 +28,8 @@ import java.util.List;
  * @param health         above 0: the projectile has a body enemies can hit and kill (design HP); when it's
  *                       killed the projectile ends ("destroyed")
  * @param throughBlocks  it flies through terrain (only entities stop it)
+ * @param hitsCaster     it can hit its own caster too (exits hit_entity), once it has flown clear of them
+ * @param hitsAllies     allies don't let it through: it hits friend and foe alike (exits hit_entity either way)
  */
 public record ProjectileSpec(
         double speed,
@@ -47,7 +49,9 @@ public record ProjectileSpec(
         double visualSize,
         boolean faceFlight,
         double health,
-        boolean throughBlocks
+        boolean throughBlocks,
+        boolean hitsCaster,
+        boolean hitsAllies
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
@@ -97,6 +101,8 @@ public record ProjectileSpec(
         private boolean faceFlight = false;
         private double health = 0;
         private boolean throughBlocks = false;
+        private boolean hitsCaster = false;
+        private boolean hitsAllies = false;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -116,10 +122,13 @@ public record ProjectileSpec(
         public Builder faceFlight(boolean v) { faceFlight = v; return this; }
         public Builder health(double v) { health = v; return this; }
         public Builder throughBlocks(boolean v) { throughBlocks = v; return this; }
+        public Builder hitsCaster(boolean v) { hitsCaster = v; return this; }
+        public Builder hitsAllies(boolean v) { hitsAllies = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
-                    motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks);
+                    motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster,
+                    hitsAllies);
         }
     }
 }

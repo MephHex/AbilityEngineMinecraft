@@ -117,7 +117,7 @@ abilities:
   # enemies hit are disarmed for 2s (no basic attacks). During Lightning Rod: it rusts in 0.8s and the stun
   # is only 0.5s.
   golem_ab2:
-    cooldown: 280                    # 14s
+    cooldown: 400                    # 14s
     display:
       name: "Rustbreaker"
       icon: OXIDIZED_COPPER
@@ -147,7 +147,7 @@ abilities:
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: shield, amount: 15, max: 120, lasts: 100 }   # gone 5s after the last layer (~4s after the burst)
+          - { id: shield, amount: 15, max: 100, lasts: 60 }   # gone 5s after the last layer (~4s after the burst)
           - { id: status, status: rusting }
         next: step_cue
       step_cue:
@@ -310,7 +310,7 @@ abilities:
         type: apply_effects          # the bolt: everyone near you
         targets: { type: radius, radius: 5 }
         effects:
-          - { id: damage, base: 2.2 }             # 220% base damage
+          - { id: damage, base: 1.2 }             # 220% base damage
           - { id: status, status: paralyzed, duration: 40 }   # 2s
         next: strike_cue
       strike_cue:
@@ -355,10 +355,10 @@ characters:
     name: "Copper Golem"
     weapon: COPPER_PICKAXE           # the anchor-pickaxe
     stats:                           # see docs/character-stats.md
-      health: 320                    # max HP
-      armor: 45                      # damage taken x 100 / (100 + armor)
-      base_damage: 34                # abilities deal % of this
-      move_speed: 0.92               # x vanilla walking speed
+      health: 300                    # max HP
+      armor: 30                      # damage taken x 100 / (100 + armor)
+      base_damage: 25                # abilities deal % of this
+      move_speed: 0.8               # x vanilla walking speed
       attack_speed: 1.0              # swings per second
       scale: 1.2                     # 20% bigger (model and hitbox)
     ward:                            # PASSIVE: Cuprous Might (the barrier)

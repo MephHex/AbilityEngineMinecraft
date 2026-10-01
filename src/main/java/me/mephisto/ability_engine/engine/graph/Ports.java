@@ -34,6 +34,10 @@ public final class Ports {
     public static final String EARLY = "early";
     public static final String TOWARD = "toward";
     public static final String AWAY = "away";
+    public static final String ALLY = "ally";
+    public static final String ENEMY = "enemy";
+    /** A ride (mount) ended by itself: the mount died or left, or the game took the rider off. */
+    public static final String OFF = "off";
 
     private Ports() {}
 }

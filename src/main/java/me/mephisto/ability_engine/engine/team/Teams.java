@@ -46,8 +46,20 @@ public final class Teams {
 
     /** What the caster's shots, rays and dashes go through: allies, anyone untargetable, anyone across a veil. */
     public Predicate<UUID> passThroughFor(UUID caster) {
-        return id -> allies(caster, id)
-                || (tags != null && tags.has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE))
+        return id -> allies(caster, id) || unreachable(caster, id);
+    }
+
+    /**
+     * Like {@link #passThroughFor}, but allies are hit too (a seed that latches onto friend or foe): only the
+     * caster, anyone untargetable and anyone across a veil are passed through.
+     */
+    public Predicate<UUID> passThroughAlliesHitFor(UUID caster) {
+        return id -> id.equals(caster) || unreachable(caster, id);
+    }
+
+    /** Untargetable (state.untargetable), or across a veil from the caster. */
+    private boolean unreachable(UUID caster, UUID id) {
+        return (tags != null && tags.has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE))
                 || veils.blocks(caster, id);
     }
 }

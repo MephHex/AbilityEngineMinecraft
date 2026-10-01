@@ -59,15 +59,38 @@ public final class ConstructSystem {
 
     public record Hit(ConstructHandle construct, Vec3 position, double distance) {}
 
+    /** Who can set a trap off. The owner never can. */
+    public enum TriggeredBy { ENEMIES, ALLIES, ALL }
+
     /**
      * @param solid         projectiles and punches hit it (false: they pass through)
      * @param triggerRadius a trap: an enemy within this many blocks sets it off (0 = not a trap)
      * @param armTicks      a trap can't be set off for this long after it's placed
      * @param limit         at most this many from the same owner and ability at once: placing one more
      *                      ends the oldest (its "fuse"). 0 = no limit
+     * @param triggeredBy   who sets the trap off: enemies (default), the owner's allies, or both (the owner never)
+     * @param hidden        only the owner and their allies see it (the platform hides it from everyone else)
+     * @param idleCue       played at it every {@code idleEvery} ticks while it stands (null = none), e.g. a glow
      */
-    public record Options(boolean solid, double triggerRadius, int armTicks, int limit) {
+    public record Options(boolean solid, double triggerRadius, int armTicks, int limit, TriggeredBy triggeredBy,
+                          boolean hidden, String idleCue, int idleEvery) {
         public static final Options DEFAULT = new Options(true, 0, 0, 0);
+
+        public Options {
+            if (triggeredBy == null) triggeredBy = TriggeredBy.ENEMIES;
+            idleEvery = Math.max(1, idleEvery);
+        }
+
+        public Options(boolean solid, double triggerRadius, int armTicks, int limit) {
+            this(solid, triggerRadius, armTicks, limit, TriggeredBy.ENEMIES, false, null, 1);
+        }
+    }
+
+    /** Cues as seen by an owner's audience (a duel in a veil: only the two). Set by the engine. */
+    private java.util.function.Function<UUID, me.mephisto.ability_engine.engine.platform.CuePlayer> cues = id -> null;
+
+    public void setCues(java.util.function.Function<UUID, me.mephisto.ability_engine.engine.platform.CuePlayer> cues) {
+        this.cues = cues;
     }
 
     /** A trap is sprung by an entity whose centre is at most this far above or below it. */
@@ -167,6 +190,10 @@ public final class ConstructSystem {
                 finish(c, Ports.FUSE, null);
             } else {
                 c.visual.update(c.progress(), c.isFragile());
+                if (c.options.idleCue() != null && c.age % c.options.idleEvery() == 0) {
+                    var player = cues.apply(c.owner);
+                    if (player != null) player.play(c.options.idleCue(), c.world, c.position);
+                }
             }
         }
         active.removeIf(c -> c.done);
@@ -176,14 +203,17 @@ public final class ConstructSystem {
         }
     }
 
-    /** A trap's victim: the nearest enemy of its owner in range (allies and the owner never set it off). */
+    /**
+     * A trap's victim: the nearest one in range of those who may set it off (by default its owner's enemies;
+     * {@code triggered_by} can make it allies, or both). The owner never sets it off.
+     */
     private Optional<UUID> intruder(Construct c) {
         double r = c.options.triggerRadius();
         if (r <= 0) return Optional.empty();
         UUID best = null;
         double bestDist = Double.MAX_VALUE;
         for (EntitySnapshot e : world.livingEntitiesNear(new PointTarget(c.world, c.position), r + TRIGGER_HEIGHT)) {
-            if (e.id().equals(c.owner) || teams.allies(c.owner, e.id()) || !world.isAlive(e.id())) continue;
+            if (e.id().equals(c.owner) || !world.isAlive(e.id()) || !setsOff(c, e.id())) continue;
             Vec3 d = e.center().subtract(c.position);
             double flat = Math.sqrt(d.x() * d.x() + d.z() * d.z());
             if (flat > r || Math.abs(d.y()) > TRIGGER_HEIGHT || flat >= bestDist) continue;
@@ -191,6 +221,15 @@ public final class ConstructSystem {
             bestDist = flat;
         }
         return Optional.ofNullable(best);
+    }
+
+    private boolean setsOff(Construct c, UUID who) {
+        boolean ally = teams.allies(c.owner, who);
+        return switch (c.options.triggeredBy()) {
+            case ENEMIES -> !ally;
+            case ALLIES -> ally;
+            case ALL -> true;
+        };
     }
 
     private void finish(Construct c, String port, Strike strike) {
@@ -253,5 +292,6 @@ public final class ConstructSystem {
         @Override public double progress() { return Math.min(1, age / (double) fuseTicks); }
         @Override public boolean solid() { return options.solid(); }
         @Override public boolean armed() { return !done && age >= options.armTicks(); }
+        @Override public boolean hidden() { return options.hidden(); }
     }
 }

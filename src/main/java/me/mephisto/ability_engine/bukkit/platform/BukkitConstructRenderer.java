@@ -36,6 +36,7 @@ import java.util.logging.Logger;
  *   <li>Hitbox: an invisible Interaction entity. Punching it is reported to the engine as a melee
  *       strike; the engine decides whether that breaks it.</li>
  *   <li>Traps (not solid): the item lies flat on the ground, no hitbox, and a click when it arms.</li>
+ *   <li>Hidden ones ({@code hidden: true}): only the owner and their allies see it (and hear it arm).</li>
  * </ul>
  */
 public final class BukkitConstructRenderer implements ConstructRenderer, Listener {
@@ -117,6 +118,9 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
         };
     }
 
+    /** How often a hidden construct re-checks who may see it (someone joined, changed team). */
+    private static final int HIDDEN_REFRESH_TICKS = 10;
+
     /** A trap: lies flat, nothing to punch, clicks once when it's armed. */
     private ConstructVisual trap(ConstructHandle construct, Location center, String visual, float size) {
         VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
@@ -126,15 +130,20 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
             d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateX((float) (Math.PI / 2)),
                     new Vector3f(s, s, s), new Quaternionf()));
         }
+        if (construct.hidden()) showOnlyToAllies(construct, look);
         return new ConstructVisual() {
             boolean armedShown;
+            int ticks;
 
             @Override
             public void update(double progress, boolean fragile) {
+                if (construct.hidden() && ++ticks % HIDDEN_REFRESH_TICKS == 0) showOnlyToAllies(construct, look);
                 if (armedShown || !construct.armed()) return;
                 armedShown = true;
-                center.getWorld().playSound(center, Sound.BLOCK_TRIPWIRE_ATTACH, 0.8f, 1.2f);
-                center.getWorld().spawnParticle(Particle.CRIT, center, 6, 0.3, 0.05, 0.3, 0.02);
+                for (org.bukkit.entity.Player viewer : viewers(construct, center)) {
+                    viewer.playSound(center, Sound.BLOCK_TRIPWIRE_ATTACH, 0.8f, 1.2f);
+                    viewer.spawnParticle(Particle.CRIT, center, 6, 0.3, 0.05, 0.3, 0.02);
+                }
             }
 
             @Override
@@ -142,6 +151,32 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
                 if (look.isValid()) look.remove();
             }
         };
+    }
+
+    /**
+     * Who may see a construct: everyone in its world, or for a hidden one only its owner's allies (and in a
+     * duel, only those of the two who are).
+     */
+    private java.util.List<org.bukkit.entity.Player> viewers(ConstructHandle construct, Location at) {
+        java.util.Set<UUID> audience = engine == null ? java.util.Set.of() : engine.audienceOf(construct.owner());
+        return at.getWorld().getPlayers().stream()
+                .filter(p -> audience.isEmpty() || audience.contains(p.getUniqueId()))
+                .filter(p -> !construct.hidden() || engine == null || engine.teams().allies(construct.owner(), p.getUniqueId()))
+                .toList();
+    }
+
+    /** A hidden construct: shown to the owner's allies only, hidden from everyone else. */
+    private void showOnlyToAllies(ConstructHandle construct, Entity look) {
+        if (!look.isValid()) return;
+        var plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(BukkitConstructRenderer.class);
+        look.setVisibleByDefault(false);
+        java.util.Set<UUID> allowed = new java.util.HashSet<>();
+        viewers(construct, look.getLocation()).forEach(p -> allowed.add(p.getUniqueId()));
+        for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+            boolean sees = p.canSee(look);
+            if (allowed.contains(p.getUniqueId()) && !sees) p.showEntity(plugin, look);
+            else if (!allowed.contains(p.getUniqueId()) && sees) p.hideEntity(plugin, look);
+        }
     }
 
     /** Fires for every attack attempt, including on Interaction entities that can't take damage. */

@@ -109,6 +109,8 @@ public final class Parsers {
                 .faceFlight(p.getBool("face_flight", false))
                 .health(health(p))
                 .throughBlocks(p.getBool("through_blocks", false))
+                .hitsCaster(p.getBool("hits_caster", false))
+                .hitsAllies(p.getBool("hits_allies", false))
                 .build();
     }
 

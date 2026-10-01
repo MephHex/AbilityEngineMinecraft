@@ -62,10 +62,14 @@ public final class NodeTypes {
         t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3),
                 p.getBool("projectiles_only", false)));
         t.register("start_cue", (p, e) -> new StartCueNode(p.requireString("cue"), p.getString("at", null)));
-        t.register("dash", (p, e) -> new DashNode(
-                p.getDouble("speed", 1.2), p.requireDouble("range"), p.getDouble("radius", 0.6), p.getBool("flat", false),
-                p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p),
-                p.getString("mover", null), towardCursor(p), p.getString("to", null), p.getDouble("stop_short", 0)));
+        t.register("dash", (p, e) -> {
+            boolean follow = p.getBool("follow", false);
+            if (follow && !p.has("to")) throw p.error("follow", "needs to: <key> (whoever to fly after)");
+            return new DashNode(
+                    p.getDouble("speed", 1.2), p.requireDouble("range"), p.getDouble("radius", 0.6), p.getBool("flat", false),
+                    p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p),
+                    p.getString("mover", null), towardCursor(p), p.getString("to", null), p.getDouble("stop_short", 0), follow);
+        });
         // ---- Vanguard: leaps, tethers, mid-cast aiming, manual cooldowns ----
         t.register("leap", (p, e) -> {
             me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode.Direction dir;
@@ -134,6 +138,10 @@ public final class NodeTypes {
             var charge = new me.mephisto.ability_engine.engine.nodes.control.ChargeNode(p.requireInt("ticks"), from,
                     p.getString("store", "charge"), min, p.getBool("fire_when_full", true), p.getInt("release_gap", 0),
                     chargeLoad(p));
+            if ("held".equals(p.raw("bar"))) {
+                if (p.getInt("release_gap", 0) <= 0) throw p.error("bar", "held needs release_gap (the input's repeats)");
+                return charge.withBarWhenHeld();
+            }
             return p.getBool("bar", true) ? charge : charge.withoutBar();
         });
         t.register("has_status", (p, e) -> {
@@ -178,7 +186,8 @@ public final class NodeTypes {
                 p.requireInt("fuse"),
                 p.getString("visual", "AMETHYST_CLUSTER"),
                 new ConstructSystem.Options(p.getBool("solid", true), p.getDouble("trigger", 0), p.getInt("arm", 0),
-                        p.getInt("limit", 0))));
+                        p.getInt("limit", 0), triggeredBy(p), p.getBool("hidden", false), p.getString("cue", null),
+                        p.getInt("cue_every", 10))));
         t.register("await_recast", (p, e) -> new AwaitRecastNode(p.requireInt("window"), p.getString("while", null)));
         t.register("redirect_projectile", (p, e) -> new RedirectProjectileNode(
                 p.requireString("projectile"),
@@ -267,6 +276,23 @@ public final class NodeTypes {
         });
         t.register("start_line", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.StartLineNode(
                 p.requireString("cue"), p.requireString("to"), p.getInt("every", 2)));
+        // ---- Fae: rides, leashes, friend-or-foe ----
+        t.register("is_ally", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.IsAllyNode(
+                p.getString("target", "hit")));
+        t.register("mount", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.MountNode(
+                p.getString("target", "target"), knownStatus(p, "status", e), knownStatus(p, "self_status", e),
+                p.getString("store", "mount")));
+        t.register("dismount", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.DismountNode());
+        t.register("leash", (p, e) -> {
+            double length = p.requireDouble("length");
+            if (length <= 0) throw p.error("length", "must be above 0 (blocks of slack)");
+            int duration = p.requireInt("duration");
+            if (duration < 1) throw p.error("duration", "must be at least 1 tick");
+            double pull = p.getDouble("pull", 0.35);
+            if (pull <= 0) throw p.error("pull", "must be above 0");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.LeashNode(p.getString("target", "target"), length,
+                    duration, pull, p.getDouble("max_speed", 1.5), p.getDouble("range", 32), p.getString("cue", null));
+        });
         t.register("play_cue", (p, e) -> new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null)));
         return t;
     }
@@ -290,6 +316,25 @@ public final class NodeTypes {
         int start = l.getInt("start", 0);
         if (start < 0 || start > max) throw l.error("start", "must be between 0 and max");
         return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode.Load(l.requireString("resource"), every, max, start);
+    }
+
+    /** A trap's {@code triggered_by: enemies} (default), {@code allies} or {@code all}. */
+    private static ConstructSystem.TriggeredBy triggeredBy(Params p) {
+        String v = p.getString("triggered_by", "enemies");
+        try {
+            return ConstructSystem.TriggeredBy.valueOf(v.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw p.error("triggered_by", "expected enemies, allies or all");
+        }
+    }
+
+    /** An optional status id that must exist (null if not given). */
+    private static String knownStatus(Params p, String key, me.mephisto.ability_engine.engine.AbilityEngine e) {
+        String status = p.getString(key, null);
+        if (status != null && e.statusDefs().find(status).isEmpty()) {
+            throw p.error(key, "unknown status '" + status + "' (define it under 'statuses:')");
+        }
+        return status;
     }
 
     private static boolean towardCursor(Params p) {

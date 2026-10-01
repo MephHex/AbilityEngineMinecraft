@@ -52,7 +52,7 @@ public final class TeleportEffect implements Effect {
         }
         safe.setYaw(from.getYaw());
         safe.setPitch(from.getPitch());
-        entity.teleport(safe);
+        entity.teleport(safe, me.mephisto.ability_engine.bukkit.platform.BukkitMovementControl.KEEP_RIDERS);
         entity.setFallDistance(0);
         entity.setVelocity(new Vector(0, 0, 0));
     }

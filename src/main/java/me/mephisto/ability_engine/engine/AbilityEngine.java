@@ -65,6 +65,7 @@ public final class AbilityEngine {
     private final me.mephisto.ability_engine.engine.ward.WardManager wards;
     private final me.mephisto.ability_engine.engine.ward.HearingManager hearing;
     private final me.mephisto.ability_engine.engine.combat.SpellShields spellShields;
+    private final me.mephisto.ability_engine.engine.ride.RideManager rides;
 
     public AbilityEngine(Platform platform) {
         this.platform = platform;
@@ -82,8 +83,12 @@ public final class AbilityEngine {
         this.links = new me.mephisto.ability_engine.engine.link.LinkManager(platform.world(), platform.cues(),
                 platform.scheduler(), log);
         links.attach(statuses);
+        this.rides = new me.mephisto.ability_engine.engine.ride.RideManager(platform.movement(), platform.world(),
+                platform.scheduler(), log);
+        rides.attach(statuses, statusDefs);
         this.activator = new AbilityActivator(this);
         this.constructs = new ConstructSystem(platform.constructRenderer(), platform.scheduler(), teams, platform.world(), log);
+        constructs.setCues(this::cuesFor);
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
         this.quivers = new QuiverManager(tags, statuses,
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
@@ -96,6 +101,9 @@ public final class AbilityEngine {
                 platform.cues(), platform.world(), platform.scheduler(), statuses);
         this.hearing = new me.mephisto.ability_engine.engine.ward.HearingManager(loadouts, platform.world(), teams, statuses,
                 summons, platform.scheduler());
+        // A reflex (a ward with cast:) casts its ability at whoever hit its holder, wherever they're aiming.
+        wards.setReflexes((holder, attacker, ability) -> activator.activateOnId(holder, ability,
+                new me.mephisto.ability_engine.engine.target.EntityTarget(attacker), java.util.Map.of()));
         // A duel in a veil: a summon or a projectile's body is on its owner's side of it.
         teams.veils().setOwnerResolver(id -> summons.ownerOf(id).or(() -> projectiles.bodyOwner(id)));
         // Debuff immunity from anything else (a status granting state.debuff_immune): blocks without using it up.
@@ -189,6 +197,8 @@ public final class AbilityEngine {
     /** Characters' wards: debuff immunity that recharges out of combat. */
     public me.mephisto.ability_engine.engine.ward.WardManager wards() { return wards; }
     public me.mephisto.ability_engine.engine.ward.HearingManager hearing() { return hearing; }
+    /** Who rides whom (a fae perched on an ally). */
+    public me.mephisto.ability_engine.engine.ride.RideManager rides() { return rides; }
     /** Spell shields: spell damage absorbed as charge. */
     public me.mephisto.ability_engine.engine.combat.SpellShields spellShields() { return spellShields; }
     /** Randomness for gameplay rolls (random infusions...). Tests swap in a seeded one. */
@@ -225,6 +235,7 @@ public final class AbilityEngine {
         constructs.shutdown();
         summons.shutdown();
         links.shutdown();
+        rides.shutdown();
         statuses.clearAll();
     }
 

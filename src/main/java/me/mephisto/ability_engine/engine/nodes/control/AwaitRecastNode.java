@@ -82,7 +82,8 @@ public final class AwaitRecastNode implements GraphNode {
             done = true;
             task.cancel();
             instance.clearRecastHandler(handler);
-            instance.startDeferredCooldown(); // recast used or window over: now the cooldown runs
+            // Recast used or window over: now the cooldown runs (a manual one still waits for its start_cooldown).
+            if (!instance.ability().manualCooldown()) instance.startDeferredCooldown();
             resumer.resume(port);
         }
     }

@@ -40,10 +40,8 @@ import java.util.UUID;
  * primary fire, and Q / F never drop or swap the weapon. Without one: vanilla behaviour
  * (and /ae bind debug items).
  *
- * <p>While AIMING (targeting preview): LMB confirms (instantly: a click never waits on the hotbar
- * snap-back the way a second number-key press does), and so does pressing the aimed ability's own key
- * again. RMB cancels, another ability's key switches. A held key never confirms: its OS auto-repeat is
- * told apart from a second press by waiting a moment for more repeats. Recasts stay on the key.
+ * <p>While AIMING (targeting preview): LMB confirms, RMB cancels, another ability's key switches. The
+ * aimed ability's own key does nothing (it doesn't confirm). Recasts stay on the key.
  *
  * <p>Crossbow characters (a CROSSBOW weapon with a quiver) handle it like vanilla: hold RMB to draw
  * (CrossbowListener loads the next bolt when it's drawn), then press RMB again to shoot, which fires the
@@ -70,8 +68,14 @@ public final class CombatInputListener implements Listener {
      * KEY_REPEAT_GAP of one that followed at least this much quiet can't be a repeat yet: it's a double tap.
      */
     private static final long KEY_REPEAT_DELAY_MAX = 20;
-    /** Clicks this soon after a preview opened are echoes of the press that opened it (arm swing etc.). */
+    /** Clicks this soon after a click or Q opened a preview are echoes of that press (arm swing etc.). */
     private static final long CLICK_GRACE_TICKS = 3;
+    /**
+     * The client sends a hotbar change at the start of its NEXT tick, but a click at air right away: press a
+     * number key and click in the same client tick and the click arrives first. So a click that did nothing
+     * (primary on cooldown etc.) confirms a preview a number key / F opens this many ticks later.
+     */
+    private static final long CLICK_BUFFER_TICKS = 2;
     /** A scroll-wheel notch always lands next to the weapon; ignore everything briefly after one. */
     private static final long SCROLL_IGNORE_TICKS = 4;
     /**
@@ -87,6 +91,10 @@ public final class CombatInputListener implements Listener {
     /** The quiet before each action's last press: tells a quick double tap from a held key's repeats. */
     private final Map<UUID, Map<InputAction, Long>> gapBeforeLast = new HashMap<>();
     private final Map<UUID, Long> scrollIgnoreUntil = new HashMap<>();
+    /** When a swingless key last opened a preview (engine ticks): that preview needs no click grace. */
+    private final Map<UUID, Long> keyOpenedAt = new HashMap<>();
+    /** When a left click last did nothing (server ticks): a preview opened right after takes it as its confirm. */
+    private final Map<UUID, Long> idleClickAt = new HashMap<>();
     /** Right clicks before this tick are the client picking a held RMB back up after a slot snap-back. */
     private final Map<UUID, Long> rmbEchoUntil = new HashMap<>();
 
@@ -104,9 +112,20 @@ public final class CombatInputListener implements Listener {
 
     private boolean aiming(Player p) { return engine.targeting().isTargeting(p.getUniqueId()); }
 
+    /**
+     * Clicks right after a preview opened are echoes of the press that opened it, unless that was a key with
+     * no arm swing (number keys, F): then even a click in the very next tick confirms.
+     */
     private boolean inGrace(Player p) {
         long age = engine.targeting().ageTicks(p.getUniqueId());
-        return age >= 0 && age < CLICK_GRACE_TICKS;
+        if (age < 0 || age >= CLICK_GRACE_TICKS) return false;
+        Long byKey = keyOpenedAt.get(p.getUniqueId());
+        return byKey == null || byKey != engine.clock().now() - age; // this preview wasn't opened by such a key
+    }
+
+    /** Keys whose press doesn't swing the arm (Q does: the client swings on a drop). */
+    private static boolean swingless(InputAction action) {
+        return action == InputAction.SWAP_HANDS || action.name().startsWith("HOTBAR_");
     }
 
     /** Ticks since the last recorded press of an action, without recording one (MAX if never). */
@@ -282,8 +301,9 @@ public final class CombatInputListener implements Listener {
             confirm(p);
             return;
         }
-        if (hud.usesCrossbow(p) || hud.usesScope(p)) return; // crossbows shoot with RMB, spyglasses charge with it
-        fire(p, InputAction.LEFT_CLICK, true);
+        // Crossbows shoot with RMB, spyglasses charge with it: their LMB does nothing.
+        boolean did = !hud.usesCrossbow(p) && !hud.usesScope(p) && fire(p, InputAction.LEFT_CLICK, true);
+        if (!did) idleClickAt.put(p.getUniqueId(), (long) Bukkit.getCurrentTick()); // may be meant for a preview (see CLICK_BUFFER_TICKS)
     }
 
     /** Is this input the key of the ability being aimed right now? */
@@ -293,20 +313,6 @@ public final class CombatInputListener implements Listener {
         if (aimed.isEmpty()) return false;
         return keybinds.slotFor(action).flatMap(slot -> engine.loadouts().abilityIn(id, slot))
                 .filter(aimed.get().id()::equals).isPresent();
-    }
-
-    /**
-     * The aimed ability's key pressed again: confirm, unless it's a held key. Holding a key, the OS
-     * repeats it after a delay, and that first repeat looks like a fresh press; the next repeats follow
-     * within a tick or two. So wait a moment: another press in the meantime means held, no confirm.
-     */
-    private void confirmUnlessHeld(Player p, InputAction action) {
-        long pressedAt = Bukkit.getCurrentTick();
-        engine.scheduler().after(KEY_REPEAT_GAP + 1, () -> {
-            if (!p.isOnline() || !aiming(p)) return;
-            if (ticksSince(p, action) < Bukkit.getCurrentTick() - pressedAt) return; // repeats followed: held
-            confirm(p);
-        });
     }
 
     private void confirm(Player p) {
@@ -396,10 +402,7 @@ public final class CombatInputListener implements Listener {
         // (one that came out of silence) is a second tap, e.g. a quick recast.
         boolean doubleTap = gap > 0 && (before == null || before >= KEY_REPEAT_DELAY_MAX);
         boolean freshPress = gap > KEY_REPEAT_GAP || doubleTap;
-        if (aimedWith(p, action)) { // the aimed ability's own key again: confirm (never a held key)
-            if (freshPress && !inGrace(p)) confirmUnlessHeld(p, action);
-            return;
-        }
+        if (aimedWith(p, action)) return; // the aimed ability's own key again: nothing (only LMB confirms)
         fire(p, action, freshPress);
     }
 
@@ -408,6 +411,8 @@ public final class CombatInputListener implements Listener {
         lastPress.remove(e.getPlayer().getUniqueId());
         gapBeforeLast.remove(e.getPlayer().getUniqueId());
         scrollIgnoreUntil.remove(e.getPlayer().getUniqueId());
+        keyOpenedAt.remove(e.getPlayer().getUniqueId());
+        idleClickAt.remove(e.getPlayer().getUniqueId());
         rmbEchoUntil.remove(e.getPlayer().getUniqueId());
     }
 
@@ -416,19 +421,29 @@ public final class CombatInputListener implements Listener {
     /**
      * @param freshPress false for held/repeated input: it can re-cast (auto-fire) but never recasts
      *                   or confirms, and doesn't spam failure messages.
+     * @return whether the press did anything (cast, opened a preview, or was buffered for a recast)
      */
-    private void fire(Player p, InputAction action, boolean freshPress) {
-        keybinds.slotFor(action).ifPresent(slot -> {
+    private boolean fire(Player p, InputAction action, boolean freshPress) {
+        return keybinds.slotFor(action).map(slot -> {
             ActivationResult result = engine.loadouts().activate(p.getUniqueId(), slot, freshPress);
-            if (result.openedTargeting()) return; // the preview's action bar takes over
+            if (result.openedTargeting()) { // the preview's action bar takes over
+                if (swingless(action)) {
+                    keyOpenedAt.put(p.getUniqueId(), engine.clock().now());
+                    Long clickAt = idleClickAt.remove(p.getUniqueId());
+                    if (clickAt != null && Bukkit.getCurrentTick() - clickAt <= CLICK_BUFFER_TICKS) confirm(p);
+                }
+                return true;
+            }
             if (result.success()) {
                 hud.refresh(p);
+                return true;
             } else if (AbilityActivator.BUFFERED.equals(result.reason())) {
-                // an early recast press: it lands as the window opens, nothing to report
+                return true; // an early recast press: it lands as the window opens, nothing to report
             } else if (freshPress && !(Slots.PRIMARY.equals(slot) && result.reason().startsWith("on_cooldown"))) {
                 // Clicking primary fire faster than its fire rate is normal; don't nag about it.
                 p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));
             }
-        });
+            return false;
+        }).orElse(false);
     }
 }

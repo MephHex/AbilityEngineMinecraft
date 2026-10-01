@@ -12,7 +12,7 @@ import java.util.Set;
 
 /**
  * Pick a spot in the middle of a cast (e.g. while hovering in the sky): the same aim preview as
- * {@code targeting:}, confirmed with the ability's key again. Not confirmed within {@code timeout} ticks, or cancelled (RMB,
+ * {@code targeting:}, confirmed with LMB. Not confirmed within {@code timeout} ticks, or cancelled (RMB,
  * another ability): the spot under the crosshair right then is used. Stored as {@code store}
  * (default "aim"). Exits "out", or "none" if there's no valid spot at all.
  */

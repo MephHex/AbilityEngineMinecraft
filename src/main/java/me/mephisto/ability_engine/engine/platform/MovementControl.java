@@ -27,4 +27,16 @@ public interface MovementControl {
 
     /** Turn an entity to look along {@code direction} (e.g. a clone about to dash). Default: nothing. */
     default void face(UUID entity, Vec3 direction) {}
+
+    /**
+     * Seat {@code rider} on {@code vehicle}: it goes wherever the vehicle goes (on Bukkit, a passenger on their
+     * head). Returns false if it can't be done. Default: riding isn't supported.
+     */
+    default boolean mount(UUID rider, UUID vehicle) { return false; }
+
+    /** Get {@code rider} off whatever it rides. */
+    default void dismount(UUID rider) {}
+
+    /** What {@code rider} is riding right now, if anything. */
+    default java.util.Optional<UUID> vehicleOf(UUID rider) { return java.util.Optional.empty(); }
 }

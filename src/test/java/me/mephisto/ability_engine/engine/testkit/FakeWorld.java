@@ -36,6 +36,39 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     public void move(UUID id, Vec3 center) { entities.put(id, center); }
     public void kill(UUID id) { entities.remove(id); }
 
+    // ---- riding: a rider sits RIDE_HEIGHT above its vehicle's centre, wherever the vehicle is ----
+    public static final double RIDE_HEIGHT = 1.5;
+    /** Rider -> vehicle. */
+    public final Map<UUID, UUID> riding = new HashMap<>();
+
+    @Override
+    public boolean mount(UUID rider, UUID vehicle) {
+        if (!entities.containsKey(rider) || !entities.containsKey(vehicle) || rider.equals(vehicle)) return false;
+        riding.put(rider, vehicle);
+        return true;
+    }
+
+    @Override
+    public void dismount(UUID rider) {
+        UUID vehicle = riding.remove(rider);
+        Vec3 at = vehicle == null ? null : entities.get(vehicle);
+        if (at != null) entities.put(rider, at.add(0, RIDE_HEIGHT, 0)); // left where it sat
+    }
+
+    @Override
+    public Optional<UUID> vehicleOf(UUID rider) { return Optional.ofNullable(riding.get(rider)); }
+
+    /** The game takes a rider off (not the engine), e.g. a vanilla dismount. */
+    public void eject(UUID rider) { dismount(rider); }
+
+    /** Where an entity is: a rider sits on its vehicle. */
+    private Vec3 at(UUID id) {
+        UUID vehicle = riding.get(id);
+        Vec3 v = vehicle == null ? null : entities.get(vehicle);
+        if (v != null && entities.containsKey(id)) return v.add(0, RIDE_HEIGHT, 0);
+        return entities.get(id);
+    }
+
     private final Map<UUID, Integer> lag = new HashMap<>();
     private final Map<UUID, java.util.ArrayDeque<Vec3>> inFlight = new HashMap<>();
 
@@ -149,7 +182,7 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
 
     @Override
     public Optional<Aim> aimOf(UUID entity) {
-        Vec3 pos = entities.get(entity);
+        Vec3 pos = at(entity);
         if (pos == null) return Optional.empty();
         return Optional.of(new Aim(WORLD, pos, looking.getOrDefault(entity, new Vec3(1, 0, 0))));
     }
@@ -157,7 +190,7 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     @Override
     public Optional<PointTarget> positionOf(Target target) {
         if (target instanceof PointTarget p) return Optional.of(p);
-        Vec3 pos = entities.get(((EntityTarget) target).id());
+        Vec3 pos = at(((EntityTarget) target).id());
         return pos == null ? Optional.empty() : Optional.of(new PointTarget(WORLD, pos));
     }
 

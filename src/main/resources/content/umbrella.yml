@@ -7,7 +7,7 @@ abilities:
 
   # PRIMARY: a quick spear poke straight ahead (3.5 blocks). Rate: her attack speed (1.25 a second).
   umbrella_primary:
-    cooldown: 16                     # 0.8s (her stats' attack_speed sets it)
+    cooldown: 10                     # 0.8s (her stats' attack_speed sets it)
     display:
       name: "Spear Poke"
       description:
@@ -16,9 +16,9 @@ abilities:
     nodes:
       poke:
         type: apply_effects
-        targets: { type: line, range: 3.5, width: 1.0 }
+        targets: { type: line, range: 4, width: 1.2 }
         effects:
-          - { id: damage, base: 1.0 }             # 100% base damage
+          - { id: damage, base: 2 }             # 100% base damage
         next: poke_cue
       poke_cue:
         type: play_cue
@@ -54,7 +54,7 @@ abilities:
         type: dash
         speed: 1.4                   # blocks per tick (~7 ticks for the full 10)
         range: 10
-        radius: 0.6                  # how wide the thrust is for catching enemies
+        radius: 1.4                  # how wide the thrust is for catching enemies
         flat: false                  # follow the aim up/down too; true = ground-only dash
         on: { hit: strike }          # miss: just ends where it stopped
       strike:
@@ -91,7 +91,7 @@ abilities:
       raise:
         type: barrier                # stands until the cast ends
         distance: 1.0                # how far in front of your body
-        radius: 1.3                  # disc size: covers you (and someone right behind you)
+        radius: 1.4                  # disc size: covers you (and someone right behind you)
         next: water
       water:
         type: start_cue
@@ -173,7 +173,7 @@ abilities:
         type: apply_effects
         targets: { type: line, range: 25, width: 2.0 }
         effects:
-          - { id: damage, base: 4.5 }             # 450% base damage
+          - { id: damage, base: 3 }             # 450% base damage
           - { id: knockback, from: caster, radius: 25, center: 3.0, edge: 2.2, lift: 0.6 }
         next: beam
       beam:

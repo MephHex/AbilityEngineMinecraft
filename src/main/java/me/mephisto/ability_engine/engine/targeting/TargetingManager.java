@@ -81,7 +81,7 @@ public final class TargetingManager {
     }
 
     /**
-     * An aim preview in the middle of a cast (choose_spot): confirming (the ability's key again) (-> {@code confirmed}); RMB,
+     * An aim preview in the middle of a cast (choose_spot): confirming (LMB) (-> {@code confirmed}); RMB,
      * another ability, the timeout or the cast ending cancel it (-> {@code cancelled}, with the reason).
      */
     public void openInCast(UUID caster, Ability ability, Targeting targeting,

@@ -513,8 +513,8 @@ characters:
       - { while: state.revolver, weapon: IRON_HOE }
     stats:                           # see docs/character-stats.md
       health: 210                    # max HP
-      armor: 15                      # damage taken x 100 / (100 + armor)
-      base_damage: 38                # shots and abilities deal % of this
+      armor: 20                      # damage taken x 100 / (100 + armor)
+      base_damage: 40                # shots and abilities deal % of this
       move_speed: 1.1                # x vanilla walking speed
     resources:                       # the ammo of the gun in your hand shows in slot 8
       shells: { max: 2, reload: 30, hotbar: 8, icon: FIRE_CHARGE, hidden_while: state.revolver }

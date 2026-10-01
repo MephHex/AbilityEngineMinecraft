@@ -17,8 +17,8 @@ import static me.mephisto.ability_engine.engine.testkit.Yml.list;
 import static me.mephisto.ability_engine.engine.testkit.Yml.map;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** The Hunter kit (fixtures/hunter.yml): quiver, infusions, Venom Step, Volatile Flask, Overdrive. */
-class HunterTest {
+/** The Alchemist kit (fixtures/alchemist.yml): quiver, infusions, Venom Step, Volatile Flask, Overdrive. */
+class AlchemistTest {
 
     private static final Bolt PLAIN = Bolt.PLAIN;
     private static final Bolt POISON = new Bolt(List.of("poison"));
@@ -30,7 +30,7 @@ class HunterTest {
         t = new TestEngine();
         ShippedContent.loadClean(t.engine);
         p = t.spawn(0, 1, 0);
-        t.engine.loadouts().assign(p, "hunter");
+        t.engine.loadouts().assign(p, "alchemist");
     }
 
     private List<Bolt> queue() { return t.engine.quivers().queue(p); }
@@ -92,7 +92,7 @@ class HunterTest {
         setup();
         t.engine.quivers().tryLoad(p);
         t.engine.quivers().infuse(p, "poison", 3);
-        t.engine.loadouts().assign(p, "hunter");
+        t.engine.loadouts().assign(p, "alchemist");
         assertFalse(t.engine.quivers().isLoaded(p));
         assertEquals(List.of(PLAIN, PLAIN, PLAIN), queue());
         t.engine.loadouts().clear(p);
@@ -186,7 +186,7 @@ class HunterTest {
     void theRhythmBarShowsTheLevelAndDrainsWithTheTimeLeft() throws IOException {
         setup();
         var statusBar = t.engine.loadouts().characterOf(p).orElseThrow().statusBar();
-        assertEquals("hunters_rhythm", statusBar.status());
+        assertEquals("alchemists_rhythm", statusBar.status());
         assertEquals(me.mephisto.ability_engine.engine.loadout.CharacterDef.StatusBar.Level.STACKS, statusBar.level(),
                 "the number shows the stacks (0-3)");
         String bar = statusBar.status();
@@ -379,6 +379,20 @@ class HunterTest {
     }
 
     @Test
+    void aFlaskThrownUpBurstsOnYouWhenItComesDown() throws IOException {
+        setup();
+        UUID enemy = t.spawn(2, 1, 0);           // within the burst, not in the flask's way
+        t.world.look(p, new Vec3(0, 1, 0));      // straight up: no floor, so only you can stop it
+        t.engine.loadouts().activate(p, "ability_2");
+        t.time.advance(3);
+        assertFalse(t.engine.tags().has(p, Tags.HASTED), "not the moment it leaves your hands");
+        t.time.advance(60);                      // up for ~26 ticks, back down onto you
+        assertTrue(t.engine.tags().has(p, Tags.HASTED), "caught it: the tonic");
+        assertEquals(50, t.damage(enemy), 1e-9, "and it burst on you");
+        assertEquals(0, t.damage(p), 1e-9, "your own flask doesn't hurt you");
+    }
+
+    @Test
     void eachBoltRollsItsOwnInfusion() throws IOException {
         java.util.Set<String> seen = new java.util.HashSet<>();
         for (int seed = 0; seed < 20; seed++) {
@@ -546,7 +560,7 @@ class HunterTest {
         t.world.floor(0);
         t.world.look(p, new Vec3(1, 0, 0));
         int before = t.engine.constructs().activeCount();
-        t.engine.cooldowns().clear(p, "hunters_snare");
+        t.engine.cooldowns().clear(p, "alchemists_snare");
         assertTrue(t.engine.loadouts().activate(p, "ability_3").success());
         t.time.advance(40);
         assertEquals(before + 1, t.engine.constructs().activeCount(), "landed and set");
@@ -572,7 +586,7 @@ class HunterTest {
         t.time.advance(1);
         assertTrue(t.engine.tags().has(enemy, Tags.ROOTED));
         assertTrue(t.engine.tags().has(enemy, Tags.GLOWING));
-        assertTrue(t.engine.statuses().has(enemy, "hunters_mark"));
+        assertTrue(t.engine.statuses().has(enemy, "alchemists_mark"));
         assertTrue(t.render.cues.contains("trap_spring"));
         assertEquals(0, t.engine.constructs().activeCount(), "sprung: gone");
     }
@@ -597,7 +611,7 @@ class HunterTest {
         t.engine.loadouts().activate(p, "ability_3");
         t.time.advance(20);
         assertTrue(t.engine.tags().has(enemy, Tags.ROOTED));
-        assertTrue(t.engine.statuses().has(enemy, "hunters_mark"));
+        assertTrue(t.engine.statuses().has(enemy, "alchemists_mark"));
         assertEquals(0, t.engine.constructs().activeCount(), "no trap left behind");
     }
 
@@ -608,7 +622,7 @@ class HunterTest {
         for (int i = 0; i < 4; i++) throwSnare();
         assertEquals(5, t.engine.constructs().activeCount());
         assertTrue(first.isAlive());
-        t.engine.cooldowns().clear(p, "hunters_snare");
+        t.engine.cooldowns().clear(p, "alchemists_snare");
         t.engine.loadouts().activate(p, "ability_3");
         t.time.advance(40);
         assertEquals(5, t.engine.constructs().activeCount(), "still 5");
@@ -674,11 +688,11 @@ class HunterTest {
     void aMarkedEnemyTakesExtraDamageFromTheNextBoltOnly() throws IOException {
         setup();
         UUID enemy = t.spawn(10, 1, 0);
-        t.engine.statuses().apply(enemy, "hunters_mark", p);
+        t.engine.statuses().apply(enemy, "alchemists_mark", p);
         t.engine.quivers().tryLoad(p);
         shoot();
         assertEquals(45 + 40, t.damage(enemy), 1e-9);
-        assertFalse(t.engine.statuses().has(enemy, "hunters_mark"), "used up");
+        assertFalse(t.engine.statuses().has(enemy, "alchemists_mark"), "used up");
         t.engine.quivers().tryLoad(p);
         shoot();
         assertEquals(45 + 40 + 45, t.damage(enemy), 1e-9);
@@ -695,7 +709,7 @@ class HunterTest {
         shoot();
         for (int i = 0; i < 4; i++) assertEquals(45, t.damage(line[i]), 1e-9, "enemy " + i);
         assertEquals(0, t.damage(line[4]), 1e-9, "stopped at the 4th");
-        assertEquals(3, t.engine.statuses().find(p, "hunters_rhythm").orElseThrow().stacks(), "each hit counts");
+        assertEquals(3, t.engine.statuses().find(p, "alchemists_rhythm").orElseThrow().stacks(), "each hit counts");
     }
 
     @Test

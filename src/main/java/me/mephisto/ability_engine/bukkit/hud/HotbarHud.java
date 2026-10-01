@@ -73,8 +73,8 @@ public final class HotbarHud {
     private final AbilityEngine engine;
     private final Keybinds keybinds;
     private final NamespacedKey hudKey;
-    /** Per player: when each material's cooldown sweep we last sent ends (server ticks). */
-    private final Map<UUID, Map<Material, Long>> sweepEnds = new HashMap<>();
+    /** Per player: when each cooldown group's sweep we last sent ends (server ticks). */
+    private final Map<UUID, Map<net.kyori.adventure.key.Key, Long>> sweepEnds = new HashMap<>();
     /** Per player: what the quiver HUD last showed, so it's only redrawn when something changed. */
     private final Map<UUID, QuiverShown> quiverShown = new HashMap<>();
 
@@ -149,7 +149,7 @@ public final class HotbarHud {
 
         for (String slot : Slots.ALL) {
             if (onWeapon(slot)) continue; // primary/secondary are described on the weapon itself
-            ability(character.get(), slot).ifPresent(a -> inv.setItem(position(slot), icon(slot, a)));
+            ability(character.get(), slot).ifPresent(a -> inv.setItem(position(slot), icon(slot, a, character.get())));
         }
         for (ResourceDef def : visibleGauges(p.getUniqueId(), character.get()).values()) {
             inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
@@ -172,13 +172,12 @@ public final class HotbarHud {
     public void refresh(Player p) {
         UUID id = p.getUniqueId();
         long now = engine.clock().now();
-        Map<Material, Long> sent = sweepEnds.computeIfAbsent(id, k -> new HashMap<>());
+        Map<net.kyori.adventure.key.Key, Long> sent = sweepEnds.computeIfAbsent(id, k -> new HashMap<>());
         engine.loadouts().characterOf(id).ifPresent(c -> {
             for (String slot : Slots.ALL) {
                 ability(c, slot).ifPresent(a -> {
                     long remaining = engine.cooldowns().remainingTicks(id, a.id());
-                    Material m = Slots.PRIMARY.equals(slot) ? primarySweepMaterial(id, c, a) : iconMaterial(slot, a);
-                    syncSweep(p, sent, m, now, remaining);
+                    syncSweep(p, sent, sweepKey(id, c, slot, a), now, remaining);
                 });
             }
         });
@@ -190,7 +189,7 @@ public final class HotbarHud {
      * Re-sending a cooldown restarts the client's sweep from full, so only send when the end time
      * actually changed (a new cast, /ae cdclear). Everything else keeps animating untouched.
      */
-    private static void syncSweep(Player p, Map<Material, Long> sent, Material m, long now, long remaining) {
+    private static void syncSweep(Player p, Map<net.kyori.adventure.key.Key, Long> sent, net.kyori.adventure.key.Key m, long now, long remaining) {
         long end = now + remaining;
         Long previous = sent.get(m);
         boolean running = previous != null && previous > now;
@@ -377,16 +376,17 @@ public final class HotbarHud {
             String cc = entry.getValue();
             if (cc.equals(before.get(slot))) continue;
             if (Slots.PRIMARY.equals(slot)) {                        // primary fire lives on the weapon
-                inv.setItem(WEAPON_SLOT, cc.isEmpty() ? weapon(p, c) : barrier(c.name(), cc));
+                inv.setItem(WEAPON_SLOT, cc.isEmpty() ? weapon(p, c) : barrier(new ItemStack(Material.BARRIER), c.name(), cc));
             } else if (!onWeapon(slot)) {
                 Ability a = ability(c, slot).get();
-                inv.setItem(position(slot), cc.isEmpty() ? icon(slot, a) : barrier(a.display().name(), cc));
+                inv.setItem(position(slot), cc.isEmpty() ? icon(slot, a, c)
+                        : barrier(iconBase(slot, Material.BARRIER, c), a.display().name(), cc));
             }
         }
         refresh(p); // counters and sweeps back on the restored icons
     }
 
-    private ItemStack barrier(String name, String ccTag) {
+    private ItemStack barrier(ItemStack item, String name, String ccTag) {
         String why = switch (ccTag) {
             case me.mephisto.ability_engine.engine.tag.Tags.STUNNED -> "Stunned";
             case me.mephisto.ability_engine.engine.tag.Tags.SILENCED -> "Silenced";
@@ -394,7 +394,6 @@ public final class HotbarHud {
             case me.mephisto.ability_engine.engine.tag.Tags.ROOTED -> "Rooted";
             default -> "Blocked";
         };
-        ItemStack item = new ItemStack(Material.BARRIER);
         ItemMeta meta = item.getItemMeta();
         meta.setMaxStackSize(MAX_COUNT);
         meta.displayName(plain(name + " - " + why, NamedTextColor.RED));
@@ -428,9 +427,12 @@ public final class HotbarHud {
         for (String line : ward.description()) lore.add(plain(line, NamedTextColor.GRAY));
         String readyText = ward.isBarrier()
                 ? String.format("Ready: takes %.0f%% of the next hit", ward.absorb() * 100)
+                : ward.isReflex() ? "Ready: goes off when you're hit"
                 : "Ready: the next debuff won't land";
-        lore.add(ready ? plain(readyText, NamedTextColor.GREEN)
-                : plain("Recharging: " + seconds + "s out of combat", NamedTextColor.RED));
+        String rechargeText = ward.isReflex()
+                ? "Recharging: " + seconds + "s (sooner out of combat)"
+                : "Recharging: " + seconds + "s out of combat";
+        lore.add(ready ? plain(readyText, NamedTextColor.GREEN) : plain(rechargeText, NamedTextColor.RED));
         meta.lore(lore);
         meta.setEnchantmentGlintOverride(ready ? Boolean.TRUE : null);
         meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
@@ -462,7 +464,7 @@ public final class HotbarHud {
         engine.loadouts().characterOf(id).ifPresent(c -> {
             PlayerInventory inv = p.getInventory();
             Map<Integer, ResourceDef> visible = visibleGauges(id, c);
-            Map<Material, Long> sent = sweepEnds.computeIfAbsent(id, k -> new HashMap<>());
+            Map<net.kyori.adventure.key.Key, Long> sent = sweepEnds.computeIfAbsent(id, k -> new HashMap<>());
             long now = engine.clock().now();
             for (ResourceDef def : c.resources().values()) {
                 int slot = def.hotbarSlot();
@@ -475,7 +477,7 @@ public final class HotbarHud {
                 }
                 if (visible.get(slot) != def) continue;
                 if (def.reloadTicks() > 0) {
-                    syncSweep(p, sent, gaugeMaterial(def), now, engine.resources().reloadRemaining(id, def.id()));
+                    syncSweep(p, sent, gaugeMaterial(def).getKey(), now, engine.resources().reloadRemaining(id, def.id()));
                 }
                 if (item == null || item.getType() != gaugeMaterial(def) // another gauge (or nothing) was there
                         || item.getAmount() != gaugeAmount(p, def)
@@ -740,8 +742,53 @@ public final class HotbarHud {
         if (speed > 0) lore.add(plain("Reload speed +" + speed, NamedTextColor.AQUA));
     }
 
-    private ItemStack icon(String slot, Ability a) {
-        ItemStack item = new ItemStack(iconMaterial(slot, a));
+    /**
+     * A blank item for a slot's icon that looks like {@code look}. On the hotbar it's really the weapon's item
+     * type, drawn as {@code look} (item_model): a number key puts it in the client's hand until the snap-back,
+     * and the client restarts the attack charge whenever the held item's TYPE changes, which kept the weapon
+     * lowered (and the indicator empty) for a whole primary cooldown after every ability. Its own cooldown
+     * group keeps its sweep off the weapon. (The offhand's ultimate is never held: a plain item.)
+     */
+    private ItemStack iconBase(String slot, Material look, CharacterDef c) {
+        if (position(slot) == OFFHAND_SLOT || !iconsPassForWeapon(c)) return new ItemStack(look);
+        ItemStack item = new ItemStack(weaponMaterial(c));
+        item.unsetData(io.papermc.paper.datacomponent.DataComponentTypes.MAX_DAMAGE); // damageable items can't stack (the
+        item.unsetData(io.papermc.paper.datacomponent.DataComponentTypes.DAMAGE);     // count shows seconds left)
+        ItemMeta meta = item.getItemMeta();
+        meta.setItemModel(look.getKey());
+        var cooldown = meta.getUseCooldown();
+        cooldown.setCooldownSeconds(1); // must be above 0; icons are never used, only the group matters
+        cooldown.setCooldownGroup(iconGroup(slot));
+        meta.setUseCooldown(cooldown);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ADDITIONAL_TOOLTIP); // the weapon's damage lines etc.
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /**
+     * Whether hotbar icons are the weapon's item type (see iconBase). Not for weapons with a use of their own:
+     * an icon that's really a crossbow or spyglass is one the client can draw or zoom in the moment it's
+     * held. Those characters don't attack with LMB anyway, so the attack charge doesn't matter to them.
+     */
+    private static boolean iconsPassForWeapon(CharacterDef c) {
+        Material weapon = weaponMaterial(c);
+        return weapon != Material.CROSSBOW && weapon != Material.SPYGLASS;
+    }
+
+    /** The cooldown group of a hotbar icon (see iconBase). */
+    private NamespacedKey iconGroup(String slot) {
+        return new NamespacedKey(hudKey.getNamespace(), "icon_" + slot);
+    }
+
+    /** Which cooldown sweep shows a slot's cooldown. */
+    private net.kyori.adventure.key.Key sweepKey(UUID id, CharacterDef c, String slot, Ability a) {
+        if (Slots.PRIMARY.equals(slot)) return primarySweepMaterial(id, c, a).getKey();
+        if (onWeapon(slot) || position(slot) == OFFHAND_SLOT || !iconsPassForWeapon(c)) return iconMaterial(slot, a).getKey();
+        return iconGroup(slot);
+    }
+
+    private ItemStack icon(String slot, Ability a, CharacterDef c) {
+        ItemStack item = iconBase(slot, iconMaterial(slot, a), c);
         ItemMeta meta = item.getItemMeta();
         meta.setMaxStackSize(MAX_COUNT);
         String key = keybinds.actionFor(slot).map(InputAction::defaultKey).orElse("-");

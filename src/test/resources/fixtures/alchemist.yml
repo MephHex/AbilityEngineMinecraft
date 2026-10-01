@@ -1,5 +1,5 @@
-# content: hunter
-# The Hunter: a crossbow marksman who infuses bolts with alchemy.
+# content: alchemist
+# The Alchemist: a crossbow marksman who infuses bolts with alchemy.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
 # How the crossbow works (a real vanilla crossbow):
@@ -14,11 +14,11 @@
 #   Charge on the crossbow.
 
 statuses:
-  hunters_rhythm:                    # the passive: its stacks are the crossbow's reload speed
+  alchemists_rhythm:                 # the passive: its stacks are the crossbow's reload speed
     duration: 100                    # 5s, refreshed by every hit
     stacking: stack
     max_stacks: 3
-    tags: [buff.hunters_rhythm]
+    tags: [buff.alchemists_rhythm]
 
   poisoned:                          # the Poison infusion
     duration: 80                     # 4s...
@@ -38,7 +38,7 @@ statuses:
       effects:
         - { id: heal, amount: 6 }    # 6 x 6 = 36 over 3s
 
-  hunters_mark:                      # sprung Hunter's Snare: your next bolt on them hits harder
+  alchemists_mark:                   # sprung Hunter's Snare: your next bolt on them hits harder
     duration: 100                    # 5s, or until a bolt uses it up
     stacking: refresh
     tags: [state.marked]
@@ -168,7 +168,7 @@ abilities:
         type: apply_effects          # the passive: +1 stack per hit
         targets: { type: self }
         effects:
-          - { id: status, status: hunters_rhythm }
+          - { id: status, status: alchemists_rhythm }
         next: quicken
       quicken:
         type: reduce_cooldown        # every hit: Venom Step comes back 1s sooner
@@ -185,7 +185,7 @@ abilities:
         targets: { type: key, key: hit }
         effects:
           - { id: damage, amount: 40 }
-          - { id: remove_status, status: hunters_mark }   # used up
+          - { id: remove_status, status: alchemists_mark }   # used up
         next: mark_cue
       mark_cue:
         type: play_cue
@@ -221,7 +221,7 @@ abilities:
     nodes:
       whoosh:
         type: play_cue
-        cue: hunter_dash
+        cue: alchemist_dash
         next: envenom
       envenom:
         type: infuse                 # poison the 3 queued bolts first...
@@ -273,6 +273,7 @@ abilities:
         size: 0.5
         lifetime: 100
         bounces: 1
+        hits_caster: true            # it bursts on you too (once it's left your hands)
         restitution: 0.45
         friction: 0.3
         visual: SPLASH_POTION
@@ -315,7 +316,7 @@ abilities:
   # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
   # A direct hit on an enemy mid-throw snaps shut on them at once. Traps stay armed when you die (not
   # when you log out); at most 5 at a time, a 6th removes your oldest. Your bolts pass through them.
-  hunters_snare:
+  alchemists_snare:
     cooldown: 300                    # 15s
     survives_death: true             # thrown traps stay out when you die
     display:
@@ -362,7 +363,7 @@ abilities:
         effects:
           - { id: status, status: root, duration: 40 }
           - { id: status, status: glowing, duration: 100 }
-          - { id: status, status: hunters_mark }
+          - { id: status, status: alchemists_mark }
         next: spring_cue
       spring_cue:
         type: play_cue
@@ -398,15 +399,15 @@ abilities:
         boss_bar: true               # counts down on the boss bar (the XP bar keeps showing the Rhythm)
 
 characters:
-  hunter:
+  alchemist:
     name: "Hunter"
     weapon: CROSSBOW                 # a real crossbow: hold RMB to draw (needs the quiver below)
-    status_bar: hunters_rhythm       # XP bar: number = Rhythm stacks (0-3), bar = their time left
+    status_bar: alchemists_rhythm    # XP bar: number = Rhythm stacks (0-3), bar = their time left
     quiver:
       size: 3                        # the next 3 bolts...
       hotbar: 7                      # ...shown in slots 7, 8, 9 (leftmost loads next)
       reload_speed:                  # = Quick Charge level on the crossbow: 0.25s faster each
-        stacks_of: hunters_rhythm    # Rhythm stacks 1/2/3...
+        stacks_of: alchemists_rhythm # Rhythm stacks 1/2/3...
         first: 2                     # ...give Quick Charge 2/3/4
         max: 4
         while: { state.overdrive: 4 }   # Overdrive: 0.25s draws (4 is the most a crossbow allows)
@@ -415,5 +416,5 @@ characters:
       primary: infused_bolt          # RMB on a loaded crossbow (hold RMB to draw)
       ability_1: venom_step          # 1
       ability_2: volatile_flask      # 2
-      ability_3: hunters_snare       # 3: toss a trap
+      ability_3: alchemists_snare    # 3: toss a trap
       ultimate: overdrive            # F

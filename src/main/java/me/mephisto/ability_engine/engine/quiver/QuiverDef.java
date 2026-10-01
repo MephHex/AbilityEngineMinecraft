@@ -8,7 +8,7 @@ import java.util.Map;
  * quiver:
  *   size: 3            # queued bolts (the loaded one is extra)
  *   hotbar: 7          # shown in slots 7, 8, 9: the leftmost is the next to load
- *   reload_speed: { stacks_of: hunters_rhythm, max: 3, while: { state.overdrive: 4 } }
+ *   reload_speed: { stacks_of: alchemists_rhythm, max: 3, while: { state.overdrive: 4 } }
  *   rapid_fire_while: [state.overdrive]
  * </pre>
  *

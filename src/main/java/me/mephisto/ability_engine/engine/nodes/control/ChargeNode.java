@@ -41,6 +41,17 @@ public final class ChargeNode implements GraphNode {
         return this;
     }
 
+    private boolean barWhenHeld;
+
+    /**
+     * {@code bar: held} (with release_gap): the cast bar shows only once the input is really held (its first
+     * repeat), filled by the time since the press. A tap shows nothing, e.g. "hold to cancel" after a tap.
+     */
+    public ChargeNode withBarWhenHeld() {
+        barWhenHeld = true;
+        return this;
+    }
+
     /** Loading a resource while held (see the class comment); {@code start} are loaded on the press itself. */
     public record Load(String resource, int every, int max, int start) {
         public Load(String resource, int every, int max) { this(resource, every, max, 0); }
@@ -103,7 +114,7 @@ public final class ChargeNode implements GraphNode {
 
         void start() {
             instance.setReleaseHandler(handler);
-            if (showBar) bar = instance.showProgress(ticks);
+            if (showBar && !barWhenHeld) bar = instance.showProgress(ticks);
             // Fully charged: fires by itself, or (fire_when_full: false) just stays full until let go.
             if (fireWhenFull) task = ctx.engine().scheduler().after(ticks, this::fire);
             if (releaseGap > 0) instance.setInputRepeat(onRepeat);
@@ -127,6 +138,7 @@ public final class ChargeNode implements GraphNode {
         private void repeated() {
             lastInput = ctx.engine().clock().now();
             loadUpTo(lastInput);
+            if (showBar && barWhenHeld && bar == null) bar = instance.showProgress(startedAt, ticks); // really held
         }
 
         /** Held until when, as far as we know: the last repeat, or (the platform reports the let-go) now. */

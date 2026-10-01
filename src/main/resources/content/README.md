@@ -88,8 +88,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 ### Targeting (aim previews)
 
 Add `targeting: { shape: circle|line|cone|point, range, radius/width/angle, ground: true, max_drop }`
-to show a preview first: LMB (or the ability's key again) confirms, RMB cancels. No time limit
-unless you add `timeout: <ticks>`.
+to show a preview first: pressing the ability's key again confirms, RMB cancels (players without a
+character, casting /ae bind items, confirm with LMB). No time limit unless you add `timeout: <ticks>`.
 `/ae quickcast` skips the preview.
 
 - The preview ray ignores entities (you can place things under someone).
@@ -142,7 +142,7 @@ A character with a `quiver:` has a queue of bolts plus one bolt loaded in their 
   The level is the stacks of `stacks_of` (up to `max`), or more while you have a `while` tag.
   `first: 2` makes the first stack worth level 2 (stacks 1/2/3 give 2/3/4).
 
-See `hunter.yml`.
+See `alchemist.yml`.
 
 ## Characters
 
@@ -209,7 +209,7 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **Statuses:** `damage_dealt: 1.25` (+25% damage dealt), `damage_taken: 0.8` (20% less damage taken).
   They apply to every hit, vanilla ones too. `attack_speed: 0.6` makes the holder's basic attacks
   (primary / melee) 40% slower: their cooldown is divided by it, and a crossbow must be drawn 1/0.6 as
-  long before it loads (Hunter's Paralysis). Above 1 is faster.
+  long before it loads (Alchemist's Paralysis). Above 1 is faster.
 - **Status particles:** anyone with `state.silenced` gives off teal wisps fading to near-black, `state.poisoned`
   green poison swirls, `state.paralyzed` yellow sparks (teal / cyan = anti-magic: silence, Counterspell,
   Null Ward).
@@ -250,7 +250,7 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **infuse:** `random: [a, b, c]` instead of `infusion:`: each of the `count` bolts gets one, at random.
 - **Quiver:** `rapid_fire_while: [tags]` - with one of these tags, no drawing: RMB (or holding it)
   shoots straight from the quiver, as fast as the primary's cooldown allows (the primary needs a
-  `reload` node for the empty case, see hunter.yml).
+  `reload` node for the empty case, see alchemist.yml).
 - **Characters:** `forms:` change the kit while the player has a tag (first match wins):
   `- { while: <tag>, weapon, slots: { ... }, status_bar }`. A SPYGLASS weapon: hold RMB to zoom in and
   charge the primary (a charge node), let go to fire; LMB does nothing.
@@ -432,6 +432,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   for `max_distance` blocks, then hovers there for `hover` ticks (still looking), then expires.
 - **Projectile:** `health: 60` gives it a body enemies can hit and kill (an `"entity:..."` visual, on your
   team); killed, the projectile exits `destroyed`. `through_blocks: true` - terrain doesn't stop it.
+  `hits_caster: true` - it can hit you too (exits `hit_entity` with you as `hit`) once it has flown clear
+  of you, e.g. a flask you throw up and catch.
 - **veil** `{ target, duration }` -> won / out: a duel. The caster and the target are pulled into a veil
   for `duration` ticks (a boss bar): they can only affect each other (shots, rays, dashes and effects skip
   anyone across it), and on Bukkit they only see each other (everyone else is hidden from them and them
@@ -446,3 +448,43 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Cues:** sickle_rake, dream_step, dream_arrive, dream_rift, rift_close, whisper_bind, whisper_tether_1..4
   (lines), whisper_curse, whisper_snap, shade_aura, shade_execute, shade_dissolve, veil_warning, veil_enter,
   veil_exit.
+
+## Added for the Fae
+
+- **Characters:** `hover: { height, fly, speed, visual }` - a passive hover, no fall damage either way:
+  - `fly: false`: always floating `height` blocks (whole blocks) above the ground. You walk, jump and drop off
+    ledges that much higher, over water too, on a floor of invisible blocks only you see. No flying.
+  - `fly: true` (default): double-tap jump to fly, at most `height` blocks above the ground below (higher, you
+    sink back down). `speed` is x vanilla flying speed (0.5 = half), scaled by the move speed stat and slows like
+    walking. Can't fly while stunned or rooted (you drop). The limit holds off during dashes.
+  - Free flight (`state.flying`) overrides either while it lasts. `visual` is what you ride, under your feet: a
+    block shows its real model upside down (a spore blossom opens upward), an item lies flat.
+- **charge:** `bar: held` (with `release_gap`) - the cast bar only shows once the key is really held (its first
+  repeat), so a tap shows nothing (e.g. "hold to cancel").
+- **Ward:** `cast: <ability>` (with `cooldown: <ticks>`) turns it into a REFLEX: the next enemy hit that gets
+  through casts that ability (the next tick, with `target` = whoever hit you). Ready again `cooldown` later, or
+  sooner after `out_of_combat` ticks without fighting. Give the ability `blocked_by: []` so it works while stunned.
+- **Nodes:**
+  - mount `{ target, status, self_status, store }` -> out / none / off: sit on someone's head (you go where they
+    go) until the cast ends, a dismount node, or a new mount; "out" right away. `status` is on them while you're
+    up there, `self_status` on you. If the ride ends by itself (they die, the game takes you off), a branch runs
+    from `off`. You can't hop off by sneaking. The mount is stored as "mount".
+  - dismount: off whatever you ride (quietly, `off` doesn't run).
+  - leash `{ target, length, duration, pull, max_speed, range, cue }` -> out / broken: drag someone along for
+    `duration` ticks: beyond `length` blocks they're pulled toward you (`pull` x the excess per tick, at most
+    `max_speed`). Broken: they're gone, or more than `range` (32) away.
+  - is_ally `{ target }` -> ally / enemy / none (default target: hit).
+- **Dash:** `follow: true` with `to: <entity key>` flies after that entity, re-aimed every tick, and exits `hit`
+  (hit = them) on reaching them (above their head). Only walls stop it; it gives up after `range` blocks' worth.
+  Anyone dashing has the tag `state.dashing`.
+- **Projectile:** `hits_allies: true` - allies don't let it through (it exits `hit_entity` for friend and foe).
+- **Traps (construct):** `triggered_by: enemies | allies | all` (never the owner); `hidden: true` - only the owner
+  and their allies see it (and hear it arm). Any construct: `cue: <id>` plays every `cue_every` ticks (default 10)
+  while it stands.
+- **Recasts:** while a cast whose cooldown is still waiting runs (`after_recast` or `manual`), a held key's
+  repeats can't start a second one. An await_recast doesn't start a `manual` cooldown.
+- **Tags:** `state.nauseous` (vanilla Nausea).
+- **Cues:** fae_blossom_shot, fae_blossom_burst, fae_spore_burst, fae_seed_throw, fae_seed_idle, fae_seed_wilt,
+  fae_seed_latched / fae_seed_latched_ally (looping), fae_seed_burst, fae_seed_bloom, fae_flit, fae_perch,
+  fae_unperch, fae_gust, fae_trap_throw, fae_trap_wilt, fae_trap_spring, fae_wings, fae_latch, fae_vine (line),
+  fae_release.

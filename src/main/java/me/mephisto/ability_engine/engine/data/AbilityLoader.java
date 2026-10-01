@@ -182,12 +182,22 @@ public final class AbilityLoader {
         return slots;
     }
 
-    /** {@code ward: { name, out_of_combat, hotbar, icon, description }}: a passive debuff immunity. */
-    private static CharacterDef.Ward ward(Params p, Map<String, ResourceDef> resources, QuiverDef quiver) {
+    /**
+     * {@code ward: { name, out_of_combat, hotbar, icon, description }}: a passive debuff immunity; with
+     * {@code absorb} a barrier, with {@code cast: <ability>} (and {@code cooldown}) a reflex.
+     */
+    private CharacterDef.Ward ward(Params p, Map<String, ResourceDef> resources, QuiverDef quiver) {
         if (!p.has("ward")) return null;
         Params w = p.getParams("ward");
         int ticks = w.requireInt("out_of_combat");
         if (ticks < 1) throw w.error("out_of_combat", "must be at least 1 tick");
+        String cast = w.getString("cast", null);
+        if (cast != null && engine.abilities().find(cast).isEmpty()) {
+            throw w.error("cast", "unknown ability '" + cast + "' (missing, or it failed to load)");
+        }
+        int cooldown = w.getInt("cooldown", 0);
+        if (cooldown < 0) throw w.error("cooldown", "must be >= 0 ticks");
+        if (cooldown > 0 && cast == null) throw w.error("cooldown", "only a reflex (cast: <ability>) has a cooldown");
         int hotbar = w.getInt("hotbar", 0);
         if (hotbar < 0 || hotbar > 9) throw w.error("hotbar", "expected a hotbar slot 1-9 (or 0: not shown)");
         for (ResourceDef r : resources.values()) {
@@ -198,8 +208,24 @@ public final class AbilityLoader {
         }
         double absorb = w.getDouble("absorb", 0);
         if (absorb < 0 || absorb > 1) throw w.error("absorb", "must be between 0 and 1 (0.5 = half the next hit)");
+        if (absorb > 0 && cast != null) throw w.error("cast", "a ward is a barrier (absorb) or a reflex (cast), not both");
         return new CharacterDef.Ward(w.getString("name", "Ward"), ticks, hotbar, w.getString("icon", null),
-                w.has("description") ? w.getStringList("description") : List.of(), absorb);
+                w.has("description") ? w.getStringList("description") : List.of(), absorb, cast, cooldown);
+    }
+
+    /** {@code hover: { height, speed, visual }}: a passive flight, at most that high above the ground. */
+    private static CharacterDef.Hover hover(Params p) {
+        if (!p.has("hover")) return null;
+        Params h = p.getParams("hover");
+        double height = h.requireDouble("height");
+        if (height <= 0) throw h.error("height", "must be above 0 (blocks above the ground)");
+        boolean fly = h.getBool("fly", true);
+        if (!fly && (height < 1 || height != Math.rint(height))) {
+            throw h.error("height", "without flying it's whole blocks: 1, 2, ...");
+        }
+        double speed = h.getDouble("speed", 0.5);
+        if (speed <= 0 || speed > 10) throw h.error("speed", "must be above 0 (x vanilla flying speed, 0.5 = half)");
+        return new CharacterDef.Hover(height, speed, h.getString("visual", null), fly);
     }
 
     /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */
@@ -268,7 +294,8 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p));
+                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
+                hover(p));
     }
 
     /** {@code hearing: { below, range, toward: { range, status }, hotbar, icon, name, description }}. */

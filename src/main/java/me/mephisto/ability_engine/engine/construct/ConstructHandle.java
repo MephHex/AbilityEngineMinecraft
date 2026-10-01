@@ -23,4 +23,7 @@ public interface ConstructHandle {
 
     /** A trap: can it be set off yet? Always true for constructs that aren't traps. */
     default boolean armed() { return true; }
+
+    /** Only its owner and their allies may see it (a hidden trap): the platform hides it from everyone else. */
+    default boolean hidden() { return false; }
 }

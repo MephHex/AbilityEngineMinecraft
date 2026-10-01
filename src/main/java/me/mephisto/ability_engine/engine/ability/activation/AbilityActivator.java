@@ -92,8 +92,8 @@ public final class AbilityActivator {
     }
 
     public ActivationResult activate(UUID caster, Ability ability, boolean freshPress, Map<String, Object> presets) {
-        // Aiming something already? Its own key does nothing here: the input layer confirms a real second
-        // press with TargetingManager.confirm (it can tell one from a held key's auto-repeat). Others switch.
+        // Aiming something already? Its own key does nothing (only LMB confirms, via TargetingManager.confirm).
+        // Others switch.
         Optional<Ability> aiming = engine.targeting().current(caster);
         if (aiming.isPresent()) {
             if (aiming.get().id().equals(ability.id())) return ActivationResult.targeting();
@@ -150,14 +150,19 @@ public final class AbilityActivator {
         // Pressed again before the recast window opened (mid-dash, the orb still spawning): keep the press
         // for a moment and recast as soon as the window opens, rather than dropping it.
         // (Its cooldown waits for that window, so this used to start a second, free cast instead.)
+        // A held key's repeats meanwhile do nothing either: they never recast, and must not start a second cast.
         AbilityInstance early = null;
-        if (freshPress && ability.graph().anyNode(n -> n instanceof AwaitRecastNode)) {
+        if (ability.graph().anyNode(n -> n instanceof AwaitRecastNode)) {
             for (AbilityInstance running : engine.instances().of(caster)) {
                 if (running.ability().id().equals(ability.id()) && running.isActive()) early = running;
             }
+            boolean waitsForIt = early != null && early.cooldownPending() && ability.charges() <= 1
+                    && (ability.cooldownAfterRecast() || ability.manualCooldown());
+            if (!freshPress && waitsForIt) return ActivationResult.fail("held");
+            if (!freshPress) early = null;
             if (early != null) {
                 early.bufferRecast(engine.clock().now() + RECAST_BUFFER_TICKS);
-                if (early.cooldownPending() && ability.cooldownAfterRecast() && ability.charges() <= 1) return ActivationResult.fail(BUFFERED);
+                if (waitsForIt) return ActivationResult.fail(BUFFERED);
             }
         }
 
