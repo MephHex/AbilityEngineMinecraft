@@ -21,10 +21,29 @@ final class VisualSpawner {
 
     private static final String ENTITY_PREFIX = "entity:";
     private static final String BLOCK_PREFIX = "block:";
+    /** "upside_down:<visual>": that visual turned over (a hanging spore blossom opens upward). */
+    private static final String UPSIDE_DOWN_PREFIX = "upside_down:";
+
+    /**
+     * Turn a display over (half a turn about x: (x, y, z) -> (x, -y, -z)) where it is: an item's model is
+     * centred on the point, so it turns in place; a block's spans 0..s up from the point, so it's shifted to
+     * span 0..s again.
+     */
+    private static void turnOver(Display d, float s) {
+        Transformation t = d.getTransformation();
+        Vector3f shift = d instanceof BlockDisplay ? new Vector3f(-s / 2, s, s / 2) : t.getTranslation();
+        d.setTransformation(new Transformation(shift, new Quaternionf().rotateX((float) Math.PI), t.getScale(),
+                t.getRightRotation()));
+    }
 
     record Spawned(Entity entity, double yOffset) {}
 
     static Spawned spawn(Location loc, String visual, float size, Logger log) {
+        if (visual != null && visual.regionMatches(true, 0, UPSIDE_DOWN_PREFIX, 0, UPSIDE_DOWN_PREFIX.length())) {
+            Spawned s = spawn(loc, visual.substring(UPSIDE_DOWN_PREFIX.length()), size, log);
+            if (s.entity() instanceof Display d) turnOver(d, size);
+            return s;
+        }
         if (visual != null && visual.regionMatches(true, 0, ENTITY_PREFIX, 0, ENTITY_PREFIX.length())) {
             Spawned s = entity(loc, visual.substring(ENTITY_PREFIX.length()), log);
             if (s != null) return s;

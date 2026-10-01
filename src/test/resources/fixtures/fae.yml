@@ -61,7 +61,7 @@ abilities:
         speed: 1.1
         size: 0.4
         lifetime: 22                 # ~24 blocks
-        visual: SPORE_BLOSSOM
+        visual: "upside_down:SPORE_BLOSSOM"   # facing up, open
         motion:
           - { type: gravity, amount: 0.015 }
         on: { spawned: shoot_cue, hit_entity: burst, hit_block: burst }

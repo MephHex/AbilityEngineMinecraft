@@ -79,7 +79,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   `state.hasted` = +30% speed, `state.sturdy` = half knockback, `state.invisible` = invisible (held items
   still show, like vanilla).
 - **Projectile visual:** an item Material (`DIAMOND_BLOCK`), or `"entity:<EntityType>"`
-  (`"entity:END_CRYSTAL"`). Arrow types (`"entity:ARROW"`, `SPECTRAL_ARROW`, `TRIDENT`) are real arrows
+  (`"entity:END_CRYSTAL"`). `"upside_down:<visual>"` turns an item or `block:` visual over (e.g.
+  `"upside_down:SPORE_BLOSSOM"`: a hanging spore blossom facing up). Arrow types (`"entity:ARROW"`, `SPECTRAL_ARROW`, `TRIDENT`) are real arrows
   flown by the game itself (vanilla drop and drag: `motion` and `bounces` don't apply, `speed` is the
   launch speed). The engine still checks their path every tick, so enemies, allies, barriers and
   constructs work as usual; they can't hurt anything by themselves or be picked up. An infused bolt's
