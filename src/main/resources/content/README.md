@@ -491,7 +491,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Cooldowns:** `start_cooldown { restart: true }` starts the full cooldown over from now, even if it already
   started (e.g. every time a fae perches). `on_cooldown { ability }` -> cooling / ready (default: this ability),
   e.g. a recast (free by itself) that should wait for the cooldown: send `cooling` back to the await_recast.
-- **Tags:** `state.nauseous` (vanilla Nausea).
+- **Tags:** `state.nauseous` (vanilla Nausea), `state.poison_hearts` (Poison's green hearts; the status does the
+  damage, vanilla Poison's own is cancelled).
 - **Cues:** fae_blossom_shot, fae_blossom_burst, fae_spore_burst, fae_seed_throw, fae_seed_idle, fae_seed_wilt,
   fae_seed_latched / fae_seed_latched_ally (looping), fae_seed_burst, fae_seed_bloom, fae_flit, fae_perch,
   fae_unperch, fae_gust, fae_trap_throw, fae_trap_wilt, fae_trap_spring, fae_wings, fae_vine_shot, fae_latch,

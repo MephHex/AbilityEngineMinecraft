@@ -70,7 +70,11 @@ public final class TagBindings implements TagListener {
         b.bind("state.withered",
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, PotionEffect.INFINITE_DURATION, 1, false, true)),
                 e -> e.removePotionEffect(PotionEffectType.WITHER));
-        // The Fae's trap: a wobbling screen (the stun's own Nausea is stronger; whichever ends first takes it off)
+        // The Fae's trap: Poison's green hearts (its damage is the trap's: see WitherGuard)...
+        b.bind("state.poison_hearts",
+                e -> e.addPotionEffect(new PotionEffect(PotionEffectType.POISON, PotionEffect.INFINITE_DURATION, 0, false, false, true)),
+                e -> e.removePotionEffect(PotionEffectType.POISON));
+        // ...and a wobbling screen (the stun's own Nausea is stronger; whichever ends first takes it off)
         b.bind(Tags.NAUSEOUS,
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, PotionEffect.INFINITE_DURATION, 0, false, false)),
                 e -> e.removePotionEffect(PotionEffectType.NAUSEA));

@@ -30,7 +30,7 @@ statuses:
     duration: 80                     # 4s...
     stacking: refresh
     move_speed: 0.65                 # -35%
-    tags: [state.poisoned, state.nauseous]
+    tags: [state.poisoned, state.poison_hearts, state.nauseous]   # poison_hearts: vanilla's green hearts
     tick:
       every: 20                      # ...2% max HP a second = 8% (ignores armor)
       effects:
@@ -372,7 +372,7 @@ abilities:
         at: hit
 
   # ULTIMATE (F): Wild Hunt. 8s of free flight, no height limit (it ends a perch). Press F again: a vine
-  # shoots out (a skillshot, 20 blocks, a 1x1 hitbox). If it catches an enemy it latches on, stunning them for
+  # shoots out (a skillshot, 20 blocks, a small hitbox). If it catches an enemy it latches on, stunning them for
   # 3.5s and tethering them to you (4 blocks of slack): fly off and drag them along, up into the air if you
   # like. Missing doesn't end it: shoot again while the flight lasts. The cooldown starts at the first shot
   # (or after the 8s).
@@ -419,7 +419,7 @@ abilities:
       shoot:
         type: projectile             # the vine: a skillshot
         speed: 1.6
-        size: 1                      # a 1x1 hitbox
+        size: 0.8                    # a small hitbox: aim it
         visual_size: 0.9
         range: 20
         lifetime: 20

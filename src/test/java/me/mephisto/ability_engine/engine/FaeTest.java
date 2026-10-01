@@ -422,6 +422,7 @@ class FaeTest {
         assertEquals(BASE, t.damage(beside), 1e-9, "within 3 blocks");
         assertTrue(has(target, "fae_toxin"));
         assertTrue(t.engine.tags().has(target, Tags.POISONED));
+        assertTrue(t.engine.tags().has(target, "state.poison_hearts"), "green hearts");
         assertTrue(t.engine.tags().has(target, Tags.NAUSEOUS));
         assertEquals(0.65, t.engine.stats().moveSpeedMultiplier(target), 1e-9, "35% slower");
         t.time.advance(80);
