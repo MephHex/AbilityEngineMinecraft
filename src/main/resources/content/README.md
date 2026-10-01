@@ -469,9 +469,9 @@ slot, so an ability is only silenced when it's in an ability slot.
   - mount `{ target, status, self_status, store }` -> out / none / off: sit on someone's head (a little above it,
     out of their view; you go where they go) until the cast ends, a dismount node, or a new mount; "out" right away. `status` is on them while you're
     up there, `self_status` on you. If the ride ends by itself (they die, the game takes you off, another
-    ability's dismount), a branch runs from `off`. You can't hop off by sneaking. The mount is stored as "mount".
+    ability's dismount, you press SHIFT to hop off), a branch runs from `off`. The mount is stored as "mount".
   - dismount: off whatever you ride. In the ride's own ability it's quiet (`off` doesn't run); from another
-    ability (e.g. "hold RMB to hop off") the ride's `off` branch runs, so it lands and starts its cooldown.
+    ability (e.g. an ultimate that leaps off) the ride's `off` branch runs, so it lands and starts its cooldown.
   - leash `{ target, length, duration, pull, max_speed, range, cue }` -> out / broken: drag someone along for
     `duration` ticks: beyond `length` blocks they're pulled toward you (`pull` x the excess per tick, at most
     `max_speed`). Broken: they're gone, or more than `range` (32) away.

@@ -260,7 +260,7 @@ on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
 |---|---|
 | Blossom Shot (primary) | **90%** within 2.2 blocks of where it bursts |
 | Seed Bomb | 3 charges; latches onto friend, foe or her (or waits 15s on the ground): 2s later **110%** to enemies within 3.5 blocks, or heals allies within 3.5 blocks 5 HP |
-| Perch | sit on an ally: untouchable; they're +20% faster, +2 HP per basic attack; again: +35% speed 2s (5s cd) or fly to another ally; hold RMB: off |
+| Perch | sit on an ally: untouchable; they're +20% faster, +2 HP per basic attack; again: +35% speed 2s (5s cd) or fly to another ally; shift: off |
 | Deathcap Snare | hidden trap: **100%** within 3 blocks + 8% max HP poison, 35% slow and nausea for 4s |
 | Wild Hunt (ult) | 8s free flight; latch an enemy: 3.5s stun, dragged along on a 4-block vine |
 

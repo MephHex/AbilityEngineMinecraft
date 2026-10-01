@@ -22,8 +22,9 @@ import java.util.UUID;
  * ({@link MovementControl#mount}); this keeps track of who rides whom, for which cast, and ends rides:
  * <ul>
  *   <li>by the cast (its own dismount node, a new mount, the cast ending however it ends): quietly</li>
- *   <li>by themselves (the mount died or left, the game took the rider off, the rider died, another cast's
- *       dismount): the ride's "off" branch runs, so the ability can react (land, start its cooldown)</li>
+ *   <li>by themselves (the mount died or left, the game took the rider off, the rider died or hopped off,
+ *       another cast's dismount): the ride's "off" branch runs, so the ability can react (land, start its
+ *       cooldown)</li>
  * </ul>
  * While a ride lasts its statuses are on: {@code status} on the mount (from the rider), {@code selfStatus}
  * on the rider. Both come off when it ends. One ride per rider.
@@ -82,12 +83,15 @@ public final class RideManager {
 
     /**
      * Get the rider off for a cast: quietly if it's the ride's own cast, otherwise as if the ride ended by
-     * itself (its "off" branch runs), e.g. another ability's "hold to hop off".
+     * itself (its "off" branch runs), e.g. another ability that leaps off.
      */
     public void dismount(UUID rider, AbilityInstance by) {
         Ride r = byRider.get(rider);
         end(rider, r != null && r.instance() != by);
     }
+
+    /** The rider hops off by themselves (e.g. SHIFT on Bukkit): the ride's "off" branch runs. */
+    public void hopOff(UUID rider) { end(rider, true); }
 
     /** Whom the rider is riding right now (rides this manager started). */
     public Optional<UUID> mountOf(UUID rider) {

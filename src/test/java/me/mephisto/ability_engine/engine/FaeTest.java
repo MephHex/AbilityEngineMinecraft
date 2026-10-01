@@ -291,58 +291,18 @@ class FaeTest {
         assertTrue(has(pal, "fae_gust"));
     }
 
-    /** RMB pressed, then held for {@code ticks} (a held RMB repeats every 4 ticks). */
-    private void holdRmb(int ticks) {
-        use(Slots.SECONDARY);
-        for (int held = 4; held <= ticks; held += 4) {
-            t.time.advance(4);
-            t.engine.loadouts().activate(p, Slots.SECONDARY, false);
-        }
-    }
-
     @Test
-    void holdingRmbHopsHerOff() throws IOException {
+    void shiftHopsHerOff() throws IOException {
         setup();
         UUID pal = perchOnNewFriend();
-        holdRmb(20);
-        t.time.advance(2);
+        t.engine.rides().hopOff(p); // SHIFT (Bukkit's RideGuard)
+        t.time.advance(1);
         assertNull(t.world.riding.get(p), "off");
         assertFalse(has(pal, "fae_blessing"));
         assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertEquals(0, running("fae_ab2"));
         assertTrue(t.render.cues.contains("fae_unperch"));
-        assertEquals(198, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "the cooldown started when she hopped off (held 1s)");
-    }
-
-    private java.util.Optional<Double> hopBar() {
-        return t.engine.instances().of(p).stream().filter(i -> i.ability().id().equals("fae_secondary")).findFirst()
-                .flatMap(i -> i.progressFraction());
-    }
-
-    @Test
-    void holdingRmbFillsABar() throws IOException {
-        setup();
-        perchOnNewFriend();
-        holdRmb(8);
-        assertEquals(8 / 20.0, hopBar().orElseThrow(), 1e-9, "1s to fill");
-    }
-
-    @Test
-    void aQuickRmbClickDoesntHopHerOff() throws IOException {
-        setup();
-        UUID pal = perchOnNewFriend();
-        holdRmb(8);
-        t.time.advance(20); // let go
-        assertEquals(pal, t.world.riding.get(p), "still up there");
-        assertEquals(1, running("fae_ab2"));
-    }
-
-    @Test
-    void rmbDoesNothingWhenSheIsntPerched() throws IOException {
-        setup();
-        holdRmb(24);
-        assertEquals(0, running("fae_secondary"));
-        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "fae_ab2"));
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "the cooldown started when she hopped off");
     }
 
     @Test

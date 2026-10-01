@@ -17,7 +17,7 @@ import java.util.Set;
  *   <li>"out" at once: the ride is on (it lasts as long as the cast does, at most)</li>
  *   <li>"none": nobody there, or they can't be ridden</li>
  *   <li>"off", later, in a branch of its own: the ride ended by itself (the mount died or left, the game
- *       took the caster off, another cast's dismount). Ended by the cast instead (its own dismount, another
+ *       took the caster off, they hopped off, another cast's dismount). Ended by the cast instead (its own dismount, another
  *       mount, the cast ending): nothing more runs</li>
  * </ul>
  * {@code status}: on the mount while it's ridden (from the caster); {@code self_status}: on the caster

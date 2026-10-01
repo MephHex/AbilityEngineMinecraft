@@ -200,8 +200,8 @@ abilities:
   # 2: Perch. Fly to an ally in your sights (25 blocks; you can be hit on the way) and sit on their head:
   # you go where they go, untouchable (abilities pass through you, nothing hurts you). They're 20% faster
   # and their basic attacks deal +2 HP. Press 2 again: a gust, +35% speed for them for 2s (every 5s at
-  # most); aim at ANOTHER ally instead and you fly over to them (vulnerable again on the way). Hold RMB (1s,
-  # fae_secondary) to hop off. It ends too when they die. The cooldown starts when you're off.
+  # most); aim at ANOTHER ally instead and you fly over to them (vulnerable again on the way). Press SHIFT
+  # to hop off. It ends too when they die. The cooldown starts when you're off.
   fae_ab2:
     cooldown: 200                    # 10s
     cooldown_starts: manual          # once the ride is over
@@ -212,7 +212,7 @@ abilities:
         - "Fly onto an ally's head (25 blocks):"
         - "untouchable; they're 20% faster, +2 HP"
         - "per basic attack. Again: gust (+35% speed),"
-        - "or fly to another ally. Hold RMB: hop off."
+        - "or fly to another ally. Shift: hop off."
     nodes:
       pick:
         type: acquire_target
@@ -242,7 +242,7 @@ abilities:
         at: mount
         next: listen
       listen:
-        type: await_recast           # while perched, 2 again (hopping off is RMB: fae_secondary)
+        type: await_recast           # while perched, 2 again (hopping off is SHIFT: the ride's "off")
         window: 6000
         on: { recast: tap, timeout: listen }
       tap:
@@ -301,7 +301,7 @@ abilities:
         status: fae_blessing
         self_status: fae_perched
         on: { out: perch_cue, none: lost, off: fell }
-      fell:                          # off (hopped off with RMB, they died, the game took her off)
+      fell:                          # off (she pressed SHIFT, they died, the game took her off)
         type: play_cue
         cue: fae_unperch
         next: done
@@ -314,27 +314,6 @@ abilities:
         next: end
       end:
         type: end_cast
-
-  # RMB: Hop Off. While perched (Perch), hold RMB for 1s to hop off: Perch's cooldown starts. Does nothing
-  # otherwise.
-  fae_secondary:
-    display:
-      name: "Hop Off"
-      description:
-        - "While perched: hold RMB (1s) to hop off."
-    nodes:
-      perched:
-        type: has_status
-        status: fae_perched
-        on: { has: hold, lacks: ~ }
-      hold:
-        type: charge                 # the cast bar fills while it's held
-        ticks: 20                    # 1s
-        min: 14                      # let go sooner: still up there
-        release_gap: 6               # a held RMB repeats every 4 ticks
-        on: { out: leave, early: ~ }
-      leave:
-        type: dismount               # Perch's ride ends: it lands her and starts its cooldown
 
   # 3: Deathcap Snare. Throw a toadstool; where it lands it hides a trap (30s, 2 at most) that enemies can't
   # see. Armed after 1s, the first enemy within 1.4 blocks springs it: enemies within 3 blocks take 100% base
@@ -509,9 +488,8 @@ characters:
         - "back enemies within 4 blocks. Ready again"
         - "10s later, or after 4s out of combat."
     slots:
-      primary: fae_primary           # LMB: Blossom Shot
-      secondary: fae_secondary       # RMB: hold to hop off an ally (Perch)
+      primary: fae_primary           # LMB: Blossom Shot (no RMB)
       ability_1: fae_ab1             # 1: Seed Bomb (3 charges)
-      ability_2: fae_ab2             # 2: Perch (again: gust / another ally; hold RMB: hop off)
+      ability_2: fae_ab2             # 2: Perch (again: gust / another ally; shift: hop off)
       ability_3: fae_ab3             # 3: Deathcap Snare
       ultimate: fae_ult1             # F: Wild Hunt

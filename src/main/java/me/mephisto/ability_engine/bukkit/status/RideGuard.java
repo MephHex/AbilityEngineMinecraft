@@ -8,11 +8,15 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDismountEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+
+import java.util.UUID;
 
 /**
- * Rides (the engine's mount node) on Bukkit: a rider can't hop off by sneaking while their ride lasts; the
- * ability decides when it ends. If the mount itself is gone or dead they're let go (the engine notices and
- * ends the ride).
+ * Rides (the engine's mount node) on Bukkit: nothing else takes a rider off while their ride lasts; the
+ * ability decides when it ends. Pressing SHIFT hops them off through the engine, so the ride's "off" branch
+ * runs (the ability lands them and starts its cooldown). If the mount itself is gone or dead they're let go
+ * (the engine notices and ends the ride).
  */
 public final class RideGuard implements Listener {
 
@@ -20,6 +24,12 @@ public final class RideGuard implements Listener {
 
     public RideGuard(AbilityEngine engine) {
         this.engine = engine;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSneak(PlayerToggleSneakEvent event) {
+        UUID id = event.getPlayer().getUniqueId();
+        if (event.isSneaking() && engine.rides().mountOf(id).isPresent()) engine.rides().hopOff(id);
     }
 
     /** The rider off their seat, or the seat (with the rider on it) off the mount: the ride decides. */
