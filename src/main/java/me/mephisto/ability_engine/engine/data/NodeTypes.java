@@ -239,6 +239,8 @@ public final class NodeTypes {
                 p.requireString("resource")));
         t.register("refill", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.RefillNode(
                 p.requireString("resource"), p.has("amount") ? p.getDouble("amount", 0) : null));
+        t.register("landings", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.LandingsNode(
+                p.requireInt("ticks"), p.getString("store", null)));
         t.register("repeat", (p, e) -> {
             Object times = p.raw("times");
             Integer fixed = times instanceof Number n ? n.intValue() : null;

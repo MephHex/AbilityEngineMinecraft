@@ -119,6 +119,7 @@ public final class AbilityEngine {
                         new me.mephisto.ability_engine.engine.target.EntityTarget(target), config.params()));
             }
         });
+        statuses.setCueStarter((holder, cue) -> cuesFor(holder).start(cue, holder)); // its variant too (blue flames)
         effects.register("status", new ApplyStatusEffect(statusDefs));
         effects.register("remove_status", new me.mephisto.ability_engine.engine.effect.RemoveStatusEffect(statusDefs));
         effects.register("purge_buffs", new me.mephisto.ability_engine.engine.effect.PurgeBuffsEffect());

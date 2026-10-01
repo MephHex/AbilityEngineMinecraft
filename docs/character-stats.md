@@ -268,18 +268,18 @@ on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **180** | **0** (0%) | **30** | **1.00** | **2.0** (10 ticks) | 180 | 60 (~200 in Hellfire Inferno) |
+| **180** | **0** (0%) | **30** | **1.00** | **2.0** (10 ticks) | 180 | 60 (~200 overheated) |
 
-Overheat (passive, the XP bar): each Fire Bolt that hits an enemy is a stack (15 at most); 3s without one and
-it cools a stack every 0.2s. Full: RMB pours it out in a beam.
+Overheat (passive, the XP bar): every enemy her abilities hit is a stack (15 at most; burning doesn't count); 3s
+without a hit and it cools a stack every 0.2s. Full: she overheats until it's empty again: blue flames, Fire Bolts
+every 3 ticks (x3.3), +25% speed.
 
 | Ability | Damage |
 |---|---|
-| Fire Bolt (primary) | **100%** magic damage; +1 Overheat per enemy hit |
-| Overheat beam (RMB, full gauge) | 3s beam (20 blocks, through everyone in line): **40%** every 0.2s = **600%**; silences her meanwhile |
+| Fire Bolt (primary) | **100%** magic damage |
 | Fireball | **160%** within 3.5 blocks, small knockback, burn (12% max HP over 3s) |
 | Hunting Wisp | sent to a spot (25 blocks); waits up to 30s for an enemy within 7, hunts the first one (they glow): **140%** within 3 blocks + burn |
-| Hellfire Inferno | 6s: +25% speed, +15% damage, bolts every 3 ticks (x3.3), bolts and beam heal 30% of their damage, blue flames; costs her 3% max HP a second (18%) |
+| Hot Coals | 6s of Jump Boost II; every landing scorches the ground for 4s (1.8 blocks): enemies in it are slowed 35% and burn |
 | Scorching Judgment (ult) | marked 6-block area (everyone sees its edge): ~2s later a meteor, **300%** + knockback + burn; then 8s of scorched ground, **15%** every 0.5s + burn |
 
 ### Test kit (Pyro)

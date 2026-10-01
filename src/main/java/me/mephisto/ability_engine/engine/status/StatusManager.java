@@ -35,6 +35,16 @@ public final class StatusManager {
 
     public void setEffectApplier(EffectApplier applier) { this.effectApplier = applier; }
 
+    /** Starts a status's looping cue on its holder (the engine wires this up). */
+    @FunctionalInterface
+    public interface CueStarter {
+        me.mephisto.ability_engine.engine.platform.CueHandle start(UUID holder, String cue);
+    }
+
+    private CueStarter cueStarter = (holder, cue) -> me.mephisto.ability_engine.engine.platform.CueHandle.NONE;
+
+    public void setCueStarter(CueStarter starter) { this.cueStarter = starter; }
+
     public StatusManager(GameClock clock, TaskScheduler scheduler, TagManager tags, StatusRegistry registry, EngineLog log) {
         this.clock = clock;
         this.scheduler = scheduler;
@@ -86,8 +96,16 @@ public final class StatusManager {
                 return;
             }
         }
+        String requires = def.links().requires();
+        if (requires != null && !has(target, requires)) return; // it only lasts while that does: nothing to hang on
+        int before = find(target, def.id()).map(ActiveStatus::stacks).orElse(0);
         applyInternal(target, def, durationTicks, source);
         for (ApplyListener l : List.copyOf(applyListeners)) l.applied(target, def, durationTicks, source);
+        String atMax = def.links().atMax();
+        if (atMax != null && before < def.maxStacks()
+                && find(target, def.id()).map(s -> s.stacks() >= def.maxStacks()).orElse(false)) {
+            apply(target, atMax, target); // full: it sets that off (their own)
+        }
     }
 
     private void applyInternal(UUID target, StatusDef def, int durationTicks, UUID source) {
@@ -100,6 +118,7 @@ public final class StatusManager {
             ActiveStatus s = new ActiveStatus(def, source, newExpiry);
             mine.put(def.id(), s);
             tags.grantAll(target, def.grantedTags());
+            if (def.links().cue() != null) s.cue = cueStarter.start(target, def.links().cue());
             if (def.tickEvery() > 0 && !def.tickEffects().isEmpty()) {
                 // Refreshing doesn't restart the rhythm: ticks keep their pace until the status ends.
                 // Scheduled BEFORE the expiry, so a tick landing on the last tick still happens
@@ -151,8 +170,12 @@ public final class StatusManager {
         if (s == null) return;
         if (s.expiryTask != null) s.expiryTask.cancel();
         if (s.tickTask != null) s.tickTask.cancel();
+        if (s.cue != null) s.cue.stop();
         tags.revokeAll(target, s.def.grantedTags());
         log.debug(() -> "status -" + statusId + " on " + target);
+        for (ActiveStatus tied : on(target)) { // statuses that only last while this one did
+            if (statusId.equals(tied.def.links().requires())) remove(target, tied.def.id());
+        }
     }
 
     /** Take {@code count} stacks off a status; it ends when none are left. */

@@ -12,6 +12,7 @@ public final class ActiveStatus {
     int stacks = 1;
     TaskHandle expiryTask;
     TaskHandle tickTask;
+    me.mephisto.ability_engine.engine.platform.CueHandle cue; // its looping cue, if it has one
 
     ActiveStatus(StatusDef def, UUID source, long expiresAt) {
         this.def = def;

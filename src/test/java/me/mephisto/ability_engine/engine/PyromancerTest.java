@@ -56,6 +56,11 @@ class PyromancerTest {
 
     private long count(String cue) { return t.render.cues.stream().filter(cue::equals).count(); }
 
+    /** In orange or blue (she may overheat midway). */
+    private long either(String cue) { return count(cue) + count(cue + "_blue"); }
+
+    private boolean overheated() { return t.engine.tags().has(p, "state.overheated"); }
+
     /** Fire a bolt at whoever stands ahead and let it land (and the primary come back). */
     private void bolt() {
         use(Slots.PRIMARY);
@@ -89,13 +94,11 @@ class PyromancerTest {
         foe(6, 0);
         for (int i = 0; i < 14; i++) bolt();
         assertEquals(14, heat());
-        assertEquals(0, count("pyro_heat_full"));
+        assertFalse(overheated());
         bolt();
         assertEquals(15, heat());
-        assertEquals(1, count("pyro_heat_full"), "full: she hears it");
         bolt();
         assertEquals(15, heat(), "15 at most");
-        assertEquals(1, count("pyro_heat_full"), "only when it fills");
         var gauge = t.engine.statuses().stackGauge(p, "pyro_heat").orElseThrow();
         assertEquals(1.0, gauge.fraction(), 1e-9, "the XP bar is full");
     }
@@ -132,84 +135,113 @@ class PyromancerTest {
         assertEquals(now, heat(), "the 3s start over");
     }
 
-    // ---- Overheat's beam (RMB) ----------------------------------------------------------------------------
+    // ---- Overheat ----------------------------------------------------------------------------------------
 
     @Test
-    void notFullYetRightClickDoesNothing() throws IOException {
+    void aFullGaugeOverheatsHer() throws IOException {
         setup();
-        UUID enemy = foe(8, 0);
-        for (int i = 0; i < 5; i++) t.engine.statuses().apply(p, "pyro_heat", p);
-        t.engine.loadouts().activate(p, Slots.SECONDARY);
-        t.time.advance(10);
-        assertEquals(0, t.damage(enemy));
-        assertEquals(5, heat(), "nothing spent");
-        assertFalse(t.engine.tags().has(p, Tags.SILENCED));
-        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "pyro_secondary"));
+        foe(6, 0);
+        for (int i = 0; i < 14; i++) bolt();
+        assertFalse(overheated());
+        bolt();
+        assertTrue(overheated(), "15: overheated");
+        assertTrue(t.render.loops.stream().anyMatch(id -> id.startsWith("pyro_overheat")), "soul flames around her");
+        assertEquals(1.25, t.engine.stats().moveSpeedMultiplier(p), 1e-9, "25% faster");
+        use(Slots.PRIMARY);
+        assertEquals(3, t.engine.cooldowns().remainingTicks(p, "pyro_primary"), "a bolt every 3 ticks");
     }
 
     @Test
-    void fullTheBeamBurnsEveryoneInLineAndDrainsTheGauge() throws IOException {
+    void overheatedHerHitsDealTheSameAndDontHeal() throws IOException {
         setup();
-        UUID near = foe(5, 0);
-        UUID far = foe(12, 0);
-        UUID aside = foe(6, 4);
+        UUID enemy = foe(6, 0);
         fullHeat();
-        use(Slots.SECONDARY);
-        assertEquals(0.4 * BASE, t.damage(near), 1e-6, "a pulse at once");
-        assertEquals(0.4 * BASE, t.damage(far), 1e-6, "through everyone in the line");
-        assertEquals(14, heat(), "a stack a pulse");
-        assertTrue(t.render.lines.stream().anyMatch(l -> l[0].equals("pyro_beam")));
-
-        assertTrue(t.engine.tags().has(p, Tags.SILENCED), "silenced");
-        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_1).success(), "no abilities");
-        assertFalse(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "no Fire Bolts either");
-
-        t.time.advance(30);
-        assertTrue(heat() > 0 && heat() < 14, "still draining: " + heat());
-        t.time.advance(30);
-        assertEquals(15 * 0.4 * BASE, t.damage(near), 1e-6, "15 pulses");
-        assertEquals(0, t.damage(aside));
-        assertEquals(0, heat(), "empty");
-        assertFalse(t.engine.tags().has(p, Tags.SILENCED), "free again");
-        assertTrue(t.engine.cooldowns().remainingTicks(p, "pyro_secondary") > 0, "a short cooldown after it");
-        assertEquals(1, count("pyro_beam_end"));
+        assertTrue(overheated());
+        use(Slots.PRIMARY);
+        t.time.advance(5);
+        assertEquals(BASE, t.damage(enemy), 1e-6, "no extra damage");
+        assertFalse(t.lifesteal.containsKey(p), "no healing");
+        assertEquals(0, t.damage(p), "and it doesn't burn her");
     }
 
     @Test
-    void theBeamDoesntFillTheGaugeAgain() throws IOException {
+    void sheStaysOverheatedWhileSheKeepsHitting() throws IOException {
         setup();
-        foe(5, 0);
+        foe(6, 0);
         fullHeat();
-        use(Slots.SECONDARY);
-        t.time.advance(80);
+        for (int i = 0; i < 30; i++) { // 10s of bolts, a hit every 0.5s
+            use(Slots.PRIMARY);
+            t.time.advance(10);
+        }
+        assertTrue(overheated());
+        assertEquals(15, heat());
+    }
+
+    @Test
+    void itLastsUntilTheGaugeIsEmpty() throws IOException {
+        setup();
+        fullHeat();
+        t.time.advance(61);
+        assertEquals(14, heat(), "cooling...");
+        assertTrue(overheated(), "...still overheated below full");
+        t.time.advance(52);
+        assertEquals(1, heat());
+        assertTrue(overheated());
+        t.time.advance(4);
         assertEquals(0, heat());
-        t.engine.loadouts().activate(p, Slots.SECONDARY);
+        assertFalse(overheated(), "empty: over");
+        assertTrue(t.render.loops.isEmpty(), "her flames go out");
+        use(Slots.PRIMARY);
+        assertEquals(10, t.engine.cooldowns().remainingTicks(p, "pyro_primary"), "back to normal");
+    }
+
+    @Test
+    void overheatedHerFlamesAreBlue() throws IOException {
+        setup();
+        foe(6, 0);
+        bolt();
+        assertEquals("block:FIRE", t.render.visuals.get(0));
+        assertEquals(1, count("pyro_bolt_hit"));
+        fullHeat();
+        bolt();
+        assertEquals("block:SOUL_FIRE", t.render.visuals.get(1), "a soul fire bolt");
+        assertEquals(1, count("pyro_bolt_hit_blue"));
+        assertEquals(1, count("pyro_bolt_hit"), "not an orange one");
+        t.engine.statuses().remove(p, "pyro_heat"); // cooled right down
+        bolt();
+        assertEquals("block:FIRE", t.render.visuals.get(2), "orange again after");
+    }
+
+    @Test
+    void aCueWithNoBlueVersionPlaysAsItIs() throws IOException {
+        setup();
+        foe(6, 0);
+        t.render.knownCues = java.util.Set.of("pyro_bolt_hit", "pyro_bolt_cast", "pyro_bolt_trail");
+        fullHeat();
+        bolt();
+        assertEquals(1, count("pyro_bolt_hit"));
+        assertEquals(0, count("pyro_bolt_hit_blue"));
+    }
+
+    @Test
+    void anyOfHerHitsHeatsHerUp() throws IOException {
+        setup();
+        foe(6, 0);
+        foe(7, 2);
+        use(Slots.ABILITY_1); // a Fireball on two
         t.time.advance(10);
-        assertFalse(t.engine.tags().has(p, Tags.SILENCED), "no second beam on an empty gauge");
+        assertEquals(2, heat(), "a stack per enemy hit");
     }
 
     @Test
-    void itDoesntCoolDownByItselfDuringTheBeam() throws IOException {
+    void burningDoesntHeatHerUp() throws IOException {
         setup();
-        foe(5, 0);
-        fullHeat();
-        t.time.advance(55); // nearly 3s since it was filled: about to cool
-        use(Slots.SECONDARY);
-        t.time.advance(20);
-        assertEquals(15 - 6, heat(), "only the beam drains it (6 pulses so far)");
-    }
-
-    @Test
-    void aStunCutsTheBeamShort() throws IOException {
-        setup();
-        UUID enemy = foe(5, 0);
-        fullHeat();
-        use(Slots.SECONDARY);
-        t.time.advance(8);
-        t.engine.statuses().apply(p, "stun", enemy);
-        t.time.advance(60);
-        assertEquals(3 * 0.4 * BASE, t.damage(enemy), 1e-6, "3 pulses, then nothing");
-        assertFalse(t.engine.tags().has(p, Tags.SILENCED));
+        foe(6, 0);
+        use(Slots.ABILITY_1);
+        t.time.advance(10);
+        assertEquals(1, heat());
+        t.time.advance(50); // the burn ticks on
+        assertEquals(1, heat());
     }
 
     // ---- 1: Fireball --------------------------------------------------------------------------------------
@@ -312,80 +344,83 @@ class PyromancerTest {
         assertEquals(1, count("pyro_wisp_fade"));
     }
 
-    // ---- 3: Hellfire Inferno ------------------------------------------------------------------------------
+    // ---- 3: Hot Coals --------------------------------------------------------------------------------------
+
+    /** A jump: up in the air for a few ticks, then down again where she is. */
+    private void jump() {
+        Vec3 at = pos(p);
+        t.world.move(p, at.add(0, 2.5, 0));
+        t.time.advance(6);
+        t.world.move(p, at);
+        t.time.advance(1);
+    }
 
     @Test
-    void hellfireMakesHerFasterAndHarderHittingAndBoltsFly() throws IOException {
+    void hotCoalsGiveHerJumpBoostForSixSeconds() throws IOException {
         setup();
-        foe(6, 0);
         use(Slots.ABILITY_3);
-        assertTrue(t.engine.tags().has(p, "state.hellfire"));
-        assertEquals(1.25, t.engine.stats().moveSpeedMultiplier(p), 1e-9);
-        use(Slots.PRIMARY);
-        assertEquals(3, t.engine.cooldowns().remainingTicks(p, "pyro_primary"), "a bolt every 3 ticks");
+        assertTrue(t.engine.tags().has(p, "state.jump_boost"));
+        assertTrue(t.render.loops.stream().anyMatch(id -> id.startsWith("pyro_coals")), "juggling them");
         t.time.advance(120);
-        assertFalse(t.engine.tags().has(p, "state.hellfire"), "6s");
-        use(Slots.PRIMARY);
-        assertEquals(10, t.engine.cooldowns().remainingTicks(p, "pyro_primary"));
+        assertFalse(t.engine.tags().has(p, "state.jump_boost"), "6s");
+        assertTrue(t.render.loops.isEmpty(), "the coals are gone with it");
     }
 
     @Test
-    void hellfireBurnsHer() throws IOException {
+    void walkingAboutScorchesNothing() throws IOException {
         setup();
         use(Slots.ABILITY_3);
-        t.time.advance(120);
-        assertEquals(12 * 0.015 * 180, t.damage(p), 1e-6, "3% max HP a second for 6s");
+        t.world.move(p, new Vec3(3, 1, 0));
+        t.time.advance(20);
+        assertEquals(0, count("pyro_coal_scorch"));
     }
 
     @Test
-    void inHellfireHerBoltsAndBeamHealHer() throws IOException {
+    void eachLandingScorchesTheGroundSlowingAndBurningEnemiesInIt() throws IOException {
         setup();
-        UUID enemy = foe(6, 0);
         use(Slots.ABILITY_3);
-        use(Slots.PRIMARY);
-        t.time.advance(5);
-        assertEquals(BASE * 1.15, t.damage(enemy), 1e-6, "+15% damage");
-        assertEquals(BASE * 1.15 * 0.3, t.lifesteal.get(p), 1e-6, "30% of it back");
-        fullHeat();
-        use(Slots.SECONDARY);
-        assertEquals((BASE + 0.4 * BASE) * 1.15 * 0.3, t.lifesteal.get(p), 1e-6, "the beam too");
+        jump();
+        assertEquals(1, count("pyro_coal_scorch"));
+        UUID enemy = foe(4, 0);
+        t.time.advance(10);
+        assertFalse(has(enemy, "pyro_scorched"), "4 blocks away: not in it");
+        t.world.move(enemy, new Vec3(1, 1, 0)); // walks in
+        t.time.advance(10);
+        assertTrue(has(enemy, "pyro_scorched"), "slowed");
+        assertEquals(0.65, t.engine.stats().moveSpeedMultiplier(enemy), 1e-9);
+        assertTrue(has(enemy, "pyro_burn"), "burning");
+        assertTrue(heat() >= 1, "it heats her up too");
+        t.world.move(enemy, new Vec3(6, 1, 0)); // out again
+        t.time.advance(20);
+        assertFalse(has(enemy, "pyro_scorched"), "not slowed once out");
     }
 
     @Test
-    void withoutHellfireNothingHeals() throws IOException {
+    void everyJumpLeavesItsOwnPatchForFourSeconds() throws IOException {
         setup();
-        foe(6, 0);
-        bolt();
-        assertFalse(t.lifesteal.containsKey(p));
-    }
-
-    @Test
-    void inHellfireHerFlamesAreBlue() throws IOException {
-        setup();
-        foe(6, 0);
-        bolt();
-        assertEquals("block:FIRE", t.render.visuals.get(0));
-        assertEquals(1, count("pyro_bolt_hit"));
         use(Slots.ABILITY_3);
-        assertTrue(t.render.loops.stream().anyMatch(id -> id.startsWith("pyro_hellfire")), "blue flames around her");
-        bolt();
-        assertEquals("block:SOUL_FIRE", t.render.visuals.get(1), "a soul fire bolt");
-        assertEquals(1, count("pyro_bolt_hit_blue"));
-        assertEquals(1, count("pyro_bolt_hit"), "not an orange one");
-        t.time.advance(120);
-        bolt();
-        assertEquals("block:FIRE", t.render.visuals.get(2), "orange again after");
+        jump();
+        t.world.move(p, new Vec3(5, 1, 0));
+        jump();
+        assertEquals(2, count("pyro_coal_scorch"));
+        UUID first = foe(0, 0.5);
+        UUID second = foe(5, 0.5);
+        t.time.advance(10);
+        assertTrue(has(first, "pyro_scorched") && has(second, "pyro_scorched"), "both patches");
+        t.time.advance(80);
+        long patches = count("pyro_coal_patch");
+        t.time.advance(20);
+        assertEquals(patches, count("pyro_coal_patch"), "4s each: gone");
+        assertEquals(16, patches, "8 x 0.5s each");
     }
 
     @Test
-    void aCueWithNoBlueVersionPlaysAsItIs() throws IOException {
+    void afterSixSecondsLandingsDontScorch() throws IOException {
         setup();
-        foe(6, 0);
-        t.render.knownCues = java.util.Set.of("pyro_bolt_hit", "pyro_bolt_cast", "pyro_bolt_trail");
         use(Slots.ABILITY_3);
-        bolt();
-        assertEquals(1, count("pyro_bolt_hit"));
-        assertEquals(0, count("pyro_bolt_hit_blue"));
+        t.time.advance(121);
+        jump();
+        assertEquals(0, count("pyro_coal_scorch"));
     }
 
     // ---- F: Scorching Judgment ----------------------------------------------------------------------------
@@ -421,14 +456,15 @@ class PyromancerTest {
         judgment();
         t.time.advance(45);
         assertEquals(1, count("pyro_meteor_impact"));
-        long rings = count("pyro_judgment_ring");
+        long rings = either("pyro_judgment_ring");
         t.time.advance(200);
-        assertEquals(16, count("pyro_scorched"), "16 x 0.5s");
-        assertEquals(rings + 15, count("pyro_judgment_ring"), "its edge keeps showing");
+        assertEquals(16, either("pyro_scorched"), "16 x 0.5s");
+        assertEquals(rings + 15, either("pyro_judgment_ring"), "its edge keeps showing");
+        assertTrue(count("pyro_scorched_blue") > 0, "its hits overheated her on the way (1 + 14 of them)");
         assertTrue(has(enemy, "pyro_burn") || t.damage(enemy) > 3.0 * BASE + 16 * 0.15 * BASE, "burnt all along");
         assertTrue(t.damage(enemy) >= 3.0 * BASE + 16 * 0.15 * BASE, "the blast and 16 scorches");
         t.time.advance(100);
-        assertEquals(16, count("pyro_scorched"), "then it's gone");
+        assertEquals(16, either("pyro_scorched"), "then it's gone");
         assertEquals(0, t.engine.instances().of(p).size(), "the ultimate is over");
     }
 
@@ -457,7 +493,7 @@ class PyromancerTest {
     void anotherCharacterKeepsOrangeFlamesWhateverTheyHave() throws IOException {
         setup();
         UUID other = t.spawn(0, 1, 5);
-        t.engine.tags().grant(other, "state.hellfire");
+        t.engine.tags().grant(other, "state.overheated");
         assertEquals("pyro_bolt_hit", t.engine.cueFor(other, "pyro_bolt_hit"), "no character: no variants");
         assertEquals("block:FIRE", t.engine.visualFor(other, "block:FIRE"));
         assertEquals(new Vec3(0, 1, 5), pos(other));

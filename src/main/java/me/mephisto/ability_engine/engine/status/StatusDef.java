@@ -21,18 +21,39 @@ import java.util.Set;
  *                             x0.59), e.g. a slow that builds up
  * @param decayEvery           above 0: once its duration is up it doesn't end at once, it loses a stack every this
  *                             many ticks (a gauge cooling down); applying it again stops that and starts the duration over
+ * @param links                how it hangs together with other statuses, and its looping cue
  */
 public record StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                         List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                         boolean breakOnDamage, boolean once,
                         boolean positive, double damageDealt, double damageTaken, double attackSpeed,
-                        double moveSpeed, int decayEvery) {
+                        double moveSpeed, int decayEvery, Links links) {
+
+    /**
+     * @param atMax    reaching its max_stacks puts this status on the holder too (null = none), e.g. a full gauge
+     *                 sets off a state
+     * @param requires it only lasts while the holder has this status (null = no such tie): it ends with it
+     * @param cue      a looping cue on the holder while it lasts (null = none)
+     */
+    public record Links(String atMax, String requires, String cue) {
+        public static final Links NONE = new Links(null, null, null);
+    }
 
     public StatusDef {
+        if (links == null) links = Links.NONE;
         grantedTags = Set.copyOf(grantedTags);
         onHit = List.copyOf(onHit);
         tickEffects = List.copyOf(tickEffects);
         if (maxStacks < 1) maxStacks = 1;
+    }
+
+    /** Without links. */
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken,
+                     double attackSpeed, double moveSpeed, int decayEvery) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, Links.NONE);
     }
 
     /** Without decay. */
@@ -86,6 +107,12 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     /** The same, with {@code decay}. */
     public StatusDef withDecay(int every) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
-                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every);
+                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every, links);
+    }
+
+    /** The same, with these links. */
+    public StatusDef withLinks(Links other) {
+        return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
+                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, other);
     }
 }

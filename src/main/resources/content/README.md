@@ -510,6 +510,12 @@ slot, so an ability is only silenced when it's in an ability slot.
 
 - **Statuses:** `decay: <ticks>` (with a `duration`): when its time is up it doesn't end at once, it loses a stack
   every `decay` ticks (a gauge cooling down). Applying it again stops that and starts the duration over.
+  `at_max: <status>`: reaching its `max_stacks` puts that status on the holder too (a full gauge sets off a state).
+  `requires: <status>`: it only lasts while the holder has that one (it ends with it, and doesn't land without it).
+  `cue: <looping cue>`: runs on the holder while it lasts (their character's variants apply).
+- **landings** `{ ticks, store }` -> landed / out: for `ticks`, every time the caster lands (after at least 3 ticks
+  in the air: a jump, a fall) "landed" runs as its own branch, with the spot on the ground stored as `store`.
+- **Tags:** `state.jump_boost` (Jump Boost II).
 - **Characters:** `status_bar: { status, fill: stacks }` fills the XP bar with the status's stacks out of its
   `max_stacks` (a gauge) instead of its time left.
   `variants: [ { while: <tag>, cue_suffix: _blue, visuals: { "block:FIRE": "block:SOUL_FIRE" } } ]`: while they have
@@ -522,9 +528,9 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Motion seek:** `to: <key>` (and `up`) - with no target it flies to that spot (e.g. `aim`) and hovers there for
   `hover` ticks, instead of flying `max_distance`. `lock: true` - it keeps after the first enemy it found until
   they're gone. `mark: <status>` - whoever it's after keeps that status meanwhile (e.g. `glowing`).
-- **Cues:** each in orange and `_blue`: pyro_bolt_cast, pyro_bolt_trail, pyro_bolt_hit, pyro_bolt_fizzle, pyro_heat_full,
-  pyro_beam_start, pyro_beam (line), pyro_beam_end, pyro_fireball_cast, pyro_fireball_trail,
-  pyro_fireball_explode, pyro_wisp_cast, pyro_wisp_trail, pyro_wisp_explode, pyro_wisp_fade, pyro_judgment_cast,
-  pyro_judgment_ring (a 6-block ring on the ground: keep it in step with the ability's radius), pyro_meteor_fall,
-  pyro_meteor_trail, pyro_meteor_impact, pyro_scorched (6 blocks). Blue only: pyro_hellfire (looping),
-  pyro_hellfire_start, pyro_hellfire_end.
+- **Cues:** each in orange and `_blue`: pyro_bolt_cast, pyro_bolt_trail, pyro_bolt_hit, pyro_bolt_fizzle,
+  pyro_fireball_cast, pyro_fireball_trail, pyro_fireball_explode, pyro_wisp_cast, pyro_wisp_trail, pyro_wisp_explode,
+  pyro_wisp_fade, pyro_coals (looping: coals tossed hand to hand), pyro_coal_scorch, pyro_coal_patch (1.8 blocks),
+  pyro_judgment_cast, pyro_judgment_ring (a 6-block ring on the ground: keep it in step with the ability's radius),
+  pyro_meteor_fall, pyro_meteor_trail, pyro_meteor_impact, pyro_scorched (6 blocks). Blue only: pyro_overheat
+  (looping, with its own start and end).

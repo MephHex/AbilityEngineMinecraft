@@ -297,7 +297,8 @@ public final class Parsers {
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
                 p.getBool("break_on_damage", false), p.getBool("once", false),
-                positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery());
+                positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery(),
+                new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null)));
     }
 
     private Parsers() {}

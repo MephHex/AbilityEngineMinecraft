@@ -1,21 +1,30 @@
 # content: pyromancer
-# The Pyromancer: fire bolts that heat her up until she can pour it all out in a beam, a fireball, a wisp that
-# hunts on its own, a blue hellfire that burns her too, and a meteor out of the sky.
+# The Pyromancer: fire bolts, a fireball, a wisp that hunts on its own, hot coals that scorch the ground where she
+# lands, and a meteor out of the sky. Keep hitting and she overheats: blue flames, faster.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Overheat, the XP bar): every Fire Bolt that hits an enemy heats her up a stack (15 at most). 3s without
-#   one and it cools down again, a stack every 0.2s. Full: RIGHT CLICK pours it out in a beam.
-#
-# While Hellfire Inferno lasts her flames are blue: each cue plays its "_blue" version (see variants below).
+# PASSIVE (Overheat, the XP bar): every enemy any of her abilities hits heats her up a stack (15 at most; burning
+#   doesn't count). 3s without a hit and it cools down, a stack every 0.2s. Full: she OVERHEATS, and stays overheated
+#   until the gauge is empty again: blue flames, Fire Bolts every 3 ticks instead of 10, 25% faster. Keep hitting to
+#   keep it full.
 
 statuses:
-  pyro_heat:                         # Overheat: the gauge (XP bar: the number and the bar are its stacks)
-    duration: 60                     # 3s without landing a Fire Bolt...
+  pyro_heat:                         # the gauge (XP bar: the number and the bar are its stacks)
+    duration: 60                     # 3s without a hit...
     decay: 4                         # ...and it cools: a stack every 0.2s
     stacking: stack
     max_stacks: 15
+    at_max: pyro_overheat            # full: she overheats
     positive: false                  # hers alone (a tether doesn't copy it)
-  pyro_burn:                         # Fireball, Hunting Wisp, Scorching Judgment: on fire
+  pyro_overheat:                     # overheated: until the gauge is empty
+    duration: 0
+    requires: pyro_heat              # ends when the gauge runs out
+    tags: [state.overheated]         # blue flames (variants below)
+    cue: pyro_overheat               # soul flames around her
+    attack_speed: 3.5                # Fire Bolt every 3 ticks instead of 10 (1 tick = 50ms is the fastest there is)
+    move_speed: 1.25                 # +25%
+    positive: false
+  pyro_burn:                         # on fire
     duration: 60                     # 3s...
     stacking: refresh
     tags: [state.burning]            # looks on fire (no vanilla fire damage)
@@ -23,30 +32,25 @@ statuses:
       every: 10                      # ...2% max HP every 0.5s = 12% (ignores armor)
       effects:
         - { id: damage, max_hp: 0.02, knockback: false }
-  pyro_hellfire:                     # Hellfire Inferno: faster, harder, much faster bolts, and it burns her
+  pyro_coals:                        # Hot Coals: jumping higher
     duration: 120                    # 6s
-    tags: [state.hellfire]           # blue flames (variants), and her hits heal her (see the abilities)
-    move_speed: 1.25                 # +25%
-    damage_dealt: 1.15               # +15%
-    attack_speed: 3.5                # Fire Bolt every 3 ticks instead of 10 (1 tick = 50ms is the fastest there is)
-    positive: false                  # double-edged: a tether doesn't copy it
-    tick:
-      every: 10                      # 1.5% max HP every 0.5s = 3% a second, 18% over the 6s
-      effects:
-        - { id: damage, max_hp: 0.015, knockback: false }
+    tags: [state.jump_boost]         # Jump Boost II
+    cue: pyro_coals                  # the coals, tossed from hand to hand
+    positive: false                  # (a tether doesn't copy it: the scorch is hers anyway)
+  pyro_scorched:                     # standing in her scorched ground: slowed
+    duration: 15                     # (kept on every 0.5s while they stand in it)
+    stacking: refresh
+    move_speed: 0.65                 # -35%
 
 abilities:
 
-  # PRIMARY (LMB): Fire Bolt. A bolt of fire (1.6 blocks/tick, 28 blocks): 100% base damage as magic damage. Each
-  # enemy it hits heats her up (Overheat). In Hellfire Inferno it heals her 30% of the damage dealt.
+  # PRIMARY (LMB): Fire Bolt. A bolt of fire (1.6 blocks/tick, 28 blocks): 100% base damage as magic damage.
   pyro_primary:
     cooldown: 10                     # (the attack_speed stat sets it)
-    blocked_by: [block.ability, state.venting]   # not while she pours out the beam
     display:
       name: "Fire Bolt"
       description:
         - "A bolt of fire: 100% base magic damage."
-        - "Hits heat you up (Overheat)."
     nodes:
       shoot:
         type: projectile
@@ -66,125 +70,24 @@ abilities:
         cue: pyro_bolt_fizzle
         at: hit
       hit:
-        type: has_tag                # in Hellfire Inferno: it heals her
-        tag: state.hellfire
-        on: { has: hit_hellfire, lacks: hit_plain }
-      hit_plain:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true }
-        next: heat
-      hit_hellfire:
-        type: apply_effects
-        targets: { type: key, key: hit }
-        effects:
-          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true, lifesteal: 0.3 }
+          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true }   # (overheated: up to 7 a second)
+        count: struck
         next: heat
       heat:
-        type: has_status             # already full?
-        status: pyro_heat
-        min_stacks: 15
-        on: { has: keep_hot, lacks: heat_up }
-      keep_hot:
-        type: apply_effects          # full: it just doesn't cool down
+        type: apply_effects          # Overheat: a stack per enemy hit (the same in every ability below)
         targets: { type: self }
         on_hit: false
+        times: struck
         effects:
           - { id: status, status: pyro_heat }
-        next: hit_cue
-      heat_up:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: status, status: pyro_heat }
-        next: now_full
-      now_full:
-        type: has_status             # that one filled it: right click is ready
-        status: pyro_heat
-        min_stacks: 15
-        on: { has: full_cue, lacks: hit_cue }
-      full_cue:
-        type: play_cue
-        cue: pyro_heat_full
         next: hit_cue
       hit_cue:
         type: play_cue
         cue: pyro_bolt_hit
         at: hit
-
-  # SECONDARY (RMB, with a full gauge): Overheat. A beam of fire (20 blocks, through everyone in the line) for 3s:
-  # 40% base damage every 0.2s (15 pulses) as the gauge drains. She's silenced meanwhile, and doesn't throw bolts.
-  # In Hellfire Inferno it heals her 30% of the damage dealt. Not full yet: nothing happens.
-  pyro_secondary:
-    cooldown: 20                     # 1s after a beam
-    cooldown_starts: manual          # (pressed too early: nothing spent)
-    active_tags: [state.silenced, state.venting]   # the whole beam: no abilities, no Fire Bolts
-    interrupted_by: [state.stunned]
-    display:
-      name: "Overheat"
-      icon: BLAZE_POWDER
-      description:
-        - "Full gauge: a beam of fire for 3s,"
-        - "40% base damage every 0.2s. You're"
-        - "silenced meanwhile."
-    nodes:
-      full:
-        type: has_status
-        status: pyro_heat
-        min_stacks: 15
-        on: { has: hold, lacks: ~ }
-      hold:
-        type: apply_effects          # it doesn't cool down by itself while the beam drains it (60 ticks = the beam)
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: status, status: pyro_heat }
-        next: start_cue
-      start_cue:
-        type: play_cue
-        cue: pyro_beam_start
-        next: beam
-      beam:
-        type: repeat                 # 15 pulses, 0.2s apart: 3s
-        times: 15
-        every: 4
-        on: { each: pulse, out: over }
-      pulse:
-        type: has_tag
-        tag: state.hellfire
-        on: { has: burn_hellfire, lacks: burn }
-      burn:
-        type: apply_effects
-        targets: { type: line, range: 20, width: 1.2 }
-        effects:
-          - { id: damage, base: 0.4, damage_type: magic, ignore_iframes: true }
-        next: drain
-      burn_hellfire:
-        type: apply_effects
-        targets: { type: line, range: 20, width: 1.2 }
-        effects:
-          - { id: damage, base: 0.4, damage_type: magic, ignore_iframes: true, lifesteal: 0.3 }
-        next: drain
-      drain:
-        type: apply_effects          # a stack per pulse: empty as it ends
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: pyro_heat, stacks: 1 }
-        next: draw
-      draw:
-        type: play_cue
-        cue: pyro_beam
-        at: beam_start
-        to: beam_end
-      over:
-        type: start_cooldown
-        next: over_cue
-      over_cue:
-        type: play_cue
-        cue: pyro_beam_end
 
   # 1: Fireball. A large fireball (1.1 blocks/tick, a slight drop) that explodes where it lands or on whoever it
   # hits: 160% base damage to enemies within 3.5 blocks, knocked back a little and burning (12% max HP over 3s).
@@ -219,6 +122,15 @@ abilities:
           - { id: damage, base: 1.6 }
           - { id: status, status: pyro_burn }
           - { id: knockback, from: hit, radius: 3.5, center: 0.8, edge: 0.3, lift: 0.3 }
+        count: struck
+        next: heat
+      heat:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        times: struck
+        effects:
+          - { id: status, status: pyro_heat }
         next: explode_cue
       explode_cue:
         type: play_cue
@@ -268,6 +180,15 @@ abilities:
         effects:
           - { id: damage, base: 1.4 }
           - { id: status, status: pyro_burn }
+        count: struck
+        next: heat
+      heat:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        times: struck
+        effects:
+          - { id: status, status: pyro_heat }
         next: explode_cue
       explode_cue:
         type: play_cue
@@ -278,42 +199,68 @@ abilities:
         cue: pyro_wisp_fade
         at: wisp                     # where it waited
 
-  # 3: Hellfire Inferno. 6s of blue hellfire: 25% faster, 15% more damage, Fire Bolts every 3 ticks (about 3x as
-  # fast), and Fire Bolt and the beam heal her 30% of the damage they deal. It burns her: 3% max HP a second.
+  # 3: Hot Coals. She juggles a handful of hot coals for 6s (a boss bar): Jump Boost II, and every time she lands
+  # (a jump, a fall) the coals scorch the ground under her for 4s (1.8 blocks): enemies who walk in are slowed 35%
+  # and burn while they stay (and 3s after).
   pyro_ab3:
-    cooldown: 400                    # 20s
+    cooldown: 300                    # 15s
     display:
-      name: "Hellfire Inferno"
-      icon: SOUL_CAMPFIRE
+      name: "Hot Coals"
+      icon: COAL
       description:
-        - "6s: blue flames, +25% speed, +15% damage,"
-        - "Fire Bolts ~3x as fast; your bolts and"
-        - "beam heal you 30% of their damage."
-        - "It burns you: 3% max HP a second."
+        - "6s: Jump Boost II. Each landing scorches"
+        - "the ground under you for 4s: enemies in"
+        - "it are slowed 35% and burn."
     nodes:
-      ignite:
+      juggle:
         type: apply_effects
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: status, status: pyro_hellfire }
-        next: ignite_cue
-      ignite_cue:
-        type: play_cue
-        cue: pyro_hellfire_start
-        next: aura
-      aura:
-        type: start_cue              # blue flames around her
-        cue: pyro_hellfire
-        next: last
-      last:
+          - { id: status, status: pyro_coals }
+        next: split
+      split:
+        type: fork                   # the boss bar, and the landings
+        on: { out: timer, also: landings }
+      timer:
         type: delay
         ticks: 120
         boss_bar: true
-        next: out_cue
-      out_cue:
+      landings:
+        type: landings               # every landing in the 6s, each on its own
+        ticks: 120
+        store: landing
+        on: { landed: scorch }
+      scorch:
         type: play_cue
-        cue: pyro_hellfire_end
+        cue: pyro_coal_scorch
+        at: landing
+        next: smoulder
+      smoulder:
+        type: repeat                 # 4s: 8 x 0.5s
+        times: 8
+        every: 10
+        on: { each: patch }
+      patch:
+        type: apply_effects
+        targets: { type: radius, center: landing, radius: 1.8 }
+        effects:
+          - { id: status, status: pyro_scorched }
+          - { id: status, status: pyro_burn }
+        count: struck
+        next: patch_heat
+      patch_heat:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        times: struck
+        effects:
+          - { id: status, status: pyro_heat }
+        next: patch_cue
+      patch_cue:
+        type: play_cue
+        cue: pyro_coal_patch
+        at: landing
 
   # ULTIMATE (F): Scorching Judgment. Mark an area (aim preview, 35 blocks, 6-block radius): everyone sees its edge
   # burning on the ground. A meteor comes down on it (~2s): 300% base damage to enemies within 6 blocks, knocked
@@ -376,6 +323,15 @@ abilities:
           - { id: damage, base: 3.0 }
           - { id: status, status: pyro_burn }
           - { id: knockback, from: aim, radius: 6, center: 1.2, edge: 0.4, lift: 0.5 }
+        count: struck
+        next: impact_heat
+      impact_heat:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        times: struck
+        effects:
+          - { id: status, status: pyro_heat }
         next: impact_cue
       impact_cue:
         type: play_cue
@@ -393,6 +349,15 @@ abilities:
         effects:
           - { id: damage, base: 0.15, knockback: false }
           - { id: status, status: pyro_burn }
+        count: struck
+        next: scorch_heat
+      scorch_heat:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        times: struck
+        effects:
+          - { id: status, status: pyro_heat }
         next: scorch_cue
       scorch_cue:
         type: play_cue
@@ -416,13 +381,12 @@ characters:
       attack_speed: 2.0              # Fire Bolts per second
     status_bar: { status: pyro_heat, fill: stacks }   # XP bar: Overheat, the number and the bar its stacks (15 = full)
     variants:
-      - while: state.hellfire        # Hellfire Inferno: blue flames instead of orange ones
+      - while: state.overheated      # Overheat: blue flames instead of orange ones
         cue_suffix: _blue            # every pyro_x cue plays as pyro_x_blue
         visuals: { "block:FIRE": "block:SOUL_FIRE" }   # and her fire bolts, fireballs and wisps are soul fire
     slots:
-      primary: pyro_primary          # LMB: Fire Bolt
-      secondary: pyro_secondary      # RMB: Overheat's beam (full gauge)
+      primary: pyro_primary          # LMB: Fire Bolt (no RMB)
       ability_1: pyro_ab1            # 1: Fireball
       ability_2: pyro_ab2            # 2: Hunting Wisp
-      ability_3: pyro_ab3            # 3: Hellfire Inferno
+      ability_3: pyro_ab3            # 3: Hot Coals
       ultimate: pyro_ult1            # F: Scorching Judgment

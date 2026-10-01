@@ -1,5 +1,7 @@
 package me.mephisto.ability_engine.engine.data;
 
+import me.mephisto.ability_engine.engine.status.StatusDef;
+
 import me.mephisto.ability_engine.engine.AbilityEngine;
 import me.mephisto.ability_engine.engine.ability.Ability;
 import me.mephisto.ability_engine.engine.ability.AbilityDisplay;
@@ -93,7 +95,10 @@ public final class AbilityLoader {
             var base = engine.statusDefs().find(entry.getKey());
             if (base.isEmpty()) continue;
             try {
-                engine.statusDefs().define(Parsers.statusEffects(base.get(), entry.getValue(), engine.effects()));
+                StatusDef def = Parsers.statusEffects(base.get(), entry.getValue(), engine.effects());
+                knownStatus(entry.getValue(), "at_max", def.links().atMax());
+                knownStatus(entry.getValue(), "requires", def.links().requires());
+                engine.statusDefs().define(def);
                 report.status();
             } catch (RuntimeException e) {
                 report.error(e.getMessage());
@@ -145,6 +150,13 @@ public final class AbilityLoader {
             }
         }
         return report;
+    }
+
+    /** A status another one refers to must exist (any file). */
+    private void knownStatus(Params p, String key, String id) {
+        if (id != null && engine.statusDefs().find(id).isEmpty()) {
+            throw p.error(key, "unknown status '" + id + "' (define it under 'statuses:')");
+        }
     }
 
     /** First file to define an id owns it; later ones are reported and skipped. */

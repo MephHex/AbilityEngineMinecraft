@@ -33,10 +33,11 @@ final class PyroCues {
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         for (Fire f : List.of(ORANGE, BLUE)) register(c, f);
-        // Hellfire Inferno: always blue (it's what turns her flames blue)
-        c.registerLoop("pyro_hellfire", e -> {
+        // Overheat: always blue (it's what turns her flames blue). Starts and ends with her overheating.
+        c.registerLoop("pyro_overheat", e -> {
+            e.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, e.getLocation().add(0, 1, 0), 60, 0.5, 0.9, 0.5, 0.08);
+            e.getWorld().playSound(e.getLocation(), Sound.ENTITY_BLAZE_AMBIENT, 1f, 0.6f);
             e.getWorld().playSound(e.getLocation(), Sound.ITEM_FIRECHARGE_USE, 1f, 0.5f);
-            e.getWorld().playSound(e.getLocation(), Sound.PARTICLE_SOUL_ESCAPE, 1.5f, 0.8f);
             int[] tick = {0};
             BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
                 if (!e.isValid()) return;
@@ -52,18 +53,41 @@ final class PyroCues {
                 if (tick[0] % 20 == 0) w.playSound(e.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 0.8f, 0.7f);
                 tick[0]++;
             }, 0, 2);
-            return (CueHandle) task::cancel;
+            return (CueHandle) () -> {
+                task.cancel();
+                if (!e.isValid()) return;
+                e.getWorld().spawnParticle(Particle.LARGE_SMOKE, e.getLocation().add(0, 1, 0), 15, 0.4, 0.8, 0.4, 0.02);
+                e.getWorld().playSound(e.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.8f, 0.8f);
+            };
         });
-        c.register("pyro_hellfire_start", loc -> {
-            loc.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 60, 0.5, 0.9, 0.5, 0.08);
-            loc.getWorld().spawnParticle(Particle.SOUL, loc, 8, 0.5, 0.8, 0.5, 0.03);
-            loc.getWorld().playSound(loc, Sound.ENTITY_BLAZE_AMBIENT, 1f, 0.6f);
-            loc.getWorld().playSound(loc, Sound.BLOCK_SOUL_SAND_BREAK, 1f, 0.6f);
-        });
-        c.register("pyro_hellfire_end", loc -> {
-            loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 15, 0.4, 0.8, 0.4, 0.02);
-            loc.getWorld().playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 0.8f, 0.8f);
-        });
+        for (Fire f : List.of(ORANGE, BLUE)) {
+            // Hot Coals: a few glowing coals tossed from one hand to the other, in an arc in front of her
+            c.registerLoop("pyro_coals" + f.suffix(), e -> {
+                e.getWorld().playSound(e.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 1f, 1.4f);
+                e.getWorld().playSound(e.getLocation(), Sound.ITEM_FIRECHARGE_USE, 0.6f, 1.6f);
+                int[] tick = {0};
+                BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                    if (!e.isValid()) return;
+                    Vector look = e.getLocation().getDirection().setY(0);
+                    if (look.lengthSquared() < 1e-6) look = new Vector(1, 0, 0);
+                    look.normalize();
+                    Vector side = new Vector(-look.getZ(), 0, look.getX());
+                    Vector chest = e.getLocation().toVector().add(new Vector(0, 1.0, 0)).add(look.clone().multiply(0.45));
+                    World w = e.getWorld();
+                    for (int i = 0; i < 2; i++) { // two coals, half a toss apart: left to right and back
+                        double phase = ((tick[0] + i * 6) % 12) / 12.0;            // 0..1 along one toss
+                        double across = Math.cos(Math.PI * phase) * (((tick[0] + i * 6) / 12) % 2 == 0 ? 1 : -1);
+                        double up = Math.sin(Math.PI * phase) * 0.45;
+                        Vector q = chest.clone().add(side.clone().multiply(across * 0.4)).add(new Vector(0, up, 0));
+                        w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0, 0, 0, 0, f.core());
+                        w.spawnParticle(f.flame(), q.getX(), q.getY(), q.getZ(), 1, 0.02, 0.02, 0.02, 0.003);
+                    }
+                    if (tick[0] % 12 == 0) w.playSound(e.getLocation(), Sound.BLOCK_LAVA_POP, 0.4f, 1.6f);
+                    tick[0]++;
+                }, 0, 1);
+                return (CueHandle) task::cancel;
+            });
+        }
     }
 
     private static void register(BukkitCuePlayer c, Fire f) {
@@ -84,36 +108,23 @@ final class PyroCues {
             loc.getWorld().spawnParticle(Particle.SMOKE, loc, 4, 0.1, 0.1, 0.1, 0.01);
             loc.getWorld().playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 0.3f, 1.8f);
         });
-        // ---- Overheat ----
-        c.register("pyro_heat_full" + s, loc -> { // the gauge is full: right click is ready
-            loc.getWorld().spawnParticle(f.flame(), loc, 25, 0.4, 0.7, 0.4, 0.04);
-            loc.getWorld().playSound(loc, Sound.ENTITY_BLAZE_AMBIENT, 0.8f, 1.4f);
-            loc.getWorld().playSound(loc, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.6f, 1.2f);
+        // ---- Hot Coals ----
+        c.register("pyro_coal_scorch" + s, loc -> { // she lands: the coals scorch the ground under her
+            loc.getWorld().spawnParticle(f.flame(), loc.clone().add(0, 0.1, 0), 30, 0.9, 0.05, 0.9, 0.03);
+            loc.getWorld().spawnParticle(f.ember(), loc, 4, 0.6, 0.1, 0.6, 0);
+            loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 4, 0.6, 0.1, 0.6, 0.01);
+            loc.getWorld().playSound(loc, Sound.ITEM_FIRECHARGE_USE, 0.7f, 1.2f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_LAVA_EXTINGUISH, 0.4f, 1.5f);
         });
-        c.register("pyro_beam_start" + s, loc -> {
-            loc.getWorld().playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 1f, 0.5f);
-            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.8f, 1.6f);
-        });
-        c.register("pyro_beam_end" + s, loc -> {
-            loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 10, 0.3, 0.5, 0.3, 0.02);
-            loc.getWorld().playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 0.8f, 0.9f);
-        });
-        c.registerLine("pyro_beam" + s, (w, from, to) -> { // one pulse of the beam (every 4 ticks): a column of fire
-            Vector d = to.clone().subtract(from);
-            double len = d.length();
-            if (len < 0.1) return;
+        c.register("pyro_coal_patch" + s, loc -> { // the scorched patch smouldering (every 0.5s, 1.8 blocks)
             var rng = ThreadLocalRandom.current();
-            for (double k = 0.6; k <= len; k += 0.3) {
-                Vector q = from.clone().add(d.clone().multiply(k / len));
-                w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0.04, 0.04, 0.04, 0, f.spark());
-                w.spawnParticle(f.flame(), q.getX(), q.getY(), q.getZ(), 1, 0.12, 0.12, 0.12, 0.01);
-                if (rng.nextDouble() < 0.15) w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0.2, 0.2, 0.2, 0, f.core());
+            for (int i = 0; i < 7; i++) {
+                double a = rng.nextDouble(Math.PI * 2), r = Math.sqrt(rng.nextDouble()) * 1.8;
+                Location at = loc.clone().add(Math.cos(a) * r, 0.1, Math.sin(a) * r);
+                if (i % 3 == 0) loc.getWorld().spawnParticle(Particle.DUST, at, 1, 0.05, 0.05, 0.05, 0, f.core());
+                else loc.getWorld().spawnParticle(f.flame(), at, 1, 0.05, 0.05, 0.05, 0.005);
             }
-            w.spawnParticle(f.flame(), to.getX(), to.getY(), to.getZ(), 10, 0.25, 0.25, 0.25, 0.06);
-            if (rng.nextDouble() < 0.3) w.spawnParticle(f.ember(), to.getX(), to.getY(), to.getZ(), 1, 0.2, 0.2, 0.2, 0);
-            Location at = new Location(w, from.getX(), from.getY(), from.getZ());
-            w.playSound(at, Sound.BLOCK_FIRE_AMBIENT, 0.9f, 1.5f);
-            w.playSound(new Location(w, to.getX(), to.getY(), to.getZ()), Sound.ITEM_FIRECHARGE_USE, 0.25f, 1.8f);
+            if (rng.nextDouble() < 0.4) loc.getWorld().spawnParticle(Particle.SMOKE, loc, 2, 0.8, 0.1, 0.8, 0.01);
         });
         // ---- Fireball ----
         c.register("pyro_fireball_cast" + s, loc -> loc.getWorld().playSound(loc, Sound.ENTITY_GHAST_SHOOT, 0.8f, 1.1f));
