@@ -121,6 +121,7 @@ abilities:
         lifetime: 60
         visual: CONDUIT
         hits_allies: true            # latches onto allies too
+        bounce_walls: true           # off walls, not stuck to them: it lies on the ground
         motion:
           - { type: gravity, amount: 0.05 }
         on: { spawned: throw_cue, hit_entity: whose, hit_block: plant }
@@ -347,6 +348,7 @@ abilities:
         lifetime: 60
         visual: "block:Warped_fungus"
         bounce_off_own: true         # glances off her traps already planted
+        bounce_walls: true           # off walls, not stuck to them: it hides on the ground
         motion:
           - { type: gravity, amount: 0.06 }
         on: { spawned: throw_cue, hit_entity: spring, hit_block: plant }

@@ -32,6 +32,8 @@ import java.util.List;
  * @param hitsAllies     allies don't let it through: it hits friend and foe alike (exits hit_entity either way)
  * @param bouncesOffOwn  it bounces off the caster's own constructs from the same ability (solid or not), e.g. a
  *                       thrown trap glancing off one already planted
+ * @param bounceWalls    it bounces off walls and ceilings (too slow to bounce: it slides off them), never
+ *                       sticking to one; only the ground (a face pointing up) is where it lands (exits hit_block)
  */
 public record ProjectileSpec(
         double speed,
@@ -54,7 +56,8 @@ public record ProjectileSpec(
         boolean throughBlocks,
         boolean hitsCaster,
         boolean hitsAllies,
-        boolean bouncesOffOwn
+        boolean bouncesOffOwn,
+        boolean bounceWalls
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
@@ -107,6 +110,7 @@ public record ProjectileSpec(
         private boolean hitsCaster = false;
         private boolean hitsAllies = false;
         private boolean bouncesOffOwn = false;
+        private boolean bounceWalls = false;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -129,11 +133,12 @@ public record ProjectileSpec(
         public Builder hitsCaster(boolean v) { hitsCaster = v; return this; }
         public Builder hitsAllies(boolean v) { hitsAllies = v; return this; }
         public Builder bouncesOffOwn(boolean v) { bouncesOffOwn = v; return this; }
+        public Builder bounceWalls(boolean v) { bounceWalls = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
                     motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster,
-                    hitsAllies, bouncesOffOwn);
+                    hitsAllies, bouncesOffOwn, bounceWalls);
         }
     }
 }

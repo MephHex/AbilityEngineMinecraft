@@ -40,7 +40,7 @@ public final class ProjectileSystem {
     private static final double BOUNCE_NUDGE = 0.05;
     /** A sliding projectile slower than this (blocks per tick) has stopped. */
     private static final double MIN_SLIDE_SPEED = 0.03;
-    /** Surfaces facing up at least this much count as ground to slide on (not walls). */
+    /** Surfaces facing up at least this much count as ground to slide on or land on (not walls: bounce_walls). */
     private static final double GROUND_NORMAL_Y = 0.7;
 
     private final WorldQuery world;
@@ -254,6 +254,11 @@ public final class ProjectileSystem {
                     continue;
                 }
                 finish(p, Ports.HIT_ENTITY, h.target());
+            } else if (flying == null && p.spec.bounceWalls() && h.normal() != null && h.normal().y() < GROUND_NORMAL_Y) {
+                // bounce_walls: off a wall or ceiling, never stuck to it (too slow to bounce: it slides off)
+                Vec3 off = p.spec.bounce(p.velocity, h.normal());
+                p.velocity = off != null ? off : p.velocity.subtract(h.normal().multiply(p.velocity.dot(h.normal())));
+                moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
             } else if (flying == null && p.bouncesLeft > 0 && h.normal() != null && p.spec.bounce(p.velocity, h.normal()) != null) {
                 p.bouncesLeft--;
                 p.velocity = p.spec.bounce(p.velocity, h.normal());
