@@ -64,7 +64,7 @@ abilities:
         speed: 1.1
         size: 0.4
         lifetime: 22                 # ~24 blocks
-        visual: MANGROVE_PROPAGULE
+        visual: SPORE_BLOSSOM
         motion:
           - { type: gravity, amount: 0.015 }
         on: { spawned: shoot_cue, hit_entity: burst, hit_block: burst }
@@ -121,7 +121,7 @@ abilities:
         speed: 0.9
         size: 0.5
         lifetime: 60
-        visual: PITCHER_POD
+        visual: CONDUIT
         hits_allies: true            # latches onto allies too
         motion:
           - { type: gravity, amount: 0.05 }
@@ -132,7 +132,7 @@ abilities:
       plant:
         type: construct              # lies there until someone comes near
         at: hit
-        height: 0.25
+        height: 0
         size: 0.5
         fuse: 300                    # 15s
         trigger: 1.3
@@ -140,7 +140,7 @@ abilities:
         arm: 10
         solid: false
         limit: 3
-        visual: PITCHER_POD
+        visual: "block:firefly_bush"
         cue: fae_seed_idle           # a green shimmer and a leaf now and then while it lies there
         cue_every: 8
         on: { triggered: whose, fuse: wilt }
@@ -315,7 +315,7 @@ abilities:
       end:
         type: end_cast
 
-  # 3: Deathcap Snare. Throw a toadstool; where it lands it hides a trap (2 min, 2 at most) that enemies can't
+  # 3: Deathcap Snare. Throw a toadstool; where it lands it hides a trap (2 min, 20 at most) that enemies can't
   # see. Armed after 1s, the first enemy within 1.4 blocks springs it: enemies within 3 blocks take 100% base
   # damage and are poisoned (8% max HP over 4s), 35% slower and nauseous for 4s. Thrown straight at an enemy,
   # it springs on them at once; thrown at one of her traps, it bounces off it. Traps stay if she dies.
@@ -324,9 +324,9 @@ abilities:
     survives_death: true
     display:
       name: "Deathcap Snare"
-      icon: RED_MUSHROOM
+      icon: Warped_fungus
       description:
-        - "A hidden trap where it lands (2 min, 2 max)."
+        - "A hidden trap where it lands (2 min, 20 max)."
         - "Springs on an enemy: 100% base dmg (3"
         - "blocks), poison (8% max HP), 35% slow"
         - "and nausea for 4s."
@@ -336,7 +336,7 @@ abilities:
         speed: 0.8
         size: 0.4
         lifetime: 60
-        visual: RED_MUSHROOM
+        visual: "block:Warped_fungus"
         bounce_off_own: true         # glances off her traps already planted
         motion:
           - { type: gravity, amount: 0.06 }
@@ -354,8 +354,8 @@ abilities:
         arm: 20                      # 1s
         solid: false
         hidden: true                 # enemies can't see it
-        limit: 2
-        visual: RED_MUSHROOM
+        limit: 20
+        visual: "block:Warped_fungus"
         on: { triggered: spring, fuse: wilt }
       wilt:
         type: play_cue
@@ -467,7 +467,7 @@ abilities:
 characters:
   fae:
     name: "Fae"
-    weapon: SPORE_BLOSSOM
+    weapon: MANGROVE_PROPAGULE
     stats:                           # see docs/character-stats.md
       health: 160                    # max HP
       armor: 5                       # damage taken x 100 / (100 + armor)
