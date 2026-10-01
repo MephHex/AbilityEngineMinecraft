@@ -300,7 +300,21 @@ public final class AbilityLoader {
         CharacterDef.StatusBar statusBar = statusBar(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
-                hover(p));
+                hover(p), variants(p));
+    }
+
+    /** {@code variants: [ { while: <tag>, cue_suffix: _blue, visuals: { <visual>: <visual> } } ]}. */
+    private static java.util.List<CharacterDef.Variant> variants(Params p) {
+        java.util.List<CharacterDef.Variant> out = new java.util.ArrayList<>();
+        for (Params v : p.getParamsList("variants")) {
+            String suffix = v.getString("cue_suffix", null);
+            Params visuals = v.getParams("visuals");
+            Map<String, String> swaps = new LinkedHashMap<>();
+            for (String from : visuals.keys()) swaps.put(from, visuals.requireString(from));
+            if (suffix == null && swaps.isEmpty()) throw v.error("cue_suffix", "a variant needs cue_suffix and/or visuals");
+            out.add(new CharacterDef.Variant(v.requireString("while"), suffix, swaps));
+        }
+        return out;
     }
 
     /** {@code hearing: { below, range, toward: { range, status }, hotbar, icon, name, description }}. */
@@ -357,13 +371,14 @@ public final class AbilityLoader {
 
     /**
      * {@code status_bar: <status>} (level = its stacks), or
-     * {@code status_bar: { status: <status>, level: stacks | reload_speed | none }}.
+     * {@code status_bar: { status: <status>, level: stacks | reload_speed | none, fill: time | stacks }}.
      */
     private CharacterDef.StatusBar statusBar(Params p) {
         if (!p.has("status_bar")) return null;
         Object raw = p.raw("status_bar");
         String status;
         CharacterDef.StatusBar.Level level = CharacterDef.StatusBar.Level.STACKS;
+        CharacterDef.StatusBar.Fill fill = CharacterDef.StatusBar.Fill.TIME;
         if (raw instanceof Map<?, ?>) {
             Params bar = p.getParams("status_bar");
             status = bar.requireString("status");
@@ -372,13 +387,18 @@ public final class AbilityLoader {
             } catch (IllegalArgumentException e) {
                 throw bar.error("level", "expected stacks, reload_speed or none");
             }
+            try {
+                fill = CharacterDef.StatusBar.Fill.valueOf(bar.getString("fill", "time").toUpperCase(java.util.Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw bar.error("fill", "expected time or stacks");
+            }
         } else {
             status = p.getString("status_bar", null);
         }
         if (engine.statusDefs().find(status).isEmpty()) {
             throw p.error("status_bar", "unknown status '" + status + "' (define it under 'statuses:')");
         }
-        return new CharacterDef.StatusBar(status, level);
+        return new CharacterDef.StatusBar(status, level, fill);
     }
 
     public Ability parseAbility(String id, Params p) {

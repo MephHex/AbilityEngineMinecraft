@@ -505,3 +505,26 @@ slot, so an ability is only silenced when it's in an ability slot.
   fae_seed_latched / fae_seed_latched_ally (looping), fae_seed_burst, fae_seed_bloom, fae_flit, fae_perch,
   fae_unperch, fae_gust, fae_trap_throw, fae_trap_wilt, fae_trap_spring, fae_wings, fae_vine_shot, fae_latch,
   fae_vine (line), fae_release.
+
+## Added for the Pyromancer
+
+- **Statuses:** `decay: <ticks>` (with a `duration`): when its time is up it doesn't end at once, it loses a stack
+  every `decay` ticks (a gauge cooling down). Applying it again stops that and starts the duration over.
+- **Characters:** `status_bar: { status, fill: stacks }` fills the XP bar with the status's stacks out of its
+  `max_stacks` (a gauge) instead of its time left.
+  `variants: [ { while: <tag>, cue_suffix: _blue, visuals: { "block:FIRE": "block:SOUL_FIRE" } } ]`: while they have
+  the tag their abilities look different: every cue `x` plays as `x_blue` where that cue exists (otherwise as `x`),
+  and projectiles shown as a `visuals` key are shown as its value (e.g. Hellfire Inferno's blue flames).
+- **Projectile:** `trail: <cue>` plays a cue where it is every `trail_every` ticks (default 1) while it flies or
+  hovers (it's the caster's cue: variants apply). `from: <key>` starts it there instead of the caster's eyes,
+  `up` blocks above it and `back` blocks back toward the caster; `toward: <key>` flies at that key instead of along
+  the aim (a meteor: `from: aim, up: 28, back: 10, toward: aim`).
+- **Motion seek:** `to: <key>` (and `up`) - with no target it flies to that spot (e.g. `aim`) and hovers there for
+  `hover` ticks, instead of flying `max_distance`. `lock: true` - it keeps after the first enemy it found until
+  they're gone. `mark: <status>` - whoever it's after keeps that status meanwhile (e.g. `glowing`).
+- **Cues:** each in orange and `_blue`: pyro_bolt_cast, pyro_bolt_trail, pyro_bolt_hit, pyro_bolt_fizzle, pyro_heat_full,
+  pyro_beam_start, pyro_beam (line), pyro_beam_end, pyro_fireball_cast, pyro_fireball_trail,
+  pyro_fireball_explode, pyro_wisp_cast, pyro_wisp_trail, pyro_wisp_explode, pyro_wisp_fade, pyro_judgment_cast,
+  pyro_judgment_ring (a 6-block ring on the ground: keep it in step with the ability's radius), pyro_meteor_fall,
+  pyro_meteor_trail, pyro_meteor_impact, pyro_scorched (6 blocks). Blue only: pyro_hellfire (looping),
+  pyro_hellfire_start, pyro_hellfire_end.

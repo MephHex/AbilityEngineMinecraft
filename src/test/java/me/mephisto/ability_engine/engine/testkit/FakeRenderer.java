@@ -109,9 +109,19 @@ public final class FakeRenderer implements ProjectileRenderer, CuePlayer, Indica
         }
     }
 
+    /** The visual each projectile was spawned with, in order. */
+    public final List<String> visuals = new ArrayList<>();
+
+    /** Cues this renderer has (for variants like "x_blue"); null = every cue exists. */
+    public java.util.Set<String> knownCues;
+
+    @Override
+    public boolean has(String cueId) { return knownCues == null || knownCues.contains(cueId); }
+
     @Override
     public ProjectileVisual spawn(String world, Vec3 position, Vec3 velocity, ProjectileSpec spec, String tint) {
         tints.add(tint);
+        visuals.add(spec.visual());
         if (realArrows && spec.visual().startsWith("entity:")) {
             spawned++;
             alive++;

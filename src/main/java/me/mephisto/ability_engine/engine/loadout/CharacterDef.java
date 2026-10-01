@@ -25,7 +25,19 @@ import java.util.Map;
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
                            java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
-                           java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover) {
+                           java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                           java.util.List<Variant> variants) {
+
+    /**
+     * While they have the tag {@code whileTag}, their abilities look different: each cue {@code x} plays as
+     * {@code x<cueSuffix>} where the platform has one (e.g. "_blue": blue flames instead of orange ones), and a
+     * projectile shown as a key of {@code visuals} is shown as its value. The first variant that applies wins.
+     */
+    public record Variant(String whileTag, String cueSuffix, Map<String, String> visuals) {
+        public Variant {
+            visuals = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(visuals));
+        }
+    }
 
     /**
      * A passive hover (the platform's), one of three kinds:
@@ -155,14 +167,24 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
     }
 
     /**
-     * @param status the status whose remaining time fills the bar
+     * @param status the status shown
      * @param level  what the level number shows
+     * @param fill   what fills the bar
      */
-    public record StatusBar(String status, Level level) {
+    public record StatusBar(String status, Level level, Fill fill) {
         public enum Level {
             /** the status's stacks */ STACKS,
             /** the quiver's reload speed */ RELOAD_SPEED,
             /** no number, just the draining bar */ NONE
+        }
+
+        public enum Fill {
+            /** its time left, draining */ TIME,
+            /** its stacks out of its max_stacks (a gauge) */ STACKS
+        }
+
+        public StatusBar(String status, Level level) {
+            this(status, level, Fill.TIME);
         }
     }
 
@@ -221,7 +243,16 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                 hearing, null);
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, java.util.List.of());
+    }
+
     public CharacterDef {
+        variants = variants == null ? java.util.List.of() : java.util.List.copyOf(variants);
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
         resources = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(resources));
         forms = java.util.List.copyOf(forms);
@@ -238,7 +269,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         changed.putAll(form.slots());
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
                 form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems, whenHit, hearing,
-                hover);
+                hover, variants);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

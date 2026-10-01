@@ -132,7 +132,14 @@ public final class StatusManager {
         long delay = Math.max(1, s.expiresAt - clock.now());
         s.expiryTask = scheduler.after(delay, () -> {
             Map<String, ActiveStatus> mine = active.get(target);
-            if (mine != null && mine.get(s.def.id()) == s) remove(target, s.def.id());
+            if (mine == null || mine.get(s.def.id()) != s) return;
+            if (s.def.decayEvery() > 0 && s.stacks > 1) { // decay: one stack at a time
+                s.stacks--;
+                s.expiresAt = clock.now() + s.def.decayEvery();
+                schedule(target, s);
+                return;
+            }
+            remove(target, s.def.id());
         });
     }
 
@@ -182,6 +189,11 @@ public final class StatusManager {
      * default duration; 1 for infinite). Empty if the target doesn't have it.
      */
     public record Gauge(int stacks, double fraction) {}
+
+    /** A gauge by stacks instead: filled to its stacks out of its max_stacks (a status that builds up). */
+    public Optional<Gauge> stackGauge(UUID target, String statusId) {
+        return find(target, statusId).map(s -> new Gauge(s.stacks(), Math.min(1, (double) s.stacks() / s.def().maxStacks())));
+    }
 
     public Optional<Gauge> gauge(UUID target, String statusId) {
         return find(target, statusId).map(s -> {

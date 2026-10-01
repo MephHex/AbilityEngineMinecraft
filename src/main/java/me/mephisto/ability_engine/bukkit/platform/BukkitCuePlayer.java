@@ -719,10 +719,16 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.PORTAL, loc, 40, 0.3, 0.8, 0.3, 0.5);
             loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1.2f);
         });
+        PyroCues.register(c, plugin);
         return c;
     }
 
     public void register(String cueId, Consumer<Location> action) { cues.put(cueId, action); }
+
+    @Override
+    public boolean has(String cueId) {
+        return cues.containsKey(cueId) || lines.containsKey(cueId) || loops.containsKey(cueId);
+    }
 
     // ---- two-point cues ---------------------------------------------------------------------------
 

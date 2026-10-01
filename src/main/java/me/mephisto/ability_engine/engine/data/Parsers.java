@@ -113,7 +113,15 @@ public final class Parsers {
                 .hitsAllies(p.getBool("hits_allies", false))
                 .bouncesOffOwn(p.getBool("bounce_off_own", false))
                 .bounceWalls(p.getBool("bounce_walls", false))
+                .trail(p.getString("trail", null))
+                .trailEvery(trailEvery(p))
                 .build();
+    }
+
+    private static int trailEvery(Params p) {
+        int every = p.getInt("trail_every", 1);
+        if (every < 1) throw p.error("trail_every", "must be at least 1 tick");
+        return every;
     }
 
     private static double health(Params p) {
@@ -140,7 +148,8 @@ public final class Parsers {
                 case "accelerate" -> new Accelerate(m.requireDouble("amount"), m.requireDouble("max"));
                 case "seek" -> new me.mephisto.ability_engine.engine.projectile.Seek(m.getDouble("range", 6),
                         m.requireDouble("speed"), m.requireDouble("base"), m.getDouble("turn", 0.3),
-                        m.getDouble("max_distance", 0), m.getInt("hover", 0));
+                        m.getDouble("max_distance", 0), m.getInt("hover", 0), m.getString("to", null),
+                        m.getDouble("up", 0), m.getBool("lock", false), m.getString("mark", null));
                 default -> throw m.error("type", "unknown motion '" + type + "' (gravity, drag, homing, accelerate, seek)");
             });
         }
@@ -254,8 +263,11 @@ public final class Parsers {
         } catch (IllegalArgumentException e) {
             throw p.error("stacking", "expected refresh, extend or stack");
         }
+        int decay = p.getInt("decay", 0);
+        if (decay < 0) throw p.error("decay", "must be >= 0 (ticks per stack lost once its duration is up)");
+        if (decay > 0 && p.getInt("duration", 0) <= 0) throw p.error("decay", "needs a duration (how long until it starts to decay)");
         return new StatusDef(id, p.getInt("duration", 0), policy, p.getInt("max_stacks", 1),
-                p.getStringSet("tags", Set.of()));
+                p.getStringSet("tags", Set.of())).withDecay(decay);
     }
 
     /**
@@ -285,7 +297,7 @@ public final class Parsers {
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
                 p.getBool("break_on_damage", false), p.getBool("once", false),
-                positive, dealt, taken, attackSpeed, moveSpeed);
+                positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery());
     }
 
     private Parsers() {}

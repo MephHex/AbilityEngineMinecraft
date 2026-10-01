@@ -18,7 +18,8 @@ import java.util.UUID;
 /**
  * Shows cast/channel progress on the XP bar (the boss bar stays free for ult timers etc.).
  * Characters with a {@code status_bar} otherwise show that status there: the level number is its
- * stacks, the bar the time it has left (empty and no number while they don't have it); a cast bar
+ * stacks, the bar the time it has left, or its stacks out of its max with {@code fill: stacks} (empty and no
+ * number while they don't have it); a cast bar
  * still takes over while one is running.
  * The player's real XP is saved when a bar starts and put back when it ends, so nothing is lost.
  * Note: the XP bar is hidden in creative mode.
@@ -60,7 +61,9 @@ public final class CastBarHud implements Listener {
                 p.setLevel(0); // hides the level number while the bar is up
                 p.setExp((float) Math.min(0.999, fill.get()));
             } else {
-                var gauge = engine.statuses().gauge(id, statusBar.get().status());
+                var gauge = statusBar.get().fill() == CharacterDef.StatusBar.Fill.STACKS
+                        ? engine.statuses().stackGauge(id, statusBar.get().status())
+                        : engine.statuses().gauge(id, statusBar.get().status());
                 int level = switch (statusBar.get().level()) {
                     case STACKS -> gauge.map(g -> g.stacks()).orElse(0);
                     case RELOAD_SPEED -> engine.quivers().reloadSpeed(id); // e.g. the crossbow's Quick Charge

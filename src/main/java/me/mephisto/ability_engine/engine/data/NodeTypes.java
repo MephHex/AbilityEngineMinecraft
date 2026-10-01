@@ -58,7 +58,9 @@ public final class NodeTypes {
                 p.getBool("infusions", false),
                 p.getString("count", null),
                 p.getString("times", null)));
-        t.register("projectile", (p, e) -> new ProjectileNode(Parsers.projectile(p), p.getString("store", null)));
+        t.register("projectile", (p, e) -> new ProjectileNode(seekMarksKnown(Parsers.projectile(p), p, e), p.getString("store", null),
+                new ProjectileNode.Launch(p.getString("from", null), p.getDouble("up", 0), p.getDouble("back", 0),
+                        p.getString("toward", null))));
         t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3),
                 p.getBool("projectiles_only", false)));
         t.register("start_cue", (p, e) -> new StartCueNode(p.requireString("cue"), p.getString("at", null)));
@@ -344,6 +346,18 @@ public final class NodeTypes {
             throw p.error(key, "unknown status '" + status + "' (define it under 'statuses:')");
         }
         return status;
+    }
+
+    /** A seeker's {@code mark} must be a status that exists. */
+    private static me.mephisto.ability_engine.engine.projectile.ProjectileSpec seekMarksKnown(
+            me.mephisto.ability_engine.engine.projectile.ProjectileSpec spec, Params p, me.mephisto.ability_engine.engine.AbilityEngine e) {
+        for (var m : spec.motion()) {
+            if (m instanceof me.mephisto.ability_engine.engine.projectile.Seek seek && seek.mark() != null
+                    && e.statusDefs().find(seek.mark()).isEmpty()) {
+                throw p.error("motion", "seek: unknown mark status '" + seek.mark() + "' (define it under 'statuses:')");
+            }
+        }
+        return spec;
     }
 
     private static boolean towardCursor(Params p) {

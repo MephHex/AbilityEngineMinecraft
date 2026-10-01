@@ -22,6 +22,9 @@ public interface CuePlayer {
      */
     default CueHandle start(String cueId, UUID entity) { return CueHandle.NONE; }
 
+    /** Whether this cue exists (e.g. a variant like "x_blue" next to "x"). Default: every cue does. */
+    default boolean has(String cueId) { return true; }
+
     // ---- for an audience: only these entities (players) see and hear it (e.g. a duel in a veil) ----------
     // Defaults: everyone does (platforms that can't restrict it).
 

@@ -19,18 +19,29 @@ import java.util.Set;
  *                             is divided by it, a crossbow's draw takes longer (Paralysis: 0.6 = 40% slower)
  * @param moveSpeed            the holder's movement speed is multiplied by this PER STACK (0.9 with 5 stacks =
  *                             x0.59), e.g. a slow that builds up
+ * @param decayEvery           above 0: once its duration is up it doesn't end at once, it loses a stack every this
+ *                             many ticks (a gauge cooling down); applying it again stops that and starts the duration over
  */
 public record StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                         List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                         boolean breakOnDamage, boolean once,
                         boolean positive, double damageDealt, double damageTaken, double attackSpeed,
-                        double moveSpeed) {
+                        double moveSpeed, int decayEvery) {
 
     public StatusDef {
         grantedTags = Set.copyOf(grantedTags);
         onHit = List.copyOf(onHit);
         tickEffects = List.copyOf(tickEffects);
         if (maxStacks < 1) maxStacks = 1;
+    }
+
+    /** Without decay. */
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken,
+                     double attackSpeed, double moveSpeed) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                positive, damageDealt, damageTaken, attackSpeed, moveSpeed, 0);
     }
 
     /**
@@ -70,5 +81,11 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     /** A plain status: tags only. */
     public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags) {
         this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, List.of(), 0, List.of());
+    }
+
+    /** The same, with {@code decay}. */
+    public StatusDef withDecay(int every) {
+        return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
+                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every);
     }
 }

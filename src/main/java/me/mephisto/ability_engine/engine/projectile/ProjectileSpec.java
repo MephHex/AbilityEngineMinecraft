@@ -34,6 +34,8 @@ import java.util.List;
  *                       thrown trap glancing off one already planted
  * @param bounceWalls    it bounces off walls and ceilings (too slow to bounce: it slides off them), never
  *                       sticking to one; only the ground (a face pointing up) is where it lands (exits hit_block)
+ * @param trail          a cue played where it is every {@code trailEvery} ticks while it flies (null = none)
+ * @param trailEvery     ticks between trail cues
  */
 public record ProjectileSpec(
         double speed,
@@ -57,11 +59,21 @@ public record ProjectileSpec(
         boolean hitsCaster,
         boolean hitsAllies,
         boolean bouncesOffOwn,
-        boolean bounceWalls
+        boolean bounceWalls,
+        String trail,
+        int trailEvery
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
         if (count < 1) count = 1;
+        if (trailEvery < 1) trailEvery = 1;
+    }
+
+    /** The same, shown as {@code other} (e.g. blue flames instead of orange ones). */
+    public ProjectileSpec withVisual(String other) {
+        return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed, motion, other,
+                count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster, hitsAllies,
+                bouncesOffOwn, bounceWalls, trail, trailEvery);
     }
 
     public static Builder builder() { return new Builder(); }
@@ -111,6 +123,8 @@ public record ProjectileSpec(
         private boolean hitsAllies = false;
         private boolean bouncesOffOwn = false;
         private boolean bounceWalls = false;
+        private String trail = null;
+        private int trailEvery = 1;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -134,11 +148,13 @@ public record ProjectileSpec(
         public Builder hitsAllies(boolean v) { hitsAllies = v; return this; }
         public Builder bouncesOffOwn(boolean v) { bouncesOffOwn = v; return this; }
         public Builder bounceWalls(boolean v) { bounceWalls = v; return this; }
+        public Builder trail(String v) { trail = v; return this; }
+        public Builder trailEvery(int v) { trailEvery = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
                     motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster,
-                    hitsAllies, bouncesOffOwn, bounceWalls);
+                    hitsAllies, bouncesOffOwn, bounceWalls, trail, trailEvery);
         }
     }
 }

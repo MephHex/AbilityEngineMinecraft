@@ -125,6 +125,7 @@ public final class ProjectileSystem {
         // Snapshot: a hit can resume a graph that launches more projectiles mid-loop.
         for (Projectile p : List.copyOf(active)) {
             if (!p.done) step(p);
+            if (!p.done && p.spec.trail() != null && p.ticksLived % p.spec.trailEvery() == 0) trail(p);
         }
         active.removeIf(p -> p.done);
         latest.values().forEach(m -> m.values().removeIf(p -> p.done));
@@ -273,6 +274,12 @@ public final class ProjectileSystem {
             }
             return;
         }
+    }
+
+    /** Its trail cue where it is now (the caster's cue: seen as their abilities are, blue flames and all). */
+    private static void trail(Projectile p) {
+        ExecutionContext ctx = p.resumer.context();
+        ctx.engine().cuesFor(ctx.caster()).play(p.spec.trail(), p.world, p.position);
     }
 
     /** Speed kept bouncing off one of your own constructs (bounce_off_own). */

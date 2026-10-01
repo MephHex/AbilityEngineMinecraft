@@ -133,7 +133,8 @@ public final class AbilityEngine {
 
     /**
      * Cues caused by {@code actor} (their abilities): if they're in a veil, only the two in it see and hear
-     * them; otherwise everyone does.
+     * them; otherwise everyone does. While one of their character's variants applies, each cue plays as its
+     * variant where there is one (blue flames instead of orange ones).
      */
     public CuePlayer cuesFor(java.util.UUID actor) {
         CuePlayer base = platform.cues();
@@ -142,24 +143,50 @@ public final class AbilityEngine {
             @Override
             public void play(String cueId, String world, me.mephisto.ability_engine.engine.math.Vec3 position) {
                 var audience = veils.audienceOf(actor);
-                if (audience.isEmpty()) base.play(cueId, world, position);
-                else base.play(cueId, world, position, audience);
+                String id = cueFor(actor, cueId);
+                if (audience.isEmpty()) base.play(id, world, position);
+                else base.play(id, world, position, audience);
             }
 
             @Override
             public void playLine(String cueId, String world, me.mephisto.ability_engine.engine.math.Vec3 from,
                                  me.mephisto.ability_engine.engine.math.Vec3 to) {
                 var audience = veils.audienceOf(actor);
-                if (audience.isEmpty()) base.playLine(cueId, world, from, to);
-                else base.playLine(cueId, world, from, to, audience);
+                String id = cueFor(actor, cueId);
+                if (audience.isEmpty()) base.playLine(id, world, from, to);
+                else base.playLine(id, world, from, to, audience);
             }
 
             @Override
             public me.mephisto.ability_engine.engine.platform.CueHandle start(String cueId, java.util.UUID entity) {
                 var audience = veils.audienceOf(actor);
-                return audience.isEmpty() ? base.start(cueId, entity) : base.start(cueId, entity, audience);
+                String id = cueFor(actor, cueId);
+                return audience.isEmpty() ? base.start(id, entity) : base.start(id, entity, audience);
             }
+
+            @Override
+            public boolean has(String cueId) { return base.has(cueId); }
         };
+    }
+
+    /** The variant of {@code actor}'s character that applies right now (they have its tag), if any. */
+    private java.util.Optional<me.mephisto.ability_engine.engine.loadout.CharacterDef.Variant> variantOf(java.util.UUID actor) {
+        if (actor == null) return java.util.Optional.empty();
+        return loadouts.characterOf(actor).flatMap(c -> c.variants().stream()
+                .filter(v -> tags.has(actor, v.whileTag())).findFirst());
+    }
+
+    /** The cue {@code actor}'s abilities play for {@code cueId} right now: its variant if there is one. */
+    public String cueFor(java.util.UUID actor, String cueId) {
+        if (cueId == null) return null;
+        return variantOf(actor).map(v -> v.cueSuffix())
+                .map(suffix -> cueId + suffix).filter(platform.cues()::has).orElse(cueId);
+    }
+
+    /** How a projectile {@code actor} shoots with this visual looks right now: its variant's visual, if one swaps it. */
+    public String visualFor(java.util.UUID actor, String visual) {
+        if (visual == null) return null;
+        return variantOf(actor).map(v -> v.visuals().get(visual)).orElse(visual);
     }
 
     /** Who may see what {@code actor} does right now: the two in its veil, or empty = everyone. */

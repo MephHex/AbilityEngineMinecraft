@@ -27,6 +27,10 @@ final class Projectile implements ProjectileHandle {
     boolean clearOfCaster;      // hits_caster: it has flown clear of the caster, who can be hit from now on
     int hoverTicks;             // seek: time spent hovering at its max distance
     Vec3 heading;               // seek: the way it flies when it isn't homing
+    Vec3 seekSpot;              // seek with a "to": where it's sent (found on its first tick)
+    java.util.UUID locked;      // seek with "lock": who it's after
+    java.util.UUID marked;      // seek with a "mark": who has it from this one, since markedAt
+    int markedAt;
     final java.util.Set<java.util.UUID> pierced = new java.util.HashSet<>(); // already hit: fly through them
 
     Projectile(ProjectileSpec spec, String world, Vec3 position, Vec3 velocity, Resumer resumer, ProjectileVisual visual) {
