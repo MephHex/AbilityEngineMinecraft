@@ -467,9 +467,10 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Nodes:**
   - mount `{ target, status, self_status, store }` -> out / none / off: sit on someone's head (you go where they
     go) until the cast ends, a dismount node, or a new mount; "out" right away. `status` is on them while you're
-    up there, `self_status` on you. If the ride ends by itself (they die, the game takes you off), a branch runs
-    from `off`. You can't hop off by sneaking. The mount is stored as "mount".
-  - dismount: off whatever you ride (quietly, `off` doesn't run).
+    up there, `self_status` on you. If the ride ends by itself (they die, the game takes you off, another
+    ability's dismount), a branch runs from `off`. You can't hop off by sneaking. The mount is stored as "mount".
+  - dismount: off whatever you ride. In the ride's own ability it's quiet (`off` doesn't run); from another
+    ability (e.g. "hold RMB to hop off") the ride's `off` branch runs, so it lands and starts its cooldown.
   - leash `{ target, length, duration, pull, max_speed, range, cue }` -> out / broken: drag someone along for
     `duration` ticks: beyond `length` blocks they're pulled toward you (`pull` x the excess per tick, at most
     `max_speed`). Broken: they're gone, or more than `range` (32) away.
@@ -478,7 +479,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   (hit = them) on reaching them (above their head). Only walls stop it; it gives up after `range` blocks' worth.
   Anyone dashing has the tag `state.dashing`.
 - **Projectile:** `hits_allies: true` - allies don't let it through (it exits `hit_entity` for friend and foe).
-- **Traps (construct):** `triggered_by: enemies | allies | all` (never the owner); `hidden: true` - only the owner
+- **Traps (construct):** `triggered_by: enemies | allies | all` (never the owner) `| everyone` (all and the owner
+  too); `hidden: true` - only the owner
   and their allies see it (and hear it arm). Any construct: `cue: <id>` plays every `cue_every` ticks (default 10)
   while it stands.
 - **Recasts:** while a cast whose cooldown is still waiting runs (`after_recast` or `manual`), a held key's

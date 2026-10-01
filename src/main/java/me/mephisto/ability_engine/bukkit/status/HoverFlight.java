@@ -294,12 +294,12 @@ public final class HoverFlight implements Listener {
         }
         float size = (float) (p.getBoundingBox().getWidthX() / 0.6); // follows the character's scale (1 block at 1.0)
         boolean block = material.isBlock();
-        // A block's cup floor sits just under the feet: its petals rise around their legs, they sit in it.
-        Location under = p.getLocation().add(0, block ? -size * SEAT_DEPTH : -0.05, 0);
+        // A block's cup floor is at the feet (a hair under, not to flicker with them): they sit in it.
+        Location under = p.getLocation().add(0, block ? -0.01 : -0.05, 0);
         under.setPitch(0);
         if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())) {
             removeRide(id);
-            display = block ? uprightBlock(under, material, size) : flatItem(under, material, 0.9f * size);
+            display = block ? uprightBlock(under, material, SEAT_SCALE * size) : flatItem(under, material, 0.9f * size);
             visuals.put(id, display);
             return;
         }
@@ -307,11 +307,12 @@ public final class HoverFlight implements Listener {
     }
 
     /**
-     * How far below the feet a block ride's model starts (a share of its height), so they sit in it. A spore
-     * blossom turned over is a cup: its base leaves at the bottom, four petals flaring up and out from the middle
-     * to about 0.4 of the block's height (they droop 22.5 degrees from the top in the vanilla model).
+     * A block ride's size over the character's (1 block at scale 1.0), so they sit in it. A spore blossom turned
+     * over is a cup: its base leaves at the bottom, four petals flaring up and out from the middle to about 0.4 of
+     * its height (they droop 22.5 degrees from the top in the vanilla model). At 1.4 the rim is about at the hips
+     * (legs are 0.375 of a player's height) and the petals spread about 2.5x their width.
      */
-    private static final float SEAT_DEPTH = 0.06f;
+    private static final float SEAT_SCALE = 1.4f;
 
     /**
      * A block's model turned upside down (a hanging spore blossom opens upward), centred on the spot: its top

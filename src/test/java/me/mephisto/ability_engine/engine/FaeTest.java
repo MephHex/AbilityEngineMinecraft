@@ -195,6 +195,20 @@ class FaeTest {
     }
 
     @Test
+    void herOwnSeedLatchesOntoHerToo() throws IOException {
+        setup();
+        t.world.look(p, new Vec3(1, -1, 0));
+        use(Slots.ABILITY_1);
+        t.time.advance(10);
+        Vec3 seed = t.engine.constructs().all().get(0).position();
+        t.world.move(p, new Vec3(seed.x(), 1, seed.z()));
+        t.time.advance(2);
+        assertEquals(0, t.engine.constructs().activeCount(), "she picked it up");
+        t.time.advance(40);
+        assertEquals(50, t.healed.getOrDefault(p, 0.0), 1e-9, "it blooms on her: 5 HP");
+    }
+
+    @Test
     void threeSeedsAtATime() throws IOException {
         setup();
         t.world.look(p, new Vec3(1, -1, 0));
@@ -278,41 +292,58 @@ class FaeTest {
         assertTrue(has(pal, "fae_gust"));
     }
 
+    /** RMB pressed, then held for {@code ticks} (a held RMB repeats every 4 ticks). */
+    private void holdRmb(int ticks) {
+        use(Slots.SECONDARY);
+        for (int held = 4; held <= ticks; held += 4) {
+            t.time.advance(4);
+            t.engine.loadouts().activate(p, Slots.SECONDARY, false);
+        }
+    }
+
     @Test
-    void holdingTheKeyHopsHerOff() throws IOException {
+    void holdingRmbHopsHerOff() throws IOException {
         setup();
         UUID pal = perchOnNewFriend();
-        use(Slots.ABILITY_2); // the press itself: a tap (a gust)...
-        for (int i = 0; i < 16; i++) { // ...then the key's repeats, after the OS delay (0.5s)
-            t.time.advance(i == 0 ? 10 : 2);
-            t.engine.loadouts().activate(p, Slots.ABILITY_2, false);
-        }
+        holdRmb(20);
         t.time.advance(2);
         assertNull(t.world.riding.get(p), "off");
         assertFalse(has(pal, "fae_blessing"));
         assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertEquals(0, running("fae_ab2"));
-        assertEquals(188, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "the cooldown started when she hopped off (held 1.5s)");
+        assertTrue(t.render.cues.contains("fae_unperch"));
+        assertEquals(198, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "the cooldown started when she hopped off (held 1s)");
     }
 
-    private java.util.Optional<Double> perchBar() {
-        return t.engine.instances().of(p).stream().filter(i -> i.ability().id().equals("fae_ab2")).findFirst()
+    private java.util.Optional<Double> hopBar() {
+        return t.engine.instances().of(p).stream().filter(i -> i.ability().id().equals("fae_secondary")).findFirst()
                 .flatMap(i -> i.progressFraction());
     }
 
     @Test
-    void holdingTheKeyShowsABarATapDoesnt() throws IOException {
+    void holdingRmbFillsABar() throws IOException {
         setup();
         perchOnNewFriend();
-        use(Slots.ABILITY_2); // a tap
-        t.time.advance(5);
-        assertTrue(perchBar().isEmpty(), "a tap: no bar");
-        t.time.advance(5);
-        t.engine.loadouts().activate(p, Slots.ABILITY_2, false); // the key repeats: it's held
-        assertEquals(10 / 30.0, perchBar().orElseThrow(), 1e-9, "filled by the time since the press");
-        t.time.advance(10);
-        t.engine.loadouts().activate(p, Slots.ABILITY_2, false);
-        assertEquals(20 / 30.0, perchBar().orElseThrow(), 1e-9);
+        holdRmb(8);
+        assertEquals(8 / 20.0, hopBar().orElseThrow(), 1e-9, "1s to fill");
+    }
+
+    @Test
+    void aQuickRmbClickDoesntHopHerOff() throws IOException {
+        setup();
+        UUID pal = perchOnNewFriend();
+        holdRmb(8);
+        t.time.advance(20); // let go
+        assertEquals(pal, t.world.riding.get(p), "still up there");
+        assertEquals(1, running("fae_ab2"));
+    }
+
+    @Test
+    void rmbDoesNothingWhenSheIsntPerched() throws IOException {
+        setup();
+        holdRmb(24);
+        assertEquals(0, running("fae_secondary"));
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "fae_ab2"));
     }
 
     @Test

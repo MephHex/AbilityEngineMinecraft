@@ -59,8 +59,8 @@ public final class ConstructSystem {
 
     public record Hit(ConstructHandle construct, Vec3 position, double distance) {}
 
-    /** Who can set a trap off. The owner never can. */
-    public enum TriggeredBy { ENEMIES, ALLIES, ALL }
+    /** Who can set a trap off. The owner can't, except with EVERYONE (friend, foe and the owner). */
+    public enum TriggeredBy { ENEMIES, ALLIES, ALL, EVERYONE }
 
     /**
      * @param solid         projectiles and punches hit it (false: they pass through)
@@ -68,7 +68,8 @@ public final class ConstructSystem {
      * @param armTicks      a trap can't be set off for this long after it's placed
      * @param limit         at most this many from the same owner and ability at once: placing one more
      *                      ends the oldest (its "fuse"). 0 = no limit
-     * @param triggeredBy   who sets the trap off: enemies (default), the owner's allies, or both (the owner never)
+     * @param triggeredBy   who sets the trap off: enemies (default), the owner's allies, both (all: the owner
+     *                      never), or both and the owner (everyone)
      * @param hidden        only the owner and their allies see it (the platform hides it from everyone else)
      * @param idleCue       played at it every {@code idleEvery} ticks while it stands (null = none), e.g. a glow
      */
@@ -205,7 +206,7 @@ public final class ConstructSystem {
 
     /**
      * A trap's victim: the nearest one in range of those who may set it off (by default its owner's enemies;
-     * {@code triggered_by} can make it allies, or both). The owner never sets it off.
+     * {@code triggered_by} can make it allies, or both). The owner never sets it off, except with "everyone".
      */
     private Optional<UUID> intruder(Construct c) {
         double r = c.options.triggerRadius();
@@ -213,7 +214,8 @@ public final class ConstructSystem {
         UUID best = null;
         double bestDist = Double.MAX_VALUE;
         for (EntitySnapshot e : world.livingEntitiesNear(new PointTarget(c.world, c.position), r + TRIGGER_HEIGHT)) {
-            if (e.id().equals(c.owner) || !world.isAlive(e.id()) || !setsOff(c, e.id())) continue;
+            boolean owner = e.id().equals(c.owner) && c.options.triggeredBy() != TriggeredBy.EVERYONE;
+            if (owner || !world.isAlive(e.id()) || !setsOff(c, e.id())) continue;
             Vec3 d = e.center().subtract(c.position);
             double flat = Math.sqrt(d.x() * d.x() + d.z() * d.z());
             if (flat > r || Math.abs(d.y()) > TRIGGER_HEIGHT || flat >= bestDist) continue;
@@ -228,7 +230,7 @@ public final class ConstructSystem {
         return switch (c.options.triggeredBy()) {
             case ENEMIES -> !ally;
             case ALLIES -> ally;
-            case ALL -> true;
+            case ALL, EVERYONE -> true;
         };
     }
 

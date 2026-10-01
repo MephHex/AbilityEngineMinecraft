@@ -318,13 +318,13 @@ public final class NodeTypes {
         return new me.mephisto.ability_engine.engine.nodes.control.ChargeNode.Load(l.requireString("resource"), every, max, start);
     }
 
-    /** A trap's {@code triggered_by: enemies} (default), {@code allies} or {@code all}. */
+    /** A trap's {@code triggered_by: enemies} (default), {@code allies}, {@code all} or {@code everyone} (the caster too). */
     private static ConstructSystem.TriggeredBy triggeredBy(Params p) {
         String v = p.getString("triggered_by", "enemies");
         try {
             return ConstructSystem.TriggeredBy.valueOf(v.toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            throw p.error("triggered_by", "expected enemies, allies or all");
+            throw p.error("triggered_by", "expected enemies, allies, all or everyone (all and the caster)");
         }
     }
 
