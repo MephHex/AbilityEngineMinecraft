@@ -530,7 +530,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   they're gone. `mark: <status>` - whoever it's after keeps that status meanwhile (e.g. `glowing`).
 - **Cues:** each in orange and `_blue`: pyro_bolt_cast, pyro_bolt_trail, pyro_bolt_hit, pyro_bolt_fizzle,
   pyro_fireball_cast, pyro_fireball_trail, pyro_fireball_explode, pyro_wisp_cast, pyro_wisp_trail, pyro_wisp_explode,
-  pyro_wisp_fade, pyro_coals (looping: coals tossed hand to hand), pyro_coal_scorch, pyro_coal_patch (1.8 blocks),
+  pyro_wisp_fade, pyro_coals (looping: coals tossed hand to hand), pyro_coal_scorch (also leaves fire on the ground,
+  only a look, for 4s and 1.8 blocks: keep it in step with the patch), pyro_coal_patch (1.8 blocks),
   pyro_judgment_cast, pyro_judgment_ring (a 6-block ring on the ground: keep it in step with the ability's radius),
   pyro_meteor_fall, pyro_meteor_trail, pyro_meteor_impact, pyro_scorched (6 blocks). Blue only: pyro_overheat
   (looping, with its own start and end).

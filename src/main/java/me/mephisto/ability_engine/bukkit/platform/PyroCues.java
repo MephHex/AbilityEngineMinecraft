@@ -4,12 +4,17 @@ import me.mephisto.ability_engine.engine.platform.CueHandle;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.entity.BlockDisplay;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -21,18 +26,25 @@ import java.util.concurrent.ThreadLocalRandom;
 final class PyroCues {
 
     /** One colour of fire: its flame particle, its embers, and dust for a solid core and bright sparks. */
-    private record Fire(String suffix, Particle flame, Particle ember, Particle.DustOptions core, Particle.DustOptions spark) {}
+    private record Fire(String suffix, Particle flame, Particle ember, Particle.DustOptions core, Particle.DustOptions spark,
+                        Material block) {}
 
     private static final Fire ORANGE = new Fire("", Particle.FLAME, Particle.LAVA,
-            new Particle.DustOptions(Color.fromRGB(255, 110, 20), 1.3f), new Particle.DustOptions(Color.fromRGB(255, 210, 70), 0.9f));
+            new Particle.DustOptions(Color.fromRGB(255, 110, 20), 1.3f), new Particle.DustOptions(Color.fromRGB(255, 210, 70), 0.9f),
+            Material.FIRE);
     private static final Fire BLUE = new Fire("_blue", Particle.SOUL_FIRE_FLAME, Particle.SOUL,
-            new Particle.DustOptions(Color.fromRGB(40, 170, 255), 1.3f), new Particle.DustOptions(Color.fromRGB(170, 240, 255), 0.9f));
+            new Particle.DustOptions(Color.fromRGB(40, 170, 255), 1.3f), new Particle.DustOptions(Color.fromRGB(170, 240, 255), 0.9f),
+            Material.SOUL_FIRE);
+
+    /** Hot Coals' scorched patch: how long its fire stays (keep it in step with the ability: 8 x 0.5s) and how wide. */
+    static final int COAL_FIRE_TICKS = 80;
+    static final double COAL_FIRE_RADIUS = 1.8;
 
     /** Scorching Judgment's area: keep it in step with the ability's radius. */
     static final double JUDGMENT_RADIUS = 6;
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
-        for (Fire f : List.of(ORANGE, BLUE)) register(c, f);
+        for (Fire f : List.of(ORANGE, BLUE)) register(c, f, plugin);
         // Overheat: always blue (it's what turns her flames blue). Starts and ends with her overheating.
         c.registerLoop("pyro_overheat", e -> {
             e.getWorld().spawnParticle(Particle.SOUL_FIRE_FLAME, e.getLocation().add(0, 1, 0), 60, 0.5, 0.9, 0.5, 0.08);
@@ -90,7 +102,7 @@ final class PyroCues {
         }
     }
 
-    private static void register(BukkitCuePlayer c, Fire f) {
+    private static void register(BukkitCuePlayer c, Fire f, Plugin plugin) {
         String s = f.suffix();
         // ---- Fire Bolt ----
         c.register("pyro_bolt_cast" + s, loc -> loc.getWorld().playSound(loc, Sound.ENTITY_BLAZE_SHOOT, 0.5f, 1.7f));
@@ -109,7 +121,8 @@ final class PyroCues {
             loc.getWorld().playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 0.3f, 1.8f);
         });
         // ---- Hot Coals ----
-        c.register("pyro_coal_scorch" + s, loc -> { // she lands: the coals scorch the ground under her
+        c.register("pyro_coal_scorch" + s, loc -> { // she lands: the coals set the ground under her on fire
+            groundFire(plugin, loc, f.block());
             loc.getWorld().spawnParticle(f.flame(), loc.clone().add(0, 0.1, 0), 30, 0.9, 0.05, 0.9, 0.03);
             loc.getWorld().spawnParticle(f.ember(), loc, 4, 0.6, 0.1, 0.6, 0);
             loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 4, 0.6, 0.1, 0.6, 0.01);
@@ -211,6 +224,57 @@ final class PyroCues {
             if (rng.nextDouble() < 0.4) loc.getWorld().spawnParticle(f.ember(), loc, 2, 2.5, 0.1, 2.5, 0);
             if (rng.nextDouble() < 0.3) loc.getWorld().playSound(loc, Sound.BLOCK_FIRE_AMBIENT, 1f, 0.8f);
         });
+    }
+
+    /**
+     * Fire on the ground around {@code loc} for {@link #COAL_FIRE_TICKS}: block displays of a fire block (only a look:
+     * nothing burns, spreads or hurts), one in the middle and a ring around it, each on the ground where it stands
+     * (a step up or down at most). They die down at the end.
+     */
+    private static void groundFire(Plugin plugin, Location loc, Material block) {
+        World w = loc.getWorld();
+        var rng = ThreadLocalRandom.current();
+        java.util.List<BlockDisplay> flames = new java.util.ArrayList<>();
+        int ring = 7;
+        for (int i = 0; i <= ring; i++) {
+            double a = Math.PI * 2 * i / ring + rng.nextDouble(-0.3, 0.3);
+            double r = i == ring ? 0 : COAL_FIRE_RADIUS * rng.nextDouble(0.55, 0.75);
+            Location at = ground(loc.clone().add(Math.cos(a) * r, 0, Math.sin(a) * r));
+            if (at == null) continue;
+            float size = (float) rng.nextDouble(0.75, 1.0);
+            flames.add(w.spawn(at, BlockDisplay.class, d -> {
+                d.setBlock(block.createBlockData());
+                d.setPersistent(false);
+                d.setBrightness(new org.bukkit.entity.Display.Brightness(15, 15)); // fire glows, even in the dark
+                d.setTransformation(new Transformation(new Vector3f(-size / 2, 0, -size / 2), new Quaternionf(),
+                        new Vector3f(size, size, size), new Quaternionf()));
+                VisualEntities.mark(d);
+            }));
+        }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> flames.forEach(d -> { // dying down over the last 0.5s
+            if (!d.isValid()) return;
+            Transformation t = d.getTransformation();
+            float size = t.getScale().x();
+            d.setInterpolationDelay(0);
+            d.setInterpolationDuration(10);
+            d.setTransformation(new Transformation(new Vector3f(-size / 2, 0, -size / 2), new Quaternionf(),
+                    new Vector3f(size, 0.05f, size), new Quaternionf()));
+        }), COAL_FIRE_TICKS - 10);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> flames.forEach(d -> {
+            if (d.isValid()) d.remove();
+        }), COAL_FIRE_TICKS);
+    }
+
+    /** The spot on the ground at {@code at}'s x/z, a block up or down at most: free space with something solid under it. */
+    private static Location ground(Location at) {
+        int y = (int) Math.floor(at.getY() + 0.01);
+        for (int dy : new int[]{0, 1, -1}) {
+            var space = at.getWorld().getBlockAt(at.getBlockX(), y + dy, at.getBlockZ());
+            if (space.isPassable() && !space.isLiquid() && space.getRelative(org.bukkit.block.BlockFace.DOWN).getType().isSolid()) {
+                return new Location(at.getWorld(), at.getX(), y + dy, at.getZ());
+            }
+        }
+        return null;
     }
 
     private PyroCues() {}
