@@ -298,7 +298,19 @@ public final class Parsers {
                 base.grantedTags(), onHit, every, tickEffects,
                 p.getBool("break_on_damage", false), p.getBool("once", false),
                 positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery(),
-                new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null)));
+                new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null),
+                        p.getString("then", null)), farDamage(p));
+    }
+
+    /** {@code far_damage_taken: { beyond: 8, multiplier: 0.5 }} (a domain): null without one. */
+    private static StatusDef.FarDamage farDamage(Params p) {
+        if (!p.has("far_damage_taken")) return null;
+        Params f = p.getParams("far_damage_taken");
+        double beyond = f.requireDouble("beyond");
+        double multiplier = f.requireDouble("multiplier");
+        if (beyond <= 0) throw f.error("beyond", "must be above 0 (blocks from the holder)");
+        if (multiplier < 0) throw f.error("multiplier", "must be >= 0 (0.5 = half the damage, 0 = none)");
+        return new StatusDef.FarDamage(beyond, multiplier);
     }
 
     private Parsers() {}

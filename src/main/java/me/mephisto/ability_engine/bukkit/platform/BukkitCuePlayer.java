@@ -720,6 +720,7 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1.2f);
         });
         PyroCues.register(c, plugin);
+        TreeCues.register(c, plugin);
         return c;
     }
 

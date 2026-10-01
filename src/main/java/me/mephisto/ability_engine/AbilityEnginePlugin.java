@@ -93,6 +93,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(new CombatInputListener(engine, keybinds, hud), this);
         pm.registerEvents(new CrossbowListener(engine, hud), this);
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.input.SneakInput(engine, hud), this);
         pm.registerEvents(worldQuery.movementTracker(), this);
         pm.registerEvents(inventoryLock, this);
         pm.registerEvents(new VisualEntities(), this);

@@ -157,12 +157,17 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
     public static final java.util.Set<String> TRAITS = java.util.Set.of(SNEAK_SLOW_FALL);
 
     /**
-     * A temporary kit change while the player has {@code tag} (e.g. an ultimate that replaces the primary).
-     * Null weapon/statusBar keep the character's own; slots replace only the slots they name.
+     * A kit change while the player has {@code tag} (e.g. an ultimate that replaces the primary, or a stage of growth).
+     * Null weapon/statusBar/stats keep the character's own; slots replace only the slots they name, and a slot
+     * mapped to null is emptied (none).
      */
-    public record Form(String tag, String weapon, Map<String, String> slots, StatusBar statusBar) {
+    public record Form(String tag, String weapon, Map<String, String> slots, StatusBar statusBar, Stats stats) {
         public Form {
             slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
+        }
+
+        public Form(String tag, String weapon, Map<String, String> slots, StatusBar statusBar) {
+            this(tag, weapon, slots, statusBar, null);
         }
     }
 
@@ -266,10 +271,13 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
     /** This character as it is while {@code form} is active. */
     public CharacterDef in(Form form) {
         Map<String, String> changed = new LinkedHashMap<>(slots);
-        changed.putAll(form.slots());
+        form.slots().forEach((slot, ability) -> {
+            if (ability == null) changed.remove(slot); // none: this form has nothing there
+            else changed.put(slot, ability);
+        });
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
-                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, stats, ward, statusItems, whenHit, hearing,
-                hover, variants);
+                form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, form.stats() != null ? form.stats() : stats,
+                ward, statusItems, whenHit, hearing, hover, variants);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

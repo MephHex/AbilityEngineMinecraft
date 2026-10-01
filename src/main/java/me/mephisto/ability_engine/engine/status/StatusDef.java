@@ -22,21 +22,30 @@ import java.util.Set;
  * @param decayEvery           above 0: once its duration is up it doesn't end at once, it loses a stack every this
  *                             many ticks (a gauge cooling down); applying it again stops that and starts the duration over
  * @param links                how it hangs together with other statuses, and its looping cue
+ * @param farDamage            damage from attackers farther than {@code beyond} blocks from the holder is multiplied by
+ *                             {@code multiplier} (a domain: 0.5 = half from outside it, 0 = immune); null = none
  */
 public record StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                         List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                         boolean breakOnDamage, boolean once,
                         boolean positive, double damageDealt, double damageTaken, double attackSpeed,
-                        double moveSpeed, int decayEvery, Links links) {
+                        double moveSpeed, int decayEvery, Links links, FarDamage farDamage) {
+
+    /** Damage from attackers more than {@code beyond} blocks away is multiplied by {@code multiplier}. */
+    public record FarDamage(double beyond, double multiplier) {}
 
     /**
      * @param atMax    reaching its max_stacks puts this status on the holder too (null = none), e.g. a full gauge
      *                 sets off a state
      * @param requires it only lasts while the holder has this status (null = no such tie): it ends with it
      * @param cue      a looping cue on the holder while it lasts (null = none)
+     * @param then     when its time runs out (not when it's removed early), this status goes on the holder (null =
+     *                 none), e.g. one stage growing into the next
      */
-    public record Links(String atMax, String requires, String cue) {
-        public static final Links NONE = new Links(null, null, null);
+    public record Links(String atMax, String requires, String cue, String then) {
+        public static final Links NONE = new Links(null, null, null, null);
+
+        public Links(String atMax, String requires, String cue) { this(atMax, requires, cue, null); }
     }
 
     public StatusDef {
@@ -45,6 +54,15 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
         onHit = List.copyOf(onHit);
         tickEffects = List.copyOf(tickEffects);
         if (maxStacks < 1) maxStacks = 1;
+    }
+
+    /** Without far damage. */
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken,
+                     double attackSpeed, double moveSpeed, int decayEvery, Links links) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, links, null);
     }
 
     /** Without links. */
@@ -107,12 +125,12 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     /** The same, with {@code decay}. */
     public StatusDef withDecay(int every) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
-                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every, links);
+                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every, links, farDamage);
     }
 
     /** The same, with these links. */
     public StatusDef withLinks(Links other) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
-                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, other);
+                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, other, farDamage);
     }
 }

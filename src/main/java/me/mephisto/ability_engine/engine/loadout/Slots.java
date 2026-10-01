@@ -21,8 +21,13 @@ public final class Slots {
     public static final String ABILITY_2 = "ability_2";
     public static final String ABILITY_3 = "ability_3";
     public static final String ULTIMATE = "ultimate";
+    /**
+     * Holding SHIFT (sneak): pressing it casts this slot, letting go releases it (a charge node: "hold to ...").
+     * No hotbar icon.
+     */
+    public static final String SNEAK = "sneak";
 
-    public static final List<String> ALL = List.of(PRIMARY, SECONDARY, MELEE, ABILITY_1, ABILITY_2, ABILITY_3, ULTIMATE);
+    public static final List<String> ALL = List.of(PRIMARY, SECONDARY, MELEE, ABILITY_1, ABILITY_2, ABILITY_3, ULTIMATE, SNEAK);
 
     private Slots() {}
 }

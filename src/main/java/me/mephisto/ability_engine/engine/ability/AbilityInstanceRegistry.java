@@ -68,6 +68,17 @@ public final class AbilityInstanceRegistry implements TagListener {
         return any;
     }
 
+    /** The input of one ability was let go (e.g. SHIFT for the sneak slot): fire its charges only. */
+    public boolean release(UUID caster, String abilityId) {
+        boolean any = false;
+        for (AbilityInstance i : of(caster)) {
+            if (!i.charging() || !i.ability().id().equals(abilityId)) continue;
+            i.release();
+            any = true;
+        }
+        return any;
+    }
+
     /** A timer (boss bar) of one of the caster's casts: which ability, and how much is left (1..0). */
     public record Timer(Ability ability, double left) {}
 

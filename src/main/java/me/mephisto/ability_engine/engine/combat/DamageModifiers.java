@@ -45,6 +45,7 @@ public final class DamageModifiers {
             for (ActiveStatus s : engine.statuses().on(attacker)) amount *= s.def().damageDealt();
         }
         for (ActiveStatus s : engine.statuses().on(victim)) amount *= s.def().damageTaken();
+        amount *= farMultiplier(engine, attacker, victim);
         List<Redirect> redirects = new ArrayList<>();
         for (LinkManager.Link link : engine.links().onTarget(victim)) {
             if (link.owner().equals(attacker)) continue; // your own hits on your bonded ally aren't shielded
@@ -58,6 +59,26 @@ public final class DamageModifiers {
         if (attacker == null || !attacker.equals(victim)) amount = engine.wards().absorbHit(victim, amount);
         if (amount > 0 && attacker != null && engine.teams().enemies(attacker, victim)) engine.wards().hitTaken(victim, attacker);
         return new Result(Math.max(0, amount), redirects);
+    }
+
+    /**
+     * The victim's statuses with {@code far_damage_taken} (a domain): when the attacker is farther than {@code beyond}
+     * from them, the hit is multiplied. The world's hits and the victim's own are never "far".
+     */
+    private static double farMultiplier(AbilityEngine engine, UUID attacker, UUID victim) {
+        if (attacker == null || attacker.equals(victim)) return 1;
+        double m = 1;
+        for (ActiveStatus s : engine.statuses().on(victim)) {
+            var far = s.def().farDamage();
+            if (far == null) continue;
+            var from = engine.world().positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(attacker));
+            var at = engine.world().positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(victim));
+            if (from.isEmpty() || at.isEmpty()) continue;
+            boolean outside = !from.get().world().equals(at.get().world())
+                    || from.get().position().distance(at.get().position()) > far.beyond();
+            if (outside) m *= far.multiplier();
+        }
+        return m;
     }
 
     private DamageModifiers() {}

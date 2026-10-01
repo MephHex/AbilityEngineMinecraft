@@ -282,6 +282,38 @@ every 3 ticks (x3.3), +25% speed.
 | Hot Coals | 6s of Jump Boost II; every landing scorches the ground for 4s (1.8 blocks): enemies in it are slowed 35% and burn |
 | Scorching Judgment (ult) | marked 6-block area (everyone sees its edge): ~2s later a meteor, **300%** + knockback + burn; then 8s of scorched ground, **15%** every 0.5s + burn |
 
+### Sylvan: Grows from Skirmisher to Siege Tree
+
+Starts as a seed; Take Root plants her, and each stage grows into the next (3s buried, 20s a sapling, 60s a young
+tree, then a large tree for good; a death makes her a seed again). From the sapling on she can't walk.
+
+| Stage | Max HP | Armor | Base dmg | Move speed | Attack speed | Size |
+|---|---|---|---|---|---|---|
+| Seed | **120** | **0** | **24** | **1.15** | **1.6** (13 ticks) | 0.45 |
+| Sapling | **160** | **10** (9%) | **28** | planted | **2.0** (10 ticks) | 0.7 |
+| Young tree | **250** | **25** (20%) | **32** | planted | **1.4** (14 ticks) | 1.15 |
+| Large tree | **380** | **40** (29%) | **36** | planted (0.8 walking) | no primary | 1.7 |
+
+| Stage | Ability | Damage |
+|---|---|---|
+| Seed | Seed Shot (primary) | **80%** + a little knockback |
+| | Blink | up to 7 blocks where she looks |
+| | Take Root | 0.5s untouchable, 3s buried, then a sapling |
+| Sapling | Thorn (primary) | **100%** + a little knockback |
+| | Root Snare | through everyone (18 blocks): **60%**, rooted 2s |
+| | Scatter | 3.5-block area: **50%**, teleported 8 blocks out of it |
+| | Uproot (hold SHIFT 1.5s) | a seed again |
+| Young tree | domain (8 blocks) | half damage from enemies outside it |
+| | Sticky Sap (primary) | **90%**, slowed 30% 2s |
+| | Fruit Bomb | falls on a spot: **130%** within 3 blocks, knockback |
+| | Root Lash | **70%**, held 3s; again: dragged 8 blocks toward her crosshair |
+| | Strength Sap | allies in the domain: +20% damage, +20% speed, 5s |
+| Large tree | domain (14 blocks, shown) | immune to enemies outside it |
+| | Windfall | up to 5 fruits, 10s: enemy **100%** within 2.5 + stun 1.5s; ally heals 12% max HP; expired heals her 4% |
+| | Deep Roots | whole domain: **40%**, rooted 2s |
+| | Screech | whole domain: knocked away, disarmed 3s |
+| | Walking Tree (ult) | walks 8s, no abilities: **30%** every 0.5s to enemies in the domain, all of it heals her |
+
 ### Test kit (Pyro)
 
 No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).

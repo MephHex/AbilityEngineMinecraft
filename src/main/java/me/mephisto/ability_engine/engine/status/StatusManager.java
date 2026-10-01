@@ -159,6 +159,8 @@ public final class StatusManager {
                 return;
             }
             remove(target, s.def.id());
+            String then = s.def.links().then();
+            if (then != null && registry.find(then).isPresent()) apply(target, then, s.source); // its time is up: what comes next
         });
     }
 

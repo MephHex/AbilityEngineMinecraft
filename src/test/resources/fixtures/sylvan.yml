@@ -1,0 +1,700 @@
+# content: sylvan
+# The Sylvan: starts the game as a little seed, takes root, and grows: a sapling, a young tree, then a large tree.
+# Each stage is a form (see characters below) with its own kit and stats: bigger, tougher and stronger as she grows.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# SEED (the start, and after every death): quick and small. Take Root (2) buries her: 0.5s untouchable digging in,
+#   then 3s buried (no abilities, can't move), then she SPROUTS: a sapling.
+# SAPLING (planted: can't walk): hold SHIFT 1.5s to dig herself out (a seed again: run away). After 20s she grows
+#   into a YOUNG TREE.
+# YOUNG TREE (planted; SHIFT does nothing any more): her DOMAIN is 8 blocks around her: enemies outside it deal her
+#   only half damage. After 60s she grows into a LARGE TREE.
+# LARGE TREE (planted, for good): her domain is 14 blocks, its edge shown on the ground for everyone, and nothing
+#   outside it can hurt her at all. No primary fire.
+# The XP bar shows the time until the next stage.
+
+statuses:
+  # ---- stages of growth (the forms follow their tags) ----
+  sylvan_burrowing:                  # Take Root: 0.5s digging in, untouchable
+    duration: 10
+    tags: [state.untargetable, block.ability, block.move]
+    damage_taken: 0
+    positive: false
+  sylvan_buried:                     # 3s in the ground: no abilities; then she sprouts
+    duration: 60
+    tags: [state.buried, block.ability, block.move]
+    then: sylvan_sapling
+    cue: sylvan_buried
+    positive: false
+  sylvan_planted:                    # rooted in the ground (from Take Root on; SHIFT as a sapling, or Walking Tree, lifts it)
+    duration: 0
+    tags: [state.planted, block.move]
+    positive: false
+  sylvan_sapling:
+    duration: 400                    # 20s, then a young tree
+    tags: [state.sapling]
+    then: sylvan_tree
+    cue: sylvan_sapling              # (her look: a sapling on her head, until there's a model)
+    positive: false
+  sylvan_tree:
+    duration: 1200                   # 60s, then a large tree
+    tags: [state.tree]
+    then: sylvan_large_tree
+    cue: sylvan_tree                 # (her look, and her domain's edge)
+    far_damage_taken: { beyond: 8, multiplier: 0.5 }   # domain: from outside 8 blocks, half damage
+    positive: false
+  sylvan_large_tree:
+    duration: 0                      # for good (until she dies: a seed again)
+    tags: [state.large_tree]
+    cue: sylvan_large_tree
+    far_damage_taken: { beyond: 14, multiplier: 0 }    # domain: from outside 14 blocks, nothing
+    positive: false
+  # ---- what her abilities put on others ----
+  sylvan_sap:                        # Sticky Sap: slowed
+    duration: 40
+    stacking: refresh
+    move_speed: 0.7                  # -30%
+  sylvan_bound:                      # Root Lash: held by a root (she can drag them)
+    duration: 60
+    tags: [state.rooted, block.move]
+    positive: false
+  sylvan_vigor:                      # Strength Sap: stronger and faster
+    duration: 100                    # 5s
+    tags: [buff.sylvan_vigor]
+    damage_dealt: 1.2                # +20%
+    move_speed: 1.2                  # +20%
+
+abilities:
+
+  # ===================================== SEED =====================================
+
+  # PRIMARY (LMB): Seed Shot. A seed (1.5 blocks/tick): 80% base damage, and a little knockback.
+  sylvan_seed_shot:
+    cooldown: 12                     # (the stage's attack_speed sets it)
+    display:
+      name: "Seed Shot"
+      description:
+        - "A seed: 80% base damage, and it"
+        - "knocks them back a little."
+    nodes:
+      shoot:
+        type: projectile
+        speed: 1.5
+        size: 0.35
+        range: 22
+        lifetime: 20
+        visual: WHEAT_SEEDS
+        visual_size: 0.4
+        motion:
+          - { type: gravity, amount: 0.01 }
+        on: { spawned: shoot_cue, hit_entity: hit }
+      shoot_cue:
+        type: play_cue
+        cue: sylvan_seed_shot
+      hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8 }
+          - { id: knockback, from: hit_from, radius: 3, center: 0.7, edge: 0.5, lift: 0.25 }   # along the shot
+        next: hit_cue
+      hit_cue:
+        type: play_cue
+        cue: sylvan_seed_hit
+        at: hit
+
+  # 1: Blink. Pop up to 7 blocks where you look (in front of a wall, if one's in the way).
+  sylvan_blink:
+    cooldown: 120                    # 6s
+    movement: true                   # (not while rooted)
+    display:
+      name: "Blink"
+      icon: FEATHER
+      description:
+        - "Pop up to 7 blocks where you look."
+    nodes:
+      spot:
+        type: acquire_target
+        query: { type: cursor, range: 7 }
+        store: spot
+        on: { hit: leave, miss: ~ }
+      leave:
+        type: play_cue
+        cue: sylvan_blink
+        next: blink
+      blink:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: teleport, to: spot }
+        next: arrive
+      arrive:
+        type: play_cue
+        cue: sylvan_blink
+
+  # 2: Take Root. Dig in where you stand: 0.5s (untouchable), then 3s buried (no abilities); then you sprout into a
+  # sapling, planted there.
+  sylvan_bury:
+    cooldown: 60                     # 3s
+    display:
+      name: "Take Root"
+      icon: ROOTED_DIRT
+      description:
+        - "Dig in (0.5s, untouchable), 3s buried,"
+        - "then sprout: a sapling, planted there."
+    nodes:
+      dig:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: sylvan_burrowing }
+          - { id: status, status: sylvan_planted }
+        next: dig_cue
+      dig_cue:
+        type: play_cue
+        cue: sylvan_burrow
+        next: digging
+      digging:
+        type: delay
+        ticks: 10
+        cast_bar: true
+        next: buried
+      buried:
+        type: apply_effects          # 3s, then she sprouts by herself (the status's "then")
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: sylvan_buried }
+
+  # =================================== SAPLING ====================================
+
+  # PRIMARY (LMB): Thorn. A thorn (1.8 blocks/tick): 100% base damage, a little knockback. A bit faster than seeds.
+  sylvan_thorn:
+    cooldown: 10
+    display:
+      name: "Thorn"
+      description:
+        - "A thorn: 100% base damage, and it"
+        - "knocks them back a little."
+    nodes:
+      shoot:
+        type: projectile
+        speed: 1.8
+        size: 0.35
+        range: 24
+        lifetime: 20
+        visual: BAMBOO
+        visual_size: 0.5
+        face_flight: true
+        on: { spawned: shoot_cue, hit_entity: hit }
+      shoot_cue:
+        type: play_cue
+        cue: sylvan_thorn_shot
+      hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.0 }
+          - { id: knockback, from: hit_from, radius: 3, center: 0.6, edge: 0.4, lift: 0.2 }
+        next: hit_cue
+      hit_cue:
+        type: play_cue
+        cue: sylvan_thorn_hit
+        at: hit
+
+  # 1: Root Snare. A root flies straight (no drop, 18 blocks) through everyone in its way: 60% base damage, rooted 2s.
+  sylvan_root_snare:
+    cooldown: 160                    # 8s
+    display:
+      name: "Root Snare"
+      icon: HANGING_ROOTS
+      description:
+        - "A root through everyone in its way"
+        - "(18 blocks): 60% base damage, rooted 2s."
+    nodes:
+      shoot:
+        type: projectile
+        speed: 1.4
+        size: 0.6
+        range: 18
+        lifetime: 30
+        pierce: 20                   # through all of them
+        visual: HANGING_ROOTS
+        visual_size: 0.6
+        face_flight: true
+        on: { spawned: shoot_cue, hit_entity: snare }
+      shoot_cue:
+        type: play_cue
+        cue: sylvan_root_shot
+      snare:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6 }
+          - { id: status, status: root, duration: 40 }
+        next: snare_cue
+      snare_cue:
+        type: play_cue
+        cue: sylvan_rooted
+        at: hit
+
+  # 2: Scatter. Pick an area (aim preview, 18 blocks, 3.5-block radius): enemies in it take 50% base damage and are
+  # teleported 8 blocks straight out of it.
+  sylvan_scatter:
+    cooldown: 240                    # 12s
+    targeting:
+      shape: circle
+      range: 18
+      radius: 3.5
+      ground: true
+    display:
+      name: "Scatter"
+      icon: CHORUS_FRUIT
+      description:
+        - "Pick an area: enemies in it take 50%"
+        - "base damage and are teleported 8 blocks"
+        - "out of it."
+    nodes:
+      burst:
+        type: play_cue
+        cue: sylvan_scatter
+        at: aim
+        next: fling
+      fling:
+        type: apply_effects
+        targets: { type: radius, center: aim, radius: 3.5 }
+        effects:
+          - { id: damage, base: 0.5 }
+          - { id: teleport, away_from: aim, distance: 8 }
+
+  # SHIFT (hold 1.5s): Uproot. Dig yourself out: a seed again, free to run (the sapling's growth starts over).
+  sylvan_uproot:
+    cooldown: 0
+    display:
+      name: "Uproot"
+      description:
+        - "Hold SHIFT 1.5s: dig out, a seed again."
+    nodes:
+      pull:
+        type: charge                 # SHIFT held (the cast bar fills); let go early: nothing
+        ticks: 30
+        min: 30
+        on: { out: free, early: ~ }
+      free:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: sylvan_sapling }
+          - { id: remove_status, status: sylvan_planted }
+        next: free_cue
+      free_cue:
+        type: play_cue
+        cue: sylvan_uproot
+
+  # ================================== YOUNG TREE ==================================
+
+  # PRIMARY (LMB): Sticky Sap. A glob of sap (1.2 blocks/tick, a drop): 90% base damage, slowed 30% for 2s.
+  sylvan_sap_shot:
+    cooldown: 14
+    display:
+      name: "Sticky Sap"
+      description:
+        - "A glob of sap: 90% base damage, and"
+        - "they're slowed 30% for 2s."
+    nodes:
+      shoot:
+        type: projectile
+        speed: 1.2
+        size: 0.45
+        range: 24
+        lifetime: 30
+        visual: "block:HONEY_BLOCK"
+        visual_size: 0.3
+        motion:
+          - { type: gravity, amount: 0.02 }
+        on: { spawned: shoot_cue, hit_entity: hit }
+      shoot_cue:
+        type: play_cue
+        cue: sylvan_sap_shot
+      hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.9 }
+          - { id: status, status: sylvan_sap }
+        next: hit_cue
+      hit_cue:
+        type: play_cue
+        cue: sylvan_sap_hit
+        at: hit
+
+  # 1: Fruit Bomb. Pick a spot (aim preview, 22 blocks): a fruit drops out of the sky onto it (~1s) and bursts: 130%
+  # base damage within 3 blocks, knocked back.
+  sylvan_fruit_bomb:
+    cooldown: 160                    # 8s
+    targeting:
+      shape: circle
+      range: 22
+      radius: 3
+      ground: true
+    display:
+      name: "Fruit Bomb"
+      icon: APPLE
+      description:
+        - "A fruit drops on a spot (~1s) and"
+        - "bursts: 130% base damage within 3"
+        - "blocks, and they're knocked back."
+    nodes:
+      fall_cue:
+        type: play_cue
+        cue: sylvan_fruit_fall
+        at: aim
+        next: fall
+      fall:
+        type: projectile             # out of the sky: 10 blocks up, at the spot
+        from: aim
+        up: 10
+        toward: aim
+        speed: 0.6
+        size: 0.8
+        lifetime: 40
+        visual: APPLE
+        visual_size: 0.9
+        on: { hit_entity: burst, hit_block: burst, expired: burst }
+      burst:
+        type: apply_effects
+        targets: { type: radius, center: aim, radius: 3 }
+        effects:
+          - { id: damage, base: 1.3 }
+          - { id: knockback, from: aim, radius: 3, center: 1.1, edge: 0.5, lift: 0.4 }
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: sylvan_fruit_bomb
+        at: aim
+
+  # 2: Root Lash. Throw a root (20 blocks): the enemy it catches takes 70% base damage and is held for 3s. Press 2
+  # again meanwhile to drag them 8 blocks toward where you look (it lets them go).
+  sylvan_root_lash:
+    cooldown: 200                    # 10s (from when it's over)
+    movement: false                  # she's planted: dragging someone isn't her moving
+    display:
+      name: "Root Lash"
+      icon: LEAD
+      description:
+        - "A root catches an enemy (20 blocks):"
+        - "70% base damage, held 3s. Again: drag"
+        - "them 8 blocks toward where you look."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.5
+        size: 0.6
+        range: 20
+        lifetime: 30
+        visual: "block:MANGROVE_ROOTS"
+        visual_size: 0.45
+        on: { spawned: throw_cue, hit_entity: bind }
+      throw_cue:
+        type: play_cue
+        cue: sylvan_lash_throw
+      bind:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.7 }
+          - { id: status, status: sylvan_bound }
+        next: bind_cue
+      bind_cue:
+        type: play_cue
+        cue: sylvan_rooted
+        at: hit
+        next: hold
+      hold:
+        type: start_line             # the root between her and them while it holds
+        cue: sylvan_root_line
+        to: hit
+        next: wait
+      wait:
+        type: await_recast
+        window: 60                   # = the hold
+        on: { recast: drag, timeout: ~ }
+      drag:
+        type: dash                   # them, toward her crosshair
+        mover: hit
+        toward: cursor
+        speed: 0.9
+        range: 8
+        radius: 0.4
+        on: { hit: let_go, miss: let_go }
+      let_go:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: sylvan_bound }
+        next: drag_cue
+      drag_cue:
+        type: play_cue
+        cue: sylvan_drag
+        at: hit
+
+  # 3: Strength Sap. Allies in your domain (8 blocks, you too) are 20% stronger and 20% faster for 5s.
+  sylvan_strength_sap:
+    cooldown: 300                    # 15s
+    display:
+      name: "Strength Sap"
+      icon: HONEY_BOTTLE
+      description:
+        - "Allies in your domain (8 blocks): +20%"
+        - "damage and +20% speed for 5s."
+    nodes:
+      well_up:
+        type: apply_effects
+        targets: { type: radius, radius: 8, include_caster: true }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: sylvan_vigor }
+        next: well_cue
+      well_cue:
+        type: play_cue
+        cue: sylvan_strength_sap
+
+  # ================================== LARGE TREE ==================================
+
+  # 1: Windfall. A fruit falls on a spot (aim preview, 24 blocks) and lies there up to 10s (5 at most). An enemy
+  # who comes near bursts it: 100% base damage within 2.5 blocks and stunned 1.5s. An ally who comes near eats it:
+  # healed 12% max HP. Left lying, it composts: you heal 4% max HP. Enemies can smash it (any hit).
+  sylvan_windfall:
+    cooldown: 60                     # 3s
+    targeting:
+      shape: circle
+      range: 24
+      radius: 1.2
+      ground: true
+    display:
+      name: "Windfall"
+      icon: MELON_SLICE
+      description:
+        - "A fruit lies on a spot up to 10s (5"
+        - "max). Enemies burst it: 100% base dmg,"
+        - "stun 1.5s. Allies eat it: +12% max HP."
+        - "Left lying, it heals you 4% max HP."
+        - "Enemies can smash it."
+    nodes:
+      drop:
+        type: play_cue
+        cue: sylvan_fruit_drop
+        at: aim
+        next: fruit
+      fruit:
+        type: construct
+        at: aim
+        height: 0.25
+        size: 0.5
+        fuse: 200                    # 10s
+        fragile: 200                 # an enemy's hit smashes it, the whole time
+        solid: true
+        trigger: 1.2
+        triggered_by: all            # friend or foe (not her)
+        arm: 10
+        limit: 5
+        visual: "block:MELON"
+        cue: sylvan_fruit_idle
+        cue_every: 10
+        on: { triggered: whose, fuse: compost, broken: smashed }
+      whose:
+        type: is_ally
+        target: hit
+        on: { ally: eat, enemy: burst }
+      burst:
+        type: apply_effects
+        targets: { type: radius, center: construct, radius: 2.5 }
+        effects:
+          - { id: damage, base: 1.0 }
+          - { id: status, status: stun, duration: 30 }
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: sylvan_fruit_burst
+        at: construct
+      eat:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: heal, max_hp: 0.12 }
+        next: eat_cue
+      eat_cue:
+        type: play_cue
+        cue: sylvan_fruit_eaten
+        at: hit
+      compost:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: heal, max_hp: 0.04 }
+        next: compost_cue
+      compost_cue:
+        type: play_cue
+        cue: sylvan_fruit_compost
+        at: construct
+      smashed:
+        type: play_cue
+        cue: sylvan_fruit_smashed
+        at: construct
+
+  # 2: Deep Roots. Roots burst up across your whole domain (14 blocks): enemies take 40% base damage, rooted 2s.
+  sylvan_deep_roots:
+    cooldown: 240                    # 12s
+    display:
+      name: "Deep Roots"
+      icon: MANGROVE_ROOTS
+      description:
+        - "Roots across your domain (14 blocks):"
+        - "40% base damage, rooted 2s."
+    nodes:
+      roots:
+        type: apply_effects
+        targets: { type: radius, radius: 14 }
+        effects:
+          - { id: damage, base: 0.4, knockback: false }
+          - { id: status, status: root, duration: 40 }
+        next: roots_cue
+      roots_cue:
+        type: play_cue
+        cue: sylvan_deep_roots
+
+  # 3: Screech. Every enemy in your domain (14 blocks) is blown away from you (harder the closer they are) and
+  # disarmed for 3s (no basic attacks).
+  sylvan_screech:
+    cooldown: 280                    # 14s
+    display:
+      name: "Screech"
+      icon: SCULK_SHRIEKER
+      description:
+        - "Enemies in your domain (14 blocks) are"
+        - "blown away and disarmed 3s."
+    nodes:
+      screech:
+        type: apply_effects
+        targets: { type: radius, radius: 14 }
+        effects:
+          - { id: knockback, from: caster, radius: 14, center: 2.2, edge: 1.0, lift: 0.5 }
+          - { id: status, status: disarm, duration: 60 }
+        next: screech_cue
+      screech_cue:
+        type: play_cue
+        cue: sylvan_screech
+
+  # ULTIMATE (F): Walking Tree. Tear your roots out and walk for 8s (a boss bar; no abilities meanwhile): every 0.5s
+  # each enemy in your domain loses 30% base damage, and it heals you. Then you take root again where you stand.
+  sylvan_walk:
+    cooldown: 1200                   # placeholder until ults charge from damage
+    active_tags: [state.walking_tree, block.ability]   # walking: no abilities
+    display:
+      name: "Walking Tree"
+      icon: AZALEA
+      description:
+        - "Walk for 8s (no abilities): every 0.5s"
+        - "enemies in your domain lose 30% base"
+        - "damage, and it heals you. Then you"
+        - "take root again."
+    nodes:
+      uproot:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: sylvan_planted }
+        next: uproot_cue
+      uproot_cue:
+        type: play_cue
+        cue: sylvan_walk
+        next: split
+      split:
+        type: fork                   # the timer, and the drain
+        on: { out: timer, also: drain }
+      timer:
+        type: delay
+        ticks: 160
+        boss_bar: true
+        next: settle
+      drain:
+        type: repeat                 # 16 x 0.5s
+        times: 16
+        every: 10
+        on: { each: sap }
+      sap:
+        type: apply_effects
+        targets: { type: radius, radius: 14 }
+        effects:
+          - { id: damage, base: 0.3, knockback: false, lifesteal: 1.0 }
+        next: sap_cue
+      sap_cue:
+        type: play_cue
+        cue: sylvan_drain
+      settle:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: sylvan_planted }
+        next: settle_cue
+      settle_cue:
+        type: play_cue
+        cue: sylvan_take_root
+
+characters:
+  sylvan:
+    name: "Sylvan"
+    weapon: WHEAT_SEEDS
+    stats:                           # the SEED (see docs/character-stats.md); each stage below has its own
+      health: 120
+      armor: 0
+      base_damage: 24
+      move_speed: 1.15
+      attack_speed: 1.6
+      scale: 0.45
+    slots:
+      primary: sylvan_seed_shot      # LMB: Seed Shot
+      ability_1: sylvan_blink        # 1: Blink
+      ability_2: sylvan_bury         # 2: Take Root
+    forms:                           # the stages (first match wins)
+      - while: state.large_tree
+        weapon: OAK_LOG
+        stats: { health: 380, armor: 40, base_damage: 36, move_speed: 0.8, scale: 1.7 }
+        slots:
+          primary: none              # no primary fire
+          ability_1: sylvan_windfall # 1: Windfall
+          ability_2: sylvan_deep_roots   # 2: Deep Roots
+          ability_3: sylvan_screech  # 3: Screech
+          ultimate: sylvan_walk      # F: Walking Tree
+      - while: state.tree
+        weapon: STICK
+        stats: { health: 250, armor: 25, base_damage: 32, move_speed: 1.0, attack_speed: 1.4, scale: 1.15 }
+        status_bar: { status: sylvan_tree, level: none }   # XP bar: time until she's a large tree
+        slots:
+          primary: sylvan_sap_shot   # LMB: Sticky Sap
+          ability_1: sylvan_fruit_bomb   # 1: Fruit Bomb
+          ability_2: sylvan_root_lash    # 2: Root Lash (again: drag)
+          ability_3: sylvan_strength_sap # 3: Strength Sap
+      - while: state.sapling
+        weapon: OAK_SAPLING
+        stats: { health: 160, armor: 10, base_damage: 28, move_speed: 1.0, attack_speed: 2.0, scale: 0.7 }
+        status_bar: { status: sylvan_sapling, level: none }   # XP bar: time until she's a young tree
+        slots:
+          primary: sylvan_thorn      # LMB: Thorn
+          ability_1: sylvan_root_snare   # 1: Root Snare
+          ability_2: sylvan_scatter  # 2: Scatter
+          sneak: sylvan_uproot       # SHIFT (hold): Uproot
+      - while: state.buried
+        stats: { scale: 0.25 }       # sunk into the soil
+        status_bar: { status: sylvan_buried, level: none }    # XP bar: time until she sprouts
+        slots: {}

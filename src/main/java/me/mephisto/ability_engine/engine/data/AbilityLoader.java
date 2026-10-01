@@ -98,6 +98,7 @@ public final class AbilityLoader {
                 StatusDef def = Parsers.statusEffects(base.get(), entry.getValue(), engine.effects());
                 knownStatus(entry.getValue(), "at_max", def.links().atMax());
                 knownStatus(entry.getValue(), "requires", def.links().requires());
+                knownStatus(entry.getValue(), "then", def.links().then());
                 engine.statusDefs().define(def);
                 report.status();
             } catch (RuntimeException e) {
@@ -182,10 +183,19 @@ public final class AbilityLoader {
     }
 
     private Map<String, String> slots(Params slotsSection) {
+        return slots(slotsSection, false);
+    }
+
+    /** @param noneEmpties a form's slots: {@code none} empties that slot while the form lasts */
+    private Map<String, String> slots(Params slotsSection, boolean noneEmpties) {
         Map<String, String> slots = new LinkedHashMap<>();
         for (String slot : slotsSection.keys()) {
             if (!Slots.ALL.contains(slot)) throw slotsSection.error(slot, "unknown slot, expected one of " + Slots.ALL);
             String abilityId = slotsSection.requireString(slot);
+            if (noneEmpties && abilityId.equalsIgnoreCase("none")) {
+                slots.put(slot, null);
+                continue;
+            }
             if (engine.abilities().find(abilityId).isEmpty()) {
                 throw slotsSection.error(slot, "unknown ability '" + abilityId + "' (missing, or it failed to load)");
             }
@@ -247,7 +257,11 @@ public final class AbilityLoader {
 
     /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */
     private static CharacterDef.Stats stats(Params p) {
-        CharacterDef.Stats d = CharacterDef.Stats.DEFAULT;
+        return stats(p, CharacterDef.Stats.DEFAULT);
+    }
+
+    /** The same, missing ones taken from {@code d} (a form's stats: the character's own for what it leaves out). */
+    private static CharacterDef.Stats stats(Params p, CharacterDef.Stats d) {
         if (!p.has("stats")) return d;
         Params s = p.getParams("stats");
         for (String key : s.keys()) {
@@ -276,12 +290,15 @@ public final class AbilityLoader {
         return traits;
     }
 
-    /** {@code forms: [ { while: <tag>, weapon, slots: {...}, status_bar } ]}: kit changes while a tag is on. */
-    private java.util.List<CharacterDef.Form> forms(Params p) {
+    /**
+     * {@code forms: [ { while: <tag>, weapon, slots: {...}, status_bar, stats } ]}: kit changes while a tag is on. A slot
+     * set to {@code none} is empty meanwhile; {@code stats} (only the ones that change) replace the character's own.
+     */
+    private java.util.List<CharacterDef.Form> forms(Params p, CharacterDef.Stats base) {
         java.util.List<CharacterDef.Form> forms = new java.util.ArrayList<>();
         for (Params f : p.getParamsList("forms")) {
             forms.add(new CharacterDef.Form(f.requireString("while"), f.getString("weapon", null),
-                    slots(f.getParams("slots")), statusBar(f)));
+                    slots(f.getParams("slots"), true), statusBar(f), f.has("stats") ? stats(f, base) : null));
         }
         return forms;
     }
@@ -310,8 +327,9 @@ public final class AbilityLoader {
             }
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
+        CharacterDef.Stats stats = stats(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
-                statusBar, forms(p), traits(p), stats(p), ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
+                statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
                 hover(p), variants(p));
     }
 

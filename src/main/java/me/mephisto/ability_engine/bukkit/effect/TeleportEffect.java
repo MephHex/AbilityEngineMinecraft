@@ -6,7 +6,6 @@ import me.mephisto.ability_engine.engine.effect.Effect;
 import me.mephisto.ability_engine.engine.effect.EffectContext;
 import me.mephisto.ability_engine.engine.math.Vec3;
 import me.mephisto.ability_engine.engine.target.EntityTarget;
-import me.mephisto.ability_engine.engine.target.KeyQuery;
 import me.mephisto.ability_engine.engine.target.PointTarget;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -17,7 +16,8 @@ import org.bukkit.util.Vector;
 import java.util.Optional;
 
 /**
- * Effect id "teleport". Params: {@code to} (required) = blackboard key of the destination;
+ * Effect id "teleport". Params: {@code to} = blackboard key of the destination, or {@code away_from: <key>} and
+ * {@code distance} = that many blocks straight out from there (see TeleportAway);
  * {@code ground} (default false) = only land where there's a solid block under your feet.
  * Moves the target (usually the caster: {@code targets: {type: self}}) to the nearest spot at the
  * destination where its body actually fits: aiming at a wall puts you in front of it, aiming at
@@ -37,8 +37,7 @@ public final class TeleportEffect implements Effect {
         Entity entity = Bukkit.getEntity(target.id());
         if (entity == null) return;
 
-        Optional<PointTarget> dest = KeyQuery.read(ctx.execution(), ctx.params().requireString("to"))
-                .flatMap(ctx.engine().world()::positionOf);
+        Optional<PointTarget> dest = me.mephisto.ability_engine.engine.effect.TeleportAway.destination(ctx, target);
         if (dest.isEmpty()) return;
         World world = Bukkit.getWorld(dest.get().world());
         if (world == null) return;
@@ -93,6 +92,6 @@ public final class TeleportEffect implements Effect {
 
     @Override
     public void validate(Params params) {
-        params.requireString("to");
+        me.mephisto.ability_engine.engine.effect.TeleportAway.validate(params);
     }
 }

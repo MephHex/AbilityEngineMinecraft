@@ -75,6 +75,21 @@ public final class LoadoutManager {
         });
     }
 
+    /**
+     * Whose stat sheet the player has right now: their character, or the form they're in when it has stats of its
+     * own (a stage of growth). A form without stats doesn't change the sheet (nor which primary follows attack speed).
+     */
+    public Optional<CharacterDef> sheetOf(UUID player) {
+        String id = assigned.get(player);
+        if (id == null) return Optional.empty();
+        return characters.find(id).map(c -> {
+            for (CharacterDef.Form form : c.forms()) {
+                if (tags.has(player, form.tag())) return form.stats() != null ? c.in(form) : c;
+            }
+            return c;
+        });
+    }
+
     /** The player's character as defined, ignoring forms (its own primary, its own stats). */
     public Optional<CharacterDef> baseCharacterOf(UUID player) {
         String id = assigned.get(player);

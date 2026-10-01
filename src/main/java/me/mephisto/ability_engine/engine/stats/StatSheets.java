@@ -34,9 +34,9 @@ public final class StatSheets {
 
     public double armorConstant() { return armorConstant; }
 
-    /** The sheet of the entity's character (its base kit), or the defaults. */
+    /** The sheet of the entity's character (or the form they're in, when it has stats), or the defaults. */
     public CharacterDef.Stats of(UUID entity) {
-        return loadouts.baseCharacterOf(entity).map(CharacterDef::stats).orElse(CharacterDef.Stats.DEFAULT);
+        return loadouts.sheetOf(entity).map(CharacterDef::stats).orElse(CharacterDef.Stats.DEFAULT);
     }
 
     public boolean hasSheet(UUID entity) { return loadouts.baseCharacterOf(entity).isPresent(); }
@@ -92,7 +92,7 @@ public final class StatSheets {
      * {@link #attackSpeedMultiplier}.
      */
     public int cooldownTicks(UUID caster, String abilityId, int ownCooldown) {
-        int ticks = loadouts.baseCharacterOf(caster)
+        int ticks = loadouts.sheetOf(caster)
                 .filter(c -> c.stats().attackSpeed() > 0 && abilityId.equals(c.abilityIn(Slots.PRIMARY)))
                 .map(c -> Math.max(1, (int) Math.round(20 / c.stats().attackSpeed())))
                 .orElse(ownCooldown);

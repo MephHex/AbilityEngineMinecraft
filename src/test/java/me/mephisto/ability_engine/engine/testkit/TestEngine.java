@@ -124,8 +124,7 @@ public final class TestEngine {
             @Override
             public void apply(EffectContext ctx) {
                 if (!(ctx.target() instanceof EntityTarget e) || ctx.execution() == null) return;
-                me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx.execution(), ctx.params().requireString("to"))
-                        .flatMap(world::positionOf)
+                me.mephisto.ability_engine.engine.effect.TeleportAway.destination(ctx, e)
                         .ifPresent(p -> {
                             teleports.add(p.position());
                             world.move(e.id(), p.position());
@@ -133,7 +132,7 @@ public final class TestEngine {
             }
 
             @Override
-            public void validate(Params params) { params.requireString("to"); }
+            public void validate(Params params) { me.mephisto.ability_engine.engine.effect.TeleportAway.validate(params); }
         });
         engine.statusDefs().define(new StatusDef("stun", 40, StackPolicy.REFRESH, 1,
                 Set.of(Tags.STUNNED, Tags.BLOCK_MOVE, Tags.BLOCK_ABILITY)));

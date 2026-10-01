@@ -93,10 +93,15 @@ public final class StatsHud {
         CharacterDef.Stats stats = engine.stats().of(p.getUniqueId());
         AttributeInstance health = p.getAttribute(Attribute.MAX_HEALTH);
         if (health != null) {
+            double maxBefore = health.getValue();
+            double share = maxBefore > 0 ? Math.min(1, p.getHealth() / maxBefore) : 1;
             strip(health, healthKey);
             double wanted = stats.health() / scaleSource.scale();
             health.addModifier(new AttributeModifier(healthKey, wanted - health.getBaseValue(), AttributeModifier.Operation.ADD_NUMBER));
-            if (p.getHealth() > health.getValue()) p.setHealth(health.getValue());
+            double max = health.getValue();
+            // A new max (another character, or a form with its own stats: growing up): the same share of it as before
+            if (!p.isDead() && Math.abs(max - maxBefore) > 1e-6) p.setHealth(Math.max(Math.min(max, 0.5), share * max));
+            else if (p.getHealth() > max) p.setHealth(max);
         }
         p.setHealthScale(SHOWN_HEALTH);
         p.setHealthScaled(true);

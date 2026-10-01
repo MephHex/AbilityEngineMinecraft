@@ -535,3 +535,25 @@ slot, so an ability is only silenced when it's in an ability slot.
   pyro_judgment_cast, pyro_judgment_ring (a 6-block ring on the ground: keep it in step with the ability's radius),
   pyro_meteor_fall, pyro_meteor_trail, pyro_meteor_impact, pyro_scorched (6 blocks). Blue only: pyro_overheat
   (looping, with its own start and end).
+
+## Added for the Sylvan
+
+- **Forms:** `stats: { ... }` - a form with stats of its own (only the ones that change; the rest are the
+  character's): max HP, armor, base damage, speed, attack speed and size (`scale`) all follow the form while it
+  lasts (the share of health she has is kept when max HP changes). A form slot set to `none` is empty meanwhile
+  (e.g. a stage with no primary fire). `slots: {}` changes nothing.
+- **Slots:** `sneak` - SHIFT: pressing it casts the slot, letting go lets its charge go (a `charge` node: hold SHIFT
+  to ...). No hotbar icon. Riding someone, SHIFT still hops off instead.
+- **Statuses:** `then: <status>` - when its time runs out (not when it's removed early) that status goes on the holder:
+  one stage growing into the next. `far_damage_taken: { beyond: 8, multiplier: 0.5 }` - hits from attackers more than
+  `beyond` blocks from the holder are multiplied (a domain: half damage from outside it, 0 = immune).
+- **Effects:** teleport `{ away_from: <key>, distance: 8 }` - instead of `to`: that many blocks straight out from the
+  key, level with where they are (everyone in an area flung out of it).
+- **Cues:** sylvan_buried, sylvan_sapling, sylvan_tree, sylvan_large_tree (looping, one per form: her look, for now a
+  block on her head, and the trees' domain edge, 8 / 14 blocks: keep them in step with far_damage_taken. A model can
+  replace them later under the same ids), sylvan_seed_shot, sylvan_seed_hit, sylvan_blink, sylvan_burrow,
+  sylvan_uproot, sylvan_thorn_shot, sylvan_thorn_hit, sylvan_root_shot, sylvan_rooted, sylvan_scatter (3.5 blocks),
+  sylvan_sap_shot, sylvan_sap_hit, sylvan_fruit_fall, sylvan_fruit_bomb, sylvan_lash_throw, sylvan_root_line (line),
+  sylvan_drag, sylvan_strength_sap (8 blocks), sylvan_fruit_drop, sylvan_fruit_idle, sylvan_fruit_burst,
+  sylvan_fruit_eaten, sylvan_fruit_compost, sylvan_fruit_smashed, sylvan_deep_roots (14), sylvan_screech (14),
+  sylvan_walk, sylvan_drain (14), sylvan_take_root.

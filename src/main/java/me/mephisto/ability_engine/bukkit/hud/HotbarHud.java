@@ -62,6 +62,8 @@ public final class HotbarHud {
     public static final int OFFHAND_SLOT = 40;
     /** Items stack to 64 by default; icons are raised to 99 so longer cooldowns still count down. */
     private static final int MAX_COUNT = 99;
+    /** The slots the hotbar shows (SHIFT has no icon). */
+    private static final List<String> HUD_SLOTS = Slots.ALL.stream().filter(s -> !Slots.SNEAK.equals(s)).toList();
     private static final Map<String, Integer> HOTBAR_POSITIONS = Map.of(
             Slots.ABILITY_1, 0, Slots.ABILITY_2, 1, Slots.ABILITY_3, 2, Slots.ULTIMATE, OFFHAND_SLOT);
     private static final Map<String, Material> FALLBACK_ICONS = Map.of(
@@ -147,7 +149,7 @@ public final class HotbarHud {
         inv.setItem(WEAPON_SLOT, weapon(p, character.get()));
         inv.setHeldItemSlot(WEAPON_SLOT);
 
-        for (String slot : Slots.ALL) {
+        for (String slot : HUD_SLOTS) {
             if (onWeapon(slot)) continue; // primary/secondary are described on the weapon itself
             ability(character.get(), slot).ifPresent(a -> inv.setItem(position(slot), icon(slot, a, character.get())));
         }
@@ -174,7 +176,7 @@ public final class HotbarHud {
         long now = engine.clock().now();
         Map<net.kyori.adventure.key.Key, Long> sent = sweepEnds.computeIfAbsent(id, k -> new HashMap<>());
         engine.loadouts().characterOf(id).ifPresent(c -> {
-            for (String slot : Slots.ALL) {
+            for (String slot : HUD_SLOTS) {
                 ability(c, slot).ifPresent(a -> {
                     long remaining = engine.cooldowns().remainingTicks(id, a.id());
                     syncSweep(p, sent, sweepKey(id, c, slot, a), now, remaining);
@@ -239,7 +241,7 @@ public final class HotbarHud {
         UUID id = p.getUniqueId();
         engine.loadouts().characterOf(id).ifPresent(c -> {
             PlayerInventory inv = p.getInventory();
-            for (String slot : Slots.ALL) {
+            for (String slot : HUD_SLOTS) {
                 if (onWeapon(slot)) continue;
                 ability(c, slot).ifPresent(a -> {
                     int pos = position(slot);
@@ -363,7 +365,7 @@ public final class HotbarHud {
         if (character.isEmpty()) return;
         CharacterDef c = character.get();
         Map<String, String> now = new HashMap<>();
-        for (String slot : Slots.ALL) {
+        for (String slot : HUD_SLOTS) {
             if (ability(c, slot).isEmpty()) continue;
             now.put(slot, engine.loadouts().crowdControl(id, slot).orElse(""));
         }
@@ -619,7 +621,7 @@ public final class HotbarHud {
         UUID id = p.getUniqueId();
         engine.loadouts().characterOf(id).ifPresent(c -> {
             PlayerInventory inv = p.getInventory();
-            for (String slot : Slots.ALL) {
+            for (String slot : HUD_SLOTS) {
                 if (onWeapon(slot)) continue;
                 ability(c, slot).ifPresent(a -> {
                     int pos = position(slot);
