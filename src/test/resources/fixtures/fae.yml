@@ -17,9 +17,9 @@ statuses:
     tags: [buff.fae_blessing]
     on_hit:
       - { id: damage, amount: 20 }   # +2 HP on every basic attack
-  fae_perched:                       # the Fae, sitting on an ally's head: untouchable
+  fae_perched:                       # the Fae, hidden inside her blossom on an ally's head: untouchable
     duration: 0
-    tags: [state.untargetable]       # abilities pass through her
+    tags: [state.untargetable, state.hidden]   # abilities pass through her; nobody sees her, only the blossom
     damage_taken: 0                  # and nothing else hurts her either
     positive: false
   fae_gust:                          # recast while perched: a burst of speed for the ally
@@ -194,8 +194,9 @@ abilities:
       end:
         type: end_cast               # the seed is gone: so is its looping cue
 
-  # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and sit on their head:
-  # you go where they go, untouchable (abilities pass through you, nothing hurts you). They're 20% faster
+  # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and hide inside
+  # your blossom on their head: you go where they go, unseen and untouchable (abilities pass through you, nothing
+  # hurts you); your hunger bar shows their hearts. They're 20% faster
   # and their basic attacks deal +2 HP. The cooldown (5s) starts as you sit down. Press 2 again once it's
   # over: a gust, +35% speed for them for 2s; aim at ANOTHER ally instead and you fly over to them (vulnerable
   # again on the way). Either one starts the cooldown again. Press SHIFT to hop off. It ends too when they die.

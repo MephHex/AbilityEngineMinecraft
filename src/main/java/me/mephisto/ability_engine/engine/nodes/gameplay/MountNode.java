@@ -21,7 +21,8 @@ import java.util.Set;
  *       mount, the cast ending): nothing more runs</li>
  * </ul>
  * {@code status}: on the mount while it's ridden (from the caster); {@code self_status}: on the caster
- * while riding. {@code store}: the mount is written there too (default "mount").
+ * while riding. {@code store}: the mount is written there too (default "mount"). {@code lift}: the caster
+ * sits that many blocks higher than usual (default 0).
  */
 public final class MountNode implements GraphNode {
 
@@ -31,8 +32,14 @@ public final class MountNode implements GraphNode {
     private final String status;
     private final String selfStatus;
     private final String store;
+    private final double lift;
 
     public MountNode(String targetKey, String status, String selfStatus, String store) {
+        this(targetKey, status, selfStatus, store, 0);
+    }
+
+    public MountNode(String targetKey, String status, String selfStatus, String store, double lift) {
+        this.lift = Math.max(0, lift);
         this.targetKey = targetKey;
         this.status = status;
         this.selfStatus = selfStatus;
@@ -48,7 +55,7 @@ public final class MountNode implements GraphNode {
         ExecutionContext offBranch = ctx.fork(); // waits for the ride to end by itself
         var off = offBranch.suspend();
         boolean riding = ctx.engine().rides().mount(new RideManager.Ride(ctx.caster(), mount.id(), status, selfStatus,
-                ctx.instance(), off));
+                ctx.instance(), off, lift));
         if (!riding) {
             off.abandon();
             return NodeResult.out(Ports.NONE);

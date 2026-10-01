@@ -284,7 +284,7 @@ public final class NodeTypes {
                 p.getString("target", "hit")));
         t.register("mount", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.MountNode(
                 p.getString("target", "target"), knownStatus(p, "status", e), knownStatus(p, "self_status", e),
-                p.getString("store", "mount")));
+                p.getString("store", "mount"), p.getDouble("lift", 0)));
         t.register("dismount", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.DismountNode());
         t.register("leash", (p, e) -> {
             double length = p.requireDouble("length");

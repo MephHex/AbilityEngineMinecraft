@@ -17,8 +17,8 @@ import java.util.UUID;
 /**
  * Moves entities by velocity. For players the client applies it, which is why dashes look smooth;
  * the engine re-sends it every tick while dashing so friction doesn't slow them down.
- * Teleports keep riders on (a fae perched on someone who blinks goes along). Rides are passengers, on an
- * invisible seat that lifts the rider a little (see {@link #SEAT_HEIGHT}).
+ * Teleports keep riders on (a fae perched on someone who blinks goes along). Rides are passengers; a ride with a
+ * lift puts the rider on an invisible seat that tall.
  */
 public final class BukkitMovementControl implements MovementControl {
 
@@ -77,14 +77,9 @@ public final class BukkitMovementControl implements MovementControl {
         if (e instanceof LivingEntity living) living.setBodyYaw(look.getYaw());
     }
 
-    // ---- rides: the rider sits on an invisible seat on the vehicle, a bit higher than vanilla -------------
+    // ---- rides: a passenger, or (with a lift) on an invisible seat that tall on the vehicle ----------------
 
-    /**
-     * How much higher than vanilla a rider sits: a fae on someone's head would otherwise have her legs in front
-     * of their eyes. A passenger sits on top of its vehicle's box, so the seat is one this tall.
-     */
-    private static final float SEAT_HEIGHT = 0.4f;
-    /** A small armor stand's height, before scaling. */
+    /** A small armor stand's height, before scaling (a passenger sits on top of its vehicle's box). */
     private static final double SMALL_STAND_HEIGHT = 0.9875 * 0.5;
     private static final org.bukkit.NamespacedKey SEAT = new org.bukkit.NamespacedKey("ability_engine", "seat");
 
@@ -97,6 +92,11 @@ public final class BukkitMovementControl implements MovementControl {
 
     @Override
     public boolean mount(UUID rider, UUID vehicle) {
+        return mount(rider, vehicle, 0);
+    }
+
+    @Override
+    public boolean mount(UUID rider, UUID vehicle, double lift) {
         Entity r = Bukkit.getEntity(rider), v = Bukkit.getEntity(vehicle);
         if (r == null || v == null || !r.isValid() || !v.isValid() || r.equals(v) || !r.getWorld().equals(v.getWorld())) {
             return false;
@@ -104,6 +104,7 @@ public final class BukkitMovementControl implements MovementControl {
         dismount(rider);
         if (r.isInsideVehicle()) r.leaveVehicle();
         r.setFallDistance(0);
+        if (lift <= 0) return v.addPassenger(r); // right on them (riding a living mount shows its hearts)
         ArmorStand seat = v.getWorld().spawn(v.getLocation(), ArmorStand.class, s -> {
             s.setInvisible(true);
             s.setSmall(true);
@@ -115,7 +116,7 @@ public final class BukkitMovementControl implements MovementControl {
             s.setCollidable(false);
             s.setDisabledSlots(org.bukkit.inventory.EquipmentSlot.values()); // nothing to take or put on it
             AttributeInstance scale = s.getAttribute(Attribute.SCALE);
-            if (scale != null) scale.setBaseValue(SEAT_HEIGHT / SMALL_STAND_HEIGHT);
+            if (scale != null) scale.setBaseValue(lift / SMALL_STAND_HEIGHT);
             s.setPersistent(false);
             s.getPersistentDataContainer().set(SEAT, PersistentDataType.BYTE, (byte) 1);
             VisualEntities.mark(s);

@@ -13,6 +13,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -49,7 +50,8 @@ import java.util.UUID;
  * can't fly while they can't move (stunned, rooted: they drop), never take fall damage, and fly at
  * {@code speed} x vanilla flight, scaled by their walking speed (slows and the character's speed count).
  * What they ride ({@code visual}) is at their feet: a block's real model turned upside down (a spore blossom
- * opens upward, a cup they sit in), or an item lying flat under them.
+ * opens upward, a cup they sit in), or an item lying flat under them. Perched on someone, it's on that someone's
+ * head (see {@link #drawRide}).
  */
 public final class HoverFlight implements Listener {
 
@@ -292,11 +294,17 @@ public final class HoverFlight implements Listener {
 
     // ---- what they ride -------------------------------------------------------------------------------
 
+    /**
+     * What they ride, at their feet. Perched on someone (a ride, e.g. the Fae's Perch, where she hides inside it:
+     * state.hidden), it sits on top of that someone's head instead, riding along with them, and shows even
+     * though they're hidden.
+     */
     private void drawRide(Player p, CharacterDef.Hover hover) {
         UUID id = p.getUniqueId();
         Material material = hover.visual() == null ? null : Material.matchMaterial(hover.visual());
+        Entity mount = p.isInsideVehicle() ? engine.rides().mountOf(id).map(Bukkit::getEntity).orElse(null) : null;
         boolean shown = material != null && material.isItem() && !p.isInvisible() && p.getGameMode() != GameMode.SPECTATOR
-                && !engine.tags().has(id, Tags.HIDDEN);
+                && (mount != null || !engine.tags().has(id, Tags.HIDDEN));
         Display display = visuals.get(id);
         if (!shown) {
             removeRide(id);
@@ -304,17 +312,26 @@ public final class HoverFlight implements Listener {
         }
         float size = (float) (p.getBoundingBox().getWidthX() / 0.6); // follows the character's scale (1 block at 1.0)
         boolean block = material.isBlock();
-        // At the feet (a block's cup: they sit in it), a hair above them not to flicker with the ground they're on.
-        Location under = p.getLocation().add(0, 0.03, 0);
+        Location under = p.getLocation();
         under.setPitch(0);
         if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())) {
             removeRide(id);
             display = block ? uprightBlock(under, material, SEAT_SCALE * size) : flatItem(under, material, 0.9f * size);
             visuals.put(id, display);
+        }
+        if (mount != null) { // on their head: it rides them (a passenger sits on top of the head), no lag
+            if (!mount.equals(display.getVehicle())) {
+                display.leaveVehicle();
+                mount.addPassenger(display);
+            }
             return;
         }
+        if (display.isInsideVehicle()) display.leaveVehicle();
         display.teleport(under);
     }
+
+    /** The ride sits a hair above where it's put: not to flicker with the ground (or the head) under it. */
+    private static final float GAP = 0.03f;
 
     /**
      * A block ride's size over the character's (1 block at scale 1.0), so they sit in it. A spore blossom turned
@@ -332,8 +349,8 @@ public final class HoverFlight implements Listener {
         return at.getWorld().spawn(at, BlockDisplay.class, d -> {
             d.setBlock(material.createBlockData());
             setUp(d);
-            // rotateX(pi): (x, y, z) -> (x, -y, -z); then shift so x and z are centred and y runs 0..s
-            d.setTransformation(new Transformation(new Vector3f(-s / 2, s, s / 2),
+            // rotateX(pi): (x, y, z) -> (x, -y, -z); then shift so x and z are centred and y runs 0..s (+ the gap)
+            d.setTransformation(new Transformation(new Vector3f(-s / 2, s + GAP, s / 2),
                     new Quaternionf().rotateX((float) Math.PI), new Vector3f(s, s, s), new Quaternionf()));
         });
     }
@@ -343,7 +360,7 @@ public final class HoverFlight implements Listener {
         return at.getWorld().spawn(at, ItemDisplay.class, d -> {
             d.setItemStack(new ItemStack(material));
             setUp(d);
-            d.setTransformation(new Transformation(new Vector3f(),
+            d.setTransformation(new Transformation(new Vector3f(0, GAP, 0),
                     new Quaternionf().rotateX((float) (Math.PI / 2)), new Vector3f(s, s, s), new Quaternionf()));
         });
     }

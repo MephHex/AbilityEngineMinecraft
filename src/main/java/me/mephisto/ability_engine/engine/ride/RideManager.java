@@ -35,8 +35,14 @@ public final class RideManager {
      * @param status     on the mount while ridden, from the rider (null = none)
      * @param selfStatus on the rider while riding (null = none)
      * @param off        resumed (port "off") if the ride ends by itself
+     * @param lift       the rider sits this many blocks higher than usual (0 = as usual)
      */
-    public record Ride(UUID rider, UUID mount, String status, String selfStatus, AbilityInstance instance, Resumer off) {}
+    public record Ride(UUID rider, UUID mount, String status, String selfStatus, AbilityInstance instance, Resumer off,
+                       double lift) {
+        public Ride(UUID rider, UUID mount, String status, String selfStatus, AbilityInstance instance, Resumer off) {
+            this(rider, mount, status, selfStatus, instance, off, 0);
+        }
+    }
 
     private final MovementControl movement;
     private final WorldQuery world;
@@ -65,7 +71,7 @@ public final class RideManager {
      */
     public boolean mount(Ride ride) {
         end(ride.rider(), false);
-        if (!movement.mount(ride.rider(), ride.mount())) return false;
+        if (!movement.mount(ride.rider(), ride.mount(), ride.lift())) return false;
         byRider.put(ride.rider(), ride);
         if (ride.status() != null) statuses.apply(ride.mount(), statusDefs.require(ride.status()), 0, ride.rider());
         if (ride.selfStatus() != null) statuses.apply(ride.rider(), statusDefs.require(ride.selfStatus()), 0, ride.rider());

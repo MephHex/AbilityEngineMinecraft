@@ -34,6 +34,9 @@ public interface MovementControl {
      */
     default boolean mount(UUID rider, UUID vehicle) { return false; }
 
+    /** Like {@link #mount(UUID, UUID)}, the rider sitting {@code lift} blocks higher than usual (0 = as usual). */
+    default boolean mount(UUID rider, UUID vehicle, double lift) { return mount(rider, vehicle); }
+
     /** Get {@code rider} off whatever it rides. */
     default void dismount(UUID rider) {}
 
