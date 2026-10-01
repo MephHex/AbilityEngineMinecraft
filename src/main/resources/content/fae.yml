@@ -3,8 +3,8 @@
 # that latch onto friend and foe, perches on an ally's head to empower them, and hides poison traps.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE 1 (Blossom Ride): she always floats 1 block above the ground: she walks, jumps and drops off ledges
-#   one level up (over water too), but can't fly. No fall damage.
+# PASSIVE 1 (Blossom Ride): she always floats 2 blocks above the ground, sitting in her blossom: she walks,
+#   jumps and drops off ledges two levels up (over water too), but can't fly. No fall damage.
 # PASSIVE 2 (Spore Burst, hotbar slot 9): the next enemy hit that lands on her puffs spores that knock back
 #   enemies within 4 blocks. Ready again 10s later, or after 4s out of combat.
 #
@@ -489,9 +489,9 @@ characters:
       attack_speed: 1.5              # blossoms per second
       scale: 0.5                     # small (model and hitbox)
     hover:                           # PASSIVE: Blossom Ride
-      height: 1                      # always 1 block above the ground
+      height: 2                      # always 2 blocks above the ground
       fly: false                     # floating, not flying (fly: true = fly at will up to the height)
-      visual: SPORE_BLOSSOM          # what she rides: the blossom, upside down, opening up under her feet
+      visual: SPORE_BLOSSOM          # what she rides: the blossom, upside down, she sits in its cup
     ward:                            # PASSIVE: Spore Burst
       name: "Spore Burst"
       cast: fae_spore_burst          # the next enemy hit on her...

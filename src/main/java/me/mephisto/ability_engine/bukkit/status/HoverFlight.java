@@ -46,8 +46,8 @@ import java.util.UUID;
  * dashes ({@code state.dashing}); when free flight ends they keep flying and sink back under the cap. They
  * can't fly while they can't move (stunned, rooted: they drop), never take fall damage, and fly at
  * {@code speed} x vanilla flight, scaled by their walking speed (slows and the character's speed count).
- * What they ride ({@code visual}) is under their feet: a block's real model turned upside down (a spore blossom
- * opens upward, a cup to sit in), or an item lying flat.
+ * What they ride ({@code visual}) is at their feet: a block's real model turned upside down (a spore blossom
+ * opens upward, a cup they sit in), or an item lying flat under them.
  */
 public final class HoverFlight implements Listener {
 
@@ -188,9 +188,9 @@ public final class HoverFlight implements Listener {
         if (!send.isEmpty()) p.sendMultiBlockChange(send);
         floors.put(id, new Floor(w.getName(), want));
 
-        // Standing on the real ground (just arrived, a dismount): up onto the floor. Their client can't climb
-        // out of a block it's inside.
-        if (under != null && feet.getY() >= under.y() - 1e-3 && feet.getY() < under.y() + 1 - 1e-3) {
+        // Below their floor, on the real ground or between it and the floor (just arrived, a dismount): up onto
+        // it. Their client can't climb out of a block it's inside, or up through one over its head.
+        if (under != null && feet.getY() >= under.y() - height + 1 - 1e-3 && feet.getY() < under.y() + 1 - 1e-3) {
             Location up = feet.clone();
             up.setY(under.y() + 1);
             p.teleport(up, me.mephisto.ability_engine.bukkit.platform.BukkitMovementControl.KEEP_RIDERS,
@@ -294,8 +294,8 @@ public final class HoverFlight implements Listener {
         }
         float size = (float) (p.getBoundingBox().getWidthX() / 0.6); // follows the character's scale (1 block at 1.0)
         boolean block = material.isBlock();
-        // A block's petals reach about this share of its height: their tips sit just under the feet.
-        Location under = p.getLocation().add(0, block ? -size * BLOCK_REACH - 0.02 : -0.05, 0);
+        // A block's cup floor sits just under the feet: its petals rise around their legs, they sit in it.
+        Location under = p.getLocation().add(0, block ? -size * SEAT_DEPTH : -0.05, 0);
         under.setPitch(0);
         if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())) {
             removeRide(id);
@@ -306,8 +306,12 @@ public final class HoverFlight implements Listener {
         display.teleport(under);
     }
 
-    /** How much of a block's height the ride's model fills (a spore blossom's petals), to sit on its tips. */
-    private static final float BLOCK_REACH = 0.75f;
+    /**
+     * How far below the feet a block ride's model starts (a share of its height), so they sit in it. A spore
+     * blossom turned over is a cup: its base leaves at the bottom, four petals flaring up and out from the middle
+     * to about 0.4 of the block's height (they droop 22.5 degrees from the top in the vanilla model).
+     */
+    private static final float SEAT_DEPTH = 0.06f;
 
     /**
      * A block's model turned upside down (a hanging spore blossom opens upward), centred on the spot: its top

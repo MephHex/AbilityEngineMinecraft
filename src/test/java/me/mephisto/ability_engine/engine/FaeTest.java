@@ -69,7 +69,7 @@ class FaeTest {
         setup();
         assertEquals(0.5, t.engine.stats().of(p).scale(), 1e-9);
         var hover = t.engine.loadouts().characterOf(p).orElseThrow().hover();
-        assertEquals(1, hover.height(), 1e-9, "always 1 block above the ground");
+        assertEquals(2, hover.height(), 1e-9, "always 2 blocks above the ground");
         assertFalse(hover.fly(), "floating, not flying");
         assertEquals("SPORE_BLOSSOM", hover.visual());
     }
