@@ -281,6 +281,25 @@ class FaeTest {
     }
 
     @Test
+    void perchPicksTheAllySheLooksAtNotOneBehindOrBesideHer() throws IOException {
+        setup();
+        friend(-1, 0);                // right behind her
+        friend(0.8, 1);               // close, off to the side
+        UUID ahead = friend(8, 0);    // the one she looks at (+x)
+        use(Slots.ABILITY_2);
+        t.time.advance(15);
+        assertEquals(ahead, t.world.riding.get(p));
+    }
+
+    @Test
+    void perchIgnoresAnAllyBehindHerWhenNobodyIsAhead() throws IOException {
+        setup();
+        friend(-1, 0);
+        use(Slots.ABILITY_2);
+        assertEquals(0, running("fae_ab2"), "nobody where she looks");
+    }
+
+    @Test
     void noAllyInSightNothingHappens() throws IOException {
         setup();
         foe(6, 0);

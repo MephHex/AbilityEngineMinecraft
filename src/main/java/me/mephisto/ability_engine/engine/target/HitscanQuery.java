@@ -49,7 +49,18 @@ public final class HitscanQuery implements TargetQuery {
         // Whoever they ride is right under their eyes: aiming past them, a thick ray would always hit them.
         var mount = ctx.engine().rides().mountOf(ctx.caster());
         if (mount.isPresent()) through = through.or(mount.get()::equals);
-        Optional<SweepHit> hit = world.sweep(a.world(), a.eye(), a.eye().add(a.direction().multiply(range)), raySize, through);
+        Vec3 far = a.eye().add(a.direction().multiply(range));
+        Optional<SweepHit> hit = Optional.empty();
+        if (raySize > EXACT) {
+            // A thick ray is a forgiving aim, not a different one: whoever they aim right at comes first...
+            Optional<SweepHit> exact = world.sweep(a.world(), a.eye(), far, EXACT, through);
+            if (exact.isPresent() && !exact.get().isBlock()) hit = exact;
+        }
+        if (hit.isEmpty()) {
+            // ...and it starts at their eyes, so it already touches anyone close around them: never those behind.
+            var behind = raySize > EXACT ? behind(world, a) : (java.util.function.Predicate<java.util.UUID>) id -> false;
+            hit = world.sweep(a.world(), a.eye(), far, raySize, through.or(behind));
+        }
         // An enemy's frontal barrier stops the ray like a wall.
         Vec3 end = hit.map(SweepHit::position).orElse(a.eye().add(a.direction().multiply(range)));
         var barrier = ctx.engine().barriers().cross(a.world(), a.eye(), end, raySize, ctx.caster());
@@ -60,5 +71,15 @@ public final class HitscanQuery implements TargetQuery {
         if (hit.isEmpty()) return List.of();
         if (hit.get().isBlock() && !includeBlocks) return List.of();
         return List.of(hit.get().target());
+    }
+
+    /** A thick ray's exact aim: this thin, it's where they really point. */
+    private static final double EXACT = 0.1;
+
+    /** Entities behind the eyes (not in the direction they look). */
+    private static java.util.function.Predicate<java.util.UUID> behind(WorldQuery world, Aim a) {
+        return id -> world.positionOf(new EntityTarget(id))
+                .map(at -> at.position().subtract(a.eye()).dot(a.direction()) <= 0)
+                .orElse(false);
     }
 }
