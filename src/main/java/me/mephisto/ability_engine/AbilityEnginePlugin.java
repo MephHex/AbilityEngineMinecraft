@@ -112,7 +112,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         hover = new me.mephisto.ability_engine.bukkit.status.HoverFlight(engine); // the Fae's flight
         pm.registerEvents(hover, this);
         hover.start();
-        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.RideGuard(engine), this); // perched riders stay on
+        var rideGuard = new me.mephisto.ability_engine.bukkit.status.RideGuard(engine);
+        pm.registerEvents(rideGuard, this); // perched riders stay on, and see their mount's hearts
+        rideGuard.start();
         pm.registerEvents(constructRenderer, this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.DreamListeners(engine, this), this);
         castBar = new CastBarHud(engine);

@@ -16,7 +16,7 @@ import java.util.UUID;
  * Rides (the engine's mount node) on Bukkit: nothing else takes a rider off while their ride lasts; the
  * ability decides when it ends. Pressing SHIFT hops them off through the engine, so the ride's "off" branch
  * runs (the ability lands them and starts its cooldown). If the mount itself is gone or dead they're let go
- * (the engine notices and ends the ride).
+ * (the engine notices and ends the ride). While they ride, their hunger bar shows their mount's hearts.
  */
 public final class RideGuard implements Listener {
 
@@ -24,6 +24,16 @@ public final class RideGuard implements Listener {
 
     public RideGuard(AbilityEngine engine) {
         this.engine = engine;
+    }
+
+    /** Every tick: each rider's seat wears its mount's health (the hearts in the rider's hunger bar). */
+    public void start() {
+        engine.scheduler().every(1, 1, () -> {
+            for (org.bukkit.entity.Player p : org.bukkit.Bukkit.getOnlinePlayers()) {
+                Entity seat = p.getVehicle();
+                if (BukkitMovementControl.isSeat(seat)) BukkitMovementControl.showMountHealth(seat);
+            }
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

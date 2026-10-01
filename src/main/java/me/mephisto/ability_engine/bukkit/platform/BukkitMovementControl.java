@@ -4,8 +4,10 @@ import me.mephisto.ability_engine.engine.math.Vec3;
 import me.mephisto.ability_engine.engine.platform.MovementControl;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Interaction;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
@@ -79,13 +81,19 @@ public final class BukkitMovementControl implements MovementControl {
 
     /**
      * How much higher than vanilla a rider sits: a fae on someone's head would otherwise have her legs in front
-     * of their eyes. A passenger sits on top of an interaction entity's box, so the seat is one this tall.
+     * of their eyes. A passenger sits on top of its vehicle's box, so the seat is one this tall.
      */
     private static final float SEAT_HEIGHT = 0.4f;
+    /** A small armor stand's height, before scaling. */
+    private static final double SMALL_STAND_HEIGHT = 0.9875 * 0.5;
     private static final org.bukkit.NamespacedKey SEAT = new org.bukkit.NamespacedKey("ability_engine", "seat");
 
-    /** Each rider's seat. */
-    private final java.util.Map<UUID, Interaction> seats = new java.util.HashMap<>();
+    /**
+     * Each rider's seat: an invisible little armor stand. A living one, so the rider's hunger bar shows its
+     * hearts (vanilla does that for a living vehicle), and it wears its mount's health: see
+     * {@link #showMountHealth}.
+     */
+    private final java.util.Map<UUID, ArmorStand> seats = new java.util.HashMap<>();
 
     @Override
     public boolean mount(UUID rider, UUID vehicle) {
@@ -96,10 +104,18 @@ public final class BukkitMovementControl implements MovementControl {
         dismount(rider);
         if (r.isInsideVehicle()) r.leaveVehicle();
         r.setFallDistance(0);
-        Interaction seat = v.getWorld().spawn(v.getLocation(), Interaction.class, s -> {
-            s.setInteractionWidth(0);           // nothing to click
-            s.setInteractionHeight(SEAT_HEIGHT);
-            s.setResponsive(false);
+        ArmorStand seat = v.getWorld().spawn(v.getLocation(), ArmorStand.class, s -> {
+            s.setInvisible(true);
+            s.setSmall(true);
+            s.setMarker(false);                 // a marker has no height: the rider would sit on the head again
+            s.setBasePlate(false);
+            s.setGravity(false);
+            s.setInvulnerable(true);
+            s.setSilent(true);
+            s.setCollidable(false);
+            s.setDisabledSlots(org.bukkit.inventory.EquipmentSlot.values()); // nothing to take or put on it
+            AttributeInstance scale = s.getAttribute(Attribute.SCALE);
+            if (scale != null) scale.setBaseValue(SEAT_HEIGHT / SMALL_STAND_HEIGHT);
             s.setPersistent(false);
             s.getPersistentDataContainer().set(SEAT, PersistentDataType.BYTE, (byte) 1);
             VisualEntities.mark(s);
@@ -109,7 +125,22 @@ public final class BukkitMovementControl implements MovementControl {
             return false;
         }
         seats.put(rider, seat);
+        showMountHealth(seat);
         return true;
+    }
+
+    /**
+     * A seat wears its mount's health (max and current), so its rider's hunger bar shows the mount's hearts, as
+     * vanilla does riding a horse. Call it every tick for each seat.
+     */
+    public static void showMountHealth(Entity seat) {
+        if (!(seat instanceof LivingEntity s) || !(seat.getVehicle() instanceof LivingEntity mount)) return;
+        AttributeInstance from = mount.getAttribute(Attribute.MAX_HEALTH), to = s.getAttribute(Attribute.MAX_HEALTH);
+        if (from == null || to == null) return;
+        double max = from.getValue();
+        if (Math.abs(to.getBaseValue() - max) > 1e-6) to.setBaseValue(max);
+        double hp = Math.max(0.01, Math.min(max, mount.getHealth())); // never 0: that would kill the seat
+        if (Math.abs(s.getHealth() - hp) > 1e-6) s.setHealth(hp);
     }
 
     @Override
@@ -119,7 +150,7 @@ public final class BukkitMovementControl implements MovementControl {
             r.leaveVehicle();
             r.setFallDistance(0);
         }
-        Interaction seat = seats.remove(rider);
+        ArmorStand seat = seats.remove(rider);
         if (seat != null) seat.remove();
     }
 
@@ -127,7 +158,7 @@ public final class BukkitMovementControl implements MovementControl {
     @Override
     public java.util.Optional<UUID> vehicleOf(UUID rider) {
         Entity r = Bukkit.getEntity(rider);
-        Interaction seat = seats.get(rider);
+        ArmorStand seat = seats.get(rider);
         if (seat != null && (r == null || !seat.isValid() || !seat.equals(r.getVehicle()) || seat.getVehicle() == null)) {
             dismount(rider);
             return java.util.Optional.empty();
