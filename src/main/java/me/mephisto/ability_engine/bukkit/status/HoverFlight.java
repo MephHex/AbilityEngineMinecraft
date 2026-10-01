@@ -304,8 +304,8 @@ public final class HoverFlight implements Listener {
         }
         float size = (float) (p.getBoundingBox().getWidthX() / 0.6); // follows the character's scale (1 block at 1.0)
         boolean block = material.isBlock();
-        // A block's cup floor is at the feet (a hair under, not to flicker with them): they sit in it.
-        Location under = p.getLocation().add(0, block ? -0.01 : -0.05, 0);
+        // At the feet (a block's cup: they sit in it), a hair above them not to flicker with the ground they're on.
+        Location under = p.getLocation().add(0, 0.03, 0);
         under.setPitch(0);
         if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())) {
             removeRide(id);
