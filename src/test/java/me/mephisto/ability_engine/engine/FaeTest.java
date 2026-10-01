@@ -71,7 +71,7 @@ class FaeTest {
         var hover = t.engine.loadouts().characterOf(p).orElseThrow().hover();
         assertEquals(0, hover.height(), 1e-9, "no hover: she walks as usual");
         assertEquals("SPORE_BLOSSOM", hover.visual());
-        assertEquals(1.2, hover.visualSize(), 1e-9, "a little bigger");
+        assertEquals(1.5, hover.visualSize(), 1e-9, "bigger");
     }
 
     @Test
@@ -462,6 +462,40 @@ class FaeTest {
         assertEquals(0, t.damage(target), 1e-9, "not armed yet");
         t.time.advance(20);
         assertEquals(BASE, t.damage(target), 1e-9);
+    }
+
+    /** A snare planted right in front of her (it lands about a block away). */
+    private Vec3 plantSnare() {
+        t.world.look(p, new Vec3(1, -1, 0));
+        use(Slots.ABILITY_3);
+        t.time.advance(10);
+        assertEquals(1, t.engine.constructs().activeCount());
+        return t.engine.constructs().all().get(0).position();
+    }
+
+    @Test
+    void aSeedBurstingNearASnareSetsItOffAndItReachesTheEnemy() throws IOException {
+        setup();
+        Vec3 trap = plantSnare();
+        UUID target = foe(trap.x() + 2.5, 0); // too far to set it off by walking, within 3 of it
+        lookAt(target);
+        use(Slots.ABILITY_1);
+        t.time.advance(45); // the seed latches, then bursts 2s later
+        assertEquals(0, t.engine.constructs().activeCount(), "the burst set the snare off");
+        assertEquals(1.1 * BASE + 1.0 * BASE, t.damage(target), 1e-9, "the seed's burst and the snare's");
+        assertTrue(has(target, "fae_toxin"), "poisoned by the snare");
+    }
+
+    @Test
+    void aSeedBurstingFarFromASnareLeavesItBe() throws IOException {
+        setup();
+        Vec3 trap = plantSnare();
+        UUID target = foe(trap.x() + 5, 0);
+        lookAt(target);
+        use(Slots.ABILITY_1);
+        t.time.advance(45);
+        assertEquals(1, t.engine.constructs().activeCount(), "more than 3 blocks away: still there");
+        assertEquals(1.1 * BASE, t.damage(target), 1e-9);
     }
 
     @Test

@@ -372,6 +372,9 @@ slot, so an ability is only silenced when it's in an ability slot.
     holding one x `scale`, rounded up), `every` ticks apart, then `out`. `spend: <resource>` costs 1 each
     time and stops early when it runs out. Each `each` branch gets `repeat_index` (1, 2, ...), e.g. for a
     switch that makes the first bullet different.
+  - set_off_constructs `{ ability, center, radius }`: your own constructs from `ability` within `radius` of
+    `center` (a key, default hit) go off: they exit `triggered`, armed or not, solid or not (e.g. a seed's burst
+    setting off traps near the enemy).
   - strike_constructs `{ range, angle | width }`: your own constructs inside this cone (`angle`) or line
     (`width`) are struck, as if your projectile hit them (e.g. shooting your Powder Keg sets it off).
   - spell_block `{ duration }` -> blocked / expired: the first enemy spell that reaches you in that time is

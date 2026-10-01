@@ -246,6 +246,12 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.control.RepeatNode(fixed, key, p.getDouble("scale", 1),
                     p.getInt("every", 0), p.getString("spend", null));
         });
+        t.register("set_off_constructs", (p, e) -> {
+            double radius = p.requireDouble("radius");
+            if (radius <= 0) throw p.error("radius", "must be above 0");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.SetOffConstructsNode(p.requireString("ability"),
+                    p.getString("center", "hit"), radius);
+        });
         t.register("strike_constructs", (p, e) -> {
             double range = p.requireDouble("range");
             if (range <= 0) throw p.error("range", "must be above 0");

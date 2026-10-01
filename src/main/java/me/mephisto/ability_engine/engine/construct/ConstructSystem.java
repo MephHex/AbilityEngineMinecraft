@@ -155,6 +155,20 @@ public final class ConstructSystem {
         return false;
     }
 
+    /**
+     * Set off this owner's constructs from this ability within {@code radius} of a point (their centre), as if
+     * someone had walked into them: they exit "triggered", armed or not. E.g. a seed's burst setting off traps
+     * near it. Returns how many went off.
+     */
+    public int setOff(UUID owner, String ability, String world, Vec3 at, double radius) {
+        List<Construct> near = active.stream()
+                .filter(c -> !c.done && c.owner.equals(owner) && c.world.equals(world) && abilityOf(c.resumer).equals(ability))
+                .filter(c -> c.position.distance(at) <= radius)
+                .toList(); // first: going off runs their graphs, which may place more
+        for (Construct c : near) if (!c.done) finish(c, Ports.TRIGGERED, null);
+        return near.size();
+    }
+
     /** First construct a moving sphere of radius {@code radius} touches between two points. */
     public Optional<Hit> sweep(String world, Vec3 from, Vec3 to, double radius) {
         return sweep(world, from, to, radius, c -> c.options.solid());

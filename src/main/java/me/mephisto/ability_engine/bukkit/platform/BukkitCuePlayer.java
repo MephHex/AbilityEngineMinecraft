@@ -520,6 +520,11 @@ public final class BukkitCuePlayer implements CuePlayer {
         var petal = new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 150, 205), 1.0f);
         var moss = new Particle.DustOptions(org.bukkit.Color.fromRGB(110, 200, 90), 1.1f);
         var toxin = new Particle.DustOptions(org.bukkit.Color.fromRGB(130, 40, 150), 1.2f);
+        // the Deathcap Snare's warped fungus: teal cap, dark teal stem, orange spots
+        var warpedCap = new Particle.DustOptions(org.bukkit.Color.fromRGB(20, 180, 155), 1.4f);
+        var warpedStem = new Particle.DustOptions(org.bukkit.Color.fromRGB(10, 90, 95), 1.2f);
+        var warpedSpot = new Particle.DustOptions(org.bukkit.Color.fromRGB(255, 120, 40), 1.0f);
+        var warpedWart = Material.WARPED_WART_BLOCK.createBlockData();
         c.register("fae_blossom_shot", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AZALEA_LEAVES_PLACE, 0.8f, 1.6f));
         c.register("fae_blossom_burst", loc -> {
             loc.getWorld().spawnParticle(Particle.CHERRY_LEAVES, loc, 25, 1.0, 0.6, 1.0, 0.02);
@@ -591,13 +596,19 @@ public final class BukkitCuePlayer implements CuePlayer {
         c.register("fae_trap_throw", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_SNOWBALL_THROW, 0.6f, 0.9f));
         c.register("fae_trap_wilt", loc -> {
             loc.getWorld().spawnParticle(Particle.SMOKE, loc, 6, 0.2, 0.1, 0.2, 0.01);
+            loc.getWorld().spawnParticle(Particle.WARPED_SPORE, loc, 10, 0.3, 0.2, 0.3, 0);
             loc.getWorld().playSound(loc, Sound.BLOCK_FUNGUS_BREAK, 0.5f, 0.8f);
         });
-        c.register("fae_trap_spring", loc -> {
-            loc.getWorld().spawnParticle(Particle.DUST, loc, 60, 1.6, 0.6, 1.6, 0, toxin);
-            loc.getWorld().spawnParticle(Particle.SNEEZE, loc, 30, 1.2, 0.4, 1.2, 0.02);
-            loc.getWorld().spawnParticle(Particle.CRIMSON_SPORE, loc, 40, 1.5, 0.8, 1.5, 0);
+        c.register("fae_trap_spring", loc -> { // a warped fungus bursting: teal cap, dark stem, orange spots, spores
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 50, 1.6, 0.6, 1.6, 0, warpedCap);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 25, 1.2, 0.4, 1.2, 0, warpedStem);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 12, 1.0, 0.5, 1.0, 0, warpedSpot);
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 40, 0.8, 0.4, 0.8, 0.1, warpedWart);
+            loc.getWorld().spawnParticle(Particle.WARPED_SPORE, loc, 80, 1.6, 0.9, 1.6, 0);
+            loc.getWorld().spawnParticle(Particle.SNEEZE, loc, 15, 1.2, 0.4, 1.2, 0.02);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 20, 1.4, 0.5, 1.4, 0, toxin); // the poison in it
             loc.getWorld().playSound(loc, Sound.BLOCK_FUNGUS_BREAK, 1f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_WART_BLOCK_BREAK, 0.8f, 0.8f);
             loc.getWorld().playSound(loc, Sound.ENTITY_PUFFER_FISH_STING, 1f, 0.7f);
         });
         c.register("fae_wings", loc -> {

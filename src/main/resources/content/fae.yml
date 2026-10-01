@@ -99,7 +99,8 @@ abilities:
   # 1: Seed Bomb (3 charges, 8s each). A seed that latches onto whoever it hits, friend or foe; landing, it
   # lies there for 15s (3 at most) and latches onto the first one to come near (1.3 blocks), friend, foe or her.
   # Latched for 2s, then: an ENEMY's seed bursts, 110% base damage to enemies within 3.5 blocks; an ALLY's
-  # blooms, healing allies within 3.5 blocks (her too) 5 HP. It goes on if she dies meanwhile.
+  # blooms, healing allies within 3.5 blocks (her too) 5 HP. An enemy's seed also sets off her Deathcap Snares
+  # within 3 blocks of them (a trap's blast reaches 3 blocks: it reaches them). It goes on if she dies meanwhile.
   fae_ab1:
     cooldown: 160                    # 8s per charge
     charges: 3
@@ -115,7 +116,7 @@ abilities:
     nodes:
       throw:
         type: projectile
-        speed: 0.9
+        speed: 1.2
         size: 0.5
         lifetime: 60
         visual: CONDUIT
@@ -163,6 +164,12 @@ abilities:
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
           - { id: damage, base: 1.1 }
+        next: chain
+      chain:
+        type: set_off_constructs     # her Deathcap Snares near them go off too
+        ability: fae_ab3
+        center: hit
+        radius: 3                    # = a trap's blast: every trap it sets off reaches them
         next: burst_cue
       burst_cue:
         type: play_cue
@@ -318,7 +325,8 @@ abilities:
   # 3: Deathcap Snare. Throw a toadstool; where it lands it hides a trap (2 min, 20 at most) that enemies can't
   # see. Armed after 1s, the first enemy within 1.4 blocks springs it: enemies within 3 blocks take 100% base
   # damage and are poisoned (8% max HP over 4s), 35% slower and nauseous for 4s. Thrown straight at an enemy,
-  # it springs on them at once; thrown at one of her traps, it bounces off it. Traps stay if she dies.
+  # it springs on them at once; thrown at one of her traps, it bounces off it. A Seed Bomb bursting on an enemy
+  # within 3 blocks sets it off too. Traps stay if she dies.
   fae_ab3:
     cooldown: 240                    # 12s
     survives_death: true
@@ -329,7 +337,8 @@ abilities:
         - "A hidden trap where it lands (2 min, 20 max)."
         - "Springs on an enemy: 100% base dmg (3"
         - "blocks), poison (8% max HP), 35% slow"
-        - "and nausea for 4s."
+        - "and nausea for 4s. A Seed Bomb bursting"
+        - "near it sets it off."
     nodes:
       throw:
         type: projectile
@@ -356,12 +365,23 @@ abilities:
         hidden: true                 # enemies can't see it
         limit: 20
         visual: "block:Warped_fungus"
-        on: { triggered: spring, fuse: wilt }
+        on: { triggered: trap_spring, fuse: wilt }
       wilt:
         type: play_cue
         cue: fae_trap_wilt
         at: construct
-      spring:
+      trap_spring:                   # set off (stepped near, or a Seed Bomb): it bursts where it stands
+        type: apply_effects
+        targets: { type: radius, center: construct, radius: 3 }
+        effects:
+          - { id: damage, base: 1.0 }
+          - { id: status, status: fae_toxin }
+        next: trap_spring_cue
+      trap_spring_cue:
+        type: play_cue
+        cue: fae_trap_spring
+        at: construct
+      spring:                        # thrown straight at an enemy: it bursts on them
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3 }
         effects:
@@ -488,7 +508,7 @@ characters:
     hover:                           # no hover (no height): just what she sits in
       visual: SPORE_BLOSSOM          # the blossom, upside down, she sits in its cup
       # its size, x the default (1.0: as wide as she is; its petals reach 0.4 of that up and spread 1.75x)
-      visual_size: 1.2
+      visual_size: 1.5
     ward:                            # PASSIVE: Spore Burst
       name: "Spore Burst"
       cast: fae_spore_burst          # the next enemy hit on her...
