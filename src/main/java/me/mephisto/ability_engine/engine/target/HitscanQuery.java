@@ -11,7 +11,8 @@ import java.util.Optional;
 
 /**
  * Instant ray from the caster's eyes (was HitscanCast). Unlike the old version this respects
- * walls: a block in the way is a miss unless {@code includeBlocks} is set.
+ * walls: a block in the way is a miss unless {@code includeBlocks} is set. It passes through whoever the caster
+ * rides.
  */
 public final class HitscanQuery implements TargetQuery {
 
@@ -45,6 +46,9 @@ public final class HitscanQuery implements TargetQuery {
                         || ctx.engine().tags().has(id, me.mephisto.ability_engine.engine.tag.Tags.UNTARGETABLE)
                         || ctx.engine().veils().blocks(ctx.caster(), id)
                 : teams.passThroughFor(ctx.caster());
+        // Whoever they ride is right under their eyes: aiming past them, a thick ray would always hit them.
+        var mount = ctx.engine().rides().mountOf(ctx.caster());
+        if (mount.isPresent()) through = through.or(mount.get()::equals);
         Optional<SweepHit> hit = world.sweep(a.world(), a.eye(), a.eye().add(a.direction().multiply(range)), raySize, through);
         // An enemy's frontal barrier stops the ray like a wall.
         Vec3 end = hit.map(SweepHit::position).orElse(a.eye().add(a.direction().multiply(range)));

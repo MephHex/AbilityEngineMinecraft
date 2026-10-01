@@ -157,11 +157,20 @@ public final class ConstructSystem {
 
     /** First construct a moving sphere of radius {@code radius} touches between two points. */
     public Optional<Hit> sweep(String world, Vec3 from, Vec3 to, double radius) {
+        return sweep(world, from, to, radius, c -> c.options.solid());
+    }
+
+    /** Like {@link #sweep}, but only this owner's constructs from this ability, solid or not. */
+    public Optional<Hit> sweepOwn(String world, Vec3 from, Vec3 to, double radius, UUID owner, String ability) {
+        return sweep(world, from, to, radius, c -> c.owner.equals(owner) && abilityOf(c.resumer).equals(ability));
+    }
+
+    private Optional<Hit> sweep(String world, Vec3 from, Vec3 to, double radius, java.util.function.Predicate<Construct> which) {
         Vec3 seg = to.subtract(from);
         double len2 = seg.lengthSquared();
         Hit best = null;
         for (Construct c : active) {
-            if (c.done || !c.options.solid() || !c.world.equals(world)) continue;
+            if (c.done || !which.test(c) || !c.world.equals(world)) continue;
             double t = len2 < 1e-12 ? 0 : Math.max(0, Math.min(1, c.position.subtract(from).dot(seg) / len2));
             Vec3 closest = from.add(seg.multiply(t));
             if (closest.distance(c.position) <= c.size + radius) {

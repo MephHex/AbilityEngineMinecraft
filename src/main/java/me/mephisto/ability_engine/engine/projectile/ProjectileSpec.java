@@ -30,6 +30,8 @@ import java.util.List;
  * @param throughBlocks  it flies through terrain (only entities stop it)
  * @param hitsCaster     it can hit its own caster too (exits hit_entity), once it has flown clear of them
  * @param hitsAllies     allies don't let it through: it hits friend and foe alike (exits hit_entity either way)
+ * @param bouncesOffOwn  it bounces off the caster's own constructs from the same ability (solid or not), e.g. a
+ *                       thrown trap glancing off one already planted
  */
 public record ProjectileSpec(
         double speed,
@@ -51,7 +53,8 @@ public record ProjectileSpec(
         double health,
         boolean throughBlocks,
         boolean hitsCaster,
-        boolean hitsAllies
+        boolean hitsAllies,
+        boolean bouncesOffOwn
 ) {
     public ProjectileSpec {
         motion = List.copyOf(motion);
@@ -103,6 +106,7 @@ public record ProjectileSpec(
         private boolean throughBlocks = false;
         private boolean hitsCaster = false;
         private boolean hitsAllies = false;
+        private boolean bouncesOffOwn = false;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -124,11 +128,12 @@ public record ProjectileSpec(
         public Builder throughBlocks(boolean v) { throughBlocks = v; return this; }
         public Builder hitsCaster(boolean v) { hitsCaster = v; return this; }
         public Builder hitsAllies(boolean v) { hitsAllies = v; return this; }
+        public Builder bouncesOffOwn(boolean v) { bouncesOffOwn = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
                     motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster,
-                    hitsAllies);
+                    hitsAllies, bouncesOffOwn);
         }
     }
 }

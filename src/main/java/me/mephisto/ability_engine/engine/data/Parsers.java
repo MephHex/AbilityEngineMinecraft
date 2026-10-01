@@ -111,6 +111,7 @@ public final class Parsers {
                 .throughBlocks(p.getBool("through_blocks", false))
                 .hitsCaster(p.getBool("hits_caster", false))
                 .hitsAllies(p.getBool("hits_allies", false))
+                .bouncesOffOwn(p.getBool("bounce_off_own", false))
                 .build();
     }
 

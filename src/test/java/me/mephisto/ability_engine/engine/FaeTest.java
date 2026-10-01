@@ -262,6 +262,23 @@ class FaeTest {
     }
 
     @Test
+    void perchReachesTwentyBlocks() throws IOException {
+        setup();
+        friend(22, 0);
+        use(Slots.ABILITY_2);
+        assertEquals(0, running("fae_ab2"), "22 blocks: too far");
+    }
+
+    @Test
+    void perchForgivesAnAimSlightlyOff() throws IOException {
+        setup();
+        UUID pal = friend(10, 1); // a block to the side of where she looks (+x)
+        use(Slots.ABILITY_2);
+        t.time.advance(15);
+        assertEquals(pal, t.world.riding.get(p), "the thick ray caught them");
+    }
+
+    @Test
     void noAllyInSightNothingHappens() throws IOException {
         setup();
         foe(6, 0);
@@ -405,6 +422,31 @@ class FaeTest {
         assertEquals(0, t.damage(target), 1e-9, "not armed yet");
         t.time.advance(20);
         assertEquals(BASE, t.damage(target), 1e-9);
+    }
+
+    @Test
+    void aSnareLastsTwoMinutes() throws IOException {
+        setup();
+        t.world.look(p, new Vec3(1, -1, 0));
+        use(Slots.ABILITY_3);
+        t.time.advance(2390);
+        assertEquals(1, t.engine.constructs().activeCount(), "still there after a long while");
+        t.time.advance(20);
+        assertEquals(0, t.engine.constructs().activeCount(), "wilted after 2 min");
+    }
+
+    @Test
+    void aSnareThrownAtOneAlreadyPlantedBouncesOffIt() throws IOException {
+        setup();
+        t.world.look(p, new Vec3(1, -1, 0));
+        use(Slots.ABILITY_3);
+        t.time.advance(250); // planted, and the cooldown's over
+        Vec3 first = t.engine.constructs().all().get(0).position();
+        use(Slots.ABILITY_3); // the same throw: right at it
+        t.time.advance(40);
+        assertEquals(2, t.engine.constructs().activeCount());
+        Vec3 second = t.engine.constructs().all().get(1).position();
+        assertTrue(second.distance(first) > 0.5, "it glanced off the first and landed elsewhere");
     }
 
     // ---- Ultimate: Wild Hunt ---------------------------------------------------------------------------

@@ -197,7 +197,7 @@ abilities:
       end:
         type: end_cast               # the seed is gone: so is its looping cue
 
-  # 2: Perch. Fly to an ally in your sights (25 blocks; you can be hit on the way) and sit on their head:
+  # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and sit on their head:
   # you go where they go, untouchable (abilities pass through you, nothing hurts you). They're 20% faster
   # and their basic attacks deal +2 HP. Press 2 again: a gust, +35% speed for them for 2s (every 5s at
   # most); aim at ANOTHER ally instead and you fly over to them (vulnerable again on the way). Press SHIFT
@@ -209,14 +209,14 @@ abilities:
       name: "Perch"
       icon: PINK_PETALS
       description:
-        - "Fly onto an ally's head (25 blocks):"
+        - "Fly onto an ally's head (20 blocks):"
         - "untouchable; they're 20% faster, +2 HP"
         - "per basic attack. Again: gust (+35% speed),"
         - "or fly to another ally. Shift: hop off."
     nodes:
       pick:
         type: acquire_target
-        query: { type: hitscan, range: 25, ray_size: 0.6, targets: allies }
+        query: { type: hitscan, range: 20, ray_size: 1.2, targets: allies }   # a thick ray: easy to pick them
         on: { hit: flit, miss: ~ }
       flit:
         type: play_cue
@@ -247,7 +247,7 @@ abilities:
         on: { recast: tap, timeout: listen }
       tap:
         type: acquire_target
-        query: { type: hitscan, range: 25, ray_size: 0.6, targets: allies }
+        query: { type: hitscan, range: 20, ray_size: 1.2, targets: allies }   # a thick ray: easy to pick them
         store: other
         on: { hit: which, miss: gust }
       which:
@@ -315,10 +315,10 @@ abilities:
       end:
         type: end_cast
 
-  # 3: Deathcap Snare. Throw a toadstool; where it lands it hides a trap (30s, 2 at most) that enemies can't
+  # 3: Deathcap Snare. Throw a toadstool; where it lands it hides a trap (2 min, 2 at most) that enemies can't
   # see. Armed after 1s, the first enemy within 1.4 blocks springs it: enemies within 3 blocks take 100% base
   # damage and are poisoned (8% max HP over 4s), 35% slower and nauseous for 4s. Thrown straight at an enemy,
-  # it springs on them at once. Traps stay if she dies.
+  # it springs on them at once; thrown at one of her traps, it bounces off it. Traps stay if she dies.
   fae_ab3:
     cooldown: 240                    # 12s
     survives_death: true
@@ -326,7 +326,7 @@ abilities:
       name: "Deathcap Snare"
       icon: RED_MUSHROOM
       description:
-        - "A hidden trap where it lands (30s, 2 max)."
+        - "A hidden trap where it lands (2 min, 2 max)."
         - "Springs on an enemy: 100% base dmg (3"
         - "blocks), poison (8% max HP), 35% slow"
         - "and nausea for 4s."
@@ -337,6 +337,7 @@ abilities:
         size: 0.4
         lifetime: 60
         visual: RED_MUSHROOM
+        bounce_off_own: true         # glances off her traps already planted
         motion:
           - { type: gravity, amount: 0.06 }
         on: { spawned: throw_cue, hit_entity: spring, hit_block: plant }
@@ -348,7 +349,7 @@ abilities:
         at: hit
         height: 0.1
         size: 0.5
-        fuse: 600                    # 30s
+        fuse: 2400                   # 2 min
         trigger: 1.4
         arm: 20                      # 1s
         solid: false

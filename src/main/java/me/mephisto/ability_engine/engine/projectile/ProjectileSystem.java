@@ -235,6 +235,8 @@ public final class ProjectileSystem {
                 }
             }
 
+            if (p.spec.bouncesOffOwn() && bounceOffOwn(p, ctx, from, next, worldDist)) return;
+
             if (hit.isEmpty()) {
                 moveTo(p, next);
                 return;
@@ -266,6 +268,38 @@ public final class ProjectileSystem {
             }
             return;
         }
+    }
+
+    /** Speed kept bouncing off one of your own constructs (bounce_off_own). */
+    private static final double OWN_BOUNCE_KEEP = 0.6;
+
+    /**
+     * bounce_off_own: glancing off one of the caster's constructs from this ability (before anything farther
+     * away): mirrored off its surface, a little slower, and set just outside it. True if it bounced.
+     */
+    private boolean bounceOffOwn(Projectile p, ExecutionContext ctx, Vec3 from, Vec3 next, double worldDist) {
+        double radius = p.spec.size() / 2;
+        var own = constructs.sweepOwn(p.world, from, next, radius, ctx.caster(), ctx.instance().ability().id());
+        if (own.isEmpty()) return false;
+        var c = own.get().construct();
+        double reach = c.size() + radius;
+        // Where it first touches it (the sweep gives the point nearest its centre): the surface normal there.
+        Vec3 seg = next.subtract(from);
+        Vec3 d = from.subtract(c.position());
+        double a = seg.lengthSquared(), b = 2 * d.dot(seg), k = d.lengthSquared() - reach * reach;
+        double disc = b * b - 4 * a * k;
+        double t = a < 1e-12 || disc < 0 || k <= 0 ? 0 : Math.max(0, (-b - Math.sqrt(disc)) / (2 * a));
+        Vec3 touch = from.add(seg.multiply(t));
+        if (touch.distance(p.position) > worldDist) return false; // a wall or someone first
+        Vec3 out = touch.subtract(c.position());
+        Vec3 n = out.lengthSquared() < 1e-9 ? p.velocity.multiply(-1) : out;
+        if (n.lengthSquared() < 1e-9) return false;
+        n = n.normalize();
+        double into = p.velocity.dot(n);
+        if (into >= 0) return false; // already moving away from it
+        p.velocity = p.velocity.subtract(n.multiply(2 * into)).multiply(OWN_BOUNCE_KEEP);
+        moveTo(p, c.position().add(n.multiply(reach + BOUNCE_NUDGE)));
+        return true;
     }
 
     /** How far from an entity's centre a sweep touches it (about half a player's height). */

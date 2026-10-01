@@ -480,6 +480,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   (hit = them) on reaching them (above their head). Only walls stop it; it gives up after `range` blocks' worth.
   Anyone dashing has the tag `state.dashing`.
 - **Projectile:** `hits_allies: true` - allies don't let it through (it exits `hit_entity` for friend and foe).
+  `bounce_off_own: true` - it bounces off your own constructs from the same ability (traps too, solid or not),
+  mirrored off them and a little slower, e.g. a thrown trap glancing off one already planted.
 - **Traps (construct):** `triggered_by: enemies | allies | all` (never the owner) `| everyone` (all and the owner
   too); `hidden: true` - only the owner
   and their allies see it (and hear it arm). Any construct: `cue: <id>` plays every `cue_every` ticks (default 10)
