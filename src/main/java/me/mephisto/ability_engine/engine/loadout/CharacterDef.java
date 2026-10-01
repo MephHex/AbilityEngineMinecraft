@@ -41,8 +41,10 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      *
      * @param speed  flying speed (fly: true), x vanilla (creative) flight, scaled by their move speed and slows
      * @param visual what they ride, shown under their feet (a platform visual id, e.g. an item; null = nothing)
+     * @param visualSize its size, x the default (1.0: as wide as the character, by their scale)
      */
-    public record Hover(double height, double speed, String visual, boolean fly) {
+    public record Hover(double height, double speed, String visual, boolean fly, double visualSize) {
+        public Hover(double height, double speed, String visual, boolean fly) { this(height, speed, visual, fly, 1.0); }
         public Hover(double height, double speed, String visual) { this(height, speed, visual, true); }
     }
 

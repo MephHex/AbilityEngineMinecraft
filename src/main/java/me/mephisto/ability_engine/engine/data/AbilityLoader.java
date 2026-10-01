@@ -214,8 +214,8 @@ public final class AbilityLoader {
     }
 
     /**
-     * {@code hover: { height, speed, visual }}: a passive flight, at most that high above the ground. Without a
-     * height (0) there's no hover, only the visual at their feet.
+     * {@code hover: { height, speed, visual, visual_size }}: a passive flight, at most that high above the ground.
+     * Without a height (0) there's no hover, only the visual at their feet ({@code visual_size} x its size).
      */
     private static CharacterDef.Hover hover(Params p) {
         if (!p.has("hover")) return null;
@@ -228,7 +228,9 @@ public final class AbilityLoader {
         }
         double speed = h.getDouble("speed", 0.5);
         if (speed <= 0 || speed > 10) throw h.error("speed", "must be above 0 (x vanilla flying speed, 0.5 = half)");
-        return new CharacterDef.Hover(height, speed, h.getString("visual", null), fly);
+        double visualSize = h.getDouble("visual_size", 1.0);
+        if (visualSize <= 0 || visualSize > 10) throw h.error("visual_size", "must be above 0 (x the default size, 1.2 = 20% bigger)");
+        return new CharacterDef.Hover(height, speed, h.getString("visual", null), fly, visualSize);
     }
 
     /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */

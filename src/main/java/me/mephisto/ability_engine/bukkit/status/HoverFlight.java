@@ -296,6 +296,8 @@ public final class HoverFlight implements Listener {
 
     /** Whose head each one's ride is on (absent: at their own feet). */
     private final Map<UUID, UUID> perchedOn = new HashMap<>();
+    /** The size each one's ride was made at. */
+    private final Map<UUID, Float> sizes = new HashMap<>();
 
     /**
      * What they ride, at their feet. Perched on someone (a ride, e.g. the Fae's Perch, sitting in it), it sits on
@@ -313,14 +315,17 @@ public final class HoverFlight implements Listener {
             return;
         }
         UUID on = mount == null ? null : mount.getUniqueId();
+        // follows the character's scale (1 block at 1.0), times the kit's visual_size
+        float size = (float) (p.getBoundingBox().getWidthX() / 0.6 * hover.visualSize());
         Display display = visuals.get(id);
         if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())
-                || !java.util.Objects.equals(on, perchedOn.get(id))) { // new, or perched / off since: a new one
+                || !java.util.Objects.equals(on, perchedOn.get(id)) // perched / off since
+                || Math.abs(size - sizes.getOrDefault(id, size)) > 1e-3) { // a new size (scale, /ae reload): a new one
             removeRide(id);
-            float size = (float) (p.getBoundingBox().getWidthX() / 0.6); // follows the character's scale (1 block at 1.0)
             Location at = mount != null ? onHead(mount) : feet(p);
-            display = material.isBlock() ? uprightBlock(at, material, SEAT_SCALE * size) : flatItem(at, material, 0.9f * size);
+            display = material.isBlock() ? uprightBlock(at, material, size) : flatItem(at, material, 0.9f * size);
             visuals.put(id, display);
+            sizes.put(id, size);
             if (mount != null) {
                 perchedOn.put(id, on);
                 mount.addPassenger(display); // on their head: it rides them (a passenger sits on top), no lag
@@ -348,13 +353,6 @@ public final class HoverFlight implements Listener {
     /** The ride sits a hair above where it's put: not to flicker with the ground (or the head) under it. */
     private static final float GAP = 0.03f;
 
-    /**
-     * A block ride's size over the character's (1 block at scale 1.0), so they sit in it. A spore blossom turned
-     * over is a cup: its base leaves at the bottom, four petals flaring up and out from the middle to about 0.4 of
-     * its height (they droop 22.5 degrees from the top in the vanilla model). At 1.0 the rim is about at the knees
-     * (legs are 0.375 of a player's height) and the petals spread about 1.75x their width.
-     */
-    private static final float SEAT_SCALE = 1.0f;
 
     /**
      * A block's model turned upside down (a hanging spore blossom opens upward), centred on the spot: its top
@@ -389,6 +387,7 @@ public final class HoverFlight implements Listener {
     /** Take it away: off whoever's head it was on first, then gone. */
     private void removeRide(UUID id) {
         perchedOn.remove(id);
+        sizes.remove(id);
         Display d = visuals.remove(id);
         if (d == null) return;
         Entity vehicle = d.getVehicle();

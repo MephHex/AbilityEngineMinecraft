@@ -196,7 +196,8 @@ abilities:
 
   # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and sit in
   # your blossom on their head: you go where they go, untouchable (abilities pass through you, nothing hurts you).
-  # They don't see you (you'd be in their way), everyone else does; your hunger bar shows their hearts. They're 20% faster
+  # They don't see you (you'd be in their way), everyone else does; your hunger bar shows their hearts.
+  # They're 20% faster
   # and their basic attacks deal +2 HP. The cooldown (5s) starts as you sit down. Press 2 again once it's
   # over: a gust, +35% speed for them for 2s; aim at ANOTHER ally instead and you fly over to them (vulnerable
   # again on the way). Either one starts the cooldown again. Press SHIFT to hop off. It ends too when they die.
@@ -486,6 +487,8 @@ characters:
       scale: 0.5                     # small (model and hitbox)
     hover:                           # no hover (no height): just what she sits in
       visual: SPORE_BLOSSOM          # the blossom, upside down, she sits in its cup
+      # its size, x the default (1.0: as wide as she is; its petals reach 0.4 of that up and spread 1.75x)
+      visual_size: 1.2
     ward:                            # PASSIVE: Spore Burst
       name: "Spore Burst"
       cast: fae_spore_burst          # the next enemy hit on her...

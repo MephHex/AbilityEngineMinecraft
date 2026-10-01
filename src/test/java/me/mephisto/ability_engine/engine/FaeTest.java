@@ -71,6 +71,7 @@ class FaeTest {
         var hover = t.engine.loadouts().characterOf(p).orElseThrow().hover();
         assertEquals(0, hover.height(), 1e-9, "no hover: she walks as usual");
         assertEquals("SPORE_BLOSSOM", hover.visual());
+        assertEquals(1.2, hover.visualSize(), 1e-9, "a little bigger");
     }
 
     @Test

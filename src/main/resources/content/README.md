@@ -451,15 +451,16 @@ slot, so an ability is only silenced when it's in an ability slot.
 
 ## Added for the Fae
 
-- **Characters:** `hover: { height, fly, speed, visual }` - a passive hover, no fall damage either way (without a
-  `height`, or 0: no hover at all, only the `visual` at your feet, and falls hurt as usual):
+- **Characters:** `hover: { height, fly, speed, visual, visual_size }` - a passive hover, no fall damage either
+  way (without a `height`, or 0: no hover at all, only the `visual` at your feet, and falls hurt as usual):
   - `fly: false`: always floating `height` blocks (whole blocks) above the ground. You walk, jump and drop off
     ledges that much higher, over water too, on a floor of invisible blocks only you see. No flying.
   - `fly: true` (default): double-tap jump to fly, at most `height` blocks above the ground below (higher, you
     sink back down). `speed` is x vanilla flying speed (0.5 = half), scaled by the move speed stat and slows like
     walking. Can't fly while stunned or rooted (you drop). The limit holds off during dashes.
   - Free flight (`state.flying`) overrides either while it lasts. `visual` is what you ride, under your feet: a
-    block shows its real model upside down (a spore blossom opens upward), an item lies flat.
+    block shows its real model upside down (a spore blossom opens upward), an item lies flat. `visual_size` scales
+    it (default 1.0: as wide as you are; /ae reload applies it).
 - **charge:** `bar: held` (with `release_gap`) - the cast bar only shows once the key is really held (its first
   repeat), so a tap shows nothing (e.g. "hold to cancel").
 - **Ward:** `cast: <ability>` (with `cooldown: <ticks>`) turns it into a REFLEX: the next enemy hit that gets
