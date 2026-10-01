@@ -208,6 +208,34 @@ class FaeTest {
         assertEquals(50, t.healed.getOrDefault(p, 0.0), 1e-9, "it blooms on her: 5 HP");
     }
 
+    /** A wall 2 blocks ahead of her (+x), 5 high. */
+    private void wallAhead() { t.world.box(2, 3, -5, 5, 5); }
+
+    @Test
+    void aSeedThrownAtAWallBouncesOffAndLiesOnTheGround() throws IOException {
+        setup();
+        wallAhead();
+        use(Slots.ABILITY_1); // straight at it
+        t.world.move(p, new Vec3(-10, 1, 0)); // out of its way: it would latch onto her where it lands
+        t.time.advance(40);
+        assertEquals(1, t.engine.constructs().activeCount(), "it landed");
+        Vec3 seed = t.engine.constructs().all().get(0).position();
+        assertTrue(seed.y() < 0.5, "on the ground, not stuck to the wall (y=" + seed.y() + ")");
+        assertTrue(seed.x() < 2, "in front of the wall");
+    }
+
+    @Test
+    void aSnareThrownAtAWallBouncesOffAndHidesOnTheGround() throws IOException {
+        setup();
+        wallAhead();
+        use(Slots.ABILITY_3);
+        t.time.advance(40);
+        assertEquals(1, t.engine.constructs().activeCount(), "it landed");
+        Vec3 trap = t.engine.constructs().all().get(0).position();
+        assertTrue(trap.y() < 0.5, "on the ground, not stuck to the wall (y=" + trap.y() + ")");
+        assertTrue(trap.x() < 2, "in front of the wall");
+    }
+
     @Test
     void threeSeedsAtATime() throws IOException {
         setup();
