@@ -298,15 +298,15 @@ class FaeTest {
         use(Slots.ABILITY_2);
         assertTrue(has(pal, "fae_gust"), "a burst of speed");
         assertEquals(1.2 * 1.35, t.engine.stats().moveSpeedMultiplier(pal), 1e-9);
-        assertTrue(has(p, "fae_gust_spent"));
+        assertEquals(200, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "a gust starts the cooldown again");
         t.time.advance(41);
         assertFalse(has(pal, "fae_gust"), "2s");
         use(Slots.ABILITY_2);
-        assertFalse(has(pal, "fae_gust"), "every 5s at most");
+        assertFalse(has(pal, "fae_gust"), "on cooldown: no second gust");
         assertEquals(pal, t.world.riding.get(p), "still up there");
-        t.time.advance(60);
+        t.time.advance(160);
         use(Slots.ABILITY_2);
-        assertTrue(has(pal, "fae_gust"));
+        assertTrue(has(pal, "fae_gust"), "10s after the first");
     }
 
     @Test
