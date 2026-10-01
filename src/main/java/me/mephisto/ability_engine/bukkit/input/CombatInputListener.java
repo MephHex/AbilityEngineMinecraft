@@ -148,6 +148,9 @@ public final class CombatInputListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent e) {
         Player p = e.getPlayer();
+        // Stepping on a pressure plate or tripwire (no hand): not an input. Cancelling it would make
+        // plates dead under anyone with a character, e.g. a champ-select plate running /ae char none @p.
+        if (e.getAction() == Action.PHYSICAL) return;
         if (e.getHand() != EquipmentSlot.HAND) {
             if (inCombat(p)) e.setCancelled(true); // the offhand holds the ultimate's icon: never "use" it
             return;
