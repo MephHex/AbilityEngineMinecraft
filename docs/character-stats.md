@@ -253,7 +253,7 @@ Hears enemies below 40% HP within 30 blocks (they glow for them only; +15% speed
 |---|---|---|---|---|---|---|
 | **160** | **5** (5%) | **35** | **1.00** | **1.5** (13 ticks) | 168 | 47 (more with splash) |
 
-Half size. Always floats 2 blocks above the ground, sitting in her blossom (no flying, no fall damage). The next enemy hit
+Half size. Sits in her blossom (just the look; her first passive is still to come). The next enemy hit
 on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
 
 | Ability | Damage |

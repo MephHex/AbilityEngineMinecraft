@@ -451,7 +451,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 
 ## Added for the Fae
 
-- **Characters:** `hover: { height, fly, speed, visual }` - a passive hover, no fall damage either way:
+- **Characters:** `hover: { height, fly, speed, visual }` - a passive hover, no fall damage either way (without a
+  `height`, or 0: no hover at all, only the `visual` at your feet, and falls hurt as usual):
   - `fly: false`: always floating `height` blocks (whole blocks) above the ground. You walk, jump and drop off
     ledges that much higher, over water too, on a floor of invisible blocks only you see. No flying.
   - `fly: true` (default): double-tap jump to fly, at most `height` blocks above the ground below (higher, you
@@ -465,8 +466,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   through casts that ability (the next tick, with `target` = whoever hit you). Ready again `cooldown` later, or
   sooner after `out_of_combat` ticks without fighting. Give the ability `blocked_by: []` so it works while stunned.
 - **Nodes:**
-  - mount `{ target, status, self_status, store }` -> out / none / off: sit on someone's head (you go where they
-    go) until the cast ends, a dismount node, or a new mount; "out" right away. `status` is on them while you're
+  - mount `{ target, status, self_status, store }` -> out / none / off: sit on someone's head (a little above it,
+    out of their view; you go where they go) until the cast ends, a dismount node, or a new mount; "out" right away. `status` is on them while you're
     up there, `self_status` on you. If the ride ends by itself (they die, the game takes you off, another
     ability's dismount), a branch runs from `off`. You can't hop off by sneaking. The mount is stored as "mount".
   - dismount: off whatever you ride. In the ride's own ability it's quiet (`off` doesn't run); from another

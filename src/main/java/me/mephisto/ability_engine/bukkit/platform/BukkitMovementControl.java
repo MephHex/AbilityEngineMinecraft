@@ -5,7 +5,9 @@ import me.mephisto.ability_engine.engine.platform.MovementControl;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 
 import java.util.UUID;
@@ -13,7 +15,8 @@ import java.util.UUID;
 /**
  * Moves entities by velocity. For players the client applies it, which is why dashes look smooth;
  * the engine re-sends it every tick while dashing so friction doesn't slow them down.
- * Teleports keep riders on (a fae perched on someone who blinks goes along). Rides are passengers.
+ * Teleports keep riders on (a fae perched on someone who blinks goes along). Rides are passengers, on an
+ * invisible seat that lifts the rider a little (see {@link #SEAT_HEIGHT}).
  */
 public final class BukkitMovementControl implements MovementControl {
 
@@ -72,29 +75,73 @@ public final class BukkitMovementControl implements MovementControl {
         if (e instanceof LivingEntity living) living.setBodyYaw(look.getYaw());
     }
 
+    // ---- rides: the rider sits on an invisible seat on the vehicle, a bit higher than vanilla -------------
+
+    /**
+     * How much higher than vanilla a rider sits: a fae on someone's head would otherwise have her legs in front
+     * of their eyes. A passenger sits on top of an interaction entity's box, so the seat is one this tall.
+     */
+    private static final float SEAT_HEIGHT = 0.4f;
+    private static final org.bukkit.NamespacedKey SEAT = new org.bukkit.NamespacedKey("ability_engine", "seat");
+
+    /** Each rider's seat. */
+    private final java.util.Map<UUID, Interaction> seats = new java.util.HashMap<>();
+
     @Override
     public boolean mount(UUID rider, UUID vehicle) {
         Entity r = Bukkit.getEntity(rider), v = Bukkit.getEntity(vehicle);
         if (r == null || v == null || !r.isValid() || !v.isValid() || r.equals(v) || !r.getWorld().equals(v.getWorld())) {
             return false;
         }
+        dismount(rider);
         if (r.isInsideVehicle()) r.leaveVehicle();
         r.setFallDistance(0);
-        return v.addPassenger(r);
+        Interaction seat = v.getWorld().spawn(v.getLocation(), Interaction.class, s -> {
+            s.setInteractionWidth(0);           // nothing to click
+            s.setInteractionHeight(SEAT_HEIGHT);
+            s.setResponsive(false);
+            s.setPersistent(false);
+            s.getPersistentDataContainer().set(SEAT, PersistentDataType.BYTE, (byte) 1);
+            VisualEntities.mark(s);
+        });
+        if (!v.addPassenger(seat) || !seat.addPassenger(r)) {
+            seat.remove();
+            return false;
+        }
+        seats.put(rider, seat);
+        return true;
     }
 
     @Override
     public void dismount(UUID rider) {
         Entity r = Bukkit.getEntity(rider);
-        if (r == null || !r.isInsideVehicle()) return;
-        r.leaveVehicle();
-        r.setFallDistance(0);
+        if (r != null && r.isInsideVehicle()) {
+            r.leaveVehicle();
+            r.setFallDistance(0);
+        }
+        Interaction seat = seats.remove(rider);
+        if (seat != null) seat.remove();
     }
 
+    /** What they ride (through the seat). A seat that's come apart (its vehicle or rider gone) is cleared up. */
     @Override
     public java.util.Optional<UUID> vehicleOf(UUID rider) {
         Entity r = Bukkit.getEntity(rider);
-        Entity v = r == null ? null : r.getVehicle();
+        Interaction seat = seats.get(rider);
+        if (seat != null && (r == null || !seat.isValid() || !seat.equals(r.getVehicle()) || seat.getVehicle() == null)) {
+            dismount(rider);
+            return java.util.Optional.empty();
+        }
+        Entity v = r == null ? null : underSeat(r.getVehicle());
         return v == null ? java.util.Optional.empty() : java.util.Optional.of(v.getUniqueId());
+    }
+
+    /** The entity under a seat (what its rider really rides); anything else as it is. */
+    public static Entity underSeat(Entity vehicle) {
+        return isSeat(vehicle) ? vehicle.getVehicle() : vehicle;
+    }
+
+    public static boolean isSeat(Entity e) {
+        return e != null && e.getPersistentDataContainer().has(SEAT, PersistentDataType.BYTE);
     }
 }

@@ -213,14 +213,17 @@ public final class AbilityLoader {
                 w.has("description") ? w.getStringList("description") : List.of(), absorb, cast, cooldown);
     }
 
-    /** {@code hover: { height, speed, visual }}: a passive flight, at most that high above the ground. */
+    /**
+     * {@code hover: { height, speed, visual }}: a passive flight, at most that high above the ground. Without a
+     * height (0) there's no hover, only the visual at their feet.
+     */
     private static CharacterDef.Hover hover(Params p) {
         if (!p.has("hover")) return null;
         Params h = p.getParams("hover");
-        double height = h.requireDouble("height");
-        if (height <= 0) throw h.error("height", "must be above 0 (blocks above the ground)");
+        double height = h.getDouble("height", 0);
+        if (height < 0) throw h.error("height", "must be 0 (no hover, just the visual) or more (blocks above the ground)");
         boolean fly = h.getBool("fly", true);
-        if (!fly && (height < 1 || height != Math.rint(height))) {
+        if (height > 0 && !fly && (height < 1 || height != Math.rint(height))) {
             throw h.error("height", "without flying it's whole blocks: 1, 2, ...");
         }
         double speed = h.getDouble("speed", 0.5);

@@ -28,8 +28,9 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                            java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover) {
 
     /**
-     * A passive hover (the platform's), one of two kinds:
+     * A passive hover (the platform's), one of three kinds:
      * <ul>
+     *   <li>{@code height: 0}: no hover at all, just the {@code visual} at their feet (they walk as usual)</li>
      *   <li>{@code fly: false}: always floating {@code height} blocks (whole blocks) above the ground, walking
      *       at that level; no flying</li>
      *   <li>{@code fly: true}: flying at will, but at most {@code height} blocks above the ground below;

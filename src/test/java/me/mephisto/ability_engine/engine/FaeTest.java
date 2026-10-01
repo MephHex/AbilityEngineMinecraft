@@ -65,12 +65,11 @@ class FaeTest {
     // ---- Passives ---------------------------------------------------------------------------------------
 
     @Test
-    void sheIsSmallAndHovers() throws IOException {
+    void sheIsSmallAndSitsInHerBlossom() throws IOException {
         setup();
         assertEquals(0.5, t.engine.stats().of(p).scale(), 1e-9);
         var hover = t.engine.loadouts().characterOf(p).orElseThrow().hover();
-        assertEquals(2, hover.height(), 1e-9, "always 2 blocks above the ground");
-        assertFalse(hover.fly(), "floating, not flying");
+        assertEquals(0, hover.height(), 1e-9, "no hover: she walks as usual");
         assertEquals("SPORE_BLOSSOM", hover.visual());
     }
 

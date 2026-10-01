@@ -34,8 +34,10 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * The hover passive ({@code hover:} in a kit) on Bukkit, two ways:
+ * The hover passive ({@code hover:} in a kit) on Bukkit, three ways:
  * <ul>
+ *   <li>{@code height: 0}: no hover, they walk as usual (and take falls as usual); only what they ride is
+ *       shown.</li>
  *   <li>{@code fly: false}: always floating {@code height} blocks above the ground, walking on a floor only they
  *       see (see {@link #floatOn}). No flying.</li>
  *   <li>{@code fly: true}: the rest of this comment.</li>
@@ -91,6 +93,14 @@ public final class HoverFlight implements Listener {
             drawRide(p, hover);
             if (p.isInsideVehicle() || creative(p)) {
                 clearFloor(p);
+                continue;
+            }
+            if (hover.height() <= 0) { // just the ride: no floor, no flying (unless free flight gives it)
+                clearFloor(p);
+                if (p.getAllowFlight() && !engine.tags().has(id, Tags.FLYING)) {
+                    p.setFlying(false);
+                    p.setAllowFlight(false);
+                }
                 continue;
             }
             if (!hover.fly()) {
@@ -309,10 +319,10 @@ public final class HoverFlight implements Listener {
     /**
      * A block ride's size over the character's (1 block at scale 1.0), so they sit in it. A spore blossom turned
      * over is a cup: its base leaves at the bottom, four petals flaring up and out from the middle to about 0.4 of
-     * its height (they droop 22.5 degrees from the top in the vanilla model). At 1.4 the rim is about at the hips
-     * (legs are 0.375 of a player's height) and the petals spread about 2.5x their width.
+     * its height (they droop 22.5 degrees from the top in the vanilla model). At 1.0 the rim is about at the knees
+     * (legs are 0.375 of a player's height) and the petals spread about 1.75x their width.
      */
-    private static final float SEAT_SCALE = 1.4f;
+    private static final float SEAT_SCALE = 1.0f;
 
     /**
      * A block's model turned upside down (a hanging spore blossom opens upward), centred on the spot: its top
@@ -351,12 +361,13 @@ public final class HoverFlight implements Listener {
 
     // ---- events ----------------------------------------------------------------------------------------
 
-    /** A fae never takes fall damage: it would have caught itself. */
+    /** A hovering fae never takes fall damage: it would have caught itself. (Just riding the visual: it does.) */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onFall(EntityDamageEvent event) {
-        if (event.getCause() == EntityDamageEvent.DamageCause.FALL && hovering.contains(event.getEntity().getUniqueId())) {
-            event.setCancelled(true);
-        }
+        UUID id = event.getEntity().getUniqueId();
+        if (event.getCause() != EntityDamageEvent.DamageCause.FALL || !hovering.contains(id)) return;
+        boolean hovers = engine.loadouts().characterOf(id).map(CharacterDef::hover).filter(h -> h.height() > 0).isPresent();
+        if (hovers) event.setCancelled(true);
     }
 
     @EventHandler
