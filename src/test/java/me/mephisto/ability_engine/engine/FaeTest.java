@@ -238,7 +238,7 @@ class FaeTest {
         assertEquals(new Vec3(6, 1 + FakeWorld.RIDE_HEIGHT, 0), pos(p));
         t.world.move(pal, new Vec3(10, 1, 4));
         assertEquals(new Vec3(10, 1 + FakeWorld.RIDE_HEIGHT, 4), pos(p), "she goes where they go");
-        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "the cooldown started as she sat down");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 90, "the cooldown started as she sat down");
         assertTrue(t.engine.instances().awaitingRecast(p, "fae_ab2"));
     }
 
@@ -298,15 +298,15 @@ class FaeTest {
         use(Slots.ABILITY_2);
         assertTrue(has(pal, "fae_gust"), "a burst of speed");
         assertEquals(1.2 * 1.35, t.engine.stats().moveSpeedMultiplier(pal), 1e-9);
-        assertEquals(200, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "a gust starts the cooldown again");
+        assertEquals(100, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "a gust starts the cooldown again");
         t.time.advance(41);
         assertFalse(has(pal, "fae_gust"), "2s");
         use(Slots.ABILITY_2);
         assertFalse(has(pal, "fae_gust"), "on cooldown: no second gust");
         assertEquals(pal, t.world.riding.get(p), "still up there");
-        t.time.advance(160);
+        t.time.advance(60);
         use(Slots.ABILITY_2);
-        assertTrue(has(pal, "fae_gust"), "10s after the first");
+        assertTrue(has(pal, "fae_gust"), "5s after the first");
     }
 
     @Test
@@ -320,7 +320,7 @@ class FaeTest {
         assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertEquals(0, running("fae_ab2"));
         assertTrue(t.render.cues.contains("fae_unperch"));
-        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "the cooldown from sitting down runs on");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 90, "the cooldown from sitting down runs on");
     }
 
     @Test
@@ -348,7 +348,7 @@ class FaeTest {
         assertTrue(has(second, "fae_blessing"));
         assertTrue(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertEquals(1, running("fae_ab2"));
-        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "sitting down again: the cooldown again");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 90, "sitting down again: the cooldown again");
     }
 
     @Test
@@ -376,7 +376,7 @@ class FaeTest {
         assertNull(t.world.riding.get(p));
         assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertEquals(0, running("fae_ab2"));
-        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190);
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 90);
     }
 
     @Test
@@ -510,15 +510,15 @@ class FaeTest {
     }
 
     @Test
-    void wildHuntsVineCatchesAnEnemyWithinTwoBlocksOfItsPath() throws IOException {
+    void wildHuntsVineHasASmallHitbox() throws IOException {
         setup();
         UUID target = foe(10, 1.8);
         t.world.look(p, new Vec3(0, 1, 0));
         use(Slots.ULTIMATE);
-        t.world.look(p, new Vec3(1, 0, 0)); // past them
+        t.world.look(p, new Vec3(1, 0, 0)); // 1.8 blocks past them
         use(Slots.ULTIMATE);
         t.time.advance(8);
-        assertTrue(t.engine.tags().has(target, Tags.STUNNED), "a 2-block radius");
+        assertFalse(t.engine.tags().has(target, Tags.STUNNED), "a 1x1 hitbox: it has to be aimed");
     }
 
     @Test

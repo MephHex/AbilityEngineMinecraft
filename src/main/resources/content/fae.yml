@@ -196,11 +196,11 @@ abilities:
 
   # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and sit on their head:
   # you go where they go, untouchable (abilities pass through you, nothing hurts you). They're 20% faster
-  # and their basic attacks deal +2 HP. The cooldown (10s) starts as you sit down. Press 2 again once it's
+  # and their basic attacks deal +2 HP. The cooldown (5s) starts as you sit down. Press 2 again once it's
   # over: a gust, +35% speed for them for 2s; aim at ANOTHER ally instead and you fly over to them (vulnerable
   # again on the way). Either one starts the cooldown again. Press SHIFT to hop off. It ends too when they die.
   fae_ab2:
-    cooldown: 200                    # 10s
+    cooldown: 100                    # 5s
     cooldown_starts: manual          # as she sits down (never reaching anyone: as it ends)
     display:
       name: "Perch"
@@ -372,7 +372,7 @@ abilities:
         at: hit
 
   # ULTIMATE (F): Wild Hunt. 8s of free flight, no height limit (it ends a perch). Press F again: a vine
-  # shoots out (a skillshot, 20 blocks, 2-block radius). If it catches an enemy it latches on, stunning them for
+  # shoots out (a skillshot, 20 blocks, a 1x1 hitbox). If it catches an enemy it latches on, stunning them for
   # 3.5s and tethering them to you (4 blocks of slack): fly off and drag them along, up into the air if you
   # like. Missing doesn't end it: shoot again while the flight lasts. The cooldown starts at the first shot
   # (or after the 8s).
@@ -419,7 +419,7 @@ abilities:
       shoot:
         type: projectile             # the vine: a skillshot
         speed: 1.6
-        size: 4                      # a 2-block radius: generous
+        size: 1                      # a 1x1 hitbox
         visual_size: 0.9
         range: 20
         lifetime: 20
