@@ -19,7 +19,7 @@ statuses:
       - { id: damage, amount: 20 }   # +2 HP on every basic attack
   fae_perched:                       # the Fae, in her blossom on an ally's head: untouchable (the ally she sits
     duration: 0                      # on doesn't see her: she'd be in their way; everyone else does)
-    tags: [state.untargetable]       # abilities pass through her
+    tags: [state.untargetable, state.perched]   # abilities pass through her; no Blossom Shots up there
     damage_taken: 0                  # and nothing else hurts her either
     positive: false
   fae_gust:                          # recast while perched: a burst of speed for the ally
@@ -50,6 +50,7 @@ abilities:
   # or on whoever it hits: 90% base damage to enemies within 2.2 blocks.
   fae_primary:
     cooldown: 14                     # (the attack_speed stat sets it)
+    blocked_by: [block.ability, state.perched]   # not while she sits on an ally's head
     display:
       name: "Blossom Shot"
       description:

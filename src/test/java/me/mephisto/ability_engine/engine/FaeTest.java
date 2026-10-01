@@ -373,6 +373,16 @@ class FaeTest {
     }
 
     @Test
+    void noBlossomShotsWhileSheSitsOnAnAlly() throws IOException {
+        setup();
+        perchOnNewFriend();
+        assertFalse(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "blocked up there");
+        t.engine.rides().hopOff(p);
+        t.time.advance(1);
+        use(Slots.PRIMARY);
+    }
+
+    @Test
     void aTapDoesntHopHerOff() throws IOException {
         setup();
         UUID pal = perchOnNewFriend();
