@@ -235,8 +235,7 @@ class FaeTest {
         assertTrue(has(pal, "fae_blessing"));
         assertEquals(1.2, t.engine.stats().moveSpeedMultiplier(pal), 1e-9, "20% faster");
         assertTrue(t.engine.tags().has(p, Tags.UNTARGETABLE), "untouchable");
-        assertTrue(t.engine.tags().has(p, Tags.HIDDEN), "hidden inside her blossom");
-        assertTrue(t.engine.tags().has(p, Tags.INVISIBLE), "to herself too");
+        assertFalse(t.engine.tags().has(p, Tags.HIDDEN), "seen (only her ally doesn't: the platform's ride)");
         assertEquals(new Vec3(6, 1 + FakeWorld.RIDE_HEIGHT, 0), pos(p));
         t.world.move(pal, new Vec3(10, 1, 4));
         assertEquals(new Vec3(10, 1 + FakeWorld.RIDE_HEIGHT, 4), pos(p), "she goes where they go");
@@ -320,8 +319,6 @@ class FaeTest {
         assertNull(t.world.riding.get(p), "off");
         assertFalse(has(pal, "fae_blessing"));
         assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE));
-        assertFalse(t.engine.tags().has(p, Tags.HIDDEN), "out of her blossom: seen again");
-        assertFalse(t.engine.tags().has(p, Tags.INVISIBLE));
         assertEquals(0, running("fae_ab2"));
         assertTrue(t.render.cues.contains("fae_unperch"));
         assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 90, "the cooldown from sitting down runs on");

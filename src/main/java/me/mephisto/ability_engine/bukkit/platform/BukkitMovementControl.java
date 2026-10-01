@@ -18,7 +18,8 @@ import java.util.UUID;
  * Moves entities by velocity. For players the client applies it, which is why dashes look smooth;
  * the engine re-sends it every tick while dashing so friction doesn't slow them down.
  * Teleports keep riders on (a fae perched on someone who blinks goes along). Rides are passengers; a ride with a
- * lift puts the rider on an invisible seat that tall.
+ * lift puts the rider on an invisible seat that tall. A rider is hidden from the player they ride (sitting on
+ * their head, they'd only be in the way), and only from them: everyone else sees them as usual.
  */
 public final class BukkitMovementControl implements MovementControl {
 
@@ -90,6 +91,9 @@ public final class BukkitMovementControl implements MovementControl {
      */
     private final java.util.Map<UUID, ArmorStand> seats = new java.util.HashMap<>();
 
+    /** Riders hidden from the player they ride: rider -> that player. */
+    private final java.util.Map<UUID, UUID> hiddenFrom = new java.util.HashMap<>();
+
     @Override
     public boolean mount(UUID rider, UUID vehicle) {
         return mount(rider, vehicle, 0);
@@ -104,7 +108,11 @@ public final class BukkitMovementControl implements MovementControl {
         dismount(rider);
         if (r.isInsideVehicle()) r.leaveVehicle();
         r.setFallDistance(0);
-        if (lift <= 0) return v.addPassenger(r); // right on them (riding a living mount shows its hearts)
+        if (lift <= 0) { // right on them (riding a living mount shows its hearts)
+            if (!v.addPassenger(r)) return false;
+            hideFromMount(r, v);
+            return true;
+        }
         ArmorStand seat = v.getWorld().spawn(v.getLocation(), ArmorStand.class, s -> {
             s.setInvisible(true);
             s.setSmall(true);
@@ -127,7 +135,28 @@ public final class BukkitMovementControl implements MovementControl {
         }
         seats.put(rider, seat);
         showMountHealth(seat);
+        hideFromMount(r, v);
         return true;
+    }
+
+    private static org.bukkit.plugin.Plugin plugin() {
+        return org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(BukkitMovementControl.class);
+    }
+
+    /** The player they ride doesn't see them. */
+    private void hideFromMount(Entity rider, Entity mount) {
+        if (!(mount instanceof org.bukkit.entity.Player viewer)) return;
+        viewer.hideEntity(plugin(), rider);
+        hiddenFrom.put(rider.getUniqueId(), mount.getUniqueId());
+    }
+
+    /** ...and sees them again once the ride's over. */
+    private void revealToMount(UUID rider) {
+        UUID mount = hiddenFrom.remove(rider);
+        if (mount == null) return;
+        org.bukkit.entity.Player viewer = Bukkit.getPlayer(mount);
+        Entity r = Bukkit.getEntity(rider);
+        if (viewer != null && r != null) viewer.showEntity(plugin(), r);
     }
 
     /**
@@ -153,9 +182,13 @@ public final class BukkitMovementControl implements MovementControl {
         }
         ArmorStand seat = seats.remove(rider);
         if (seat != null) seat.remove();
+        revealToMount(rider);
     }
 
-    /** What they ride (through the seat). A seat that's come apart (its vehicle or rider gone) is cleared up. */
+    /**
+     * What they ride (through the seat). A seat that's come apart (its vehicle or rider gone) is cleared up, and
+     * a rider who's off the player they were hidden from shows to them again.
+     */
     @Override
     public java.util.Optional<UUID> vehicleOf(UUID rider) {
         Entity r = Bukkit.getEntity(rider);
@@ -165,6 +198,8 @@ public final class BukkitMovementControl implements MovementControl {
             return java.util.Optional.empty();
         }
         Entity v = r == null ? null : underSeat(r.getVehicle());
+        UUID hiddenOn = hiddenFrom.get(rider);
+        if (hiddenOn != null && (v == null || !hiddenOn.equals(v.getUniqueId()))) revealToMount(rider); // off them
         return v == null ? java.util.Optional.empty() : java.util.Optional.of(v.getUniqueId());
     }
 

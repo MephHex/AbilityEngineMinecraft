@@ -298,9 +298,8 @@ public final class HoverFlight implements Listener {
     private final Map<UUID, UUID> perchedOn = new HashMap<>();
 
     /**
-     * What they ride, at their feet. Perched on someone (a ride, e.g. the Fae's Perch, where she hides inside it:
-     * state.hidden, state.invisible), it sits on top of that someone's head instead, riding along with them, and
-     * shows even though they're hidden. Perching, hopping off or over to someone else, the old one goes and a new
+     * What they ride, at their feet. Perched on someone (a ride, e.g. the Fae's Perch, sitting in it), it sits on
+     * top of that someone's head instead, riding along with them, and shows even if they're hidden. Perching, hopping off or over to someone else, the old one goes and a new
      * one appears where it belongs: nothing is left behind on anyone's head.
      */
     private void drawRide(Player p, CharacterDef.Hover hover) {

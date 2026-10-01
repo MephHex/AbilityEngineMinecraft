@@ -467,8 +467,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   sooner after `out_of_combat` ticks without fighting. Give the ability `blocked_by: []` so it works while stunned.
 - **Nodes:**
   - mount `{ target, status, self_status, store, lift }` -> out / none / off: sit on someone's head (you go where
-    they go; with `lift: <blocks>` that much higher, on an invisible seat), and your hunger bar shows their
-    hearts, until the cast ends, a dismount node, or a new mount; "out" right away. `status` is on them while
+    they go; with `lift: <blocks>` that much higher, on an invisible seat; they don't see you, everyone else
+    does), and your hunger bar shows their hearts, until the cast ends, a dismount node, or a new mount; "out" right away. `status` is on them while
     you're up there, `self_status` on you. If the ride ends by itself (they die, the game takes you off, another
     ability's dismount, you press SHIFT to hop off), a branch runs from `off`. The mount is stored as "mount".
   - dismount: off whatever you ride. In the ride's own ability it's quiet (`off` doesn't run); from another
