@@ -19,7 +19,8 @@ statuses:
       - { id: damage, amount: 20 }   # +2 HP on every basic attack
   fae_perched:                       # the Fae, hidden inside her blossom on an ally's head: untouchable
     duration: 0
-    tags: [state.untargetable, state.hidden]   # abilities pass through her; nobody sees her, only the blossom
+    tags: [state.untargetable, state.hidden, state.invisible]   # abilities pass through her; nobody sees her
+                                     # (hidden), herself either in F5 (invisible): only the blossom
     damage_taken: 0                  # and nothing else hurts her either
     positive: false
   fae_gust:                          # recast while perched: a burst of speed for the ally

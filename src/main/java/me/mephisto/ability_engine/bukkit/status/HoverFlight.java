@@ -294,40 +294,56 @@ public final class HoverFlight implements Listener {
 
     // ---- what they ride -------------------------------------------------------------------------------
 
+    /** Whose head each one's ride is on (absent: at their own feet). */
+    private final Map<UUID, UUID> perchedOn = new HashMap<>();
+
     /**
      * What they ride, at their feet. Perched on someone (a ride, e.g. the Fae's Perch, where she hides inside it:
-     * state.hidden), it sits on top of that someone's head instead, riding along with them, and shows even
-     * though they're hidden.
+     * state.hidden, state.invisible), it sits on top of that someone's head instead, riding along with them, and
+     * shows even though they're hidden. Perching, hopping off or over to someone else, the old one goes and a new
+     * one appears where it belongs: nothing is left behind on anyone's head.
      */
     private void drawRide(Player p, CharacterDef.Hover hover) {
         UUID id = p.getUniqueId();
         Material material = hover.visual() == null ? null : Material.matchMaterial(hover.visual());
         Entity mount = p.isInsideVehicle() ? engine.rides().mountOf(id).map(Bukkit::getEntity).orElse(null) : null;
-        boolean shown = material != null && material.isItem() && !p.isInvisible() && p.getGameMode() != GameMode.SPECTATOR
-                && (mount != null || !engine.tags().has(id, Tags.HIDDEN));
-        Display display = visuals.get(id);
+        boolean shown = material != null && material.isItem() && p.getGameMode() != GameMode.SPECTATOR
+                && (mount != null || (!p.isInvisible() && !engine.tags().has(id, Tags.HIDDEN)));
         if (!shown) {
             removeRide(id);
             return;
         }
-        float size = (float) (p.getBoundingBox().getWidthX() / 0.6); // follows the character's scale (1 block at 1.0)
-        boolean block = material.isBlock();
-        Location under = p.getLocation();
-        under.setPitch(0);
-        if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())) {
+        UUID on = mount == null ? null : mount.getUniqueId();
+        Display display = visuals.get(id);
+        if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())
+                || !java.util.Objects.equals(on, perchedOn.get(id))) { // new, or perched / off since: a new one
             removeRide(id);
-            display = block ? uprightBlock(under, material, SEAT_SCALE * size) : flatItem(under, material, 0.9f * size);
+            float size = (float) (p.getBoundingBox().getWidthX() / 0.6); // follows the character's scale (1 block at 1.0)
+            Location at = mount != null ? onHead(mount) : feet(p);
+            display = material.isBlock() ? uprightBlock(at, material, SEAT_SCALE * size) : flatItem(at, material, 0.9f * size);
             visuals.put(id, display);
-        }
-        if (mount != null) { // on their head: it rides them (a passenger sits on top of the head), no lag
-            if (!mount.equals(display.getVehicle())) {
-                display.leaveVehicle();
-                mount.addPassenger(display);
+            if (mount != null) {
+                perchedOn.put(id, on);
+                mount.addPassenger(display); // on their head: it rides them (a passenger sits on top), no lag
             }
             return;
         }
-        if (display.isInsideVehicle()) display.leaveVehicle();
-        display.teleport(under);
+        if (mount == null) display.teleport(feet(p));
+        else if (display.getVehicle() == null) display.teleport(onHead(mount)); // couldn't ride them: follow
+    }
+
+    private static Location feet(Player p) {
+        Location at = p.getLocation();
+        at.setPitch(0);
+        return at;
+    }
+
+    /** On top of someone's head. */
+    private static Location onHead(Entity mount) {
+        Location at = mount.getLocation();
+        at.setY(mount.getBoundingBox().getMaxY());
+        at.setPitch(0);
+        return at;
     }
 
     /** The ride sits a hair above where it's put: not to flicker with the ground (or the head) under it. */
@@ -371,9 +387,14 @@ public final class HoverFlight implements Listener {
         VisualEntities.mark(d);
     }
 
+    /** Take it away: off whoever's head it was on first, then gone. */
     private void removeRide(UUID id) {
+        perchedOn.remove(id);
         Display d = visuals.remove(id);
-        if (d != null && d.isValid()) d.remove();
+        if (d == null) return;
+        Entity vehicle = d.getVehicle();
+        if (vehicle != null) vehicle.removePassenger(d);
+        d.remove();
     }
 
     // ---- events ----------------------------------------------------------------------------------------
