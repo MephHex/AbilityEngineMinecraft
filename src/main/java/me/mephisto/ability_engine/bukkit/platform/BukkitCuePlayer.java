@@ -606,6 +606,11 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_FLAP, 1f, 1.6f);
             loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 0.5f, 1.8f);
         });
+        c.register("fae_vine_shot", loc -> { // Wild Hunt's vine shooting out
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 12, 0.2, 0.2, 0.2, 0, moss);
+            loc.getWorld().playSound(loc, Sound.ENTITY_FISHING_BOBBER_THROW, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_VINE_PLACE, 0.8f, 1.3f);
+        });
         c.register("fae_latch", loc -> {
             loc.getWorld().spawnParticle(Particle.DUST, loc, 25, 0.4, 0.6, 0.4, 0, moss);
             loc.getWorld().playSound(loc, Sound.BLOCK_VINE_PLACE, 1f, 0.7f);

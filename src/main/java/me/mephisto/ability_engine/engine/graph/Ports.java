@@ -38,6 +38,9 @@ public final class Ports {
     public static final String ENEMY = "enemy";
     /** A ride (mount) ended by itself: the mount died or left, or the game took the rider off. */
     public static final String OFF = "off";
+    /** on_cooldown: the ability is cooling down / ready. */
+    public static final String COOLING = "cooling";
+    public static final String READY = "ready";
 
     private Ports() {}
 }

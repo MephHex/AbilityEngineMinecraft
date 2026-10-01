@@ -97,7 +97,10 @@ public final class NodeTypes {
         t.register("find_link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindLinkNode(
                 p.requireString("name"), p.getString("store", "linked")));
         t.register("unlink", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.UnlinkNode(p.requireString("name")));
-        t.register("start_cooldown", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.StartCooldownNode());
+        t.register("start_cooldown", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.StartCooldownNode(
+                p.getBool("restart", false)));
+        t.register("on_cooldown", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.OnCooldownNode(
+                p.getString("ability", null)));
         t.register("end_cast", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.EndCastNode());
         t.register("fork", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.ForkNode());
         t.register("summon_clone", (p, e) -> {

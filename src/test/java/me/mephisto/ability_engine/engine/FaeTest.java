@@ -238,8 +238,8 @@ class FaeTest {
         assertEquals(new Vec3(6, 1 + FakeWorld.RIDE_HEIGHT, 0), pos(p));
         t.world.move(pal, new Vec3(10, 1, 4));
         assertEquals(new Vec3(10, 1 + FakeWorld.RIDE_HEIGHT, 4), pos(p), "she goes where they go");
-        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "no cooldown while she's up there");
-        assertTrue(t.engine.instances().awaitingRecast(p, "fae_ab2"), "the icon glints");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "the cooldown started as she sat down");
+        assertTrue(t.engine.instances().awaitingRecast(p, "fae_ab2"));
     }
 
     @Test
@@ -294,6 +294,7 @@ class FaeTest {
         setup();
         UUID pal = perchOnNewFriend();
         t.world.look(p, new Vec3(1, 0, 0)); // nobody in sight
+        t.time.advance(200); // the cooldown's over
         use(Slots.ABILITY_2);
         assertTrue(has(pal, "fae_gust"), "a burst of speed");
         assertEquals(1.2 * 1.35, t.engine.stats().moveSpeedMultiplier(pal), 1e-9);
@@ -319,7 +320,7 @@ class FaeTest {
         assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertEquals(0, running("fae_ab2"));
         assertTrue(t.render.cues.contains("fae_unperch"));
-        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "the cooldown started when she hopped off");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "the cooldown from sitting down runs on");
     }
 
     @Test
@@ -336,6 +337,7 @@ class FaeTest {
         setup();
         UUID first = perchOnNewFriend();
         UUID second = friend(6, 8);
+        t.time.advance(200); // the cooldown's over
         lookAt(second);
         use(Slots.ABILITY_2);
         assertNull(t.world.riding.get(p), "off the first...");
@@ -346,7 +348,23 @@ class FaeTest {
         assertTrue(has(second, "fae_blessing"));
         assertTrue(t.engine.tags().has(p, Tags.UNTARGETABLE));
         assertEquals(1, running("fae_ab2"));
-        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "fae_ab2"));
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "fae_ab2") > 190, "sitting down again: the cooldown again");
+    }
+
+    @Test
+    void pressingAgainWaitsForTheCooldown() throws IOException {
+        setup();
+        UUID first = perchOnNewFriend();
+        UUID second = friend(6, 8);
+        lookAt(second);
+        use(Slots.ABILITY_2);
+        t.time.advance(15);
+        assertEquals(first, t.world.riding.get(p), "on cooldown: no hopping over (no spamming)");
+        assertFalse(has(first, "fae_gust"), "and no gust");
+        t.time.advance(180);
+        use(Slots.ABILITY_2);
+        t.time.advance(15);
+        assertEquals(second, t.world.riding.get(p), "the cooldown's over: off to the second");
     }
 
     @Test
@@ -460,7 +478,10 @@ class FaeTest {
         assertTrue(t.engine.tags().has(p, Tags.FLYING), "free flight");
         lookAt(target);
         use(Slots.ULTIMATE);
-        assertTrue(t.engine.tags().has(target, Tags.STUNNED), "latched: stunned");
+        assertTrue(t.render.cues.contains("fae_vine_shot"), "the vine shoots out");
+        assertFalse(t.engine.tags().has(target, Tags.STUNNED), "a skillshot: on its way");
+        t.time.advance(4);
+        assertTrue(t.engine.tags().has(target, Tags.STUNNED), "caught: stunned");
         assertTrue(has(p, "fae_dragging"));
 
         t.world.move(p, new Vec3(0, 20, 0)); // she flies up
@@ -481,10 +502,38 @@ class FaeTest {
         t.world.look(p, new Vec3(0, 1, 0));
         use(Slots.ULTIMATE);
         use(Slots.ULTIMATE); // nobody there
-        assertEquals(1, running("fae_ult1"), "aim and try again");
-        t.time.advance(161);
+        t.time.advance(30); // the vine flew its 20 blocks
+        assertEquals(1, running("fae_ult1"), "shoot again");
+        t.time.advance(131);
         assertEquals(0, running("fae_ult1"), "8s");
         assertFalse(t.engine.tags().has(p, Tags.FLYING));
+    }
+
+    @Test
+    void wildHuntsVineCatchesAnEnemyWithinTwoBlocksOfItsPath() throws IOException {
+        setup();
+        UUID target = foe(10, 1.8);
+        t.world.look(p, new Vec3(0, 1, 0));
+        use(Slots.ULTIMATE);
+        t.world.look(p, new Vec3(1, 0, 0)); // past them
+        use(Slots.ULTIMATE);
+        t.time.advance(8);
+        assertTrue(t.engine.tags().has(target, Tags.STUNNED), "a 2-block radius");
+    }
+
+    @Test
+    void wildHuntCanShootAgainAfterAMiss() throws IOException {
+        setup();
+        UUID target = foe(8, 0);
+        t.world.look(p, new Vec3(0, 1, 0));
+        use(Slots.ULTIMATE);
+        use(Slots.ULTIMATE); // up into the sky: a miss
+        t.time.advance(25);
+        assertFalse(t.engine.tags().has(target, Tags.STUNNED));
+        lookAt(target);
+        use(Slots.ULTIMATE);
+        t.time.advance(6);
+        assertTrue(t.engine.tags().has(target, Tags.STUNNED), "the second vine caught them");
     }
 
     @Test

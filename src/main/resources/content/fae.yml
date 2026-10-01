@@ -7,8 +7,8 @@
 # PASSIVE 2 (Spore Burst, hotbar slot 9): the next enemy hit that lands on her puffs spores that knock back
 #   enemies within 4 blocks. Ready again 10s later, or after 4s out of combat.
 #
-# ULTIMATE (F): Wild Hunt. 8s of free flight (no height limit). Press F again aiming at an enemy (20 blocks):
-#   a vine latches on, stunning them for 3.5s and tethering them to you: fly off and drag them along.
+# ULTIMATE (F): Wild Hunt. 8s of free flight (no height limit). Press F again to shoot a vine (20 blocks): if it
+#   catches an enemy it latches on, stunning them for 3.5s and tethering them to you: fly off and drag them along.
 
 statuses:
   fae_blessing:                      # an ally the Fae is perched on: faster, and basic attacks hit harder
@@ -199,20 +199,21 @@ abilities:
 
   # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and sit on their head:
   # you go where they go, untouchable (abilities pass through you, nothing hurts you). They're 20% faster
-  # and their basic attacks deal +2 HP. Press 2 again: a gust, +35% speed for them for 2s (every 5s at
-  # most); aim at ANOTHER ally instead and you fly over to them (vulnerable again on the way). Press SHIFT
-  # to hop off. It ends too when they die. The cooldown starts when you're off.
+  # and their basic attacks deal +2 HP. The cooldown (10s) starts as you sit down, and again every time you
+  # do. Press 2 again once it's over: a gust, +35% speed for them for 2s; aim at ANOTHER ally instead and you
+  # fly over to them (vulnerable again on the way). Press SHIFT to hop off. It ends too when they die.
   fae_ab2:
     cooldown: 200                    # 10s
-    cooldown_starts: manual          # once the ride is over
+    cooldown_starts: manual          # as she sits down (never reaching anyone: as it ends)
     display:
       name: "Perch"
       icon: PINK_PETALS
       description:
         - "Fly onto an ally's head (20 blocks):"
         - "untouchable; they're 20% faster, +2 HP"
-        - "per basic attack. Again: gust (+35% speed),"
-        - "or fly to another ally. Shift: hop off."
+        - "per basic attack. Again (off cooldown): gust"
+        - "(+35% speed) or fly to another ally."
+        - "Shift: hop off."
     nodes:
       pick:
         type: acquire_target
@@ -240,11 +241,18 @@ abilities:
         type: play_cue
         cue: fae_perch
         at: mount
+        next: sat
+      sat:
+        type: start_cooldown         # sitting down: the full cooldown, every time (another ally too)
+        restart: true
         next: listen
       listen:
         type: await_recast           # while perched, 2 again (hopping off is SHIFT: the ride's "off")
         window: 6000
-        on: { recast: tap, timeout: listen }
+        on: { recast: ready, timeout: listen }
+      ready:
+        type: on_cooldown            # recasting waits for the cooldown: no spamming
+        on: { ready: tap, cooling: listen }
       tap:
         type: acquire_target
         query: { type: hitscan, range: 20, ray_size: 1.2, targets: allies }   # a thick ray: easy to pick them
@@ -373,19 +381,20 @@ abilities:
         cue: fae_trap_spring
         at: hit
 
-  # ULTIMATE (F): Wild Hunt. 8s of free flight, no height limit (it ends a perch). Press F again aiming at an
-  # enemy (20 blocks): a vine latches onto them, stunning them for 3.5s and tethering them to you (4 blocks of
-  # slack): fly off and drag them along, up into the air if you like. Missing doesn't end it: aim and try
-  # again while the flight lasts. The cooldown starts at the first try (or after the 8s).
+  # ULTIMATE (F): Wild Hunt. 8s of free flight, no height limit (it ends a perch). Press F again: a vine
+  # shoots out (a skillshot, 20 blocks, 2-block radius). If it catches an enemy it latches on, stunning them for
+  # 3.5s and tethering them to you (4 blocks of slack): fly off and drag them along, up into the air if you
+  # like. Missing doesn't end it: shoot again while the flight lasts. The cooldown starts at the first shot
+  # (or after the 8s).
   fae_ult1:
     cooldown: 1200                   # placeholder until ults charge from damage
     display:
       name: "Wild Hunt"
       icon: VINE
       description:
-        - "8s of free flight. F again on an enemy"
-        - "(20 blocks): stun them 3.5s and drag them"
-        - "along on a vine."
+        - "8s of free flight. F again: shoot a vine"
+        - "(20 blocks). It catches an enemy: stun"
+        - "them 3.5s and drag them along."
     nodes:
       leave:
         type: cancel_ability         # off any ally's head first
@@ -416,14 +425,23 @@ abilities:
       pick:
         type: await_recast
         window: 160
-        on: { recast: aim, timeout: over }
-      aim:
-        type: acquire_target
-        query: { type: hitscan, range: 20, ray_size: 0.6 }
-        on: { hit: latch, miss: pick }
+        on: { recast: shoot, timeout: over }
+      shoot:
+        type: projectile             # the vine: a skillshot
+        speed: 1.6
+        size: 4                      # a 2-block radius: generous
+        visual_size: 0.9
+        range: 20
+        lifetime: 20
+        visual: VINE
+        face_flight: true
+        on: { spawned: shoot_cue, hit_entity: latch, hit_block: pick, expired: pick }   # missed: shoot again
+      shoot_cue:
+        type: play_cue
+        cue: fae_vine_shot
       latch:
         type: apply_effects
-        targets: { type: key, key: target }
+        targets: { type: key, key: hit }
         effects:
           - { id: status, status: stun, duration: 70 }   # 3.5s
         next: dragging
@@ -438,11 +456,11 @@ abilities:
       latch_cue:
         type: play_cue
         cue: fae_latch
-        at: target
+        at: hit
         next: drag
       drag:
         type: leash
-        target: target
+        target: hit
         length: 4                    # slack: closer than this, they just dangle
         duration: 70
         pull: 0.4
@@ -459,7 +477,7 @@ abilities:
       release_cue:
         type: play_cue
         cue: fae_release
-        at: target
+        at: hit
         next: over
       over:
         type: end_cast
