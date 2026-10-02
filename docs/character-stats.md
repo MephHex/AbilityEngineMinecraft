@@ -268,11 +268,11 @@ on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **180** | **0** (0%) | **30** | **1.00** | **2.0** (10 ticks) | 180 | 60 (~200 overheated) |
+| **180** | **0** (0%) | **30** | **1.00** | **2.0** (10 ticks) | 180 | 60 (120 overheated) |
 
-Overheat (passive, the XP bar): every enemy her abilities hit is a stack (15 at most; burning doesn't count); 3s
-without a hit and it cools a stack every 0.2s. Full: she overheats until it's empty again: blue flames, Fire Bolts
-every 3 ticks (x3.3), +25% speed.
+Overheat (passive, the XP bar and hotbar slot 9): every enemy her abilities hit is a stack (8 at most; burning and
+her scorched ground don't count); 3s without a hit and it's back to 0 at once. Full: she overheats while she keeps
+hitting: blue flames, Fire Bolts every 5 ticks (x2), +15% speed.
 
 | Ability | Damage |
 |---|---|

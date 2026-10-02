@@ -3,17 +3,16 @@
 # lands, and a meteor out of the sky. Keep hitting and she overheats: blue flames, faster.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Overheat, the XP bar): every enemy any of her abilities hits heats her up a stack (15 at most; burning
-#   doesn't count). 3s without a hit and it cools down, a stack every 0.2s. Full: she OVERHEATS, and stays overheated
-#   until the gauge is empty again: blue flames, Fire Bolts every 3 ticks instead of 10, 25% faster. Keep hitting to
-#   keep it full.
+# PASSIVE (Overheat, the XP bar and hotbar slot 9): every enemy any of her abilities hits heats her up a stack (8 at
+#   most; burning and her scorched ground don't count). The XP bar fills from empty to full with them and slot 9 counts
+#   them. 3s without a hit and it's gone at once. Full: she OVERHEATS, and stays overheated as long as she keeps
+#   hitting: blue flames, Fire Bolts every 5 ticks instead of 10, 15% faster.
 
 statuses:
-  pyro_heat:                         # the gauge (XP bar: the number and the bar are its stacks)
-    duration: 60                     # 3s without a hit...
-    decay: 4                         # ...and it cools: a stack every 0.2s
+  pyro_heat:                         # the gauge (XP bar: filled by its stacks; slot 9: their count)
+    duration: 60                     # 3s without a hit and it's gone, all at once
     stacking: stack
-    max_stacks: 15
+    max_stacks: 8
     at_max: pyro_overheat            # full: she overheats
     positive: false                  # hers alone (a tether doesn't copy it)
   pyro_overheat:                     # overheated: until the gauge is empty
@@ -21,8 +20,8 @@ statuses:
     requires: pyro_heat              # ends when the gauge runs out
     tags: [state.overheated]         # blue flames (variants below)
     cue: pyro_overheat               # soul flames around her
-    attack_speed: 3.5                # Fire Bolt every 3 ticks instead of 10 (1 tick = 50ms is the fastest there is)
-    move_speed: 1.25                 # +25%
+    attack_speed: 2.0                # Fire Bolt every 5 ticks instead of 10
+    move_speed: 1.15                 # +15%
     positive: false
   pyro_burn:                         # on fire
     duration: 60                     # 3s...
@@ -73,7 +72,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true }   # (overheated: up to 7 a second)
+          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true }   # (overheated: 4 a second)
         count: struck
         next: heat
       heat:
@@ -247,16 +246,7 @@ abilities:
         effects:
           - { id: status, status: pyro_scorched }
           - { id: status, status: pyro_burn }
-        count: struck
-        next: patch_heat
-      patch_heat:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        times: struck
-        effects:
-          - { id: status, status: pyro_heat }
-        next: patch_cue
+        next: patch_cue                # (no Overheat: the ground keeps burning them, it isn't a hit)
       patch_cue:
         type: play_cue
         cue: pyro_coal_patch
@@ -379,7 +369,16 @@ characters:
       base_damage: 30                # abilities deal % of this
       move_speed: 1.0                # x vanilla walking speed
       attack_speed: 2.0              # Fire Bolts per second
-    status_bar: { status: pyro_heat, fill: stacks }   # XP bar: Overheat, the number and the bar its stacks (15 = full)
+    status_bar: { status: pyro_heat, fill: stacks, level: none }   # XP bar: Overheat, empty to full (8), no number
+    status_items:
+      - status: pyro_heat              # slot 9: Overheat's stacks, one per enemy hit
+        hotbar: 9
+        icon: BLAZE_POWDER
+        name: "Overheat"
+        description:
+          - "Each enemy you hit: a stack. 8 stacks:"
+          - "you overheat (faster bolts, +15% speed)."
+          - "3s without a hit: back to 0."
     variants:
       - while: state.overheated      # Overheat: blue flames instead of orange ones
         cue_suffix: _blue            # every pyro_x cue plays as pyro_x_blue
