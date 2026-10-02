@@ -57,7 +57,8 @@ public final class NodeTypes {
                 p.has("on_hit") ? p.getBool("on_hit", false) : null,
                 p.getBool("infusions", false),
                 p.getString("count", null),
-                p.getString("times", null)));
+                p.getString("times", null),
+                p.getString("count_players", null)));
         t.register("projectile", (p, e) -> new ProjectileNode(seekMarksKnown(Parsers.projectile(p), p, e), p.getString("store", null),
                 new ProjectileNode.Launch(p.getString("from", null), p.getDouble("up", 0), p.getDouble("back", 0),
                         p.getString("toward", null))));

@@ -46,6 +46,8 @@ public final class ApplyEffectsNode implements GraphNode {
 
     /** Where to store how many targets were affected (null = don't). */
     private String countKey;
+    /** Where to store how many of them were players (null = don't). */
+    private String countPlayersKey;
     /** Apply the effects this many times per target: the number stored under this key (null = once). */
     private String timesKey;
 
@@ -55,7 +57,14 @@ public final class ApplyEffectsNode implements GraphNode {
      */
     public ApplyEffectsNode(TargetQuery targets, List<EffectConfig> effects, Affects affects, Boolean onHit, boolean infusions,
                             String countKey, String timesKey) {
+        this(targets, effects, affects, onHit, infusions, countKey, timesKey, null);
+    }
+
+    /** @param countPlayersKey store how many of the targets it affected were players (e.g. "a hit that lands on a player") */
+    public ApplyEffectsNode(TargetQuery targets, List<EffectConfig> effects, Affects affects, Boolean onHit, boolean infusions,
+                            String countKey, String timesKey, String countPlayersKey) {
         this.countKey = countKey;
+        this.countPlayersKey = countPlayersKey;
         this.timesKey = timesKey;
         this.targets = targets;
         this.effects = List.copyOf(effects);
@@ -133,6 +142,10 @@ public final class ApplyEffectsNode implements GraphNode {
         ctx.engine().log().debug(() -> "apply_effects: " + found.size() + " target(s)");
         boolean onHitHere = appliesOnHit(ctx);
         if (countKey != null) ctx.blackboard().putRaw(countKey, found.size());
+        if (countPlayersKey != null) {
+            ctx.blackboard().putRaw(countPlayersKey, (int) found.stream()
+                    .filter(t -> t instanceof EntityTarget e && ctx.engine().world().isPlayer(e.id())).count());
+        }
         int times = timesKey == null ? 1 : ctx.blackboard().raw(timesKey) instanceof Number n ? n.intValue() : 0;
         for (Target target : found) {
             for (int i = 0; i < times; i++) {

@@ -13,6 +13,8 @@ public final class ActiveStatus {
     TaskHandle expiryTask;
     TaskHandle tickTask;
     me.mephisto.ability_engine.engine.platform.CueHandle cue; // its looping cue, if it has one
+    /** The tags it gives its holder right now: all of its own, but its crowd-control ones while they're unstoppable. */
+    java.util.Set<String> granted = java.util.Set.of();
 
     ActiveStatus(StatusDef def, UUID source, long expiresAt) {
         this.def = def;

@@ -21,12 +21,16 @@ import java.util.Map;
  * @param statusItems statuses shown as hotbar items while the player has them (e.g. a weapon infusion)
  * @param whenHit   a passive reaction to enemy basic attacks landing on them (null = none)
  * @param hover     a passive flight, at most so high above the ground (null = none)
+ * @param lowHealth a passive status kept on them while they're low on health (null = none)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
                            java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
                            java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
-                           java.util.List<Variant> variants) {
+                           java.util.List<Variant> variants, LowHealth lowHealth) {
+
+    /** While their health is below {@code below} (a share of max HP), {@code status} is kept on them (e.g. a frenzy). */
+    public record LowHealth(double below, String status) {}
 
     /**
      * While they have the tag {@code whileTag}, their abilities look different: each cue {@code x} plays as
@@ -269,6 +273,15 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                 hearing, hover, java.util.List.of());
     }
 
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, null);
+    }
+
     public CharacterDef {
         variants = variants == null ? java.util.List.of() : java.util.List.copyOf(variants);
         slots = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(slots));
@@ -290,7 +303,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         });
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
                 form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, form.stats() != null ? form.stats() : stats,
-                ward, statusItems, whenHit, hearing, hover, variants);
+                ward, statusItems, whenHit, hearing, hover, variants, lowHealth);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

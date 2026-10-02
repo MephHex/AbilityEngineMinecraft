@@ -31,6 +31,8 @@ import java.util.Set;
  *                        at a time, {@code cooldownTicks} each; it's only "on cooldown" with none left.
  * @param recastMovement  its RECAST moves the caster (a swap, a charge): refused while rooted
  *                        ({@code block.move}), the window staying open; the first cast isn't affected
+ * @param passiveWhile    while the caster has this tag the ability is passive: it's already in effect (e.g. an
+ *                        ultimate keeps it up), so pressing its key does nothing and its icon glints (null = never)
  */
 public record Ability(
         String id,
@@ -51,7 +53,8 @@ public record Ability(
         String refreshOnKill,
         boolean manualCooldown,
         int charges,
-        boolean recastMovement
+        boolean recastMovement,
+        String passiveWhile
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -84,6 +87,7 @@ public record Ability(
         private boolean manualCooldown;
         private int charges = 1;
         private boolean recastMovement;
+        private String passiveWhile;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -109,6 +113,8 @@ public record Ability(
         public Builder manualCooldown(boolean v) { this.manualCooldown = v; return this; }
         public Builder charges(int n) { this.charges = n; return this; }
         public Builder recastMovement(boolean v) { this.recastMovement = v; return this; }
+        /** While the caster has this tag, pressing it does nothing (it's in effect anyway) and its icon glints. */
+        public Builder passiveWhile(String tag) { this.passiveWhile = tag; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -123,7 +129,7 @@ public record Ability(
             }
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
                     cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
-                    refreshOnKill, manualCooldown, charges, recastMovement);
+                    refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

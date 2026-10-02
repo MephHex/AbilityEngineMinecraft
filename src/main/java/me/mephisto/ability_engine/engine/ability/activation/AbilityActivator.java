@@ -26,6 +26,8 @@ public final class AbilityActivator {
     public static final int RECAST_BUFFER_TICKS = 8;
     /** The failure reason for a press kept for a recast window that isn't open yet: nothing to report. */
     public static final String BUFFERED = "buffered";
+    /** The failure reason for a press of an ability that's passive right now (passive_while): nothing to report. */
+    public static final String PASSIVE = "passive";
 
     private final AbilityEngine engine;
 
@@ -33,8 +35,14 @@ public final class AbilityActivator {
         this.engine = engine;
     }
 
+    /** Is the ability passive for {@code caster} right now (passive_while): in effect anyway, its key does nothing? */
+    public boolean isPassive(UUID caster, Ability ability) {
+        return ability.passiveWhile() != null && engine.tags().has(caster, ability.passiveWhile());
+    }
+
     /** Could {@code caster} activate this right now? Side-effect free — safe for UI (greying out hotbar slots). */
     public ActivationResult check(UUID caster, Ability ability) {
+        if (isPassive(caster, ability)) return ActivationResult.fail(PASSIVE);
         if (ability.mode().exclusive() && engine.instances().isRunning(caster, ability.id())) {
             return ActivationResult.fail("already_active");
         }
@@ -92,6 +100,8 @@ public final class AbilityActivator {
     }
 
     public ActivationResult activate(UUID caster, Ability ability, boolean freshPress, Map<String, Object> presets) {
+        // Passive right now (an ultimate keeps it up): the key does nothing at all, not even switching an aim.
+        if (isPassive(caster, ability)) return ActivationResult.fail(PASSIVE);
         // Aiming something already? Its own key does nothing (only LMB confirms, via TargetingManager.confirm).
         // Others switch.
         Optional<Ability> aiming = engine.targeting().current(caster);

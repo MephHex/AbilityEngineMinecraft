@@ -173,6 +173,11 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
 
     /** Health as a share of max (0..1), set by tests (unset = unknown). */
     public final Map<UUID, Double> healthFraction = new HashMap<>();
+    /** Which entities are players, set by tests (the rest are mobs). */
+    public final java.util.Set<UUID> players = new java.util.HashSet<>();
+
+    @Override
+    public boolean isPlayer(UUID entity) { return players.contains(entity); }
 
     @Override
     public java.util.OptionalDouble healthFraction(UUID entity) {

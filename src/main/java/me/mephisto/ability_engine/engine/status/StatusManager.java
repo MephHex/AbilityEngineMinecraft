@@ -89,6 +89,75 @@ public final class StatusManager {
         return !def.positive() && !target.equals(source);
     }
 
+    /** The crowd-control tags (with a slower move or attack speed, a status's crowd-control parts). */
+    private static final java.util.Set<String> CROWD_CONTROL_TAGS = java.util.Set.of(
+            me.mephisto.ability_engine.engine.tag.Tags.STUNNED, me.mephisto.ability_engine.engine.tag.Tags.SILENCED,
+            me.mephisto.ability_engine.engine.tag.Tags.DISARMED, me.mephisto.ability_engine.engine.tag.Tags.ROOTED,
+            me.mephisto.ability_engine.engine.tag.Tags.SLOWED, me.mephisto.ability_engine.engine.tag.Tags.FROZEN,
+            me.mephisto.ability_engine.engine.tag.Tags.PARALYZED, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_ABILITY,
+            me.mephisto.ability_engine.engine.tag.Tags.BLOCK_MOVE, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_WALK);
+
+    /**
+     * Has crowd-control parts: it stops or hinders them (stunned, rooted, silenced, disarmed, frozen, paralyzed, held in
+     * place, slowed: a crowd-control tag, or a slower move or attack speed). Those parts are what state.unstoppable
+     * switches off; anything else about it (damage over time, other tags) it doesn't.
+     */
+    public static boolean isCrowdControl(StatusDef def) {
+        return def.moveSpeed() < 1 || def.attackSpeed() < 1
+                || def.grantedTags().stream().anyMatch(CROWD_CONTROL_TAGS::contains);
+    }
+
+    /**
+     * Nothing but crowd control (a stun, a root, a plain slow): it doesn't land on the unstoppable at all, so it can't
+     * kick in once they aren't any more. A slowing poison isn't: it lands, and only its slow is switched off.
+     */
+    public static boolean isPureCrowdControl(StatusDef def) {
+        return isCrowdControl(def) && CROWD_CONTROL_TAGS.containsAll(def.grantedTags())
+                && def.tickEffects().isEmpty() && def.onHit().isEmpty()
+                && def.damageDealt() == 1 && def.damageTaken() == 1 && def.farDamage() == null
+                && def.moveSpeed() <= 1 && def.attackSpeed() <= 1 && def.jumpBoost() == 0;
+    }
+
+    /** They're unstoppable and this is a debuff on them: its crowd-control parts don't apply right now. */
+    public boolean crowdControlSuppressed(UUID holder, ActiveStatus s) {
+        return tags.has(holder, me.mephisto.ability_engine.engine.tag.Tags.UNSTOPPABLE) && isDebuff(holder, s.def, s.source);
+    }
+
+    /** The tags {@code s} should give its holder right now: its own, without the crowd-control ones while suppressed. */
+    private java.util.Set<String> tagsFor(UUID holder, ActiveStatus s) {
+        if (!crowdControlSuppressed(holder, s)) return s.def.grantedTags();
+        return s.def.grantedTags().stream().filter(t -> !CROWD_CONTROL_TAGS.contains(t))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    /** Give {@code s}'s holder exactly the tags it should give them now (some came or went with unstoppable). */
+    private void resyncTags(UUID holder, ActiveStatus s) {
+        if (active.getOrDefault(holder, Map.of()).get(s.def.id()) != s) return; // gone meanwhile
+        java.util.Set<String> want = tagsFor(holder, s);
+        java.util.Set<String> had = s.granted;
+        s.granted = want;
+        for (String t : had) if (!want.contains(t)) tags.revoke(holder, t);
+        for (String t : want) if (!had.contains(t)) tags.grant(holder, t);
+    }
+
+    /**
+     * They just became unstoppable: crowd control on them lets go. Pure crowd control (a stun, a root) ends; anything
+     * else (a slowing poison) stays, without its crowd-control tags meanwhile (its slow doesn't count either, see
+     * {@link #crowdControlSuppressed}).
+     */
+    public void suppressCrowdControl(UUID holder) {
+        for (ActiveStatus s : on(holder)) {
+            if (!isDebuff(holder, s.def, s.source) || !isCrowdControl(s.def)) continue;
+            if (isPureCrowdControl(s.def)) remove(holder, s.def.id());
+            else resyncTags(holder, s);
+        }
+    }
+
+    /** No longer unstoppable: what's still on them hinders them again (a poison's slow, for the time it has left). */
+    public void restoreCrowdControl(UUID holder) {
+        for (ActiveStatus s : on(holder)) resyncTags(holder, s);
+    }
+
     public void apply(UUID target, StatusDef def, int durationTicks, UUID source) {
         for (Guard g : List.copyOf(guards)) {
             if (g.blocks(target, def, source)) {
@@ -117,7 +186,8 @@ public final class StatusManager {
         if (existing == null) {
             ActiveStatus s = new ActiveStatus(def, source, newExpiry);
             mine.put(def.id(), s);
-            tags.grantAll(target, def.grantedTags());
+            s.granted = tagsFor(target, s); // unstoppable: without its crowd-control tags
+            tags.grantAll(target, s.granted);
             if (def.links().cue() != null) s.cue = cueStarter.start(target, def.links().cue());
             if (def.tickEvery() > 0 && !def.tickEffects().isEmpty()) {
                 // Refreshing doesn't restart the rhythm: ticks keep their pace until the status ends.
@@ -173,7 +243,7 @@ public final class StatusManager {
         if (s.expiryTask != null) s.expiryTask.cancel();
         if (s.tickTask != null) s.tickTask.cancel();
         if (s.cue != null) s.cue.stop();
-        tags.revokeAll(target, s.def.grantedTags());
+        tags.revokeAll(target, s.granted);
         log.debug(() -> "status -" + statusId + " on " + target);
         for (ActiveStatus tied : on(target)) { // statuses that only last while this one did
             if (statusId.equals(tied.def.links().requires())) remove(target, tied.def.id());

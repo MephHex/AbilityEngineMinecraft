@@ -241,7 +241,10 @@ public final class HotbarHud {
 
     // ---- recast glint ----------------------------------------------------------------------
 
-    /** Icons glow (enchantment glint) while their ability is waiting for a recast. */
+    /**
+     * Icons glow (enchantment glint) while their ability is waiting for a recast, or while it's passive (in effect
+     * anyway, e.g. kept up by an ultimate: its key does nothing meanwhile).
+     */
     private void updateGlints(Player p) {
         UUID id = p.getUniqueId();
         engine.loadouts().characterOf(id).ifPresent(c -> {
@@ -252,7 +255,7 @@ public final class HotbarHud {
                     int pos = position(slot);
                     ItemStack item = inv.getItem(pos);
                     if (!isHudItem(item)) return;
-                    boolean want = engine.instances().awaitingRecast(id, a.id());
+                    boolean want = engine.instances().awaitingRecast(id, a.id()) || engine.activator().isPassive(id, a);
                     ItemMeta meta = item.getItemMeta();
                     boolean has = meta.hasEnchantmentGlintOverride() && meta.getEnchantmentGlintOverride();
                     if (want == has) return;
