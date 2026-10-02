@@ -263,6 +263,7 @@ class FaeTest {
         setup();
         UUID pal = perchOnNewFriend();
         assertTrue(has(pal, "fae_blessing"));
+        assertEquals(60, t.shields.getOrDefault(pal, 0.0), 1e-6, "landing on them: a 60 HP shield");
         assertEquals(1.2, t.engine.stats().moveSpeedMultiplier(pal), 1e-9, "20% faster");
         assertTrue(t.engine.tags().has(p, Tags.UNTARGETABLE), "untouchable");
         assertFalse(t.engine.tags().has(p, Tags.HIDDEN), "seen (only her ally doesn't: the platform's ride)");
