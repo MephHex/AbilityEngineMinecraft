@@ -93,7 +93,8 @@ public final class LeashNode implements GraphNode {
             }
             Vec3 toCaster = anchor.get().position().subtract(them.get().position());
             double distance = toCaster.length();
-            if (distance > length) {
+            boolean unmovable = ctx.engine().tags().has(held, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_DISPLACE);
+            if (distance > length && !unmovable) { // (someone unmovable is held, but never pulled)
                 double speed = Math.min(maxSpeed, (distance - length) * pull);
                 ctx.engine().movement().setVelocity(held, toCaster.normalize().multiply(speed));
             }

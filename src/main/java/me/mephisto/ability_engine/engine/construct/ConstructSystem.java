@@ -72,14 +72,21 @@ public final class ConstructSystem {
      *                      never), or both and the owner (everyone)
      * @param hidden        only the owner and their allies see it (the platform hides it from everyone else)
      * @param idleCue       played at it every {@code idleEvery} ticks while it stands (null = none), e.g. a glow
+     * @param allyTriggerRadius allies (when they can set it off) have to come this close instead (0 = the same as
+     *                      everyone), e.g. a fruit enemies set off from afar that allies pick up
      */
     public record Options(boolean solid, double triggerRadius, int armTicks, int limit, TriggeredBy triggeredBy,
-                          boolean hidden, String idleCue, int idleEvery) {
+                          boolean hidden, String idleCue, int idleEvery, double allyTriggerRadius) {
         public static final Options DEFAULT = new Options(true, 0, 0, 0);
 
         public Options {
             if (triggeredBy == null) triggeredBy = TriggeredBy.ENEMIES;
             idleEvery = Math.max(1, idleEvery);
+        }
+
+        public Options(boolean solid, double triggerRadius, int armTicks, int limit, TriggeredBy triggeredBy,
+                       boolean hidden, String idleCue, int idleEvery) {
+            this(solid, triggerRadius, armTicks, limit, triggeredBy, hidden, idleCue, idleEvery, 0);
         }
 
         public Options(boolean solid, double triggerRadius, int armTicks, int limit) {
@@ -234,14 +241,16 @@ public final class ConstructSystem {
     private Optional<UUID> intruder(Construct c) {
         double r = c.options.triggerRadius();
         if (r <= 0) return Optional.empty();
+        double allyR = c.options.allyTriggerRadius() > 0 ? c.options.allyTriggerRadius() : r;
         UUID best = null;
         double bestDist = Double.MAX_VALUE;
-        for (EntitySnapshot e : world.livingEntitiesNear(new PointTarget(c.world, c.position), r + TRIGGER_HEIGHT)) {
+        for (EntitySnapshot e : world.livingEntitiesNear(new PointTarget(c.world, c.position), Math.max(r, allyR) + TRIGGER_HEIGHT)) {
             boolean owner = e.id().equals(c.owner) && c.options.triggeredBy() != TriggeredBy.EVERYONE;
             if (owner || !world.isAlive(e.id()) || !setsOff(c, e.id())) continue;
             Vec3 d = e.center().subtract(c.position);
             double flat = Math.sqrt(d.x() * d.x() + d.z() * d.z());
-            if (flat > r || Math.abs(d.y()) > TRIGGER_HEIGHT || flat >= bestDist) continue;
+            double reach = teams.allies(c.owner, e.id()) || e.id().equals(c.owner) ? allyR : r;
+            if (flat > reach || Math.abs(d.y()) > TRIGGER_HEIGHT || flat >= bestDist) continue;
             best = e.id();
             bestDist = flat;
         }

@@ -33,6 +33,7 @@ public final class TagBindings implements TagListener {
     public static TagBindings withDefaults() {
         TagBindings b = new TagBindings();
         b.bind(Tags.BLOCK_MOVE, MovementLock::apply, MovementLock::remove);
+        b.bind(Tags.BLOCK_WALK, WalkLock::hold, WalkLock::release);   // held in place, the camera not zoomed in
         b.bind(Tags.SLOWED, MovementLock::applySlow, MovementLock::removeSlow);
         b.bind(Tags.BLOCK_KNOCKBACK, MovementLock::applySteadfast, MovementLock::removeSteadfast);
         b.bind(Tags.HASTED, MovementLock::applyHaste, MovementLock::removeHaste);
@@ -112,5 +113,6 @@ public final class TagBindings implements TagListener {
         MovementLock.removeSteadfast(living);
         MovementLock.removeHaste(living);
         MovementLock.removeSturdy(living);
+        WalkLock.release(living);
     }
 }

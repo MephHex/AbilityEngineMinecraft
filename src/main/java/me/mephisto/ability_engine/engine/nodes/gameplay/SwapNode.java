@@ -1,5 +1,6 @@
 package me.mephisto.ability_engine.engine.nodes.gameplay;
 
+import me.mephisto.ability_engine.engine.tag.Tags;
 import me.mephisto.ability_engine.engine.graph.ExecutionContext;
 import me.mephisto.ability_engine.engine.graph.GraphNode;
 import me.mephisto.ability_engine.engine.graph.NodeResult;
@@ -21,7 +22,9 @@ public final class SwapNode implements GraphNode {
         var other = KeyQuery.read(ctx, withKey).filter(t -> t instanceof EntityTarget).map(t -> (EntityTarget) t);
         var me = world.positionOf(new EntityTarget(ctx.caster()));
         var them = other.flatMap(world::positionOf);
-        if (me.isPresent() && them.isPresent() && me.get().world().equals(them.get().world())) {
+        boolean unmovable = other.filter(o -> !o.id().equals(ctx.caster()))
+                .map(o -> ctx.engine().tags().has(o.id(), Tags.BLOCK_DISPLACE)).orElse(false);
+        if (!unmovable && me.isPresent() && them.isPresent() && me.get().world().equals(them.get().world())) {
             ctx.engine().movement().teleport(ctx.caster(), them.get().position());
             ctx.engine().movement().teleport(other.get().id(), me.get().position());
         }

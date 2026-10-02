@@ -135,6 +135,10 @@ public final class DashNode implements GraphNode {
             var target = me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, moverKey);
             if (target.isEmpty() || !(target.get() instanceof EntityTarget e)) return NodeResult.out(Ports.MISS);
             mover = e.id();
+            // someone unmovable (block.displace) isn't dragged anywhere by another's dash
+            if (!mover.equals(ctx.caster()) && engine.tags().has(mover, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_DISPLACE)) {
+                return NodeResult.out(Ports.MISS);
+            }
         }
         Optional<PointTarget> start = engine.world().positionOf(new EntityTarget(mover));
         if (aim.isEmpty() || start.isEmpty()) return NodeResult.out(Ports.MISS);

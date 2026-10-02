@@ -8,27 +8,29 @@
 # SAPLING (planted: can't walk): hold SHIFT 1.5s to dig herself out (a seed again: run away). After 20s she grows
 #   into a YOUNG TREE.
 # YOUNG TREE (planted; SHIFT does nothing any more): her DOMAIN is 8 blocks around her: enemies outside it deal her
-#   only half damage. After 60s she grows into a LARGE TREE.
-# LARGE TREE (planted, for good): her domain is 14 blocks, its edge shown on the ground for everyone, and nothing
-#   outside it can hurt her at all. No primary fire.
-# The XP bar shows the time until the next stage.
+#   only half damage. Nothing can knock her back or move her (pulls, drags, teleports). After 60s she grows into a
+#   LARGE TREE.
+# LARGE TREE (planted, for good; unmovable too): her domain is 14 blocks, its edge shown on the ground for everyone,
+#   and nothing outside it can hurt her at all. No primary fire.
+# The XP bar shows the time until the next stage. Planted or buried she's held in place without being slowed, so
+# her view isn't zoomed in (block.walk, not a root's block.move).
 
 statuses:
   # ---- stages of growth (the forms follow their tags) ----
   sylvan_burrowing:                  # Take Root: 0.5s digging in, untouchable
     duration: 10
-    tags: [state.untargetable, block.ability, block.move]
+    tags: [state.untargetable, block.ability, block.walk]
     damage_taken: 0
     positive: false
   sylvan_buried:                     # 3s in the ground: no abilities; then she sprouts
     duration: 60
-    tags: [state.buried, block.ability, block.move]
+    tags: [state.buried, block.ability, block.walk]
     then: sylvan_sapling
     cue: sylvan_buried
     positive: false
   sylvan_planted:                    # rooted in the ground (from Take Root on; SHIFT as a sapling, or Walking Tree, lifts it)
     duration: 0
-    tags: [state.planted, block.move]
+    tags: [state.planted, block.walk]   # held in place (no zoomed-in view, unlike a root)
     positive: false
   sylvan_sapling:
     duration: 400                    # 20s, then a young tree
@@ -38,14 +40,14 @@ statuses:
     positive: false
   sylvan_tree:
     duration: 1200                   # 60s, then a large tree
-    tags: [state.tree]
+    tags: [state.tree, block.knockback, block.displace]   # unmovable: no knockback, pulls, drags or teleports
     then: sylvan_large_tree
     cue: sylvan_tree                 # (her look, and her domain's edge)
     far_damage_taken: { beyond: 8, multiplier: 0.5 }   # domain: from outside 8 blocks, half damage
     positive: false
   sylvan_large_tree:
     duration: 0                      # for good (until she dies: a seed again)
-    tags: [state.large_tree]
+    tags: [state.large_tree, block.knockback, block.displace]
     cue: sylvan_large_tree
     far_damage_taken: { beyond: 14, multiplier: 0 }    # domain: from outside 14 blocks, nothing
     positive: false
@@ -466,9 +468,10 @@ abilities:
 
   # ================================== LARGE TREE ==================================
 
-  # 1: Windfall. A fruit falls on a spot (aim preview, 24 blocks) and lies there up to 10s (5 at most). An enemy
-  # who comes near bursts it: 100% base damage within 2.5 blocks and stunned 1.5s. An ally who comes near eats it:
-  # healed 12% max HP. Left lying, it composts: you heal 4% max HP. Enemies can smash it (any hit).
+  # 1: Windfall. A fruit falls on a spot (aim preview, 24 blocks) and lies there up to 10s (5 at most), its 3-block
+  # reach drawn on the ground for everyone. An enemy who comes within 3 blocks bursts it: 100% base damage within 3
+  # blocks and stunned 1.5s. An ally who walks up to it (1.2 blocks) eats it: healed 12% max HP. Left lying, it
+  # composts: you heal 4% max HP. Enemies can smash it (any hit).
   sylvan_windfall:
     cooldown: 60                     # 3s
     targeting:
@@ -481,8 +484,9 @@ abilities:
       icon: MELON_SLICE
       description:
         - "A fruit lies on a spot up to 10s (5"
-        - "max). Enemies burst it: 100% base dmg,"
-        - "stun 1.5s. Allies eat it: +12% max HP."
+        - "max). Enemies within 3 blocks burst it:"
+        - "100% base dmg, stun 1.5s. Allies eat"
+        - "it: +12% max HP."
         - "Left lying, it heals you 4% max HP."
         - "Enemies can smash it."
     nodes:
@@ -499,12 +503,13 @@ abilities:
         fuse: 200                    # 10s
         fragile: 200                 # an enemy's hit smashes it, the whole time
         solid: true
-        trigger: 1.2
+        trigger: 3                   # enemies within 3 blocks (its ring: the sylvan_fruit_idle cue)
+        trigger_allies: 1.2          # allies walk up to it
         triggered_by: all            # friend or foe (not her)
         arm: 10
         limit: 5
         visual: "block:MELON"
-        cue: sylvan_fruit_idle
+        cue: sylvan_fruit_idle       # the fruit's 3-block reach on the ground
         cue_every: 10
         on: { triggered: whose, fuse: compost, broken: smashed }
       whose:
@@ -513,7 +518,7 @@ abilities:
         on: { ally: eat, enemy: burst }
       burst:
         type: apply_effects
-        targets: { type: radius, center: construct, radius: 2.5 }
+        targets: { type: radius, center: construct, radius: 3 }
         effects:
           - { id: damage, base: 1.0 }
           - { id: status, status: stun, duration: 30 }

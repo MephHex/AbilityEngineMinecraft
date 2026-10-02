@@ -549,11 +549,17 @@ slot, so an ability is only silenced when it's in an ability slot.
   `beyond` blocks from the holder are multiplied (a domain: half damage from outside it, 0 = immune).
 - **Effects:** teleport `{ away_from: <key>, distance: 8 }` - instead of `to`: that many blocks straight out from the
   key, level with where they are (everyone in an area flung out of it).
+- **Tags:** `block.displace` - nobody else can move them: no pulls (leash), drags (another's dash with `mover`),
+  teleports or swaps; with `block.knockback`, completely unmovable. `block.walk` - held where they stand (no walking or
+  jumping) WITHOUT a root's slowness, so the view doesn't zoom in; abilities still work (e.g. planted). A root
+  (`block.move`) still zooms the view in: that's the game's own slowness effect.
+- **Traps (construct):** `trigger_allies: 1.2` - allies (when they can set it off) have to come that close instead of
+  `trigger` (e.g. a fruit enemies set off from 3 blocks that allies walk up to).
 - **Cues:** sylvan_buried, sylvan_sapling, sylvan_tree, sylvan_large_tree (looping, one per form: her look, for now a
   block on her head, and the trees' domain edge, 8 / 14 blocks: keep them in step with far_damage_taken. A model can
   replace them later under the same ids), sylvan_seed_shot, sylvan_seed_hit, sylvan_blink, sylvan_burrow,
   sylvan_uproot, sylvan_thorn_shot, sylvan_thorn_hit, sylvan_root_shot, sylvan_rooted, sylvan_scatter (3.5 blocks),
   sylvan_sap_shot, sylvan_sap_hit, sylvan_fruit_fall, sylvan_fruit_bomb, sylvan_lash_throw, sylvan_root_line (line),
-  sylvan_drag, sylvan_strength_sap (8 blocks), sylvan_fruit_drop, sylvan_fruit_idle, sylvan_fruit_burst,
+  sylvan_drag, sylvan_strength_sap (8 blocks), sylvan_fruit_drop, sylvan_fruit_idle (also its 3-block reach on the ground), sylvan_fruit_burst,
   sylvan_fruit_eaten, sylvan_fruit_compost, sylvan_fruit_smashed, sylvan_deep_roots (14), sylvan_screech (14),
   sylvan_walk, sylvan_drain (14), sylvan_take_root.

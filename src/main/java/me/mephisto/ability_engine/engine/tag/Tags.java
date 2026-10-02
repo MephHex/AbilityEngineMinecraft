@@ -53,6 +53,16 @@ public final class Tags {
     public static final String BLOCK_MOVE = "block.move";
     /** Immune to knockback (e.g. while guarding). */
     public static final String BLOCK_KNOCKBACK = "block.knockback";
+    /**
+     * Can't be moved by anyone else: no pulls (leash), drags (someone else's dash moving them), teleports or swaps
+     * from others. With block.knockback: completely unmovable (a tree).
+     */
+    public static final String BLOCK_DISPLACE = "block.displace";
+    /**
+     * Can't walk or jump: held where they stand, but unlike block.move their speed isn't touched, so the camera
+     * doesn't zoom in (a root's slowness does), and abilities still work (e.g. planted in the ground).
+     */
+    public static final String BLOCK_WALK = "block.walk";
 
     private Tags() {}
 }

@@ -94,7 +94,7 @@ class SylvanTest {
         use(Slots.ABILITY_2);
         assertTrue(t.engine.tags().has(p, Tags.UNTARGETABLE), "digging in: untouchable");
         assertEquals(0, DamageModifiers.apply(t.engine, enemy, p, 100).amount(), 1e-9);
-        assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE));
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_WALK), "held in place");
         t.time.advance(10);
         assertFalse(t.engine.tags().has(p, Tags.UNTARGETABLE), "buried: hittable again");
         assertTrue(has(p, "sylvan_buried"));
@@ -106,7 +106,8 @@ class SylvanTest {
         assertTrue(has(p, "sylvan_sapling"), "3s: she sprouts");
         assertEquals("sylvan_thorn", in(Slots.PRIMARY));
         assertEquals("sylvan_uproot", in(Slots.SNEAK));
-        assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "planted");
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_WALK), "planted");
+        assertFalse(t.engine.tags().has(p, Tags.BLOCK_MOVE), "held, not rooted: her view isn't zoomed in");
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "her abilities are back");
     }
 
@@ -135,7 +136,7 @@ class SylvanTest {
         assertEquals("sylvan_walk", in(Slots.ULTIMATE));
         t.time.advance(6000);
         assertTrue(has(p, "sylvan_large_tree"), "for good");
-        assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "still planted");
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_WALK), "still planted");
     }
 
     @Test
@@ -155,7 +156,7 @@ class SylvanTest {
         t.engine.resetOnDeath(p);
         assertEquals("sylvan_seed_shot", in(Slots.PRIMARY));
         assertEquals(0.45, t.engine.stats().of(p).scale(), 1e-9);
-        assertFalse(t.engine.tags().has(p, Tags.BLOCK_MOVE));
+        assertFalse(t.engine.tags().has(p, Tags.BLOCK_WALK));
     }
 
     // ---- seed ---------------------------------------------------------------------------------------------
@@ -189,7 +190,7 @@ class SylvanTest {
         assertTrue(has(p, "sylvan_sapling"), "not yet");
         t.time.advance(2);
         assertFalse(has(p, "sylvan_sapling"), "1.5s: out");
-        assertFalse(t.engine.tags().has(p, Tags.BLOCK_MOVE), "free to run");
+        assertFalse(t.engine.tags().has(p, Tags.BLOCK_WALK), "free to run");
         assertEquals("sylvan_seed_shot", in(Slots.PRIMARY), "a seed again");
         assertEquals(1, count("sylvan_uproot"));
     }
@@ -203,7 +204,7 @@ class SylvanTest {
         t.engine.instances().release(p, "sylvan_uproot");
         t.time.advance(30);
         assertTrue(has(p, "sylvan_sapling"));
-        assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE));
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_WALK));
     }
 
     @Test
@@ -301,6 +302,62 @@ class SylvanTest {
         assertEquals(1.2, t.engine.stats().moveSpeedMultiplier(near), 1e-9);
     }
 
+    /** Another Sylvan, on the red team, standing at (x, z) and looking at her. */
+    private UUID enemySylvan(double x, double z, String stage) {
+        UUID e = foe(x, z);
+        t.engine.loadouts().assign(e, "sylvan");
+        t.engine.statuses().apply(e, "sylvan_planted", e);
+        if (stage != null) t.engine.statuses().apply(e, stage, e);
+        t.world.look(e, pos(p).subtract(pos(e)));
+        return e;
+    }
+
+    @Test
+    void aTreeCantBeKnockedBack() throws IOException {
+        setup();
+        stage("sylvan_tree");
+        UUID enemy = enemySylvan(6, 0, null); // a seed, shooting knockback seeds at her
+        assertTrue(t.engine.loadouts().activate(enemy, Slots.PRIMARY).success());
+        t.time.advance(6);
+        assertTrue(t.damage(p) > 0, "hit");
+        assertFalse(t.knockback.containsKey(p), "not pushed an inch");
+    }
+
+    @Test
+    void aTreeCantBeTeleportedAway() throws IOException {
+        setup();
+        stage("sylvan_large_tree");
+        UUID enemy = enemySylvan(10, 0, "sylvan_sapling");
+        t.world.look(enemy, new Vec3(-1, -0.1, 0)); // Scatter on her
+        assertTrue(t.engine.activator().activate(enemy, "sylvan_scatter").openedTargeting());
+        assertTrue(t.engine.targeting().confirm(enemy).success());
+        assertEquals(new Vec3(0, 1, 0), pos(p), "stays where she's planted");
+    }
+
+    @Test
+    void aTreeCantBeDragged() throws IOException {
+        setup();
+        stage("sylvan_tree");
+        UUID enemy = enemySylvan(6, 0, "sylvan_tree");
+        assertTrue(t.engine.loadouts().activate(enemy, Slots.ABILITY_2).success()); // Root Lash on her
+        t.time.advance(6);
+        assertTrue(has(p, "sylvan_bound"), "caught...");
+        t.world.look(enemy, new Vec3(0, 0, 1));
+        assertTrue(t.engine.loadouts().activate(enemy, Slots.ABILITY_2).success());
+        t.time.advance(15);
+        assertEquals(new Vec3(0, 1, 0), pos(p), "...but not dragged anywhere");
+    }
+
+    @Test
+    void aSaplingStillCanBeMoved() throws IOException {
+        setup();
+        stage("sylvan_sapling");
+        UUID enemy = enemySylvan(6, 0, null);
+        assertTrue(t.engine.loadouts().activate(enemy, Slots.PRIMARY).success());
+        t.time.advance(6);
+        assertTrue(t.knockback.containsKey(p), "only the trees are unmovable");
+    }
+
     // ---- large tree -----------------------------------------------------------------------------------------
 
     @Test
@@ -319,10 +376,10 @@ class SylvanTest {
         setup();
         stage("sylvan_large_tree");
         aimAndCast("sylvan_windfall");
-        UUID enemy = foe(12, 0);
+        UUID enemy = foe(14, 0);
         t.time.advance(20);
         assertFalse(has(enemy, "stun"), "too far to set it off");
-        t.world.move(enemy, new Vec3(9.9, 1, 0.3));
+        t.world.move(enemy, new Vec3(12, 1, 1)); // ~2.6 from it: within its 3-block reach
         t.time.advance(2);
         assertTrue(has(enemy, "stun"));
         assertEquals(1.0 * base(), t.damage(enemy), 1e-6);
@@ -349,6 +406,22 @@ class SylvanTest {
         t.time.advance(201);
         assertEquals(0.04 * 380, t.healed.get(p), 1e-6);
         assertEquals(1, count("sylvan_fruit_compost"));
+    }
+
+    @Test
+    void enemiesSetAFruitOffFromThreeBlocksAlliesWalkUpToIt() throws IOException {
+        setup();
+        stage("sylvan_large_tree");
+        aimAndCast("sylvan_windfall"); // on the floor at ~(9.7, 0, 0)
+        t.time.advance(20);
+        UUID pal = friend(9.7, 2.5);
+        t.time.advance(5);
+        assertFalse(t.healed.containsKey(pal), "2.5 blocks off: an ally has to walk up to it");
+        UUID enemy = foe(9.7, -2.5);
+        t.time.advance(2);
+        assertTrue(has(enemy, "stun"), "an enemy 2.5 blocks off sets it off");
+        assertFalse(t.healed.containsKey(pal));
+        assertTrue(count("sylvan_fruit_idle") > 0, "its reach was showing");
     }
 
     @Test
@@ -392,13 +465,13 @@ class SylvanTest {
         stage("sylvan_large_tree");
         UUID enemy = foe(10, 0);
         use(Slots.ULTIMATE);
-        assertFalse(t.engine.tags().has(p, Tags.BLOCK_MOVE), "walking");
+        assertFalse(t.engine.tags().has(p, Tags.BLOCK_WALK), "walking");
         assertTrue(t.engine.tags().has(p, Tags.BLOCK_ABILITY), "no abilities meanwhile");
         t.time.advance(100);
         assertTrue(t.damage(enemy) > 0);
         assertEquals(t.damage(enemy), t.lifesteal.get(p), 1e-6, "all of it back to her");
         t.time.advance(70);
-        assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "rooted again");
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_WALK), "rooted again");
         assertFalse(t.engine.tags().has(p, Tags.BLOCK_ABILITY));
         assertEquals(16 * 0.3 * base(), t.damage(enemy), 1e-6, "16 x 0.5s");
     }

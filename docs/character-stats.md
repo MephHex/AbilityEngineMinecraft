@@ -285,7 +285,8 @@ every 3 ticks (x3.3), +25% speed.
 ### Sylvan: Grows from Skirmisher to Siege Tree
 
 Starts as a seed; Take Root plants her, and each stage grows into the next (3s buried, 20s a sapling, 60s a young
-tree, then a large tree for good; a death makes her a seed again). From the sapling on she can't walk.
+tree, then a large tree for good; a death makes her a seed again). From the sapling on she can't walk (held in
+place, not slowed: her view isn't zoomed in). The young and large tree can't be knocked back or moved at all.
 
 | Stage | Max HP | Armor | Base dmg | Move speed | Attack speed | Size |
 |---|---|---|---|---|---|---|
@@ -309,7 +310,7 @@ tree, then a large tree for good; a death makes her a seed again). From the sapl
 | | Root Lash | **70%**, held 3s; again: dragged 8 blocks toward her crosshair |
 | | Strength Sap | allies in the domain: +20% damage, +20% speed, 5s |
 | Large tree | domain (14 blocks, shown) | immune to enemies outside it |
-| | Windfall | up to 5 fruits, 10s: enemy **100%** within 2.5 + stun 1.5s; ally heals 12% max HP; expired heals her 4% |
+| | Windfall | up to 5 fruits, 10s: an enemy within 3 sets it off, **100%** within 3 + stun 1.5s; an ally walking up to it heals 12% max HP; expired heals her 4% |
 | | Deep Roots | whole domain: **40%**, rooted 2s |
 | | Screech | whole domain: knocked away, disarmed 3s |
 | | Walking Tree (ult) | walks 8s, no abilities: **30%** every 0.5s to enemies in the domain, all of it heals her |

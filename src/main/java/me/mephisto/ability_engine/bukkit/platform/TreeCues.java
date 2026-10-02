@@ -29,6 +29,9 @@ final class TreeCues {
     /** The domains' radius: keep these in step with far_damage_taken.beyond in sylvan.yml. */
     static final double TREE_DOMAIN = 8;
     static final double LARGE_DOMAIN = 14;
+    /** How far a Windfall fruit reaches (its trigger and burst): keep it in step with sylvan.yml. */
+    static final double FRUIT_REACH = 3;
+    private static final Particle.DustOptions FRUIT_RING = new Particle.DustOptions(Color.fromRGB(230, 60, 60), 1.0f);
 
     private static final Particle.DustOptions LEAF = new Particle.DustOptions(Color.fromRGB(70, 160, 50), 1.2f);
     private static final Particle.DustOptions LEAF_BRIGHT = new Particle.DustOptions(Color.fromRGB(120, 220, 80), 1.6f);
@@ -158,8 +161,9 @@ final class TreeCues {
         c.register("sylvan_vigor", loc -> loc.getWorld().spawnParticle(Particle.DUST, loc, 6, 0.3, 0.5, 0.3, 0, SAP));
         // ---- large tree ----
         c.register("sylvan_fruit_drop", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AZALEA_LEAVES_BREAK, 1f, 0.9f));
-        c.register("sylvan_fruit_idle", loc -> { // a ripe fruit lying there
+        c.register("sylvan_fruit_idle", loc -> { // a ripe fruit lying there, its reach on the ground (every 0.5s)
             if (Math.random() < 0.5) loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc.clone().add(0, 0.4, 0), 1, 0.2, 0.1, 0.2, 0);
+            ring(loc.clone().subtract(0, 0.2, 0), FRUIT_REACH, FRUIT_RING);
         });
         c.register("sylvan_fruit_burst", loc -> {
             loc.getWorld().spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
