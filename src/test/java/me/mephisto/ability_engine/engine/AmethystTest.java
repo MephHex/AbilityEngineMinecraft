@@ -86,6 +86,11 @@ class AmethystTest {
         assertEquals(2 * BASE * 0.45, t.damage(enemy), 1e-6, "45% per shard that hit");
         assertEquals(2, stacks(enemy, "amethyst_shard_slow"), "slowed more per shard");
         assertTrue(has(enemy, "amethyst_bleed"), "and bleeding");
+        assertFalse(t.knockbackVec.containsKey(enemy), "no knockback");
+        double hit = t.damage(enemy);
+        t.time.advance(80);
+        assertEquals(4 * 200 * 0.015, t.damage(enemy) - hit, 0.2 * 200 * 0.015 + 1e-6,
+                "the bleed hurts: 1.5% of their max HP a second for 4s");
     }
 
     @Test

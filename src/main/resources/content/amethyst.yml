@@ -20,12 +20,16 @@ statuses:
     stacking: stack
     max_stacks: 6
     move_speed: 0.88                 # x0.88 per shard: 6 shards = x0.46
-  amethyst_bleed:                    # Recall: bleeding (less healing, weaker)
-    duration: 80                     # 4s
+  amethyst_bleed:                    # Recall: bleeding (less healing, weaker, and it hurts)
+    duration: 80                     # 4s...
     stacking: refresh
     healing_taken: 0.6               # 40% less healing
     damage_dealt: 0.85               # -15% damage dealt
     tags: [state.bleeding]
+    tick:
+      every: 20                      # ...1.5% of their max HP a second = 6% (ignores armor)
+      effects:
+        - { id: damage, max_hp: 0.015, knockback: false }
   amethyst_drained:                  # out of ammo: much slower shots
     duration: 30                     # (kept on by every shot without ammo; a shot with ammo ends it)
     stacking: refresh
@@ -140,13 +144,13 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.4, ignore_iframes: true }
+          - { id: damage, base: 0.4, ignore_iframes: true, knockback: false }   # (no knockback: her shots don't push)
         next: hit_cue
       behind:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.2, ignore_iframes: true }
+          - { id: damage, base: 0.2, ignore_iframes: true, knockback: false }
         next: hit_cue
       hit_cue:
         type: play_cue
@@ -211,7 +215,7 @@ abilities:
         targets: { type: key, key: hit }
         on_hit: false
         effects:
-          - { id: damage, base: 0.45, ignore_iframes: true }
+          - { id: damage, base: 0.45, ignore_iframes: true, knockback: false }
           - { id: status, status: amethyst_shard_slow }
           - { id: status, status: amethyst_bleed }
         next: rend_cue
@@ -243,12 +247,12 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.4 }
+          - { id: damage, base: 0.4, knockback: false }
         next: hit_cue
 
   # SECONDARY (RMB): Recall. Every shard hanging in the air flies back to you (each one back in your ammo), through
   # enemies on the way: each shard that hits them deals 45% base damage and slows them a bit more (x0.88 a shard, 2s),
-  # and they bleed for 4s (40% less healing, -15% damage).
+  # and they bleed for 4s (40% less healing, -15% damage, 6% of their max HP over the 4s).
   amethyst_recall:
     cooldown: 20                     # 1s
     display:
@@ -257,7 +261,8 @@ abilities:
         - "RMB: every hanging shard flies back to"
         - "you (and your ammo). Each that hits: 45%"
         - "base damage and a stronger slow; they"
-        - "bleed 4s (less healing, -15% damage)."
+        - "bleed 4s (6% max HP, less healing,"
+        - "-15% damage)."
     nodes:
       call:
         type: set_off_constructs
