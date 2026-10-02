@@ -156,6 +156,18 @@ class AmethystTest {
     }
 
     @Test
+    void aShardThatFadesOnItsOwnIsGoneTheAmmoOnlyRefillsSlowly() throws IOException {
+        setup();
+        use(Slots.PRIMARY);
+        t.time.advance(14); // hanging
+        double before = t.engine.resources().value(p, "ammo");
+        t.time.advance(105); // faded (5s after it got there)
+        assertEquals(0, t.engine.constructs().activeCount(), "faded");
+        assertEquals(before + 105 / 20.0 * 0.125, t.engine.resources().value(p, "ammo"), 1e-6,
+                "no shard back from fading: only the slow refill, a shard every 8s");
+    }
+
+    @Test
     void atMostSixShardsHang() throws IOException {
         setup();
         for (int i = 0; i < 6; i++) {

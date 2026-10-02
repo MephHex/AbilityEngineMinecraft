@@ -6,10 +6,9 @@
 #
 # PASSIVE (Lingering Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (5 a second). Each shard pierces
 #   enemies (the first one hit takes full damage, those behind it half), and one that reaches its full range, or hits
-#   the ground or a wall, hangs there upright, bobbing, for 5s from when it got there (6 at most). Every hanging shard comes back to
-#   the ammo: one when it fades, or all of them at once with Recall (3).
-#   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again. (The ammo
-#   also refills by itself, a shard every 8s after 2s without shooting, so she's never left with none.)
+#   the ground or a wall, hangs there upright, bobbing, for 5s from when it got there (6 at most). Recall (3) brings them
+#   back into the ammo; one that fades on its own is gone. Otherwise the ammo refills by itself, a shard every 8s.
+#   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again.
 #
 # ULTIMATE (F): Crystallize. 5s to choose (the enemy in your sights glows): LMB that enemy, RMB yourself. The target
 #   turns into an amethyst geode for 2.5s: it can't be hurt, and can't move or act. Then it shatters: 180% base damage
@@ -95,8 +94,8 @@ abilities:
         - "Fast piercing shards: 40% base damage,"
         - "20% to those behind. 6 shards of ammo;"
         - "where they end (range, ground, wall)"
-        - "they hang 5s (6 at most)"
-        - "and come back to it. 3: Recall them."
+        - "they hang 5s (6 at most). 3: Recall"
+        - "them into the ammo; +1 every 8s."
         - "Out of ammo: plain, slower shards."
     nodes:
       load:
@@ -174,10 +173,9 @@ abilities:
         cue_every: 10
         on: { triggered: recall, fuse: fade }
       fade:
-        type: play_cue               # it fades: back to the ammo
+        type: play_cue               # it fades on its own: gone (only Recall brings shards back)
         cue: amethyst_shard_fade
         at: construct
-        next: restock
       recall:
         type: projectile             # Recall: it flies back to her, through every enemy in the way
         from: construct
@@ -250,12 +248,12 @@ abilities:
           - { id: damage, base: 0.4, knockback: false }
         next: hit_cue
 
-  # 3: Recall (6s). Only with shards out (its icon counts them; greyed out with none). Shards still flying stop where
+  # 3: Recall (10s). Only with shards out (its icon counts them; greyed out with none). Shards still flying stop where
   # they are, and every shard (hanging or just stopped) flies back to you (each one back in your ammo), through
   # enemies on the way: each shard that hits them deals 45% base damage and slows them a bit more (x0.88 a shard, 2s),
   # and they bleed for 4s (40% less healing, -15% damage, 6% of their max HP over the 4s).
   amethyst_recall:
-    cooldown: 120                    # 6s
+    cooldown: 200                    # 10s
     needs_constructs: amethyst_primary   # only with shards out: the icon counts them, grey with none
     also_flying: shoot                   # (shards still flying count too: Recall stops them mid-flight)
     display:
@@ -605,8 +603,7 @@ characters:
         max: 6
       ammo:                          # PASSIVE: her shards (slot 9)
         max: 6
-        regen: 0.125                 # a shard every 8s...
-        delay: 40                    # ...after 2s without shooting (hanging shards come back sooner: see above)
+        regen: 0.125                 # a shard every 8s, all the time (Recall brings hanging ones back sooner)
         hotbar: 9
         icon: AMETHYST_SHARD
     forms:
