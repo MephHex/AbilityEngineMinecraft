@@ -42,6 +42,10 @@ statuses:
     max_stacks: 6
     move_speed: 0.9                  # x0.9 per shard: 6 = x0.53
     positive: false
+  amethyst_loosing:                  # Shard Volley: the volley's flying (no more gathering, no second volley)
+    duration: 20
+    tags: [state.loosing]
+    positive: false
   amethyst_volley_slow:              # Shard Volley: slowed
     duration: 30                     # 1.5s
     stacking: refresh
@@ -308,6 +312,10 @@ abilities:
         every: 9
         on: { each: one, out: full }
       one:
+        type: has_tag                # (the volley's flying already: no more)
+        tag: state.loosing
+        on: { has: ~, lacks: add }
+      add:
         type: refill
         resource: gathered
         amount: 1
@@ -327,7 +335,11 @@ abilities:
         type: play_cue
         cue: amethyst_gather
       full:
-        type: cast                   # all 6: loosed by itself
+        type: has_tag                # all 6: loosed by itself (unless LMB loosed it already)
+        tag: state.loosing
+        on: { has: ~, lacks: loose }
+      loose:
+        type: cast
         ability: amethyst_volley
 
   # LMB while gathering (or Shard Volley, full): the volley. Every gathered shard, 2 ticks apart, where you look.
@@ -338,23 +350,31 @@ abilities:
       description:
         - "LMB: loose the shards you've gathered."
     nodes:
-      stop:
-        type: cancel_ability         # the channel's over (its shards stop circling)...
-        ability: amethyst_ab1
-        next: calm
+      once:
+        type: has_tag                # (already flying: a second press does nothing)
+        tag: state.loosing
+        on: { has: ~, lacks: calm }
       calm:
-        type: apply_effects          # ...and so is its slow
+        type: apply_effects          # no more gathering, and no more slow
         targets: { type: self }
         on_hit: false
         effects:
+          - { id: status, status: amethyst_loosing }
           - { id: remove_status, status: amethyst_gathering }
         next: volley
       volley:
-        type: repeat                 # every gathered shard, 2 ticks apart
+        type: repeat                 # every gathered shard, 2 ticks apart: the circling ones fly
         times: 6
         every: 2
         spend: gathered
-        on: { each: shoot }
+        on: { each: fire, out: stop }
+      fire:
+        type: play_cue               # the oldest circling shard is the one that goes
+        cue: amethyst_orbit_fire
+        next: shoot
+      stop:
+        type: cancel_ability         # all loosed: the channel's over
+        ability: amethyst_ab1
       shoot:
         type: projectile
         speed: 1.9
@@ -398,7 +418,7 @@ abilities:
         cue: amethyst_burst
         at: splinter
 
-  # 2: Crystal Ward (12s). A crystal shell all around you (4 large shards circling you) for 2.5s, and you're 30% faster
+  # 2: Crystal Ward (12s). A crystal shell all around you (4 large shards circling close, facing you) for 2.5s, and you're 30% faster
   # meanwhile. The first enemy projectile it catches, from any side, is sent back at whoever shot it (a copy of their own
   # shot, now yours: their ability's damage and effects, on them), and the ward ends. It stops melee hits and rays from
   # every side too.

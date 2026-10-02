@@ -650,4 +650,5 @@ slot, so an ability is only silenced when it's in an ability slot.
   it glow for its owner only (nobody else sees the glow).
 - **Cues:** amethyst_shard_shot, amethyst_shard_hit, amethyst_shard_linger, amethyst_shard_fade, amethyst_shard_caught,
   amethyst_recall, amethyst_recall_hit, amethyst_gather, amethyst_volley_shot, amethyst_burst, amethyst_ward (looping),
-  amethyst_reflect, amethyst_orbit (looping: one more shard circling her each time), amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.
+  amethyst_reflect, amethyst_orbit (looping: one more shard circling her each time), amethyst_orbit_fire (the oldest
+  circling shard goes, as the volley's shot), amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.

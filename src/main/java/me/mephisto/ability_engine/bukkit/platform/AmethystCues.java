@@ -19,11 +19,12 @@ final class AmethystCues {
     private static final Particle.DustOptions PALE = new Particle.DustOptions(Color.fromRGB(220, 180, 255), 0.8f);
     private static final BlockData AMETHYST = Material.AMETHYST_BLOCK.createBlockData();
 
-    /** How many Shard Volley shards circle each caster right now (each new one takes the next place around them). */
-    private static final java.util.Map<java.util.UUID, Integer> gathered = new java.util.HashMap<>();
+    /** The Shard Volley shards circling each caster right now, oldest first (each new one takes the next place round). */
+    private static final java.util.Map<java.util.UUID, java.util.Deque<Orbiter>> gathered = new java.util.HashMap<>();
 
-    /** Crystal Ward's shell: keep it in step with the barrier's radius. */
-    static final double WARD_RADIUS = 1.6;
+    /** Crystal Ward's shards: how far out they circle (the barrier itself reaches 1.6), and how big they are. */
+    static final double WARD_RADIUS = 1.0;
+    static final float WARD_SHARD_SIZE = 1.3f;
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary and Recall ----
@@ -66,7 +67,9 @@ final class AmethystCues {
         c.registerLoop("amethyst_ward", e -> {
             e.getWorld().playSound(e.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_PLACE, 1f, 1.0f);
             java.util.List<CueHandle> shards = new java.util.ArrayList<>();
-            for (int i = 0; i < 4; i++) shards.add(orbiter(plugin, e, i * Math.PI / 2, WARD_RADIUS, 0.55, 1.0f, 0.35f, 0.18));
+            for (int i = 0; i < 4; i++) {
+                shards.add(orbiter(plugin, e, i * Math.PI / 2, WARD_RADIUS, 0.5, WARD_SHARD_SIZE, 0.35f, 0.18, true));
+            }
             return () -> {
                 shards.forEach(CueHandle::stop);
                 if (e.isValid()) e.getWorld().playSound(e.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 1.2f);
@@ -74,12 +77,34 @@ final class AmethystCues {
         });
         // Shard Volley: one more shard circling her for every one gathered (spread evenly around her, up to 6)
         c.registerLoop("amethyst_orbit", e -> {
-            int index = gathered.merge(e.getUniqueId(), 1, Integer::sum) - 1;
-            CueHandle shard = orbiter(plugin, e, index * Math.PI * 2 / 6, 0.9, 1.1, 0.55f, 0f, 0.22);
-            return () -> {
+            var mine = gathered.computeIfAbsent(e.getUniqueId(), k -> new java.util.ArrayDeque<>());
+            Orbiter shard = orbiter(plugin, e, mine.size() * Math.PI * 2 / 6, 0.9, 1.1, 0.55f, 0f, 0.22, false);
+            mine.addLast(shard);
+            return () -> { // the channel's over: whatever wasn't fired goes
                 shard.stop();
-                gathered.computeIfPresent(e.getUniqueId(), (k, n) -> n <= 1 ? null : n - 1);
+                mine.remove(shard);
+                if (mine.isEmpty()) gathered.remove(e.getUniqueId(), mine);
             };
+        });
+        // Each shot of the volley: the oldest circling shard is the one that flies (it leaves its place in a flash)
+        c.register("amethyst_orbit_fire", loc -> {
+            java.util.UUID owner = null;
+            double best = 4;
+            for (var id : gathered.keySet()) { // whose shards: the caster this cue plays on (the nearest one with some)
+                org.bukkit.entity.Entity who = Bukkit.getEntity(id);
+                if (who == null || !who.getWorld().equals(loc.getWorld())) continue;
+                double d = who.getBoundingBox().getCenter().toLocation(loc.getWorld()).distance(loc);
+                if (d < best) {
+                    best = d;
+                    owner = id;
+                }
+            }
+            var mine = owner == null ? null : gathered.get(owner);
+            Orbiter shard = mine == null ? null : mine.pollFirst();
+            if (shard == null) return;
+            Location at = shard.where();
+            if (at != null) at.getWorld().spawnParticle(Particle.DUST, at, 6, 0.1, 0.1, 0.1, 0, PALE);
+            shard.stop();
         });
         c.register("amethyst_reflect", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 8, 0.2, 0.2, 0.2, 0.05);
@@ -102,19 +127,24 @@ final class AmethystCues {
         });
     }
 
+    /** A shard circling someone: where it is right now, and how to take it away. */
+    private interface Orbiter extends CueHandle {
+        Location where();
+    }
+
     /**
      * An amethyst shard circling {@code e}: starting at angle {@code start}, {@code radius} blocks out, {@code height}
      * above their feet, {@code size} big, standing upright but tipped {@code tilt} radians, going round {@code speed}
-     * radians a tick (bobbing a little). Until stopped.
+     * radians a tick (bobbing a little). {@code faceThem}: its face turned to them (else to whoever looks). Until stopped.
      */
-    private static CueHandle orbiter(Plugin plugin, org.bukkit.entity.Entity e, double start, double radius, double height,
-                                     float size, float tilt, double speed) {
+    private static Orbiter orbiter(Plugin plugin, org.bukkit.entity.Entity e, double start, double radius, double height,
+                                   float size, float tilt, double speed, boolean faceThem) {
         Location at = e.getLocation();
         org.bukkit.entity.ItemDisplay d = at.getWorld().spawn(at, org.bukkit.entity.ItemDisplay.class, x -> {
             x.setItemStack(new org.bukkit.inventory.ItemStack(Material.AMETHYST_SHARD));
             x.setPersistent(false);
             x.setTeleportDuration(1);
-            x.setBillboard(org.bukkit.entity.Display.Billboard.VERTICAL);
+            x.setBillboard(faceThem ? org.bukkit.entity.Display.Billboard.FIXED : org.bukkit.entity.Display.Billboard.VERTICAL);
             VisualEntities.mark(x);
             x.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(),
                     new org.joml.Quaternionf().rotateZ((float) (-Math.PI / 4) + tilt),
@@ -127,12 +157,20 @@ final class AmethystCues {
             Location c = e.getLocation();
             c.add(Math.cos(a) * radius, height * e.getHeight() / 1.8 + Math.sin(tick[0] * 0.15 + start) * 0.06,
                     Math.sin(a) * radius);
+            // facing them: looking back at their middle (its flat face toward them); otherwise the billboard turns it
+            if (faceThem) c.setDirection(new org.bukkit.util.Vector(-Math.cos(a), 0, -Math.sin(a)));
             d.teleport(c);
             tick[0]++;
         }, 0, 1);
-        return () -> {
-            task.cancel();
-            if (d.isValid()) d.remove();
+        return new Orbiter() {
+            @Override
+            public Location where() { return d.isValid() ? d.getLocation() : null; }
+
+            @Override
+            public void stop() {
+                task.cancel();
+                if (d.isValid()) d.remove();
+            }
         };
     }
 
