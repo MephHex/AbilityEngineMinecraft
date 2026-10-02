@@ -31,32 +31,40 @@ final class ValkyrieCues {
         });
 
         // ---- 1: Valkyrie's Leap (two leaping slashes, then the dive) ----
-        c.register("valkyrie_flit", loc -> { // a leap or a dash: a rush of wings
-            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 12, 0.3, 0.5, 0.3, 0.03);
+        c.register("valkyrie_flit", loc -> { // a leap or a dash: a rush of wings (low, around her legs)
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(0, -0.5, 0), 12, 0.3, 0.3, 0.3, 0.03);
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_FLAP, 1f, 1.4f);
         });
-        c.register("valkyrie_cleave", loc -> { // a golden half circle in front of her (4 blocks)
-            World w = loc.getWorld();
-            Vector f = loc.getDirection().setY(0);
+        // A golden half circle in front of her (4 blocks), low, with sword sweeps along it. A line cue (at: caster,
+        // to: aim): from her body's centre toward where she aims, so it faces her way.
+        c.registerLine("valkyrie_cleave", (w, from, to) -> {
+            Vector f = to.clone().subtract(from).setY(0);
             if (f.lengthSquared() < 1e-6) f = new Vector(1, 0, 0);
             f.normalize();
             double base = Math.atan2(f.getZ(), f.getX());
-            double y = loc.getY() + 1.0;
+            double y = from.getY() - 0.5;    // about knee height
             for (int i = 0; i <= 18; i++) {
                 double a = base - Math.PI / 2 + Math.PI * i / 18;
                 for (double r = 2.0; r <= CLEAVE_RADIUS; r += 1.0) {
-                    w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * r, y, loc.getZ() + Math.sin(a) * r,
+                    w.spawnParticle(Particle.DUST, from.getX() + Math.cos(a) * r, y, from.getZ() + Math.sin(a) * r,
                             1, 0, 0, 0, 0, r >= CLEAVE_RADIUS ? GOLD : PALE_GOLD);
                 }
             }
-            w.spawnParticle(Particle.SWEEP_ATTACK, loc.clone().add(f.clone().multiply(1.5)).add(0, 1, 0), 3, 0.8, 0.1, 0.8, 0);
-            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 1.1f);
-            w.playSound(loc, Sound.ITEM_TRIDENT_RETURN, 0.6f, 1.6f);
+            for (int i = 0; i < 5; i++) { // the slash itself: sweeps along the arc
+                double a = base - Math.PI / 2 + Math.PI * (i + 0.5) / 5;
+                w.spawnParticle(Particle.SWEEP_ATTACK, from.getX() + Math.cos(a) * 2.2, y + 0.2,
+                        from.getZ() + Math.sin(a) * 2.2, 1, 0, 0, 0, 0);
+            }
+            w.spawnParticle(Particle.CRIT, from.getX() + f.getX() * 2, y + 0.2, from.getZ() + f.getZ() * 2,
+                    12, 1.2, 0.1, 1.2, 0.15);
+            Location at = new Location(w, from.getX(), from.getY(), from.getZ());
+            w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 1.1f);
+            w.playSound(at, Sound.ITEM_TRIDENT_RETURN, 0.6f, 1.6f);
         });
         c.register("valkyrie_rise", loc -> { // soaring up for the dive
             World w = loc.getWorld();
-            w.spawnParticle(Particle.CLOUD, loc, 20, 0.5, 0.1, 0.5, 0.05);
-            w.spawnParticle(Particle.END_ROD, loc, 25, 0.3, 1.0, 0.3, 0.08);
+            w.spawnParticle(Particle.CLOUD, loc.clone().add(0, -0.8, 0), 20, 0.5, 0.1, 0.5, 0.05);
+            w.spawnParticle(Particle.END_ROD, loc.clone().add(0, -0.5, 0), 25, 0.3, 0.6, 0.3, 0.08);
             w.playSound(loc, Sound.ENTITY_ENDER_DRAGON_FLAP, 0.8f, 1.5f);
         });
         c.register("valkyrie_dive", loc -> {
@@ -64,15 +72,22 @@ final class ValkyrieCues {
             loc.getWorld().spawnParticle(Particle.DUST, loc, 15, 0.5, 0.5, 0.5, 0, GOLD);
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_SWOOP, 1f, 1.4f);
         });
-        c.register("valkyrie_smite", loc -> { // the dive lands: a flash of light, a bell
+        c.register("valkyrie_smite", loc -> { // the dive lands: a flash of light, a bell (played at her body's centre)
             World w = loc.getWorld();
-            w.spawnParticle(Particle.END_ROD, loc, 40, 0.4, 0.6, 0.4, 0.15);
-            w.spawnParticle(Particle.DUST, loc, 30, 0.6, 0.8, 0.6, 0, GOLD);
-            w.spawnParticle(Particle.CRIT, loc, 20, 0.4, 0.6, 0.4, 0.3);
+            Location low = loc.clone().add(0, -0.6, 0);
+            double ground = loc.getY() - 0.8;
+            w.spawnParticle(Particle.END_ROD, low, 40, 0.4, 0.3, 0.4, 0.15);
+            w.spawnParticle(Particle.DUST, low, 30, 0.6, 0.3, 0.6, 0, GOLD);
+            w.spawnParticle(Particle.CRIT, low, 20, 0.4, 0.3, 0.4, 0.3);
             for (int i = 0; i < 28; i++) { // its reach, on the ground
                 double a = Math.PI * 2 * i / 28;
-                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * SMITE_RADIUS, loc.getY() + 0.1,
+                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * SMITE_RADIUS, ground + 0.1,
                         loc.getZ() + Math.sin(a) * SMITE_RADIUS, 1, 0, 0, 0, 0, GOLD);
+            }
+            for (int i = 0; i < 8; i++) { // slashes all around
+                double a = Math.PI * 2 * i / 8;
+                w.spawnParticle(Particle.SWEEP_ATTACK, loc.getX() + Math.cos(a) * 2, ground + 0.5,
+                        loc.getZ() + Math.sin(a) * 2, 1, 0, 0, 0, 0);
             }
             w.playSound(loc, Sound.BLOCK_BELL_USE, 1f, 1.5f);
             w.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.6f);

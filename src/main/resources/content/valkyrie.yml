@@ -88,8 +88,8 @@ abilities:
         cue: valkyrie_flit
         next: leap1
       leap1:
-        type: leap                   # ~4.5 blocks forward
-        speed: 0.45
+        type: leap                   # ~3 blocks forward
+        speed: 0.3
         up: 0.42
         next: slash1
       slash1:
@@ -103,6 +103,8 @@ abilities:
       slash1_cue:
         type: play_cue
         cue: valkyrie_cleave
+        at: caster
+        to: aim                      # (a line cue: it faces where she aims)
         next: reset1
       reset1:
         type: reset_cooldowns        # the next basic attack, at once
@@ -122,7 +124,7 @@ abilities:
         next: leap2
       leap2:
         type: leap
-        speed: 0.45
+        speed: 0.3
         up: 0.42
         next: slash2
       slash2:
@@ -136,6 +138,8 @@ abilities:
       slash2_cue:
         type: play_cue
         cue: valkyrie_cleave
+        at: caster
+        to: aim                      # (a line cue: it faces where she aims)
         next: reset2
       reset2:
         type: reset_cooldowns

@@ -627,14 +627,15 @@ slot, so an ability is only silenced when it's in an ability slot.
   `single_target: true` - it's on one target per source at a time: putting it on someone else takes it (all its
   stacks) off whoever had it from the same source (Blind Obsession: a new target resets it).
 - **Damage:** `ignore_armor: true` - the whole hit ignores armor (not just a `max_hp` part).
-- **Cues:** dh_swing, dh_bash, dh_whiff, dh_lunge, dh_windup, dh_slam / dh_slam_full (a 4.5-block cone), dh_dagger_spin
+- **Cues:** dh_swing, dh_bash, dh_whiff, dh_lunge, dh_windup, dh_slam_charge (looping: the cone on the ground filling up
+  over 2s), dh_slam / dh_slam_full (line: `at: caster, to: aim`; a 4.5-block cone), dh_dagger_spin
   (3.5 blocks), dh_harpoon_shot, dh_harpoon_hit, dh_harpoon_rope (line), dh_not_yet, dh_blink, dh_execute.
 - **Tags:** `state.gliding` - on whoever glides on an elytra right now (e.g. `has_tag` for an ability that's different
   while gliding).
 - **Effects:** `cleanse` - removes every debuff (a non-buff status someone else put on them).
 - **Forms:** a form may change `secondary` (RMB) too, e.g. LMB / RMB picking someone while an ultimate chooses. A BOW
   weapon (in a form) works like any weapon: LMB fires the primary.
-- **Cues:** valkyrie_slash, valkyrie_flit, valkyrie_cleave (a half circle, 4 blocks), valkyrie_rise, valkyrie_dive,
+- **Cues:** valkyrie_slash, valkyrie_flit, valkyrie_cleave (line: `at: caster, to: aim`; a half circle, 4 blocks), valkyrie_rise, valkyrie_dive,
   valkyrie_smite (4 blocks), valkyrie_stab, valkyrie_crash, valkyrie_cry (8 blocks), valkyrie_blessing_open,
   valkyrie_blessing, valkyrie_blessed (looping).
 
