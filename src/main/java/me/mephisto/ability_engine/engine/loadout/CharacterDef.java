@@ -202,7 +202,8 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         public enum Level {
             /** the status's stacks */ STACKS,
             /** the quiver's reload speed */ RELOAD_SPEED,
-            /** no number, just the draining bar */ NONE
+            /** no number, just the draining bar */ NONE,
+            /** the seconds it has left (a countdown) */ SECONDS
         }
 
         public enum Fill {

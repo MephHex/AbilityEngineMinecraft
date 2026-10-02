@@ -240,6 +240,7 @@ characters:
       base_damage: 42                # abilities deal % of this
       move_speed: 1.0                # x vanilla walking speed
       attack_speed: 1.15             # chops per second
+    status_bar: { status: berserker_war_cry, level: seconds }   # XP bar: War Cry's time left (the number: seconds)
     low_health:                      # PASSIVE: Bloodlust
       below: 0.4                     # below 40% of his max HP...
       status: berserker_bloodlust    # ...he has this
