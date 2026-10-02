@@ -32,6 +32,7 @@ public final class AimPoint {
     private static final double EYE_HEIGHT = 1.62;
 
     public static Optional<PointTarget> resolve(AbilityEngine engine, UUID caster, Targeting t) {
+        if (t != null && t.arc() != null) return Trajectory.landing(engine, caster, t.arc()); // where the throw lands
         Optional<PointTarget> raw = raw(engine, caster, t);
         if (raw.isEmpty() || t == null || !t.ground()) return raw;
 

@@ -563,3 +563,12 @@ slot, so an ability is only silenced when it's in an ability slot.
   sylvan_drag, sylvan_strength_sap (8 blocks), sylvan_fruit_drop, sylvan_fruit_idle (also its 3-block reach on the ground), sylvan_fruit_burst,
   sylvan_fruit_eaten, sylvan_fruit_compost, sylvan_fruit_smashed, sylvan_deep_roots (14), sylvan_screech (14),
   sylvan_walk, sylvan_drain (14), sylvan_take_root.
+
+## Added for the Fae's toadstool (Deathcap Snare)
+
+- **Aim previews:** `arc: <node>` - for a thrown projectile: names the ability's projectile node, and the preview shows
+  where that throw would come down if thrown right now (its speed, gravity and drag, bouncing off walls with
+  `bounce_walls`), instead of where the crosshair is. Confirming throws it along the aim as usual, so it lands where
+  the preview was (unless someone's in the way). `range` isn't needed with it.
+- **Radius query:** `sight: true` - only those the centre can see: nobody behind a wall or around a corner (e.g. a burst
+  that doesn't go through walls).

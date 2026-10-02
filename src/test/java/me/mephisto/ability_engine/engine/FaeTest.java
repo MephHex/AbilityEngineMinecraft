@@ -135,9 +135,16 @@ class FaeTest {
         UUID pal = friend(5, -1.5);
         use(Slots.PRIMARY);
         t.time.advance(10);
-        assertEquals(0.9 * BASE, t.damage(target), 1e-9, "90% base damage");
-        assertEquals(0.9 * BASE, t.damage(beside), 1e-9, "within 2.2 blocks");
+        assertEquals(0.75 * BASE, t.damage(target), 1e-9, "75% base damage");
+        assertEquals(0.75 * BASE, t.damage(beside), 1e-9, "within 2.2 blocks");
         assertEquals(0, t.damage(pal), 1e-9);
+    }
+
+    @Test
+    void blossomsComeABitSlower() throws IOException {
+        setup();
+        use(Slots.PRIMARY);
+        assertEquals(16, t.engine.cooldowns().remainingTicks(p, "fae_primary"), "1.25 a second");
     }
 
     // ---- 1: Seed Bomb ------------------------------------------------------------------------------------
@@ -164,8 +171,8 @@ class FaeTest {
         UUID foeNear = foe(3, 2);
         use(Slots.ABILITY_1);
         t.time.advance(50);
-        assertEquals(50, t.healed.getOrDefault(pal, 0.0), 1e-9, "5 HP");
-        assertEquals(50, t.healed.getOrDefault(p, 0.0), 1e-9, "her too (within 3.5 blocks)");
+        assertEquals(40, t.healed.getOrDefault(pal, 0.0), 1e-9, "4 HP");
+        assertEquals(40, t.healed.getOrDefault(p, 0.0), 1e-9, "her too (within 3.5 blocks)");
         assertEquals(0, t.healed.getOrDefault(foeNear, 0.0), 1e-9);
         assertEquals(0, t.damage(foeNear), 1e-9, "an ally's seed doesn't burst");
     }
@@ -183,10 +190,11 @@ class FaeTest {
         t.time.advance(2);
         assertEquals(0, t.engine.constructs().activeCount(), "an ally picked it up");
         t.time.advance(40);
-        assertEquals(50, t.healed.getOrDefault(pal, 0.0), 1e-9);
+        assertEquals(40, t.healed.getOrDefault(pal, 0.0), 1e-9);
 
         t.world.move(pal, new Vec3(30, 1, 0));
-        use(Slots.ABILITY_1); // the second charge
+        t.time.advance(70); // the 6s cooldown
+        use(Slots.ABILITY_1);
         t.time.advance(10);
         seed = t.engine.constructs().all().get(0).position();
         UUID target = foe(seed.x(), seed.z());
@@ -205,7 +213,7 @@ class FaeTest {
         t.time.advance(2);
         assertEquals(0, t.engine.constructs().activeCount(), "she picked it up");
         t.time.advance(40);
-        assertEquals(50, t.healed.getOrDefault(p, 0.0), 1e-9, "it blooms on her: 5 HP");
+        assertEquals(40, t.healed.getOrDefault(p, 0.0), 1e-9, "it blooms on her: 4 HP");
     }
 
     /** A wall 2 blocks ahead of her (+x), 5 high. */
@@ -225,25 +233,18 @@ class FaeTest {
     }
 
     @Test
-    void aSnareThrownAtAWallBouncesOffAndHidesOnTheGround() throws IOException {
-        setup();
-        wallAhead();
-        use(Slots.ABILITY_3);
-        t.time.advance(40);
-        assertEquals(1, t.engine.constructs().activeCount(), "it landed");
-        Vec3 trap = t.engine.constructs().all().get(0).position();
-        assertTrue(trap.y() < 0.5, "on the ground, not stuck to the wall (y=" + trap.y() + ")");
-        assertTrue(trap.x() < 2, "in front of the wall");
-    }
-
-    @Test
-    void threeSeedsAtATime() throws IOException {
+    void oneSeedAtATimeEverySixSecondsAndThreeLyingAtMost() throws IOException {
         setup();
         t.world.look(p, new Vec3(1, -1, 0));
-        for (int i = 0; i < 3; i++) use(Slots.ABILITY_1);
-        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_1).success(), "out of charges");
+        use(Slots.ABILITY_1);
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_1).success(), "no charges any more: one at a time");
+        assertEquals(120, t.engine.cooldowns().remainingTicks(p, "fae_ab1"), "6s");
+        for (int i = 0; i < 3; i++) {
+            t.engine.cooldowns().reduce(p, "fae_ab1", 1000);
+            use(Slots.ABILITY_1);
+        }
         t.time.advance(10);
-        assertEquals(3, t.engine.constructs().activeCount());
+        assertEquals(3, t.engine.constructs().activeCount(), "three lying there at most");
     }
 
     // ---- 2: Perch -----------------------------------------------------------------------------------------
@@ -460,105 +461,95 @@ class FaeTest {
 
     // ---- 3: Deathcap Snare -------------------------------------------------------------------------------
 
+    /** Where the aim preview says the snare would come down if she threw it now. */
+    private Vec3 preview() {
+        var targeting = t.engine.abilities().find("fae_ab3").orElseThrow().targeting();
+        return me.mephisto.ability_engine.engine.targeting.AimPoint.resolve(t.engine, p, targeting).orElseThrow().position();
+    }
+
+    /** Press 3 (the preview opens), press 3 again: thrown. */
+    private void throwSnare() {
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting(), "an aim preview first");
+        assertTrue(t.engine.targeting().confirm(p).success());
+    }
+
     @Test
-    void theSnareIsHiddenAndSpringsOnAnEnemy() throws IOException {
+    void theSnareBurstsWhereThePreviewShowedPoisoningEveryoneNear() throws IOException {
         setup();
-        t.world.look(p, new Vec3(1, -1, 0));
-        use(Slots.ABILITY_3);
-        t.time.advance(10);
-        var trap = t.engine.constructs().all().get(0);
-        assertTrue(trap.hidden(), "enemies can't see it");
-        Vec3 at = trap.position();
-        UUID pal = friend(at.x(), at.z());
-        t.time.advance(30);
-        assertEquals(1, t.engine.constructs().activeCount(), "allies don't set it off");
-        t.world.move(pal, new Vec3(30, 1, 0));
-        UUID target = foe(at.x(), at.z());
-        UUID beside = foe(at.x() + 2, at.z());
-        t.time.advance(1);
-        assertEquals(0, t.engine.constructs().activeCount(), "sprung");
-        assertEquals(BASE, t.damage(target), 1e-9, "100% base damage");
-        assertEquals(BASE, t.damage(beside), 1e-9, "within 3 blocks");
+        t.world.look(p, new Vec3(1, -0.3, 0));
+        Vec3 spot = preview();
+        assertTrue(spot.x() > 1 && Math.abs(spot.y()) < 1e-6, "on the ground ahead: " + spot);
+        UUID target = foe(spot.x(), spot.z() + 3);   // 3 blocks to the side of where it lands
+        UUID farther = foe(spot.x(), spot.z() - 4.5);
+        throwSnare();
+        t.time.advance(15); // landed (before the poison's first tick)
+        assertEquals(BASE, t.damage(target), 1e-9, "100% base damage, 3.5 blocks around where it landed");
+        assertEquals(0, t.damage(farther), 1e-9);
         assertTrue(has(target, "fae_toxin"));
         assertTrue(t.engine.tags().has(target, Tags.POISONED));
         assertTrue(t.engine.tags().has(target, "state.poison_hearts"), "green hearts");
         assertTrue(t.engine.tags().has(target, Tags.NAUSEOUS));
         assertEquals(0.65, t.engine.stats().moveSpeedMultiplier(target), 1e-9, "35% slower");
-        t.time.advance(80);
+        t.time.advance(85);
         assertEquals(BASE + 4 * 0.02 * 200, t.damage(target), 1e-9, "poison: 2% max HP a second for 4s");
+        assertEquals(0, t.engine.constructs().activeCount(), "no trap left behind");
     }
 
     @Test
-    void theSnareArmsAfterASecond() throws IOException {
+    void theSnareBurstsOnWhoeverItHits() throws IOException {
         setup();
-        t.world.look(p, new Vec3(1, -1, 0));
-        use(Slots.ABILITY_3);
-        t.time.advance(4);
-        Vec3 at = t.engine.constructs().all().get(0).position();
-        UUID target = foe(at.x(), at.z());
-        t.time.advance(5);
-        assertEquals(0, t.damage(target), 1e-9, "not armed yet");
-        t.time.advance(20);
-        assertEquals(BASE, t.damage(target), 1e-9);
-    }
-
-    /** A snare planted right in front of her (it lands about a block away). */
-    private Vec3 plantSnare() {
-        t.world.look(p, new Vec3(1, -1, 0));
-        use(Slots.ABILITY_3);
+        UUID target = foe(3, 0); // in its arc, before it would land
+        throwSnare();
         t.time.advance(10);
-        assertEquals(1, t.engine.constructs().activeCount());
-        return t.engine.constructs().all().get(0).position();
+        assertEquals(BASE, t.damage(target), 1e-9);
+        assertTrue(has(target, "fae_toxin"));
     }
 
     @Test
-    void aSeedBurstingNearASnareSetsItOffAndItReachesTheEnemy() throws IOException {
-        setup();
-        Vec3 trap = plantSnare();
-        UUID target = foe(trap.x() + 2.5, 0); // too far to set it off by walking, within 3 of it
-        lookAt(target);
-        use(Slots.ABILITY_1);
-        t.time.advance(45); // the seed latches, then bursts 2s later
-        assertEquals(0, t.engine.constructs().activeCount(), "the burst set the snare off");
-        assertEquals(1.1 * BASE + 1.0 * BASE, t.damage(target), 1e-9, "the seed's burst and the snare's");
-        assertTrue(has(target, "fae_toxin"), "poisoned by the snare");
-    }
-
-    @Test
-    void aSeedBurstingFarFromASnareLeavesItBe() throws IOException {
-        setup();
-        Vec3 trap = plantSnare();
-        UUID target = foe(trap.x() + 5, 0);
-        lookAt(target);
-        use(Slots.ABILITY_1);
-        t.time.advance(45);
-        assertEquals(1, t.engine.constructs().activeCount(), "more than 3 blocks away: still there");
-        assertEquals(1.1 * BASE, t.damage(target), 1e-9);
-    }
-
-    @Test
-    void aSnareLastsTwoMinutes() throws IOException {
+    void theBurstDoesntGoThroughWalls() throws IOException {
         setup();
         t.world.look(p, new Vec3(1, -1, 0));
-        use(Slots.ABILITY_3);
-        t.time.advance(2390);
-        assertEquals(1, t.engine.constructs().activeCount(), "still there after a long while");
-        t.time.advance(20);
-        assertEquals(0, t.engine.constructs().activeCount(), "wilted after 2 min");
+        Vec3 spot = preview();
+        t.world.box(spot.x() + 1, spot.x() + 1.3, -5, 5, 5); // a wall a block past where it lands
+        UUID behind = foe(spot.x() + 2.5, spot.z());        // within 3.5, behind the wall
+        UUID front = foe(spot.x() - 1, spot.z() + 2.5);     // within 3.5, in the open
+        throwSnare();
+        t.time.advance(15);
+        assertEquals(BASE, t.damage(front), 1e-9);
+        assertEquals(0, t.damage(behind), 1e-9, "behind the wall: safe");
     }
 
     @Test
-    void aSnareThrownAtOneAlreadyPlantedBouncesOffIt() throws IOException {
+    void aSnareThrownAtAWallBouncesOffAndBurstsOnTheGround() throws IOException {
+        setup();
+        wallAhead();
+        Vec3 spot = preview();
+        assertTrue(spot.x() < 2 && Math.abs(spot.y()) < 1e-6, "the preview follows it off the wall: " + spot);
+        UUID near = foe(spot.x() - 1, spot.z() + 2);
+        throwSnare();
+        t.time.advance(15);
+        assertEquals(BASE, t.damage(near), 1e-9, "it burst where the preview said");
+    }
+
+    @Test
+    void threeSnaresBeforeItsOnCooldown() throws IOException {
         setup();
         t.world.look(p, new Vec3(1, -1, 0));
-        use(Slots.ABILITY_3);
-        t.time.advance(250); // planted, and the cooldown's over
-        Vec3 first = t.engine.constructs().all().get(0).position();
-        use(Slots.ABILITY_3); // the same throw: right at it
-        t.time.advance(40);
-        assertEquals(2, t.engine.constructs().activeCount());
-        Vec3 second = t.engine.constructs().all().get(1).position();
-        assertTrue(second.distance(first) > 0.5, "it glanced off the first and landed elsewhere");
+        for (int i = 0; i < 3; i++) {
+            throwSnare();
+            t.time.advance(2);
+        }
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_3).success(), "out of charges");
+        t.time.advance(240);
+        throwSnare(); // one back after 12s
+    }
+
+    @Test
+    void cancellingThePreviewSpendsNothing() throws IOException {
+        setup();
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting());
+        t.engine.targeting().cancel(p, "test");
+        assertEquals(3, t.engine.cooldowns().charges(p, "fae_ab3"));
     }
 
     // ---- Ultimate: Wild Hunt ---------------------------------------------------------------------------

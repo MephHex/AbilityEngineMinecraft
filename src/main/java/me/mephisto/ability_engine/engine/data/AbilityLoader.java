@@ -476,7 +476,7 @@ public final class AbilityLoader {
                 .blockedBy(p.getStringSet("blocked_by", Set.of(Tags.BLOCK_ABILITY)))
                 .display(display(id, p.getParams("display")));
         if (p.has("interrupted_by")) b.interruptedBy(p.getStringSet("interrupted_by", Set.of()));
-        if (p.has("targeting")) b.targeting(Parsers.targeting(p.getParams("targeting")));
+        if (p.has("targeting")) b.targeting(Parsers.targeting(p.getParams("targeting"), p.getParams("nodes")));
         if (p.has("active_tags")) b.activeTags(p.getStringSet("active_tags", Set.of()));
         return b.build();
     }

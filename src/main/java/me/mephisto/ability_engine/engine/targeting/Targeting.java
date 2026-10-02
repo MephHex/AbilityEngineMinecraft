@@ -15,9 +15,17 @@ package me.mephisto.ability_engine.engine.targeting;
  * @param maxDrop      deepest landing below the caster's feet (default 6, for every ground ability).
  *                     Deeper ground under the crosshair falls back to the nearest valid spot toward
  *                     the caster (a cliff edge).
+ * @param arc          a thrown projectile (the ability's own projectile node): the preview shows where it would
+ *                     come down if thrown now, instead of where the crosshair is (null = the crosshair). See
+ *                     {@link Trajectory}.
  */
 public record Targeting(Shape shape, double range, double radius, double width, double angle, int timeoutTicks,
-                        boolean ground, double maxDrop) {
+                        boolean ground, double maxDrop, me.mephisto.ability_engine.engine.projectile.ProjectileSpec arc) {
 
     public enum Shape { CIRCLE, LINE, CONE, POINT }
+
+    public Targeting(Shape shape, double range, double radius, double width, double angle, int timeoutTicks,
+                     boolean ground, double maxDrop) {
+        this(shape, range, radius, width, angle, timeoutTicks, ground, maxDrop, null);
+    }
 }

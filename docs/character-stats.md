@@ -251,17 +251,17 @@ Hears enemies below 40% HP within 30 blocks (they glow for them only; +15% speed
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **160** | **5** (5%) | **35** | **1.00** | **1.5** (13 ticks) | 168 | 47 (more with splash) |
+| **160** | **5** (5%) | **35** | **1.00** | **1.25** (16 ticks) | 168 | 33 (more with splash) |
 
 Half size. Sits in her blossom (just the look; her first passive is still to come). The next enemy hit
 on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
 
 | Ability | Damage |
 |---|---|
-| Blossom Shot (primary) | **90%** within 2.2 blocks of where it bursts |
-| Seed Bomb | 3 charges; latches onto friend, foe or her (or waits 15s on the ground): 2s later **110%** to enemies within 3.5 blocks, or heals allies within 3.5 blocks 5 HP |
+| Blossom Shot (primary) | **75%** within 2.2 blocks of where it bursts |
+| Seed Bomb | 6s; latches onto friend, foe or her (or waits 15s on the ground, 3 at most): 2s later **110%** to enemies within 3.5 blocks, or heals allies within 3.5 blocks 4 HP |
 | Perch | sit in her blossom on an ally's head (they don't see her, others do): untouchable; they're +20% faster, +2 HP per basic attack; 5s cd from sitting down; again (off cd, restarts it): +35% speed 2s or fly to another ally; shift: off |
-| Deathcap Snare | hidden trap (a Seed Bomb bursting within 3 blocks sets it off): **100%** within 3 blocks + 8% max HP poison (green hearts), 35% slow and nausea for 4s |
+| Deathcap Snare | 3 charges, 12s each; an aim preview shows where the throw lands; bursts on the ground or whoever it hits: **100%** within 3.5 blocks (not through walls) + 8% max HP poison (green hearts), 35% slow and nausea for 4s |
 | Wild Hunt (ult) | 8s free flight; F again shoots a vine (20 blocks, small hitbox): an enemy it catches is stunned 3.5s and dragged along on a 4-block vine |
 
 ### Pyromancer: Mage / Burst

@@ -49,7 +49,7 @@ public final class Parsers {
                 double inner = p.getDouble("inner", 0);
                 if (inner < 0 || inner >= p.requireDouble("radius")) throw p.error("inner", "must be between 0 and radius");
                 yield new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
-                        p.getInt("max", 0), p.getBool("include_caster", false), inner);
+                        p.getInt("max", 0), p.getBool("include_caster", false), inner, p.getBool("sight", false));
             }
             case "cone" -> new ConeQuery(p.requireDouble("range"), p.requireDouble("angle"), p.getInt("max", 0));
             case "cursor" -> new CursorQuery(p.requireDouble("range"));
@@ -240,15 +240,31 @@ public final class Parsers {
     }
 
     public static Targeting targeting(Params p) {
+        return targeting(p, null);
+    }
+
+    /**
+     * @param nodes the ability's nodes: {@code arc: <node>} names its projectile node, whose landing the preview shows
+     */
+    public static Targeting targeting(Params p, Params nodes) {
         Targeting.Shape shape;
         try {
             shape = Targeting.Shape.valueOf(p.getString("shape", "circle").toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw p.error("shape", "expected circle, line, cone or point");
         }
-        return new Targeting(shape, p.requireDouble("range"), p.getDouble("radius", 1.0),
+        ProjectileSpec arc = null;
+        if (p.has("arc")) {
+            String node = p.requireString("arc");
+            if (nodes == null || !nodes.has(node)) throw p.error("arc", "no node '" + node + "' in this ability (its projectile node)");
+            Params np = nodes.requireParams(node);
+            if (!"projectile".equals(np.getString("type", null))) throw p.error("arc", "node '" + node + "' isn't a projectile");
+            arc = projectile(np);
+        }
+        double range = arc != null ? p.getDouble("range", 60) : p.requireDouble("range");
+        return new Targeting(shape, range, p.getDouble("radius", 1.0),
                 p.getDouble("width", 1.0), p.getDouble("angle", 60), p.getInt("timeout", 0),
-                p.getBool("ground", false), p.getDouble("max_drop", DEFAULT_MAX_DROP));
+                p.getBool("ground", false), p.getDouble("max_drop", DEFAULT_MAX_DROP), arc);
     }
 
     /** Tags starting with this mark a status as a buff (positive: copied by tethers). */
