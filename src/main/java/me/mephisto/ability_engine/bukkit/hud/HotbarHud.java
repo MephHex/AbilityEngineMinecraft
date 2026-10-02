@@ -60,6 +60,11 @@ public final class HotbarHud {
     public static final int WEAPON_SLOT = 4;
     /** PlayerInventory index of the offhand, where the ultimate's icon sits. */
     public static final int OFFHAND_SLOT = 40;
+    /**
+     * An ability with nothing to use right now (needs_constructs, none standing) shows a cooldown sweep this long: it
+     * stays full (an hour drains invisibly slowly), and clears the moment there's something to use.
+     */
+    private static final long UNAVAILABLE_SWEEP_TICKS = 72_000;
     /** Items stack to 64 by default; icons are raised to 99 so longer cooldowns still count down. */
     private static final int MAX_COUNT = 99;
     /** The slots the hotbar shows (SHIFT has no icon). */
@@ -185,6 +190,8 @@ public final class HotbarHud {
                     // Charges: the sweep shows the next one coming back, even while others are left to use
                     // (the stack still counts the charges left, see updateCounters).
                     long remaining = engine.cooldowns().nextChargeTicks(id, a.id());
+                    // Nothing to use (needs_constructs, none standing): the sweep stays full until there is.
+                    if (remaining <= 0 && engine.activator().isUnavailable(id, a)) remaining = UNAVAILABLE_SWEEP_TICKS;
                     syncSweep(p, sent, sweepKey(id, c, slot, a), now, remaining);
                 });
             }
@@ -396,9 +403,7 @@ public final class HotbarHud {
         Map<String, String> now = new HashMap<>();
         for (String slot : HUD_SLOTS) {
             if (ability(c, slot).isEmpty()) continue;
-            String cc = engine.loadouts().crowdControl(id, slot).orElse("");
-            if (cc.isEmpty() && engine.activator().isUnavailable(id, ability(c, slot).get())) cc = UNAVAILABLE; // greyed out
-            now.put(slot, cc);
+            now.put(slot, engine.loadouts().crowdControl(id, slot).orElse(""));
         }
         Map<String, String> before = ccShown.getOrDefault(id, Map.of());
         if (now.equals(before)) return;
@@ -413,28 +418,10 @@ public final class HotbarHud {
             } else if (!onWeapon(slot)) {
                 Ability a = ability(c, slot).get();
                 inv.setItem(position(slot), cc.isEmpty() ? icon(slot, a, c)
-                        : UNAVAILABLE.equals(cc) ? greyedOut(slot, a, c)
                         : barrier(iconBase(slot, Material.BARRIER, c), a.display().name(), cc));
             }
         }
         refresh(p); // counters and sweeps back on the restored icons
-    }
-
-    /** Not a crowd control: an ability with nothing to use right now (needs_constructs, none standing). */
-    private static final String UNAVAILABLE = "unavailable";
-
-    /** An ability with nothing to use right now: a grey icon, until there's something again. */
-    private ItemStack greyedOut(String slot, Ability a, CharacterDef c) {
-        ItemStack item = iconBase(slot, Material.GRAY_DYE, c);
-        ItemMeta meta = item.getItemMeta();
-        meta.setMaxStackSize(MAX_COUNT);
-        String key = keybinds.actionFor(slot).map(InputAction::defaultKey).orElse("-");
-        meta.displayName(plain("[" + key + "] ", NamedTextColor.DARK_GRAY).append(plain(a.display().name(), NamedTextColor.GRAY)));
-        List<Component> lore = new ArrayList<>();
-        for (String line : a.display().description()) lore.add(plain(line, NamedTextColor.DARK_GRAY));
-        lore.add(plain("Nothing to use right now", NamedTextColor.RED));
-        meta.lore(lore);
-        return tag(item, meta);
     }
 
     private ItemStack barrier(ItemStack item, String name, String ccTag) {
