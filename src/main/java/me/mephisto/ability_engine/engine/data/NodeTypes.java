@@ -193,7 +193,7 @@ public final class NodeTypes {
                 p.getString("visual", "AMETHYST_CLUSTER"),
                 new ConstructSystem.Options(p.getBool("solid", true), p.getDouble("trigger", 0), p.getInt("arm", 0),
                         p.getInt("limit", 0), triggeredBy(p), p.getBool("hidden", false), p.getString("cue", null),
-                        p.getInt("cue_every", 10), p.getDouble("trigger_allies", 0))));
+                        p.getInt("cue_every", 10), p.getDouble("trigger_allies", 0))).withFuseSpread(p.getInt("fuse_spread", 0)));
         t.register("await_recast", (p, e) -> new AwaitRecastNode(p.requireInt("window"), p.getString("while", null)));
         t.register("redirect_projectile", (p, e) -> new RedirectProjectileNode(
                 p.requireString("projectile"),

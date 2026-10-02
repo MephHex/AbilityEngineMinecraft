@@ -122,7 +122,11 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
     private static final int HIDDEN_REFRESH_TICKS = 10;
 
     /** A trap: lies flat, nothing to punch, clicks once when it's armed. */
+    /** A visual written {@code "hover:<item>"}: it stands upright (facing whoever looks) and bobs gently in the air. */
+    private static final String HOVER = "hover:";
+
     private ConstructVisual trap(ConstructHandle construct, Location center, String visual, float size) {
+        if (visual != null && visual.startsWith(HOVER)) return hovering(construct, center, visual.substring(HOVER.length()), size);
         VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
         Entity look = spawned.entity();
         if (look instanceof ItemDisplay d) {
@@ -144,6 +148,46 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
                     viewer.playSound(center, Sound.BLOCK_TRIPWIRE_ATTACH, 0.8f, 1.2f);
                     viewer.spawnParticle(Particle.CRIT, center, 6, 0.3, 0.05, 0.3, 0.02);
                 }
+            }
+
+            @Override
+            public void remove() {
+                if (look.isValid()) look.remove();
+            }
+        };
+    }
+
+    /** How far a hovering one bobs up and down (blocks), and how fast (radians a tick). */
+    private static final float BOB_HEIGHT = 0.12f;
+    private static final double BOB_SPEED = 0.12;
+
+    /**
+     * An item hanging in the air ({@code "hover:<item>"}): upright (an item's sprite runs corner to corner: turned so
+     * it points straight up), always facing whoever looks at it, and bobbing gently, each one at its own pace.
+     */
+    private ConstructVisual hovering(ConstructHandle construct, Location center, String visual, float size) {
+        VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
+        Entity look = spawned.entity();
+        float s = size * 1.5f;
+        double phase = java.util.concurrent.ThreadLocalRandom.current().nextDouble(Math.PI * 2);
+        if (look instanceof ItemDisplay d) {
+            d.setBillboard(org.bukkit.entity.Display.Billboard.VERTICAL);
+            d.setInterpolationDelay(0);
+            d.setInterpolationDuration(2);
+        }
+        if (construct.hidden()) showOnlyToAllies(construct, look);
+        return new ConstructVisual() {
+            int ticks;
+
+            @Override
+            public void update(double progress, boolean fragile) {
+                ticks++;
+                if (construct.hidden() && ticks % HIDDEN_REFRESH_TICKS == 0) showOnlyToAllies(construct, look);
+                if (ticks % 2 != 0 || !(look instanceof ItemDisplay d) || !d.isValid()) return;
+                float y = (float) (Math.sin(ticks * BOB_SPEED + phase) * BOB_HEIGHT);
+                d.setInterpolationDelay(0);
+                d.setTransformation(new Transformation(new Vector3f(0, y, 0), new Quaternionf().rotateZ((float) (Math.PI / 4)),
+                        new Vector3f(s, s, s), new Quaternionf()));
             }
 
             @Override
