@@ -15,7 +15,13 @@ package me.mephisto.ability_engine.engine.state;
  * @param hiddenWhile    not shown while the owner has this tag (null = never hidden)
  */
 public record ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
-                          int reloadTicks, String shownWhile, String hiddenWhile) {
+                          int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep) {
+
+    /** Without a refill sweep (its hotbar item shows no cooldown sweep for the next unit coming back). */
+    public ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
+                       int reloadTicks, String shownWhile, String hiddenWhile) {
+        this(id, max, regenPerSecond, delayTicks, hotbarSlot, icon, reloadTicks, shownWhile, hiddenWhile, false);
+    }
 
     public ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon) {
         this(id, max, regenPerSecond, delayTicks, hotbarSlot, icon, 0, null, null);

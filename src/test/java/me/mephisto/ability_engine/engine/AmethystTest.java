@@ -182,6 +182,19 @@ class AmethystTest {
     }
 
     @Test
+    void theAmmoItemCountsDownToTheNextShard() throws IOException {
+        setup();
+        assertEquals(0, t.engine.resources().nextUnitTicks(p, "ammo"), "full: nothing coming");
+        use(Slots.PRIMARY); // 5 left
+        assertEquals(160, t.engine.resources().nextUnitTicks(p, "ammo"), "the next shard in 8s");
+        t.time.advance(60);
+        assertEquals(100, t.engine.resources().nextUnitTicks(p, "ammo"));
+        t.time.advance(100);
+        assertEquals(6, t.engine.resources().get(p, "ammo"));
+        assertEquals(0, t.engine.resources().nextUnitTicks(p, "ammo"));
+    }
+
+    @Test
     void atMostSixShardsHang() throws IOException {
         setup();
         for (int i = 0; i < 6; i++) {

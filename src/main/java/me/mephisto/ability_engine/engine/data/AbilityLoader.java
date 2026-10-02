@@ -327,7 +327,7 @@ public final class AbilityLoader {
             if (reload < 0) throw r.error("reload", "must be >= 0 (ticks to refill once it's empty)");
             resources.put(name, new ResourceDef(name, r.requireDouble("max"), r.getDouble("regen", 0),
                     r.getInt("delay", 0), hotbar, r.getString("icon", null), reload,
-                    r.getString("shown_while", null), r.getString("hidden_while", null)));
+                    r.getString("shown_while", null), r.getString("hidden_while", null), r.getBool("refill_sweep", false)));
         }
         QuiverDef quiver = p.has("quiver") ? Parsers.quiver(p.getParams("quiver"), engine.statusDefs().ids()) : null;
         if (quiver != null && quiver.hotbarSlot() > 0) {

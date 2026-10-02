@@ -517,6 +517,9 @@ public final class HotbarHud {
                 if (def.reloadTicks() > 0) {
                     syncSweep(p, sent, gaugeMaterial(def).getKey(), now, engine.resources().reloadRemaining(id, def.id()));
                 }
+                if (def.refillSweep()) { // the next unit coming back by regen: a sweep on its own item (its own group)
+                    syncSweep(p, sent, gaugeGroup(def), now, engine.resources().nextUnitTicks(id, def.id()));
+                }
                 if (item == null || item.getType() != gaugeMaterial(def) // another gauge (or nothing) was there
                         || item.getAmount() != gaugeAmount(p, def)
                         || !gaugeName(p, def).equals(item.getItemMeta().displayName())) {
@@ -548,11 +551,22 @@ public final class HotbarHud {
         return m != null && m.isItem() ? m : Material.LAPIS_LAZULI;
     }
 
+    /** A refill_sweep gauge's own cooldown group: its sweep never shows on (or comes from) the weapon or an icon. */
+    private NamespacedKey gaugeGroup(ResourceDef def) {
+        return new NamespacedKey(hudKey.getNamespace(), "gauge_" + def.id().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_]", "_"));
+    }
+
     private ItemStack gauge(Player p, ResourceDef def) {
         ItemStack item = new ItemStack(gaugeMaterial(def));
         item.setAmount(gaugeAmount(p, def));
         ItemMeta meta = item.getItemMeta();
         meta.setMaxStackSize(MAX_COUNT);
+        if (def.refillSweep()) {
+            var cooldown = meta.getUseCooldown();
+            cooldown.setCooldownSeconds(1); // must be above 0; it's never used, only the group matters
+            cooldown.setCooldownGroup(gaugeGroup(def));
+            meta.setUseCooldown(cooldown);
+        }
         meta.displayName(gaugeName(p, def));
         if (def.reloadTicks() > 0) {
             meta.lore(List.of(plain(String.format("Reloads %.1fs after the last shot when empty", def.reloadTicks() / 20.0),

@@ -364,6 +364,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 
 ## Added for the Gunner
 
+- **Resources:** `refill_sweep: true` - its hotbar item shows a cooldown sweep for the next unit coming back by `regen`
+  (e.g. the next shard of ammo); the stack still counts what's there.
 - **Resources (ammo):** `reload: <ticks>` - once it's empty, it refills to max that long after the last
   spend. `shown_while: <tag>` / `hidden_while: <tag>` - only shown on the hotbar while you have (or don't
   have) the tag; two resources can share a slot this way (the ammo of the gun in your hand). While it
