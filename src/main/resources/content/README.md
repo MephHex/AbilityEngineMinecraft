@@ -630,7 +630,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Barrier:** every enemy projectile it absorbs runs its `absorbed` port as a branch of its own, with `absorbed_at`
   (where it was caught) and `absorbed_from` (whose it was). `reflect: true` sends what it catches back at the shooter:
   a copy of their own shot (the same projectile and its hit logic, the shot's values carried over), now cast by the
-  barrier's owner, so its damage and effects land on the shooter and their side.
+  barrier's owner, so its damage and effects land on the shooter and their side. `around: true` makes it a shell all
+  the way around its owner (a sphere of `radius`): projectiles, rays, dashes and melee are stopped from every side.
 - **Constructs as lingering shots:** a projectile's `expired` into a `construct` `at: <its store key>, height: 0` leaves
   it hanging where it ran out; `set_off_constructs` (e.g. on RMB) makes them all exit `triggered`, where a projectile
   `from: construct, toward: caster, hits_caster: true` flies it back.
@@ -639,5 +640,4 @@ slot, so an ability is only silenced when it's in an ability slot.
   bobs gently in the air (each at its own pace), e.g. a shard hanging where it stopped.
 - **Cues:** amethyst_shard_shot, amethyst_shard_hit, amethyst_shard_linger, amethyst_shard_fade, amethyst_shard_caught,
   amethyst_recall, amethyst_recall_hit, amethyst_gather, amethyst_volley_shot, amethyst_burst, amethyst_ward (looping),
-  amethyst_reflect, amethyst_shardfall_cast, amethyst_shardfall_impact, amethyst_shardfall_rain (4 blocks),
-  amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.
+  amethyst_reflect, amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.

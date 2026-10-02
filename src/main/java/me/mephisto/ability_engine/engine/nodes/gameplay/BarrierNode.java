@@ -26,6 +26,7 @@ public final class BarrierNode implements GraphNode {
     private final double radius;
     private final boolean projectilesOnly;
     private final boolean reflect;
+    private final boolean around;
 
     public BarrierNode(double distance, double radius) {
         this(distance, radius, false);
@@ -38,6 +39,12 @@ public final class BarrierNode implements GraphNode {
 
     /** @param reflect projectiles it absorbs are sent back at their shooter: a copy, cast by the caster */
     public BarrierNode(double distance, double radius, boolean projectilesOnly, boolean reflect) {
+        this(distance, radius, projectilesOnly, reflect, false);
+    }
+
+    /** @param around all the way around the caster (a sphere of {@code radius}) instead of a disc in front */
+    public BarrierNode(double distance, double radius, boolean projectilesOnly, boolean reflect, boolean around) {
+        this.around = around;
         this.distance = distance;
         this.radius = radius;
         this.projectilesOnly = projectilesOnly;
@@ -56,7 +63,7 @@ public final class BarrierNode implements GraphNode {
             branch.blackboard().putRaw(ABSORBED_AT, new PointTarget(world, at));
             branch.blackboard().putRaw(ABSORBED_FROM, new EntityTarget(attacker));
             branch.suspend().resume(ABSORBED);
-        }, reflect);
+        }, reflect, around);
         ctx.instance().onEnd(lower);
         return NodeResult.NEXT;
     }

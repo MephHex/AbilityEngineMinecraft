@@ -157,6 +157,12 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
         };
     }
 
+    /**
+     * Turns an item's sprite (drawn corner to corner, bottom left to top right, like a sword or a shard) to stand upright,
+     * as seen by whoever it faces (a VERTICAL billboard: it's mirrored to them, so it turns the other way).
+     */
+    private static final float UPRIGHT = (float) (-Math.PI / 4);
+
     /** How far a hovering one bobs up and down (blocks), and how fast (radians a tick). */
     private static final float BOB_HEIGHT = 0.12f;
     private static final double BOB_SPEED = 0.12;
@@ -172,6 +178,8 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
         double phase = java.util.concurrent.ThreadLocalRandom.current().nextDouble(Math.PI * 2);
         if (look instanceof ItemDisplay d) {
             d.setBillboard(org.bukkit.entity.Display.Billboard.VERTICAL);
+            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateZ(UPRIGHT),
+                    new Vector3f(s, s, s), new Quaternionf())); // upright from the start
             d.setInterpolationDelay(0);
             d.setInterpolationDuration(2);
         }
@@ -186,7 +194,7 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
                 if (ticks % 2 != 0 || !(look instanceof ItemDisplay d) || !d.isValid()) return;
                 float y = (float) (Math.sin(ticks * BOB_SPEED + phase) * BOB_HEIGHT);
                 d.setInterpolationDelay(0);
-                d.setTransformation(new Transformation(new Vector3f(0, y, 0), new Quaternionf().rotateZ((float) (Math.PI / 4)),
+                d.setTransformation(new Transformation(new Vector3f(0, y, 0), new Quaternionf().rotateZ(UPRIGHT),
                         new Vector3f(s, s, s), new Quaternionf()));
             }
 

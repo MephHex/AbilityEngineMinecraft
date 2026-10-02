@@ -360,10 +360,9 @@ range for 5s, coming back to the ammo when they fade or are recalled. Out of amm
 | Ability | Effect |
 |---|---|
 | Amethyst Shard (primary) | **40%** to the first, **20%** to up to 3 behind; at full range it hangs 5s. Out of ammo: **40%**, no pierce |
-| Recall (RMB) | every hanging shard flies back (and into the ammo): **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (6% max HP, -40% healing, -15% damage) |
+| Recall (3) | every hanging shard flies back (and into the ammo): **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (6% max HP, -40% healing, -15% damage) |
 | Shard Volley | gathers 6 (0.3s each, the XP bar counts them), then looses them by itself: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
-| Crystal Ward | 2.5s barrier, +30% speed; shots it catches go back at the shooter: their own shot, now hers |
-| Shardfall | a 4-block area: **20%** every 0.5s for 5s (200%), 30% slower, +15% damage taken inside |
+| Crystal Ward | 2.5s shell all around her, +30% speed; shots it catches (any side) go back at the shooter: their own shot, now hers |
 | Crystallize (ult) | LMB an enemy / RMB herself: 2.5s as an amethyst geode (untouchable, can't act), then **180%** within 4 blocks, knockback, slowed; on herself she heals 25% |
 
 ---
