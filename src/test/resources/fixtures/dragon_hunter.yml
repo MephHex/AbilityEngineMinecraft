@@ -1,0 +1,379 @@
+# content: dragon_hunter
+# The Dragon Hunter: a fighter with a dragon-bone zweihander, a poisoned dagger and a harpoon crossbow. Medium damage,
+# little sustain: he wears enemies down (armor shred, stuns, poison) and finishes them off.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Blind Obsession): each basic attack that lands shreds 6% of the target's armor (5 stacks at most: 27%; 5s,
+#   kept up by hitting them). Hitting someone else moves his obsession: the old target's stacks are gone.
+#
+# ULTIMATE (F): Dragon Harpoon. He swaps to a crossbow and fires a heavy harpoon (back to the sword at once). Whoever
+#   it hits is harpooned for 5s: disarmed, and heavily slowed (67%, wearing off over the 5s); a rope joins them. While
+#   it's stuck in them and they're below 20% of their max HP, press F again: he blinks to them and executes them.
+
+statuses:
+  dh_obsession:                      # PASSIVE: Blind Obsession (his basic attacks' target: less armor)
+    duration: 100                    # 5s without a hit and it's gone
+    stacking: stack
+    max_stacks: 5
+    armor: 0.94                      # x0.94 per stack: 5 = x0.73 (27% shredded)
+    single_target: true              # one target at a time: hitting someone else wipes the old one's stacks
+  dh_empowered:                      # Hunter's Lunge: the next basic attack stuns
+    duration: 80                     # 4s to use it
+    stacking: refresh
+    tags: [state.dh_empowered]
+    positive: false
+  dh_winding:                        # Dragonbone Slam: winding up (the XP bar), slower and slower
+    duration: 3                      # (put on again every tick of the wind-up: gone right after it)
+    stacking: stack
+    max_stacks: 40                   # 2s of wind-up
+    move_speed: 0.985                # x0.985 per tick wound up: 2s = x0.55
+    positive: false
+  dh_release:                        # Dragonbone Slam: LMB let it go early
+    duration: 5
+    tags: [state.dh_release]
+    positive: false
+  dh_poison:                         # Venom Dagger: poisoned
+    duration: 80                     # 4s...
+    stacking: refresh
+    healing_taken: 0.6               # 40% less healing
+    tags: [state.poisoned, state.poison_hearts]
+    tick:
+      every: 10                      # ...1.5% of their max HP every 0.5s = 12% in all
+      effects:
+        - { id: damage, max_hp: 0.015, knockback: false }
+  dh_harpooned:                      # Dragon Harpoon: stuck in them (disarmed)
+    duration: 100                    # 5s
+    stacking: refresh
+    tags: [state.disarmed]
+  dh_harpoon_slow:                   # Dragon Harpoon: heavily slowed, wearing off
+    duration: 1                      # (starts wearing off at once...)
+    decay: 20                        # ...a stack every 1s
+    stacking: stack
+    max_stacks: 5
+    move_speed: 0.8                  # x0.8 per stack: 5 = x0.33 (67% slower), 4 = x0.41...
+  dh_harpoon_drawn:                  # Dragon Harpoon: the crossbow in his hands, a moment
+    duration: 8
+    tags: [state.dh_harpoon_drawn]
+    positive: false
+
+abilities:
+
+  # PRIMARY (LMB): Zweihander Swing. A slow, heavy swing at the first enemy in reach (2.8 blocks): 100% base damage, a
+  # little knockback. Blind Obsession: their armor shreds. After Hunter's Lunge, it stuns them 1s.
+  dh_primary:
+    cooldown: 25                     # (the attack_speed stat sets it)
+    display:
+      name: "Zweihander Swing"
+      description:
+        - "A heavy swing (2.8 blocks): 100% base"
+        - "damage. Passive - Blind Obsession: each hit"
+        - "shreds 6% of their armor (5 max); a new"
+        - "target resets it."
+    nodes:
+      reach:
+        type: acquire_target
+        query: { type: hitscan, range: 2.8, ray_size: 0.8 }
+        on: { hit: which, miss: whiff }
+      which:
+        type: has_tag                # after Hunter's Lunge: this one stuns
+        tag: state.dh_empowered
+        on: { has: bash, lacks: swing }
+      swing:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 1.0, knockback: false }
+          - { id: knockback, from: caster, radius: 3, center: 0.3, edge: 0.3, lift: 0.1 }   # a little
+          - { id: status, status: dh_obsession }
+        next: swing_cue
+      swing_cue:
+        type: play_cue
+        cue: dh_swing
+        at: target
+      bash:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 1.0, knockback: false }
+          - { id: status, status: dh_obsession }
+          - { id: status, status: stun, duration: 20 }   # 1s
+          - { id: remove_status, status: dh_empowered, self: true }
+        next: bash_cue
+      bash_cue:
+        type: play_cue
+        cue: dh_bash
+        at: target
+      whiff:
+        type: play_cue
+        cue: dh_whiff
+
+  # 1: Hunter's Lunge (7s). A short dash where you look (4 blocks); your next basic attack is ready at once and stuns
+  # its target for 1s (within 4s).
+  dh_ab1:
+    cooldown: 140                    # 7s
+    display:
+      name: "Hunter's Lunge"
+      icon: RABBIT_FOOT
+      description:
+        - "A short dash (4 blocks). Your next basic"
+        - "attack is ready at once and stuns 1s."
+    nodes:
+      lunge_cue:
+        type: play_cue
+        cue: dh_lunge
+        next: lunge
+      lunge:
+        type: dash
+        range: 4
+        speed: 1.2
+        radius: 0.6
+        flat: true
+        on: { hit: ready, miss: ready }
+      ready:
+        type: reset_cooldowns        # the next basic attack, at once...
+        slots: [primary]
+        next: empower
+      empower:
+        type: apply_effects          # ...and it stuns
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: dh_empowered }
+
+  # 2: Dragonbone Slam (10s). Wind up the zweihander for up to 2s, slower and slower as you do (down to 45% slower; the
+  # XP bar fills), then slam the ground in front of you (4.5 blocks): 60% base damage + up to 120% more the longer you
+  # wound up (LMB slams early). Fully wound up, it slams by itself: 200% base damage that ignores armor. Nothing else is
+  # usable meanwhile; a stun cancels it.
+  dh_ab2:
+    cooldown: 200                    # 10s
+    active_tags: [block.ability, state.channeling, state.dh_winding]   # a wind-up: nothing else usable (LMB: slam early)
+    interrupted_by: [state.stunned]
+    display:
+      name: "Dragonbone Slam"
+      icon: BONE_BLOCK
+      description:
+        - "Wind up (2s, slowing you), then slam: 60%"
+        - "+ up to 120% the longer you wound up. LMB"
+        - "slams early. Fully wound up: 200% base"
+        - "damage that ignores armor."
+    nodes:
+      windup_cue:
+        type: play_cue
+        cue: dh_windup
+        next: wind
+      wind:
+        type: repeat                 # every tick for 2s
+        times: 40
+        every: 1
+        on: { each: check }
+      check:
+        type: has_tag                # LMB: slam now
+        tag: state.dh_release
+        on: { has: slam, lacks: build }
+      build:
+        type: switch                 # all 40: the full slam
+        key: repeat_index
+        on: { "40": full_slam, default: heavier }
+      heavier:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: dh_winding }
+      slam:
+        type: apply_effects
+        targets: { type: cone, range: 4.5, angle: 70 }
+        effects:
+          - { id: damage, base: 0.6, knockback: false }
+          - { id: damage, base: 0.03, scale_by: repeat_index, knockback: false, ignore_iframes: true }   # +3% a tick
+          - { id: knockback, from: caster, radius: 4.5, center: 0.5, edge: 0.3, lift: 0.3 }
+        next: slam_cue
+      slam_cue:
+        type: play_cue
+        cue: dh_slam
+        next: done
+      full_slam:
+        type: apply_effects
+        targets: { type: cone, range: 4.5, angle: 70 }
+        effects:
+          - { id: damage, base: 2.0, ignore_armor: true, knockback: false }
+          - { id: knockback, from: caster, radius: 4.5, center: 0.8, edge: 0.4, lift: 0.4 }
+        next: full_cue
+      full_cue:
+        type: play_cue
+        cue: dh_slam_full
+        next: done
+      done:
+        type: end_cast
+
+  # LMB while winding up Dragonbone Slam: slam now.
+  dh_slam_early:
+    blocked_by: []                   # (the wind-up blocks everything else, not this)
+    display:
+      name: "Slam"
+      description:
+        - "LMB: slam now."
+    nodes:
+      release:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: dh_release }
+
+  # 3: Venom Dagger (12s). Slash in a circle around you with a dagger (3.5 blocks): 60% base damage and poison (12% of
+  # their max HP over 4s, 40% less healing). Hunter's Lunge is ready again at once.
+  dh_ab3:
+    cooldown: 240                    # 12s
+    display:
+      name: "Venom Dagger"
+      icon: FERMENTED_SPIDER_EYE
+      description:
+        - "A dagger slash all around you: 60% base"
+        - "damage and poison (12% max HP over 4s,"
+        - "less healing). Hunter's Lunge is ready."
+    nodes:
+      spin:
+        type: apply_effects
+        targets: { type: radius, radius: 3.5 }
+        effects:
+          - { id: damage, base: 0.6 }
+          - { id: status, status: dh_poison }
+        next: spin_cue
+      spin_cue:
+        type: play_cue
+        cue: dh_dagger_spin
+        next: lunge_back
+      lunge_back:
+        type: reset_cooldowns
+        slots: [ability_1]
+
+  # ULTIMATE (F): Dragon Harpoon (see the top of this file).
+  dh_ult1:
+    cooldown: 1200                   # placeholder until ults charge from damage
+    cooldown_starts: cast
+    display:
+      name: "Dragon Harpoon"
+      icon: TRIDENT
+      description:
+        - "Fire a heavy harpoon: 5s disarmed and"
+        - "slowed (67%, wearing off). Below 20% max"
+        - "HP while it's stuck: F again to blink to"
+        - "them and execute them."
+    nodes:
+      draw:
+        type: apply_effects          # the crossbow, for a moment
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: dh_harpoon_drawn }
+        next: aim
+      aim:
+        type: delay
+        ticks: 3
+        next: shoot
+      shoot:
+        type: projectile
+        speed: 2.6
+        size: 0.5
+        range: 30
+        lifetime: 30
+        visual: "entity:TRIDENT"
+        on: { spawned: shoot_cue, hit_entity: hooked }
+      shoot_cue:
+        type: play_cue
+        cue: dh_harpoon_shot
+      hooked:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8 }
+          - { id: status, status: dh_harpooned }
+          - { id: status, status: dh_harpoon_slow }
+          - { id: status, status: dh_harpoon_slow }
+          - { id: status, status: dh_harpoon_slow }
+          - { id: status, status: dh_harpoon_slow }
+          - { id: status, status: dh_harpoon_slow }
+        next: hooked_cue
+      hooked_cue:
+        type: play_cue
+        cue: dh_harpoon_hit
+        at: hit
+        next: rope
+      rope:
+        type: start_line             # the rope while it's stuck in them
+        cue: dh_harpoon_rope
+        to: hit
+        next: stuck
+      stuck:
+        type: fork                   # 5s: the recast window, then it's over
+        on: { out: hold, also: wait }
+      hold:
+        type: delay
+        ticks: 100
+        next: over
+      over:
+        type: end_cast
+      wait:
+        type: await_recast
+        window: 100
+        on: { recast: still_in }
+      still_in:
+        type: has_status             # (they shook it off, or died)
+        status: dh_harpooned
+        target: hit
+        on: { has: low, lacks: over }
+      low:
+        type: health_below
+        target: hit
+        share: 0.2
+        on: { below: blink, above: too_healthy }
+      too_healthy:
+        type: play_cue               # not yet: wait again
+        cue: dh_not_yet
+        next: wait
+      blink:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: teleport, to: hit }
+        next: blink_cue
+      blink_cue:
+        type: play_cue
+        cue: dh_blink
+        next: execute
+      execute:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, max_hp: 1.0, knockback: false, ignore_iframes: true }   # all of it, true damage
+        next: execute_cue
+      execute_cue:
+        type: play_cue
+        cue: dh_execute
+        at: hit
+        next: over
+
+characters:
+  dragon_hunter:
+    name: "Dragon Hunter"
+    weapon: BONE                     # the dragon-bone zweihander
+    stats:                           # see docs/character-stats.md
+      health: 230                    # max HP
+      armor: 20                      # damage taken x 100 / (100 + armor)
+      base_damage: 42                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      attack_speed: 0.8              # heavy swings per second
+    status_bar: { status: dh_winding, fill: stacks }   # XP bar: Dragonbone Slam's wind-up
+    forms:
+      - while: state.dh_harpoon_drawn  # Dragon Harpoon: the crossbow, a moment
+        weapon: CROSSBOW
+      - while: state.dh_winding      # Dragonbone Slam: LMB slams early
+        slots: { primary: dh_slam_early }
+    slots:
+      primary: dh_primary            # LMB: Zweihander Swing (no RMB)
+      ability_1: dh_ab1              # 1: Hunter's Lunge
+      ability_2: dh_ab2              # 2: Dragonbone Slam
+      ability_3: dh_ab3              # 3: Venom Dagger
+      ultimate: dh_ult1              # F: Dragon Harpoon

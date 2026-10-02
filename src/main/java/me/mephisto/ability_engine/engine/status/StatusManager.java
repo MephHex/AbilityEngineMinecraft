@@ -167,6 +167,13 @@ public final class StatusManager {
         }
         String requires = def.links().requires();
         if (requires != null && !has(target, requires)) return; // it only lasts while that does: nothing to hang on
+        if (def.singleTarget() && source != null) { // one target at a time: a new one wipes it off the old ones
+            for (var e : List.copyOf(active.entrySet())) {
+                if (e.getKey().equals(target)) continue;
+                ActiveStatus other = e.getValue().get(def.id());
+                if (other != null && source.equals(other.source())) remove(e.getKey(), def.id());
+            }
+        }
         int before = find(target, def.id()).map(ActiveStatus::stacks).orElse(0);
         applyInternal(target, def, durationTicks, source);
         for (ApplyListener l : List.copyOf(applyListeners)) l.applied(target, def, durationTicks, source);

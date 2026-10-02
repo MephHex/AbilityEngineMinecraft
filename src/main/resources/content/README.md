@@ -620,6 +620,15 @@ slot, so an ability is only silenced when it's in an ability slot.
   chest slot (jump while falling to glide; a chestplate of their own stays, and then there's no elytra).
 - **Statuses:** `attack_speed` now counts per stack, like `move_speed`: `attack_speed: 1.08` with 5 stacks = x1.47
   (the Valkyrie's Fervor).
+
+## Added for the Dragon Hunter
+
+- **Statuses:** `armor: 0.94` - the holder's armor is multiplied by this per stack (an armor shred: 5 stacks = x0.73).
+  `single_target: true` - it's on one target per source at a time: putting it on someone else takes it (all its
+  stacks) off whoever had it from the same source (Blind Obsession: a new target resets it).
+- **Damage:** `ignore_armor: true` - the whole hit ignores armor (not just a `max_hp` part).
+- **Cues:** dh_swing, dh_bash, dh_whiff, dh_lunge, dh_windup, dh_slam / dh_slam_full (a 4.5-block cone), dh_dagger_spin
+  (3.5 blocks), dh_harpoon_shot, dh_harpoon_hit, dh_harpoon_rope (line), dh_not_yet, dh_blink, dh_execute.
 - **Tags:** `state.gliding` - on whoever glides on an elytra right now (e.g. `has_tag` for an ability that's different
   while gliding).
 - **Effects:** `cleanse` - removes every debuff (a non-buff status someone else put on them).
