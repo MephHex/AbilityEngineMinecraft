@@ -300,6 +300,8 @@ public final class HoverFlight implements Listener {
     private final Map<UUID, Float> sizes = new HashMap<>();
     /** The turn (visual_turn, degrees) each one's ride was made with. */
     private final Map<UUID, Double> turns = new HashMap<>();
+    /** How high (visual_up, blocks) each one's ride was made. */
+    private final Map<UUID, Double> ups = new HashMap<>();
 
     /**
      * What they ride, at their feet. Perched on someone (a ride, e.g. the Fae's Perch, sitting in it), it sits on
@@ -323,14 +325,18 @@ public final class HoverFlight implements Listener {
         if (display == null || !display.isValid() || !display.getWorld().equals(p.getWorld())
                 || !java.util.Objects.equals(on, perchedOn.get(id)) // perched / off since
                 || Math.abs(size - sizes.getOrDefault(id, size)) > 1e-3 // a new size (scale, /ae reload): a new one
-                || hover.visualTurn() != turns.getOrDefault(id, hover.visualTurn())) { // turned (/ae reload)
+                || hover.visualTurn() != turns.getOrDefault(id, hover.visualTurn()) // turned (/ae reload)
+                || hover.visualUp() != ups.getOrDefault(id, hover.visualUp())) { // raised (/ae reload)
             removeRide(id);
             Location at = mount != null ? onHead(mount) : feet(p);
             float turn = (float) Math.toRadians(hover.visualTurn());
-            display = material.isBlock() ? uprightBlock(at, material, size, turn) : flatItem(at, material, 0.9f * size, turn);
+            float up = GAP + (float) hover.visualUp();
+            display = material.isBlock() ? uprightBlock(at, material, size, turn, up)
+                    : flatItem(at, material, 0.9f * size, turn, up);
             visuals.put(id, display);
             sizes.put(id, size);
             turns.put(id, hover.visualTurn());
+            ups.put(id, hover.visualUp());
             if (mount != null) {
                 perchedOn.put(id, on);
                 mount.addPassenger(display); // on their head: it rides them (a passenger sits on top), no lag
@@ -385,26 +391,27 @@ public final class HoverFlight implements Listener {
      * A block's model turned upside down (a hanging spore blossom opens upward), centred on the spot: its top
      * (where it would hang from) at the bottom, at the spot's height, everything else above it. Then turned
      * {@code turn} radians about its upright axis (the display faces where they face: a spore blossom's petals point
-     * ahead, behind and to the sides; 45 degrees puts the gap between two petals ahead instead).
+     * ahead, behind and to the sides; 45 degrees puts the gap between two petals ahead instead), its bottom {@code up}
+     * blocks above the spot.
      */
-    private static Display uprightBlock(Location at, Material material, float s, float turn) {
+    private static Display uprightBlock(Location at, Material material, float s, float turn, float up) {
         return at.getWorld().spawn(at, BlockDisplay.class, d -> {
             d.setBlock(material.createBlockData());
             setUp(d);
-            // rotateX(pi): (x, y, z) -> (x, -y, -z); then shift so x and z are centred and y runs 0..s (+ the gap).
+            // rotateX(pi): (x, y, z) -> (x, -y, -z); then shift so x and z are centred and y runs up..s + up.
             // The turn is about the centre: it turns the upside-down block and the shift that centres it alike.
             Quaternionf spin = new Quaternionf().rotateY(turn);
-            d.setTransformation(new Transformation(spin.transform(new Vector3f(-s / 2, s + GAP, s / 2)),
+            d.setTransformation(new Transformation(spin.transform(new Vector3f(-s / 2, s + up, s / 2)),
                     new Quaternionf(spin).rotateX((float) Math.PI), new Vector3f(s, s, s), new Quaternionf()));
         });
     }
 
-    /** An item lying flat, like a lily pad (turned {@code turn} radians about the upright axis). */
-    private static Display flatItem(Location at, Material material, float s, float turn) {
+    /** An item lying flat, like a lily pad (turned {@code turn} radians about the upright axis, {@code up} above the spot). */
+    private static Display flatItem(Location at, Material material, float s, float turn, float up) {
         return at.getWorld().spawn(at, ItemDisplay.class, d -> {
             d.setItemStack(new ItemStack(material));
             setUp(d);
-            d.setTransformation(new Transformation(new Vector3f(0, GAP, 0),
+            d.setTransformation(new Transformation(new Vector3f(0, up, 0),
                     new Quaternionf().rotateY(turn).rotateX((float) (Math.PI / 2)), new Vector3f(s, s, s),
                     new Quaternionf()));
         });
@@ -421,6 +428,7 @@ public final class HoverFlight implements Listener {
         perchedOn.remove(id);
         sizes.remove(id);
         turns.remove(id);
+        ups.remove(id);
         Display d = visuals.remove(id);
         if (d == null) return;
         Entity vehicle = d.getVehicle();

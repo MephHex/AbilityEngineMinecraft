@@ -62,11 +62,16 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      *                   platform glides it to each new spot); 0 = right at their feet
      * @param visualTurn degrees it's turned about its upright axis, away from facing where they face (e.g. so a
      *                   petal isn't straight ahead of them); 0 = not turned
+     * @param visualUp   blocks it's raised above their feet (1/16 = one pixel); 0 = right at their feet
      */
     public record Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead,
-                        double visualTurn) {
+                        double visualTurn, double visualUp) {
         public static final double DEFAULT_LEAD = 2;
 
+        public Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead,
+                     double visualTurn) {
+            this(height, speed, visual, fly, visualSize, visualLead, visualTurn, 0);
+        }
         public Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead) {
             this(height, speed, visual, fly, visualSize, visualLead, 0);
         }
