@@ -6,10 +6,10 @@
 #
 # PASSIVE (Lingering Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (5 a second). Each shard pierces
 #   enemies (the first one hit takes full damage, those behind it half), and one that reaches its full range, or hits
-#   the ground or a wall, hangs there upright, bobbing, for 8s from when it got there (6 at most). Every hanging shard comes back to
+#   the ground or a wall, hangs there upright, bobbing, for 5s from when it got there (6 at most). Every hanging shard comes back to
 #   the ammo: one when it fades, or all of them at once with Recall (3).
 #   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again. (The ammo
-#   also refills by itself, a shard every 2s after 2s without shooting, so she's never left with none.)
+#   also refills by itself, a shard every 8s after 2s without shooting, so she's never left with none.)
 #
 # ULTIMATE (F): Crystallize. 5s to choose (the enemy in your sights glows): LMB that enemy, RMB yourself. The target
 #   turns into an amethyst geode for 2.5s: it can't be hurt, and can't move or act. Then it shatters: 180% base damage
@@ -36,10 +36,11 @@ statuses:
     stacking: refresh
     attack_speed: 0.3                # 5 a second -> 1.5
     positive: false
-  amethyst_gathering:                # Shard Volley: shards gathered so far (the XP bar's level)
+  amethyst_gathering:                # Shard Volley: shards gathered so far (the XP bar's level); slower with each
     duration: 12                     # (put on again with every shard: gone soon after a stun breaks the channel)
     stacking: stack
     max_stacks: 6
+    move_speed: 0.9                  # x0.9 per shard: 6 = x0.53
     positive: false
   amethyst_volley_slow:              # Shard Volley: slowed
     duration: 30                     # 1.5s
@@ -80,7 +81,7 @@ abilities:
 
   # PRIMARY (LMB): Amethyst Shard. A quick shard (1.6 blocks/tick, 18 blocks) that pierces up to 3 enemies: 40% base
   # damage to the first, 20% to each behind it. It costs a shard of ammo; where it ends (its full range, the ground, a
-  # wall) it hangs for 8s (6 at most: one more ends the oldest).
+  # wall) it hangs for 5s (6 at most: one more ends the oldest).
   # Out of ammo: a plain shard (no piercing, it doesn't hang, 12 blocks) at 1.5 a second.
   amethyst_primary:
     cooldown: 4                      # (the attack_speed stat sets it)
@@ -90,7 +91,7 @@ abilities:
         - "Fast piercing shards: 40% base damage,"
         - "20% to those behind. 6 shards of ammo;"
         - "where they end (range, ground, wall)"
-        - "they hang 8s (6 at most)"
+        - "they hang 5s (6 at most)"
         - "and come back to it. 3: Recall them."
         - "Out of ammo: plain, slower shards."
     nodes:
@@ -161,7 +162,7 @@ abilities:
         at: shard
         height: 0
         size: 0.4
-        fuse: 160                    # 8s from when it starts hanging (each its own: they hang as they arrive)
+        fuse: 100                    # 5s from when it starts hanging (each its own: they hang as they arrive)
         solid: false                 # (nothing bumps into it)
         limit: 6                     # 6 at most at once: one more ends the oldest
         visual: "hover:glow:AMETHYST_SHARD"   # standing upright in the air, bobbing gently; glowing for her only
@@ -278,47 +279,82 @@ abilities:
         type: play_cue
         cue: amethyst_recall
 
-  # 1: Shard Volley (9s). A channel: gather 6 shards (one every 0.45s: the XP bar's level counts them; meanwhile you're
-  # 40% slower and can't use anything else; a stun breaks it), then they're loosed by themselves in a quick volley where
-  # you look. Each that hits an enemy slows them 30% for 1.5s and bursts behind them:
-  # 60% base damage within 2.5 blocks of that spot (they're in it too).
+  # 1: Shard Volley (9s). A channel: gather up to 6 shards (one every 0.45s), each circling around you (the XP bar's
+  # level counts them). Meanwhile you're slower with every shard (x0.9 each) and can't use anything else; a stun breaks it.
+  # LMB looses the volley early with what you have; full, it's loosed by itself. Each shard that hits an enemy slows them
+  # 30% for 1.5s and bursts behind them: 60% base damage within 2.5 blocks of that spot (they're in it too).
   amethyst_ab1:
     cooldown: 180                    # 9s
-    active_tags: [state.slowed, block.ability, state.channeling]   # a channel: slowed (-40%) and nothing else usable
-                                     # while gathering (let go as the volley flies)
+    active_tags: [block.ability, state.channeling, state.gathering]   # a channel: nothing else usable (LMB: the volley)
     interrupted_by: [state.stunned]  # a stun breaks it (nothing is loosed; the cooldown's spent)
     display:
       name: "Shard Volley"
       icon: AMETHYST_CLUSTER
       description:
-        - "Channel: gather 6 shards (the XP bar"
-        - "counts them; slowed, nothing else usable),"
-        - "then a volley by itself. Each hit slows"
-        - "30% and bursts behind them: 60% base."
+        - "Channel: gather up to 6 shards circling"
+        - "you (slower with each, nothing else"
+        - "usable). LMB looses them early; full, by"
+        - "itself. Each hit slows 30% and bursts"
+        - "behind them: 60% base damage."
     nodes:
+      empty:
+        type: repeat                 # none gathered yet
+        times: 6
+        spend: gathered
+        on: { out: gather }
       gather:
         type: repeat                 # one every 0.45s (2.7s in all)
         times: 6
         every: 9
-        on: { each: one, out: loosed }
-      loosed:
-        type: release_tags           # gathered: no longer slowed, the rest usable again
-        next: volley
+        on: { each: one, out: full }
       one:
-        type: apply_effects          # (the XP bar's level: how many so far)
+        type: refill
+        resource: gathered
+        amount: 1
+        next: stack
+      stack:
+        type: apply_effects          # (the XP bar's level, and the slow: how many so far)
         targets: { type: self }
         on_hit: false
         effects:
           - { id: status, status: amethyst_gathering }
+        next: orbit
+      orbit:
+        type: start_cue              # a shard circling her, until the channel ends
+        cue: amethyst_orbit
         next: one_cue
       one_cue:
         type: play_cue
         cue: amethyst_gather
+      full:
+        type: cast                   # all 6: loosed by itself
+        ability: amethyst_volley
+
+  # LMB while gathering (or Shard Volley, full): the volley. Every gathered shard, 2 ticks apart, where you look.
+  amethyst_volley:
+    blocked_by: []                   # (the channel blocks everything else, not this)
+    display:
+      name: "Loose the Volley"
+      description:
+        - "LMB: loose the shards you've gathered."
+    nodes:
+      stop:
+        type: cancel_ability         # the channel's over (its shards stop circling)...
+        ability: amethyst_ab1
+        next: calm
+      calm:
+        type: apply_effects          # ...and so is its slow
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: amethyst_gathering }
+        next: volley
       volley:
-        type: repeat                 # all 6, 2 ticks apart
+        type: repeat                 # every gathered shard, 2 ticks apart
         times: 6
         every: 2
-        on: { each: shoot, out: done }
+        spend: gathered
+        on: { each: shoot }
       shoot:
         type: projectile
         speed: 1.9
@@ -361,16 +397,11 @@ abilities:
         type: play_cue
         cue: amethyst_burst
         at: splinter
-      done:
-        type: apply_effects          # loosed: the count's gone
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: amethyst_gathering }
 
-  # 2: Crystal Ward (12s). A crystal shell all around you for 2.5s, and you're 30% faster meanwhile. Every enemy
-  # projectile it catches, from any side, is sent back at whoever shot it: a copy of their own shot, now yours (their
-  # ability's damage and effects, on them). It stops melee hits and rays from every side too.
+  # 2: Crystal Ward (12s). A crystal shell all around you (4 large shards circling you) for 2.5s, and you're 30% faster
+  # meanwhile. The first enemy projectile it catches, from any side, is sent back at whoever shot it (a copy of their own
+  # shot, now yours: their ability's damage and effects, on them), and the ward ends. It stops melee hits and rays from
+  # every side too.
   amethyst_ab2:
     cooldown: 240                    # 12s
     display:
@@ -378,8 +409,9 @@ abilities:
       icon: AMETHYST_BLOCK
       description:
         - "2.5s crystal shell all around you, +30%"
-        - "speed. Shots it catches (any side) go"
-        - "back at the shooter: their own, now yours."
+        - "speed. The first shot it catches (any"
+        - "side) goes back at the shooter: their own,"
+        - "now yours. Then it ends."
     nodes:
       ward:
         type: apply_effects
@@ -405,6 +437,9 @@ abilities:
         type: play_cue
         cue: amethyst_reflect
         at: absorbed_at
+        next: spent
+      spent:
+        type: end_cast               # one shot caught: the ward's done
 
   # ULTIMATE (F): Crystallize. 5s to choose (a boss bar; the enemy in your sights glows): LMB that enemy, RMB yourself:
   # they turn into an amethyst geode. F again: cancel. (The cooldown starts as you press F.)
@@ -546,15 +581,19 @@ characters:
       attack_speed: 5.0              # shards per second (out of ammo: 1.5)
     status_bar: amethyst_gathering   # XP bar: Shard Volley's shards gathered (the level), while she gathers
     resources:
+      gathered:                      # Shard Volley: shards gathered so far (shown on the XP bar, not the hotbar)
+        max: 6
       ammo:                          # PASSIVE: her shards (slot 9)
         max: 6
-        regen: 0.5                   # a shard every 2s...
+        regen: 0.125                 # a shard every 8s...
         delay: 40                    # ...after 2s without shooting (hanging shards come back sooner: see above)
         hotbar: 9
         icon: AMETHYST_SHARD
     forms:
       - while: state.choosing_crystal   # Crystallize: choosing
         slots: { primary: amethyst_crystallize_enemy, secondary: amethyst_crystallize_self }
+      - while: state.gathering          # Shard Volley: LMB looses it early
+        slots: { primary: amethyst_volley }
     slots:
       primary: amethyst_primary      # LMB: Amethyst Shard (pierces; lingers at full range)
       ability_1: amethyst_ab1        # 1: Shard Volley (by itself once gathered)

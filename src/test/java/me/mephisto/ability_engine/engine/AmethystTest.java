@@ -106,17 +106,17 @@ class AmethystTest {
     }
 
     @Test
-    void eachShardHangsEightSecondsFromWhenItGotThere() throws IOException {
+    void eachShardHangsFiveSecondsFromWhenItGotThere() throws IOException {
         setup();
         use(Slots.PRIMARY);
         t.time.advance(40);
         use(Slots.PRIMARY); // 2s later
         t.time.advance(15);
         assertEquals(2, t.engine.constructs().activeCount(), "both hanging");
-        t.time.advance(120); // t=175: the first got there at ~12 (its flight), so 8s later it's gone
+        t.time.advance(60); // t=115: the first got there at ~12 (its flight), so 5s later it's gone
         assertEquals(1, t.engine.constructs().activeCount(), "the first has faded");
         t.time.advance(40);
-        assertEquals(0, t.engine.constructs().activeCount(), "t=215: the second too (it got there at ~52)");
+        assertEquals(0, t.engine.constructs().activeCount(), "t=155: the second too (it got there at ~52)");
     }
 
     @Test
@@ -203,17 +203,34 @@ class AmethystTest {
         use(Slots.ABILITY_1);
         t.time.advance(25);
         assertTrue(stacks(p, "amethyst_gathering") >= 3, "the XP bar counts them: " + stacks(p, "amethyst_gathering"));
-        assertTrue(t.engine.tags().has(p, "state.slowed"), "slowed while she gathers");
-        assertFalse(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "a channel: nothing else meanwhile");
-        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success());
+        assertTrue(t.engine.stats().moveSpeedMultiplier(p) < 0.8, "slower with every shard gathered");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "a channel: nothing else meanwhile");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ULTIMATE).success());
         assertEquals(0, t.damage(enemy), 1e-6, "not loosed yet");
         t.time.advance(60);
-        assertFalse(t.engine.tags().has(p, "state.slowed"), "loosed: not slowed any more");
+        assertEquals(1, t.engine.stats().moveSpeedMultiplier(p), 1e-9, "loosed: not slowed any more");
         t.time.advance(10);
         use(Slots.PRIMARY); // and free again
         assertTrue(has(enemy, "amethyst_volley_slow"), "loosed by itself: slowed");
         assertTrue(t.damage(enemy) >= BASE * 0.6, "and the burst behind them hurt: " + t.damage(enemy));
         assertFalse(has(p, "amethyst_gathering"), "over: the count's gone");
+    }
+
+    @Test
+    void lmbLoosesTheVolleyEarlyWithWhatSheHas() throws IOException {
+        setup();
+        UUID enemy = foe(6, 0);
+        use(Slots.ABILITY_1);
+        t.time.advance(20); // 3 gathered (at 0, 9, 18)
+        assertEquals(3, stacks(p, "amethyst_gathering"));
+        assertEquals("amethyst_volley", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "LMB looses it");
+        use(Slots.PRIMARY);
+        assertFalse(t.engine.tags().has(p, "state.channeling"), "the channel's over");
+        assertEquals(1, t.engine.stats().moveSpeedMultiplier(p), 1e-9, "and its slow");
+        t.time.advance(20);
+        assertTrue(has(enemy, "amethyst_volley_slow"), "the 3 flew");
+        assertTrue(t.damage(enemy) >= BASE * 0.6);
+        assertTrue(t.damage(enemy) <= 3 * BASE * 0.6 + 1e-6, "3 shards at most: " + t.damage(enemy));
     }
 
     @Test
@@ -224,7 +241,6 @@ class AmethystTest {
         t.time.advance(20);
         t.engine.statuses().apply(p, "stun", 20, enemy);
         assertFalse(t.engine.tags().has(p, "state.channeling"), "broken");
-        assertFalse(t.engine.tags().has(p, "state.slowed"));
         t.time.advance(80);
         assertEquals(0, t.damage(enemy), 1e-6, "nothing was loosed");
         assertFalse(has(p, "amethyst_gathering"), "the XP bar's count is gone");
@@ -248,6 +264,7 @@ class AmethystTest {
         t.time.advance(20);
         assertEquals(0, t.damage(p), 1e-6, "the barrier caught it");
         assertEquals(50, t.damage(enemy), 1e-6, "and sent their own shot back at them: its own 50 damage");
+        assertFalse(t.engine.barriers().has(p), "one shot caught: the ward's done");
     }
 
     @Test

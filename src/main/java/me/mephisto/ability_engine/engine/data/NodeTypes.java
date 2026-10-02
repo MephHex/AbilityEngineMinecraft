@@ -257,6 +257,7 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SetOffConstructsNode(p.requireString("ability"),
                     p.getString("center", "hit"), radius);
         });
+        t.register("cast", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.CastNode(p.requireString("ability")));
         t.register("end_projectiles", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.EndProjectilesNode(
                 p.requireString("ability"), p.getString("node", null)));
         t.register("strike_constructs", (p, e) -> {

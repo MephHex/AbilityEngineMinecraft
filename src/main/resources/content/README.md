@@ -639,6 +639,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   standing (e.g. recalling shards left hanging). Its icon's stack counts them; with none its cooldown sweep stays full
   (greyed out) and its key does nothing. `also_flying: <node>` counts that ability's projectiles from that node still
   flying too.
+- **cast** `{ ability }`: the caster casts another ability of theirs right now, as if they'd pressed its key (with its
+  own checks), e.g. a channel that, full, fires the same volley its LMB can fire early.
 - **end_projectiles** `{ ability, node }`: the caster's projectiles from that ability (only those its `node` launched;
   default any) end right where they are, mid-flight: each exits `expired` there (e.g. a shard that then hangs, to be
   recalled with `set_off_constructs` right after).
@@ -648,4 +650,4 @@ slot, so an ability is only silenced when it's in an ability slot.
   it glow for its owner only (nobody else sees the glow).
 - **Cues:** amethyst_shard_shot, amethyst_shard_hit, amethyst_shard_linger, amethyst_shard_fade, amethyst_shard_caught,
   amethyst_recall, amethyst_recall_hit, amethyst_gather, amethyst_volley_shot, amethyst_burst, amethyst_ward (looping),
-  amethyst_reflect, amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.
+  amethyst_reflect, amethyst_orbit (looping: one more shard circling her each time), amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.
