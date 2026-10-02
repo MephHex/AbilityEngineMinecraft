@@ -26,8 +26,9 @@ public final class BarrierSystem {
     public static final String BLOCK_CUE = "barrier_block";
 
     /** @param projectilesOnly it only stops projectiles (not rays, dashes or melee) */
+    /** @param around a sphere of {@code radius} around its owner (from every side) instead of a disc in front */
     private record Barrier(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb,
-                           boolean reflect) {}
+                           boolean reflect, boolean around) {}
 
     /** Told when a barrier absorbs an enemy projectile: in which world, where, and whose it was. */
     @FunctionalInterface
@@ -72,7 +73,13 @@ public final class BarrierSystem {
     /** @param reflect what it absorbs is sent back at whoever shot it: a copy of the shot, cast by the owner */
     public Runnable raise(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb,
                           boolean reflect) {
-        Barrier b = new Barrier(owner, distance, radius, projectilesOnly, onAbsorb, reflect);
+        return raise(owner, distance, radius, projectilesOnly, onAbsorb, reflect, false);
+    }
+
+    /** @param around all the way around its owner: a sphere of {@code radius} (distance doesn't matter then) */
+    public Runnable raise(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb,
+                          boolean reflect, boolean around) {
+        Barrier b = new Barrier(owner, distance, radius, projectilesOnly, onAbsorb, reflect, around);
         active.add(b);
         return () -> active.remove(b);
     }
@@ -100,6 +107,11 @@ public final class BarrierSystem {
         for (Barrier b : List.copyOf(active)) {
             if (b.projectilesOnly() && !projectile) continue;
             if (!teams.enemies(attacker, b.owner())) continue;
+            if (b.around()) { // a sphere around them: wherever the path first enters it
+                Optional<Crossing> c = sphereCrossing(b, worldName, from, d, thickness);
+                if (c.isPresent() && (best == null || c.get().distance() < best.distance())) best = c.get();
+                continue;
+            }
             Optional<Plane> plane = plane(b);
             if (plane.isEmpty() || !plane.get().world.equals(worldName)) continue;
             Plane pl = plane.get();
@@ -125,6 +137,7 @@ public final class BarrierSystem {
         if (!teams.enemies(attacker, target)) return false;
         for (Barrier b : List.copyOf(active)) {
             if (!b.owner().equals(target) || (b.projectilesOnly() && !projectile)) continue;
+            if (b.around()) return true; // all the way round: from any side
             Optional<Plane> plane = plane(b);
             if (plane.isEmpty()) continue;
             Vec3 toOrigin = origin.subtract(plane.get().ownerCenter);
@@ -145,6 +158,28 @@ public final class BarrierSystem {
     }
 
     // ---- geometry ----------------------------------------------------------------------------
+
+    /**
+     * Where a path from {@code from} along {@code d} (a sphere of {@code thickness}) first enters an all-around barrier: a
+     * sphere of its radius around its owner's centre. Starting inside it already counts, right where it starts.
+     */
+    private Optional<Crossing> sphereCrossing(Barrier b, String worldName, Vec3 from, Vec3 d, double thickness) {
+        Optional<PointTarget> body = world.positionOf(new EntityTarget(b.owner()));
+        if (body.isEmpty() || !body.get().world().equals(worldName)) return Optional.empty();
+        Vec3 c = body.get().position();
+        double r = b.radius() + thickness;
+        Vec3 f = from.subtract(c);
+        if (f.length() <= r) return Optional.of(new Crossing(from, 0, b.onAbsorb(), b.owner(), b.reflect()));
+        double a = d.dot(d);
+        if (a < 1e-12) return Optional.empty();
+        double half = f.dot(d);
+        double disc = half * half - a * (f.dot(f) - r * r);
+        if (disc < 0) return Optional.empty();
+        double t = (-half - Math.sqrt(disc)) / a; // the nearer of the two: going in
+        if (t < 0 || t > 1) return Optional.empty();
+        Vec3 hit = from.add(d.multiply(t));
+        return Optional.of(new Crossing(hit, hit.distance(from), b.onAbsorb(), b.owner(), b.reflect()));
+    }
 
     private record Plane(String world, Vec3 ownerCenter, Vec3 center, Vec3 normal) {}
 

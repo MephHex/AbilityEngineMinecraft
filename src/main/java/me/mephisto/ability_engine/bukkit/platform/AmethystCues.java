@@ -19,8 +19,8 @@ final class AmethystCues {
     private static final Particle.DustOptions PALE = new Particle.DustOptions(Color.fromRGB(220, 180, 255), 0.8f);
     private static final BlockData AMETHYST = Material.AMETHYST_BLOCK.createBlockData();
 
-    /** Shardfall's rain: keep it in step with the ability's radius. */
-    static final double RAIN_RADIUS = 4;
+    /** Crystal Ward's shell: keep it in step with the barrier's radius. */
+    static final double WARD_RADIUS = 1.6;
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary and Recall ----
@@ -59,13 +59,21 @@ final class AmethystCues {
         });
 
         // ---- 2: Crystal Ward ----
-        c.registerLoop("amethyst_ward", e -> { // crystal motes in front of her, where the barrier stands
+        c.registerLoop("amethyst_ward", e -> { // a shell of crystal motes all around her, where the barrier stands
             e.getWorld().playSound(e.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_PLACE, 1f, 1.0f);
+            int[] tick = {0};
             BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
                 if (!e.isValid()) return;
-                Location front = e.getLocation().add(e.getLocation().getDirection().setY(0).normalize().multiply(1.0)).add(0, 1, 0);
-                e.getWorld().spawnParticle(Particle.DUST, front, 10, 0.6, 0.7, 0.6, 0, VIOLET);
-            }, 0, 3);
+                var c0 = e.getBoundingBox().getCenter();
+                for (int i = 0; i < 14; i++) { // points spread over the sphere, turning slowly
+                    double y = 1 - 2 * (i + 0.5) / 14, r = Math.sqrt(1 - y * y);
+                    double a = i * 2.39996 + tick[0] * 0.15; // golden angle
+                    e.getWorld().spawnParticle(Particle.DUST, c0.getX() + Math.cos(a) * r * WARD_RADIUS,
+                            c0.getY() + y * WARD_RADIUS, c0.getZ() + Math.sin(a) * r * WARD_RADIUS, 1, 0, 0, 0, 0,
+                            i % 3 == 0 ? PALE : VIOLET);
+                }
+                tick[0]++;
+            }, 0, 2);
             return (CueHandle) () -> {
                 task.cancel();
                 if (e.isValid()) e.getWorld().playSound(e.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 1.2f);
@@ -74,30 +82,6 @@ final class AmethystCues {
         c.register("amethyst_reflect", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 8, 0.2, 0.2, 0.2, 0.05);
             loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1.8f);
-        });
-
-        // ---- 3: Shardfall ----
-        c.register("amethyst_shardfall_cast", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 0.6f));
-        c.register("amethyst_shardfall_impact", loc -> {
-            World w = loc.getWorld();
-            w.spawnParticle(Particle.BLOCK, loc, 80, 1.5, 0.5, 1.5, 0, AMETHYST);
-            w.spawnParticle(Particle.EXPLOSION, loc, 2, 0.5, 0.2, 0.5, 0);
-            w.playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.2f, 0.6f);
-            w.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1.2f, 0.6f);
-        });
-        c.register("amethyst_shardfall_rain", loc -> { // crystal bits falling all over the area, and its edge
-            World w = loc.getWorld();
-            for (int i = 0; i < 12; i++) {
-                double a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * RAIN_RADIUS;
-                w.spawnParticle(Particle.FALLING_DUST, loc.getX() + Math.cos(a) * r, loc.getY() + 3, loc.getZ() + Math.sin(a) * r,
-                        1, 0, 0, 0, 0, AMETHYST);
-            }
-            for (int i = 0; i < 28; i++) {
-                double a = Math.PI * 2 * i / 28;
-                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * RAIN_RADIUS, loc.getY() + 0.1,
-                        loc.getZ() + Math.sin(a) * RAIN_RADIUS, 1, 0, 0, 0, 0, VIOLET);
-            }
-            w.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_STEP, 0.8f, 1.5f);
         });
 
         // ---- ultimate: Crystallize ----

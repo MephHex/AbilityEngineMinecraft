@@ -3,7 +3,6 @@ package me.mephisto.ability_engine.engine;
 import me.mephisto.ability_engine.engine.combat.DamageModifiers;
 import me.mephisto.ability_engine.engine.loadout.Slots;
 import me.mephisto.ability_engine.engine.math.Vec3;
-import me.mephisto.ability_engine.engine.target.PointTarget;
 import me.mephisto.ability_engine.engine.testkit.ShippedContent;
 import me.mephisto.ability_engine.engine.testkit.TestEngine;
 import org.junit.jupiter.api.Test;
@@ -79,7 +78,7 @@ class AmethystTest {
         assertEquals(4, t.engine.resources().get(p, "ammo"), "two shards out");
 
         UUID enemy = foe(9, 0); // between them and her
-        use(Slots.SECONDARY); // Recall
+        use(Slots.ABILITY_3); // Recall
         t.time.advance(20);
         assertEquals(0, t.engine.constructs().activeCount(), "both came back");
         assertEquals(6, t.engine.resources().get(p, "ammo"), "and back in the ammo");
@@ -100,7 +99,7 @@ class AmethystTest {
         use(Slots.PRIMARY);
         t.time.advance(5);
         assertEquals(1, t.engine.constructs().activeCount(), "it stays where it hit");
-        use(Slots.SECONDARY);
+        use(Slots.ABILITY_3);
         t.time.advance(10);
         assertEquals(0, t.engine.constructs().activeCount(), "and comes back with Recall");
         assertEquals(6, t.engine.resources().get(p, "ammo"));
@@ -195,20 +194,21 @@ class AmethystTest {
         assertEquals(50, t.damage(enemy), 1e-6, "and sent their own shot back at them: its own 50 damage");
     }
 
-    // ---- Shardfall --------------------------------------------------------------------------------------------
-
     @Test
-    void shardfallRainsOnTheAreaSlowingAndHurtingWhoeverStaysInIt() throws IOException {
+    void crystalWardCatchesShotsFromBehindToo() throws IOException {
         setup();
-        UUID enemy = foe(10, 0);
-        UUID outside = foe(10, 8);
-        var ability = t.engine.abilities().find("amethyst_ab3").orElseThrow();
-        assertTrue(t.engine.activator().activateAt(p, ability, new PointTarget("world", new Vec3(10, 0, 0))).success());
-        t.time.advance(40);
-        assertTrue(has(enemy, "amethyst_shardfall"), "slowed and easier to hurt");
-        t.time.advance(100);
-        assertTrue(t.damage(enemy) >= 10 * BASE * 0.2 - 1e-6, "20% every 0.5s for 5s: " + t.damage(enemy));
-        assertEquals(0, t.damage(outside), 1e-6);
+        t.load(map("abilities", map("test_bolt", map("nodes", map(
+                "shoot", map("type", "projectile", "speed", 1.0, "size", 0.4, "lifetime", 30,
+                        "on", map("hit_entity", "hurt")),
+                "hurt", map("type", "apply_effects", "targets", map("type", "key", "key", "hit"),
+                        "effects", List.of(map("id", "damage", "amount", 50))))))));
+        UUID enemy = foe(-8, 0); // behind her (she looks +x)
+        t.world.look(enemy, new Vec3(1, 0, 0));
+        use(Slots.ABILITY_2);
+        assertTrue(t.engine.activator().activate(enemy, "test_bolt").success());
+        t.time.advance(20);
+        assertEquals(0, t.damage(p), 1e-6, "all the way around: caught from behind");
+        assertEquals(50, t.damage(enemy), 1e-6, "and sent back");
     }
 
     // ---- Crystallize ------------------------------------------------------------------------------------------

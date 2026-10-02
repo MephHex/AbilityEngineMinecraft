@@ -1,12 +1,13 @@
 # content: amethyst
 # The Amethyst (a working name): a crystal mage. Her shards pierce, hang in the air where they run out and come back to
-# her, she looses volleys of them, wards herself with a crystal barrier that throws shots back, rains crystal on an area
-# and turns someone (or herself) into crystal.
+# her, she looses volleys of them, wards herself with a crystal shell that throws shots back, and turns someone (or
+# herself) into crystal.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
 # PASSIVE (Lingering Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (5 a second). Each shard pierces
 #   enemies (the first one hit takes full damage, those behind it half), and one that reaches its full range, or hits
-#   the ground or a wall, hangs there upright, bobbing, for 5s from when it got there. Every hanging shard comes back to the ammo: one when it fades, or all of them at once with Recall (RMB).
+#   the ground or a wall, hangs there upright, bobbing, for 5s from when it got there. Every hanging shard comes back to
+#   the ammo: one when it fades, or all of them at once with Recall (3).
 #   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again. (The ammo
 #   also refills by itself, a shard every 2s after 2s without shooting, so she's never left with none.)
 #
@@ -50,11 +51,6 @@ statuses:
     move_speed: 1.3                  # +30%
     tags: [buff.crystal_ward]
     positive: false                  # (hers: a tether doesn't copy it)
-  amethyst_shardfall:                # Shardfall: inside the rain, slowed and easier to hurt
-    duration: 15                     # (kept on every 0.5s while they stand in it)
-    stacking: refresh
-    move_speed: 0.7                  # -30%
-    damage_taken: 1.15               # +15% damage taken
   amethyst_sighted:                  # Crystallize: the enemy in her sights while she chooses (they glow)
     duration: 4
     stacking: refresh
@@ -95,7 +91,7 @@ abilities:
         - "20% to those behind. 6 shards of ammo;"
         - "where they end (range, ground, wall)"
         - "they hang 5s"
-        - "and come back to it. RMB: Recall them."
+        - "and come back to it. 3: Recall them."
         - "Out of ammo: plain, slower shards."
     nodes:
       load:
@@ -249,15 +245,16 @@ abilities:
           - { id: damage, base: 0.4, knockback: false }
         next: hit_cue
 
-  # SECONDARY (RMB): Recall. Every shard hanging in the air flies back to you (each one back in your ammo), through
+  # 3: Recall (1s). Every shard hanging in the air flies back to you (each one back in your ammo), through
   # enemies on the way: each shard that hits them deals 45% base damage and slows them a bit more (x0.88 a shard, 2s),
   # and they bleed for 4s (40% less healing, -15% damage, 6% of their max HP over the 4s).
   amethyst_recall:
     cooldown: 20                     # 1s
     display:
       name: "Recall"
+      icon: SMALL_AMETHYST_BUD
       description:
-        - "RMB: every hanging shard flies back to"
+        - "Every hanging shard flies back to"
         - "you (and your ammo). Each that hits: 45%"
         - "base damage and a stronger slow; they"
         - "bleed 4s (6% max HP, less healing,"
@@ -355,18 +352,18 @@ abilities:
         effects:
           - { id: remove_status, status: amethyst_gathering }
 
-  # 2: Crystal Ward (12s). A crystal barrier in front of you for 2.5s, and you're 30% faster meanwhile. Every enemy
-  # projectile it catches is sent back at whoever shot it: a copy of their own shot, now yours (their ability's damage
-  # and effects, on them).
+  # 2: Crystal Ward (12s). A crystal shell all around you for 2.5s, and you're 30% faster meanwhile. Every enemy
+  # projectile it catches, from any side, is sent back at whoever shot it: a copy of their own shot, now yours (their
+  # ability's damage and effects, on them). It stops melee hits and rays from every side too.
   amethyst_ab2:
     cooldown: 240                    # 12s
     display:
       name: "Crystal Ward"
       icon: AMETHYST_BLOCK
       description:
-        - "2.5s crystal barrier in front of you,"
-        - "+30% speed. Shots it catches go back at"
-        - "the shooter: their own shot, now yours."
+        - "2.5s crystal shell all around you, +30%"
+        - "speed. Shots it catches (any side) go"
+        - "back at the shooter: their own, now yours."
     nodes:
       ward:
         type: apply_effects
@@ -377,8 +374,8 @@ abilities:
         next: raise
       raise:
         type: barrier                # stands until the cast ends
-        distance: 1.0
-        radius: 1.4
+        around: true                 # a shell all the way around her (from every side)
+        radius: 1.6
         reflect: true                # what it catches goes back at the shooter (a copy of the shot, cast by her)
         on: { out: shimmer, absorbed: reflect_cue }
       shimmer:
@@ -392,63 +389,6 @@ abilities:
         type: play_cue
         cue: amethyst_reflect
         at: absorbed_at
-
-  # 3: Shardfall (14s). Mark an area (aim preview, 25 blocks, 4-block radius): a great shard falls on it and shatters,
-  # and crystal rains there for 5s: enemies inside take 20% base damage every 0.5s (200% in all), are 30% slower and
-  # take 15% more damage while they stay in it.
-  amethyst_ab3:
-    cooldown: 280                    # 14s
-    targeting:
-      shape: circle
-      range: 25
-      radius: 4                      # = the rain (and the cue's ring)
-      ground: true
-    display:
-      name: "Shardfall"
-      icon: BUDDING_AMETHYST
-      description:
-        - "A great shard falls on an area and"
-        - "shatters: 5s of crystal rain, 20% base"
-        - "damage every 0.5s, 30% slower, +15%"
-        - "damage taken inside."
-    nodes:
-      cast:
-        type: play_cue
-        cue: amethyst_shardfall_cast
-        next: drop
-      drop:
-        type: projectile             # out of the sky onto the spot
-        from: aim
-        up: 12
-        back: 3
-        toward: aim
-        speed: 1.2
-        size: 1.0
-        lifetime: 40
-        visual: "block:AMETHYST_BLOCK"
-        visual_size: 1.4
-        on: { hit_entity: shatter, hit_block: shatter, expired: shatter }
-      shatter:
-        type: play_cue
-        cue: amethyst_shardfall_impact
-        at: aim
-        next: rain
-      rain:
-        type: repeat                 # 10 x 0.5s
-        times: 10
-        every: 10
-        on: { each: drops }
-      drops:
-        type: apply_effects
-        targets: { type: radius, center: aim, radius: 4 }
-        effects:
-          - { id: damage, base: 0.2, knockback: false }
-          - { id: status, status: amethyst_shardfall }
-        next: drops_cue
-      drops_cue:
-        type: play_cue
-        cue: amethyst_shardfall_rain
-        at: aim
 
   # ULTIMATE (F): Crystallize. 5s to choose (a boss bar; the enemy in your sights glows): LMB that enemy, RMB yourself:
   # they turn into an amethyst geode. F again: cancel. (The cooldown starts as you press F.)
@@ -601,8 +541,7 @@ characters:
         slots: { primary: amethyst_crystallize_enemy, secondary: amethyst_crystallize_self }
     slots:
       primary: amethyst_primary      # LMB: Amethyst Shard (pierces; lingers at full range)
-      secondary: amethyst_recall     # RMB: Recall
       ability_1: amethyst_ab1        # 1: Shard Volley (by itself once gathered)
       ability_2: amethyst_ab2        # 2: Crystal Ward
-      ability_3: amethyst_ab3        # 3: Shardfall
+      ability_3: amethyst_recall     # 3: Recall
       ultimate: amethyst_ult1        # F: Crystallize
