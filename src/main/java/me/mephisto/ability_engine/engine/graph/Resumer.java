@@ -18,6 +18,9 @@ public final class Resumer {
 
     public ExecutionContext context() { return ctx; }
 
+    /** The node it continues from. */
+    public String node() { return nodeId; }
+
     public void resume(String port) {
         if (used) throw new IllegalStateException("Resumer for node '" + nodeId + "' used twice");
         used = true;

@@ -60,8 +60,9 @@ class AmethystTest {
         UUID back = foe(7, 0);
         use(Slots.PRIMARY);
         t.time.advance(10);
-        assertEquals(BASE * 0.8, t.damage(front), 1e-6, "the first: 80%");
-        assertEquals(BASE * 0.4, t.damage(back), 1e-6, "behind it: 40%");
+        assertEquals(BASE * 0.4, t.damage(front), 1e-6, "the first: 40%");
+        assertEquals(BASE * 0.2, t.damage(back), 1e-6, "behind it: 20%");
+        assertEquals(5, t.engine.resources().get(p, "ammo"), "a shard of ammo");
     }
 
     @Test
@@ -75,10 +76,13 @@ class AmethystTest {
         t.time.advance(15);
         assertEquals(2, t.engine.constructs().activeCount(), "two");
 
+        assertEquals(4, t.engine.resources().get(p, "ammo"), "two shards out");
+
         UUID enemy = foe(9, 0); // between them and her
         use(Slots.SECONDARY); // Recall
         t.time.advance(20);
         assertEquals(0, t.engine.constructs().activeCount(), "both came back");
+        assertEquals(6, t.engine.resources().get(p, "ammo"), "and back in the ammo");
         assertEquals(2 * BASE * 0.45, t.damage(enemy), 1e-6, "45% per shard that hit");
         assertEquals(2, stacks(enemy, "amethyst_shard_slow"), "slowed more per shard");
         assertTrue(has(enemy, "amethyst_bleed"), "and bleeding");
@@ -87,9 +91,15 @@ class AmethystTest {
     @Test
     void atMostSixShardsHang() throws IOException {
         setup();
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 6; i++) {
             use(Slots.PRIMARY);
-            t.time.advance(15);
+            t.time.advance(4);
+        }
+        t.time.advance(15);
+        assertEquals(6, t.engine.constructs().activeCount(), "the whole ammo hanging");
+        for (int i = 0; i < 2; i++) { // out of ammo: plain shards, they don't hang
+            use(Slots.PRIMARY);
+            t.time.advance(14);
         }
         assertEquals(6, t.engine.constructs().activeCount());
     }
@@ -97,25 +107,46 @@ class AmethystTest {
     // ---- Shard Volley -----------------------------------------------------------------------------------------
 
     @Test
-    void shardVolleyGathersUpToSixThenLmbLoosesThem() throws IOException {
+    void outOfAmmoShardsDontPierceAndComeSlower() throws IOException {
         setup();
-        use(Slots.ABILITY_1);
-        assertEquals("amethyst_volley", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "LMB looses it");
-        t.time.advance(40);
-        assertEquals(6, t.engine.resources().get(p, "gathered"), "6 gathered");
+        int fast = t.engine.stats().cooldownTicks(p, "amethyst_primary", 4);
+        for (int i = 0; i < 6; i++) {
+            use(Slots.PRIMARY);
+            t.time.advance(4);
+        }
+        assertEquals(0, t.engine.resources().get(p, "ammo"));
+        assertTrue(has(p, "amethyst_drained"), "out of ammo: slower");
+        assertTrue(t.engine.stats().cooldownTicks(p, "amethyst_primary", 4) > fast);
 
-        UUID enemy = foe(6, 0);
+        t.time.advance(20); // (the last full shards are hanging by now)
+        UUID front = foe(4, 0);
+        UUID back = foe(7, 0);
         use(Slots.PRIMARY);
-        t.time.advance(20);
-        assertTrue(has(enemy, "amethyst_volley_slow"), "slowed");
+        t.time.advance(10);
+        assertEquals(BASE * 0.4, t.damage(front), 1e-6, "a plain shard");
+        assertEquals(0, t.damage(back), 1e-6, "that doesn't pierce");
+    }
+
+    // ---- Shard Volley -----------------------------------------------------------------------------------------
+
+    @Test
+    void shardVolleyGathersSixThenLoosesThemByItself() throws IOException {
+        setup();
+        UUID enemy = foe(6, 0);
+        use(Slots.ABILITY_1);
+        t.time.advance(25);
+        assertTrue(stacks(p, "amethyst_gathering") >= 4, "the XP bar counts them: " + stacks(p, "amethyst_gathering"));
+        assertEquals(0, t.damage(enemy), 1e-6, "not loosed yet");
+        t.time.advance(40);
+        assertTrue(has(enemy, "amethyst_volley_slow"), "loosed by itself: slowed");
         assertTrue(t.damage(enemy) >= BASE * 0.6, "and the burst behind them hurt: " + t.damage(enemy));
-        assertEquals("amethyst_primary", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "all loosed: over");
+        assertFalse(has(p, "amethyst_gathering"), "over: the count's gone");
     }
 
     // ---- Crystal Ward -----------------------------------------------------------------------------------------
 
     @Test
-    void crystalWardCatchesAShotAndThrowsItBackAtTheShooter() throws IOException {
+    void crystalWardSendsTheShootersOwnShotBackAtThem() throws IOException {
         setup();
         t.load(map("abilities", map("test_bolt", map("nodes", map( // (ordered: the first node is where it starts)
                 "shoot", map("type", "projectile", "speed", 1.0, "size", 0.4, "lifetime", 30,
@@ -129,7 +160,7 @@ class AmethystTest {
         assertTrue(t.engine.activator().activate(enemy, "test_bolt").success());
         t.time.advance(20);
         assertEquals(0, t.damage(p), 1e-6, "the barrier caught it");
-        assertEquals(BASE, t.damage(enemy), 1e-6, "and threw it back: 100% base damage");
+        assertEquals(50, t.damage(enemy), 1e-6, "and sent their own shot back at them: its own 50 damage");
     }
 
     // ---- Shardfall --------------------------------------------------------------------------------------------

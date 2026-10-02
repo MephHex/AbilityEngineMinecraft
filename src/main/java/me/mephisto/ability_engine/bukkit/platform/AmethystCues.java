@@ -106,14 +106,7 @@ final class AmethystCues {
             loc.getWorld().spawnParticle(Particle.BLOCK, loc, 40, 0.4, 0.8, 0.4, 0, AMETHYST);
             loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_PLACE, 1.2f, 0.7f);
         });
-        c.registerLoop("amethyst_crystal", e -> { // encased: crystal all over them
-            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-                if (!e.isValid()) return;
-                e.getWorld().spawnParticle(Particle.DUST, e.getLocation().add(0, 1, 0), 18, 0.35, 0.8, 0.35, 0, VIOLET);
-                e.getWorld().spawnParticle(Particle.DUST, e.getLocation().add(0, 1, 0), 6, 0.4, 0.9, 0.4, 0, PALE);
-            }, 0, 2);
-            return (CueHandle) task::cancel;
-        });
+        c.registerLoop("amethyst_crystal", e -> geode(plugin, e)); // encased: an amethyst geode around them
         c.register("amethyst_shatter", loc -> {
             World w = loc.getWorld();
             w.spawnParticle(Particle.BLOCK, loc, 120, 2, 0.8, 2, 0, AMETHYST);
@@ -121,6 +114,55 @@ final class AmethystCues {
             w.playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.5f, 0.8f);
             w.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1.5f, 0.5f);
         });
+    }
+
+    /** A geode piece: a block display, {@code size} blocks wide on x/z and {@code height} tall, its bottom centre at {@code offset}. */
+    private record Piece(Material block, float x, float y, float z, float size, float height, float tilt) {}
+
+    /**
+     * Encased: an amethyst geode around them, just big enough to hide them (by their size): a shell of amethyst with
+     * clusters bristling out of it, a calcite rim at its foot. It follows them (they can't move anyway) until it ends.
+     */
+    private static CueHandle geode(Plugin plugin, org.bukkit.entity.Entity e) {
+        var box = e.getBoundingBox();
+        float w = (float) Math.max(0.8, box.getWidthX() * 1.6), h = (float) Math.max(1.0, box.getHeight() * 1.12);
+        java.util.List<Piece> pieces = java.util.List.of(
+                new Piece(Material.AMETHYST_BLOCK, 0, 0, 0, w, h, 0),                                    // the shell
+                new Piece(Material.CALCITE, 0, -0.02f, 0, w + 0.2f, 0.25f, 0),                          // its rim
+                new Piece(Material.AMETHYST_CLUSTER, w * 0.42f, h * 0.55f, 0, w * 0.45f, w * 0.45f, -0.6f),
+                new Piece(Material.AMETHYST_CLUSTER, -w * 0.42f, h * 0.35f, w * 0.1f, w * 0.4f, w * 0.4f, 0.6f),
+                new Piece(Material.AMETHYST_CLUSTER, 0, h * 0.97f, 0, w * 0.5f, w * 0.5f, 0),
+                new Piece(Material.LARGE_AMETHYST_BUD, w * 0.1f, h * 0.7f, -w * 0.45f, w * 0.35f, w * 0.35f, 0.5f));
+        Location at = e.getLocation();
+        at.setPitch(0);
+        at.setYaw(0);
+        java.util.List<org.bukkit.entity.BlockDisplay> shown = new java.util.ArrayList<>();
+        for (Piece piece : pieces) {
+            shown.add(at.getWorld().spawn(at, org.bukkit.entity.BlockDisplay.class, d -> {
+                d.setBlock(piece.block().createBlockData());
+                d.setPersistent(false);
+                d.setTeleportDuration(2);
+                VisualEntities.mark(d);
+                // centred on x/z at the offset, bottom at its y, tipped outward by tilt (radians, about z)
+                d.setTransformation(new org.bukkit.util.Transformation(
+                        new org.joml.Vector3f(piece.x() - piece.size() / 2, piece.y(), piece.z() - piece.size() / 2),
+                        new org.joml.Quaternionf().rotateZ(piece.tilt()),
+                        new org.joml.Vector3f(piece.size(), piece.height(), piece.size()), new org.joml.Quaternionf()));
+            }));
+        }
+        e.getWorld().spawnParticle(Particle.BLOCK, at.clone().add(0, h / 2, 0), 40, w / 3, h / 3, w / 3, 0, AMETHYST);
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!e.isValid()) return;
+            Location now = e.getLocation();
+            now.setPitch(0);
+            now.setYaw(0);
+            for (var d : shown) if (d.isValid()) d.teleport(now);
+            if (Math.random() < 0.3) e.getWorld().spawnParticle(Particle.DUST, now.clone().add(0, h, 0), 2, w / 3, 0.2, w / 3, 0, PALE);
+        }, 2, 2);
+        return () -> {
+            task.cancel();
+            for (var d : shown) d.remove();
+        };
     }
 
     private AmethystCues() {}

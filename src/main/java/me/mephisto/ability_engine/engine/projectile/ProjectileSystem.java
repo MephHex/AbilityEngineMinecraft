@@ -93,6 +93,32 @@ public final class ProjectileSystem {
         return p;
     }
 
+    /**
+     * Send {@code p} back at whoever shot it, from {@code from}: a copy of it, cast by {@code newOwner}. It's their own
+     * cast of the same ability (the shot's blackboard carried over: a charge's power, a phase...), so when the copy hits,
+     * that ability's hit logic runs as theirs: its damage, its statuses, on the original shooter and their allies.
+     */
+    public void reflect(Projectile p, UUID newOwner, Vec3 from) {
+        ExecutionContext old = p.resumer.context();
+        var engine = old.engine();
+        UUID shooter = old.caster();
+        Optional<PointTarget> at = world.positionOf(new EntityTarget(shooter));
+        if (at.isEmpty() || !at.get().world().equals(p.world)) return;
+        Vec3 toward = at.get().position().subtract(from);
+        if (toward.isZero()) return;
+        double speed = p.spec.speed() > 0 ? p.spec.speed() : Math.max(0.5, p.velocity.length());
+        Map<String, Object> presets = new HashMap<>(old.blackboard().snapshot());
+        presets.remove(Keys.CASTER.name());
+        presets.remove(Keys.HIT.name());
+        var copy = new me.mephisto.ability_engine.engine.ability.AbilityInstance(engine, old.instance().ability(), newOwner, presets);
+        engine.instances().add(copy);
+        ExecutionContext root = copy.adopt();
+        ExecutionContext branch = root.forkAt(p.resumer.node());
+        copy.closeBranch(); // the root goes nowhere: only the copy of the shot flies
+        launch(p.spec, p.world, from, toward.normalize().multiply(speed), branch.suspend());
+        log.debug(() -> "projectile -> reflected by " + newOwner + " at " + shooter);
+    }
+
     public int activeCount() { return active.size(); }
 
     /** Whose projectile this entity is the body of (a projectile with health), if it is one. */
@@ -218,6 +244,7 @@ public final class ProjectileSystem {
                 moveTo(p, barrier.get().position());
                 barriers.blocked(p.world, barrier.get().position());
                 barriers.absorbed(p.world, barrier.get(), ctx.caster()); // e.g. a barrier that sends one back
+                if (barrier.get().reflect()) reflect(p, barrier.get().owner(), barrier.get().position());
                 p.done = true;
                 p.visual.remove();
                 p.resumer.abandon();

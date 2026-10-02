@@ -63,7 +63,7 @@ public final class NodeTypes {
                 new ProjectileNode.Launch(p.getString("from", null), p.getDouble("up", 0), p.getDouble("back", 0),
                         p.getString("toward", null))));
         t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3),
-                p.getBool("projectiles_only", false)));
+                p.getBool("projectiles_only", false), p.getBool("reflect", false)));
         t.register("start_cue", (p, e) -> new StartCueNode(p.requireString("cue"), p.getString("at", null)));
         t.register("dash", (p, e) -> {
             boolean follow = p.getBool("follow", false);

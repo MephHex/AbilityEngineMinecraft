@@ -37,8 +37,8 @@ class AbilitiesYamlTest {
         TestEngine t = new TestEngine();
         LoadReport report = ShippedContent.loadInto(t.engine);
         assertTrue(report.isClean(), String.join("\n", report.errors()));
-        assertEquals(109, report.abilities());
-        assertEquals(81, report.statuses());
+        assertEquals(108, report.abilities());
+        assertEquals(83, report.statuses());
         assertEquals(16, report.characters());
         assertEquals(5, report.infusions());
     }
