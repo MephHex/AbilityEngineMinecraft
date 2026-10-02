@@ -6,7 +6,8 @@
 # PASSIVE (Overheat, the XP bar and hotbar slot 9): every enemy any of her abilities hits heats her up a stack (8 at
 #   most; burning and her scorched ground don't count). The XP bar fills from empty to full with them and slot 9 counts
 #   them. 3s without a hit and it's gone at once. Full: she OVERHEATS, and stays overheated as long as she keeps
-#   hitting: blue flames, Fire Bolts every 5 ticks instead of 10, 15% faster.
+#   hitting: blue flames, Fire Bolts every 5 ticks instead of 10, 15% faster. Overheated, the XP bar drains instead:
+#   the time she has left before it ends (full again with every hit).
 
 statuses:
   pyro_heat:                         # the gauge (XP bar: filled by its stacks; slot 9: their count)
@@ -379,6 +380,10 @@ characters:
           - "Each enemy you hit: a stack. 8 stacks:"
           - "you overheat (faster bolts, +15% speed)."
           - "3s without a hit: back to 0."
+    forms:
+      - while: state.overheated      # overheated: the XP bar drains over the 3s she has left without a hit (full again on
+        slots: {}                    # every hit), so she sees when it will end. Nothing else changes.
+        status_bar: { status: pyro_heat, level: none }
     variants:
       - while: state.overheated      # Overheat: blue flames instead of orange ones
         cue_suffix: _blue            # every pyro_x cue plays as pyro_x_blue
