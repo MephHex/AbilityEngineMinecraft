@@ -480,10 +480,12 @@ characters:
       # its size, x the default (1.0: as wide as she is; its petals reach 0.4 of that up and spread 1.75x)
       visual_size: 1.5
       # drawn this many ticks of her movement ahead of her, so it keeps up instead of trailing behind (0 = at her feet)
-      visual_lead: 3
+      visual_lead: 2
       # turned this many degrees: its 4 petals point ahead, behind and to the sides, so one sat right in front of her
       # view; 45 puts the gap between two petals there (90 would look just like 0: the petals are at right angles)
       visual_turn: 45
+      # raised this many blocks above her feet (0.0625 = one pixel)
+      visual_up: 0.125               # 2 pixels
     ward:                            # PASSIVE: Spore Burst
       name: "Spore Burst"
       cast: fae_spore_burst          # the next enemy hit on her...

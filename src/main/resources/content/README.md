@@ -471,6 +471,7 @@ slot, so an ability is only silenced when it's in an ability slot.
     it (default 1.0: as wide as you are; /ae reload applies it). `visual_lead: 2` (default) draws it that many ticks
     of your movement ahead of you, so it keeps up instead of trailing behind (0 = right at your feet). `visual_turn: 45`
     turns it that many degrees about its upright axis (it faces where you face; e.g. so a petal isn't straight ahead).
+    `visual_up: 0.125` raises it that many blocks above your feet (0.0625 = one pixel).
 - **charge:** `bar: held` (with `release_gap`) - the cast bar only shows once the key is really held (its first
   repeat), so a tap shows nothing (e.g. "hold to cancel").
 - **Ward:** `cast: <ability>` (with `cooldown: <ticks>`) turns it into a REFLEX: the next enemy hit that gets

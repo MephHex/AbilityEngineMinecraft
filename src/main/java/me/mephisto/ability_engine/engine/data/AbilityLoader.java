@@ -236,9 +236,10 @@ public final class AbilityLoader {
     }
 
     /**
-     * {@code hover: { height, speed, visual, visual_size, visual_lead, visual_turn }}: a passive flight, at most that
-     * high above the ground. Without a height (0) there's no hover, only the visual at their feet ({@code visual_size} x
-     * its size, drawn {@code visual_lead} ticks of their movement ahead of them, turned {@code visual_turn} degrees).
+     * {@code hover: { height, speed, visual, visual_size, visual_lead, visual_turn, visual_up }}: a passive flight, at
+     * most that high above the ground. Without a height (0) there's no hover, only the visual at their feet
+     * ({@code visual_size} x its size, drawn {@code visual_lead} ticks of their movement ahead of them, turned
+     * {@code visual_turn} degrees, raised {@code visual_up} blocks).
      */
     private static CharacterDef.Hover hover(Params p) {
         if (!p.has("hover")) return null;
@@ -257,7 +258,9 @@ public final class AbilityLoader {
         if (lead < 0 || lead > 10) throw h.error("visual_lead", "must be 0-10 (ticks of movement it's drawn ahead; 0 = at your feet)");
         double turn = h.getDouble("visual_turn", 0);
         if (turn < -360 || turn > 360) throw h.error("visual_turn", "degrees, -360 to 360 (45 = an eighth of a turn)");
-        return new CharacterDef.Hover(height, speed, h.getString("visual", null), fly, visualSize, lead, turn);
+        double up = h.getDouble("visual_up", 0);
+        if (up < -1 || up > 1) throw h.error("visual_up", "blocks, -1 to 1 (0.0625 = one pixel higher)");
+        return new CharacterDef.Hover(height, speed, h.getString("visual", null), fly, visualSize, lead, turn, up);
     }
 
     /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */
