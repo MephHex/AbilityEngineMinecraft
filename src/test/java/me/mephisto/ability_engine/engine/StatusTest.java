@@ -77,4 +77,26 @@ class StatusTest {
         t.time.advance(60);
         assertTrue(t.engine.activator().activate(caster, "noop").success());
     }
+
+    @Test
+    void nothingLandsOnTheDead() {
+        TestEngine t = new TestEngine();
+        UUID attacker = t.spawn(0, 1, 0);
+        UUID victim = t.spawn(2, 1, 0);
+        t.world.kill(victim); // e.g. the damage of a hit that also slows: it killed them first
+        t.engine.resetOnDeath(victim);
+        t.engine.statuses().apply(victim, "root", attacker);
+        assertFalse(t.engine.statuses().has(victim, "root"), "not on the corpse: it would still be on them after respawning");
+        assertFalse(t.engine.tags().has(victim, Tags.BLOCK_MOVE));
+    }
+
+    @Test
+    void aRespawnStartsClean() {
+        TestEngine t = new TestEngine();
+        UUID player = t.spawn(0, 1, 0);
+        t.engine.statuses().apply(player, "root", 200, null);
+        t.engine.resetOnRespawn(player);
+        assertFalse(t.engine.statuses().has(player, "root"));
+        assertFalse(t.engine.tags().has(player, Tags.BLOCK_MOVE));
+    }
 }

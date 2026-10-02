@@ -43,13 +43,19 @@ public final class PlayerLifecycleListener implements Listener {
         if (event.getEntity() instanceof Player) event.getDrops().removeIf(hud::isHudItem);
     }
 
-    /** Redraw next tick: the respawned player's inventory isn't final during the event. */
+    /**
+     * A fresh life: nothing from the last one stays on them (statuses, tags and what they did in game: slows, a
+     * held-in-place lock...), even what landed after the death. Then the HUD is redrawn, next tick: the respawned
+     * player's inventory isn't final during the event.
+     */
     @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
         Player p = event.getPlayer();
-        if (!engine.loadouts().has(p.getUniqueId())) return;
         engine.scheduler().after(1, () -> {
-            if (p.isOnline()) hud.render(p);
+            if (!p.isOnline()) return;
+            engine.resetOnRespawn(p.getUniqueId());
+            tagBindings.scrub(p);
+            if (engine.loadouts().has(p.getUniqueId())) hud.render(p);
         });
     }
 
