@@ -604,6 +604,7 @@ characters:
       ammo:                          # PASSIVE: her shards (slot 9)
         max: 6
         regen: 0.125                 # a shard every 8s, all the time (Recall brings hanging ones back sooner)
+        refill_sweep: true           # its item shows the next shard coming back (a grey sweep)
         hotbar: 9
         icon: AMETHYST_SHARD
     forms:

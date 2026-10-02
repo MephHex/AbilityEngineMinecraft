@@ -126,6 +126,21 @@ public final class ResourceManager {
         return Math.max(0, p.lastSpend + p.def.reloadTicks() - clock.now());
     }
 
+    /**
+     * Ticks until the next whole unit comes back by regen (e.g. the next shard of ammo), its regen delay included; 0 when
+     * full or when it doesn't regen.
+     */
+    public long nextUnitTicks(UUID owner, String resource) {
+        Pool p = pool(owner, resource);
+        if (p == null || p.def == null || p.def.regenPerSecond() <= 0) return 0;
+        update(p);
+        if (p.value >= p.def.max() - 1e-9) return 0;
+        long now = clock.now();
+        long delayLeft = Math.max(0, p.lastSpend + p.def.delayTicks() - now);
+        double toNext = Math.floor(p.value + 1e-9) + 1 - p.value;
+        return delayLeft + (long) Math.ceil(toNext / p.def.regenPerSecond() * 20.0 - 1e-9);
+    }
+
     private void update(Pool p) {
         long now = clock.now();
         // Ammo: empty, and the reload time since the last shot is up: full again.
