@@ -364,6 +364,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 
 ## Added for the Gunner
 
+- **Resources:** `regen_every: 60` - one unit back every so many ticks (60 = 3s): `regen` written the other way round
+  (give one or the other).
 - **Resources:** `refill_sweep: true` - its hotbar item shows a cooldown sweep for the next unit coming back by `regen`
   (e.g. the next shard of ammo); the stack still counts what's there.
 - **Resources (ammo):** `reload: <ticks>` - once it's empty, it refills to max that long after the last

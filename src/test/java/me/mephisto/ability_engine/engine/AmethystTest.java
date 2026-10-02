@@ -163,8 +163,8 @@ class AmethystTest {
         double before = t.engine.resources().value(p, "ammo");
         t.time.advance(105); // faded (5s after it got there)
         assertEquals(0, t.engine.constructs().activeCount(), "faded");
-        assertEquals(before + 105 / 20.0 * 0.125, t.engine.resources().value(p, "ammo"), 1e-6,
-                "no shard back from fading: only the slow refill, a shard every 8s");
+        assertEquals(Math.min(6, before + 105 / 60.0), t.engine.resources().value(p, "ammo"), 1e-6,
+                "no shard back from fading: only the refill, a shard every 3s");
     }
 
     @Test
@@ -177,7 +177,7 @@ class AmethystTest {
         t.engine.resources().set(p, "ammo", 0);
         use(Slots.ABILITY_3);
         t.time.advance(60); // caught (and past the end of their 2s flight, had they flown on)
-        assertEquals(2 + 60 / 20.0 * 0.125, t.engine.resources().value(p, "ammo"), 1e-6,
+        assertEquals(2 + 60 / 60.0, t.engine.resources().value(p, "ammo"), 1e-6,
                 "2 shards caught: 2 ammo (plus the 3s of slow refill), not 2 each");
     }
 
@@ -186,10 +186,10 @@ class AmethystTest {
         setup();
         assertEquals(0, t.engine.resources().nextUnitTicks(p, "ammo"), "full: nothing coming");
         use(Slots.PRIMARY); // 5 left
-        assertEquals(160, t.engine.resources().nextUnitTicks(p, "ammo"), "the next shard in 8s");
-        t.time.advance(60);
-        assertEquals(100, t.engine.resources().nextUnitTicks(p, "ammo"));
-        t.time.advance(100);
+        assertEquals(60, t.engine.resources().nextUnitTicks(p, "ammo"), "the next shard in 3s");
+        t.time.advance(20);
+        assertEquals(40, t.engine.resources().nextUnitTicks(p, "ammo"));
+        t.time.advance(40);
         assertEquals(6, t.engine.resources().get(p, "ammo"));
         assertEquals(0, t.engine.resources().nextUnitTicks(p, "ammo"));
     }
