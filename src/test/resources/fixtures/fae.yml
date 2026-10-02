@@ -241,6 +241,14 @@ abilities:
         type: play_cue
         cue: fae_perch
         at: mount
+        next: ward
+      ward:
+        type: apply_effects          # landing on them: a 60 HP shield for 2s (as long as a gust)
+        targets: { type: key, key: mount }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: shield, amount: 60, lasts: 40 }
         next: sat
       sat:
         type: start_cooldown         # sitting down: the full cooldown, every time (another ally too)

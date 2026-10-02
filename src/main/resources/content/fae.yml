@@ -199,19 +199,20 @@ abilities:
   # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and sit in
   # your blossom on their head: you go where they go, untouchable (abilities pass through you, nothing hurts you).
   # They don't see you (you'd be in their way), everyone else does; your hunger bar shows their hearts.
-  # They're 20% faster
-  # and their basic attacks deal +2 HP. The cooldown (5s) starts as you sit down. Press 2 again once it's
+  # Landing on them gives them a 60 HP shield for 2s. They're 20% faster
+  # and their basic attacks deal +2 HP. The cooldown (10s) starts as you sit down. Press 2 again once it's
   # over: a gust, +35% speed for them for 2s; aim at ANOTHER ally instead and you fly over to them (vulnerable
   # again on the way). Either one starts the cooldown again. Press SHIFT to hop off. It ends too when they die.
   fae_ab2:
-    cooldown: 100                    # 5s
+    cooldown: 200                    # 10s
     cooldown_starts: manual          # as she sits down (never reaching anyone: as it ends)
     display:
       name: "Perch"
       icon: PINK_PETALS
       description:
-        - "Fly onto an ally's head (20 blocks):"
-        - "untouchable; they're 20% faster, +2 HP"
+        - "Fly onto an ally's head (20 blocks): a"
+        - "60 HP shield for them (2s); untouchable;"
+        - "they're 20% faster, +2 HP"
         - "per basic attack. Again (off cooldown): gust"
         - "(+35% speed) or fly to another ally."
         - "Shift: hop off."
@@ -242,6 +243,14 @@ abilities:
         type: play_cue
         cue: fae_perch
         at: mount
+        next: ward
+      ward:
+        type: apply_effects          # landing on them: a 60 HP shield for 2s (as long as a gust)
+        targets: { type: key, key: mount }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: shield, amount: 60, lasts: 40 }
         next: sat
       sat:
         type: start_cooldown         # sitting down: the full cooldown, every time (another ally too)
@@ -354,7 +363,7 @@ abilities:
         cue: fae_trap_throw
       burst:
         type: apply_effects
-        targets: { type: radius, center: hit, radius: 3.5, sight: true }   # nobody behind a wall
+        targets: { type: radius, center: hit, radius: 2, sight: true }   # nobody behind a wall
         effects:
           - { id: damage, base: 1.0 }
           - { id: status, status: fae_toxin }
