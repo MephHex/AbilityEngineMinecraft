@@ -355,14 +355,14 @@ Wings (passive): short flights on a gauge (~3s), free gliding on an elytra, Slow
 | **180** | **5** (5%) | **32** | **1.00** | **5.0** (4 ticks; 1.5 out of ammo) | 189 | 64 (19 out of ammo) |
 
 Lingering Shards (passive): 6 shards of ammo; they pierce (half damage to those behind the first) and hang at full
-range for 8s (6 at most), coming back to the ammo when they fade or are recalled. Out of ammo: plain, slower shards.
+range for 5s (6 at most), coming back to the ammo when they fade or are recalled. Out of ammo: plain, slower shards.
 
 | Ability | Effect |
 |---|---|
-| Amethyst Shard (primary) | **40%** to the first, **20%** to up to 3 behind; at full range it hangs 8s. Out of ammo: **40%**, no pierce |
+| Amethyst Shard (primary) | **40%** to the first, **20%** to up to 3 behind; at full range it hangs 5s. Out of ammo: **40%**, no pierce |
 | Recall (3, 6s) | every hanging shard flies back (and into the ammo): **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (6% max HP, -40% healing, -15% damage) |
-| Shard Volley | gathers 6 (0.45s each, the XP bar counts them; 40% slower meanwhile), then looses them by itself: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
-| Crystal Ward | 2.5s shell all around her, +30% speed; shots it catches (any side) go back at the shooter: their own shot, now hers |
+| Shard Volley | a channel: gathers up to 6 (0.45s each, circling her; x0.9 speed per shard, nothing else usable), LMB looses them early, full by itself: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
+| Crystal Ward | 2.5s shell all around her (4 circling shards), +30% speed; the first shot it catches (any side) goes back at the shooter as their own shot, now hers, and it ends |
 | Crystallize (ult) | LMB an enemy / RMB herself: 2.5s as an amethyst geode (untouchable, can't act), then **180%** within 4 blocks, knockback, slowed; on herself she heals 25% |
 
 ---
