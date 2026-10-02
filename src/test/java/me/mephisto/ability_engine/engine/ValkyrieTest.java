@@ -17,10 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The Seraph (fixtures/seraph.yml): 190 HP, 10 armor, base damage 34. She stands at the origin on a floor, looking +x,
+ * The Valkyrie (fixtures/valkyrie.yml): 190 HP, 10 armor, base damage 34. She stands at the origin on a floor, looking +x,
  * team blue. Allies are blue, enemies red (no sheet: 200 HP, no armor).
  */
-class SeraphTest {
+class ValkyrieTest {
 
     private static final double BASE = 34;
 
@@ -33,7 +33,7 @@ class SeraphTest {
         t.world.floor(0);
         p = t.spawn(0, 1, 0);
         t.world.team(p, "blue");
-        t.engine.loadouts().assign(p, "seraph");
+        t.engine.loadouts().assign(p, "valkyrie");
     }
 
     private UUID foe(double x, double z) {
@@ -72,7 +72,7 @@ class SeraphTest {
         t.time.advance(10);
         assertEquals(BASE * 1.2, t.damage(enemy), 1e-6, "120% base damage");
         assertFalse(has(enemy, "stun"));
-        assertFalse(has(enemy, "seraph_dazzled"));
+        assertFalse(has(enemy, "valkyrie_dazzled"));
     }
 
     @Test
@@ -84,7 +84,7 @@ class SeraphTest {
         t.time.advance(10);
         assertEquals(BASE * 1.4, t.damage(enemy), 1e-6, "140% base damage");
         assertTrue(has(enemy, "stun"), "stunned");
-        assertTrue(has(enemy, "seraph_dazzled"), "blinded");
+        assertTrue(has(enemy, "valkyrie_dazzled"), "blinded");
         assertTrue(t.knockbackVec.get(enemy).y() > 0, "knocked up");
     }
 
@@ -95,14 +95,14 @@ class SeraphTest {
         setup();
         UUID friend = ally(12, 0);
         use(Slots.ABILITY_2);
-        assertTrue(t.engine.cooldowns().remainingTicks(p, "seraph_ab2") > 0, "picked: the cooldown starts");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "valkyrie_ab2") > 0, "picked: the cooldown starts");
         t.time.advance(20);
         double apart = pos(p).subtract(pos(friend)).length();
         assertTrue(apart > 2 && apart < 5, "stopped about 3 blocks short: " + apart);
 
         t.time.advance(100); // the 4s tether, held all the way
         assertEquals(8 * 200 * 0.03, t.healed.getOrDefault(friend, 0.0), 1e-6, "3% max HP every 0.5s, 8 times");
-        assertTrue(has(friend, "seraph_valor"), "held all the way: Strength");
+        assertTrue(has(friend, "valkyrie_valor"), "held all the way: Strength");
     }
 
     @Test
@@ -116,14 +116,14 @@ class SeraphTest {
         t.world.move(friend, new Vec3(60, 1, 0)); // far out of reach: it breaks
         t.time.advance(100);
         assertTrue(t.healed.getOrDefault(friend, 0.0) <= before + 200 * 0.03 + 1e-6, "no more healing");
-        assertFalse(has(friend, "seraph_valor"));
+        assertFalse(has(friend, "valkyrie_valor"));
     }
 
     @Test
     void aimingAtNobodyCostsNothing() throws IOException {
         setup();
         use(Slots.ABILITY_2);
-        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "seraph_ab2"));
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "valkyrie_ab2"));
     }
 
     // ---- Light Arrows ---------------------------------------------------------------------------------------
@@ -135,22 +135,22 @@ class SeraphTest {
         UUID friend = ally(8, 2); // next to the enemy, out of the arrow's way
         t.engine.statuses().apply(friend, "root", enemy);
         use(Slots.ABILITY_3);
-        assertEquals("seraph_light_arrow", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "the bow");
+        assertEquals("valkyrie_light_arrow", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "the bow");
         assertEquals(3, t.engine.resources().get(p, "light"));
 
         use(Slots.PRIMARY); // (a full draw)
         t.time.advance(15);
         assertEquals(BASE, t.damage(enemy), 1e-6, "the burst hurts the enemy: 100% base damage");
-        assertTrue(has(enemy, "seraph_weakened"), "the enemy: weakened (and glowing)");
+        assertTrue(has(enemy, "valkyrie_weakened"), "the enemy: weakened (and glowing)");
         assertTrue(t.engine.tags().has(enemy, Tags.GLOWING));
         assertFalse(has(friend, "root"), "the ally: cleansed");
-        assertTrue(has(friend, "seraph_swiftness"), "and faster");
+        assertTrue(has(friend, "valkyrie_swiftness"), "and faster");
 
         use(Slots.PRIMARY);
         t.time.advance(15);
         use(Slots.PRIMARY);
         t.time.advance(2);
-        assertEquals("seraph_primary", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "out of arrows: the sword");
+        assertEquals("valkyrie_primary", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "out of arrows: the sword");
     }
 
     @Test
@@ -181,15 +181,15 @@ class SeraphTest {
         UUID enemy = foe(10, 5);
         use(Slots.ULTIMATE);
         t.time.advance(2);
-        assertTrue(has(friend, "seraph_marked"), "the ally in her sights glows");
+        assertTrue(has(friend, "valkyrie_marked"), "the ally in her sights glows");
         use(Slots.PRIMARY); // LMB: them
-        assertTrue(has(friend, "seraph_warded"));
+        assertTrue(has(friend, "valkyrie_warded"));
         assertEquals(0, DamageModifiers.apply(t.engine, enemy, friend, 500, 0).amount(), 1e-9, "no damage at all");
         assertFalse(t.engine.tags().has(p, "state.choosing_ward"), "chosen: over");
-        assertEquals("seraph_primary", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow());
+        assertEquals("valkyrie_primary", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow());
 
         t.time.advance(80);
-        assertFalse(has(friend, "seraph_warded"), "4s");
+        assertFalse(has(friend, "valkyrie_warded"), "4s");
     }
 
     @Test
@@ -197,7 +197,7 @@ class SeraphTest {
         setup();
         use(Slots.ULTIMATE);
         use(Slots.SECONDARY); // RMB: herself
-        assertTrue(has(p, "seraph_warded"));
+        assertTrue(has(p, "valkyrie_warded"));
         assertFalse(t.engine.tags().has(p, "state.choosing_ward"));
     }
 
@@ -206,12 +206,12 @@ class SeraphTest {
         setup();
         UUID enemy = foe(10, 0);
         t.engine.statuses().apply(p, "root", enemy);
-        t.engine.statuses().apply(p, "seraph_valor", p);
+        t.engine.statuses().apply(p, "valkyrie_valor", p);
         t.load(java.util.Map.of("abilities", java.util.Map.of("cleanse_me", java.util.Map.of("nodes", java.util.Map.of(
                 "c", java.util.Map.of("type", "apply_effects", "targets", java.util.Map.of("type", "self"),
                         "effects", java.util.List.of(java.util.Map.of("id", "cleanse"))))))));
         assertTrue(t.engine.activator().activate(p, "cleanse_me").success());
         assertFalse(has(p, "root"), "the debuff is gone");
-        assertTrue(has(p, "seraph_valor"), "the buff stays");
+        assertTrue(has(p, "valkyrie_valor"), "the buff stays");
     }
 }

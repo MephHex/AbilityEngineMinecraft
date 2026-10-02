@@ -332,20 +332,20 @@ and Reaping Cleave's blade, and Rampage keeps him from being peeled.
 | Reaping Cleave | 0.75s windup, then **90%** within 5 blocks; the outer band (2.5-5) also takes **8% max HP** true damage, all of it healed |
 | Rampage (ult) | 8s: unstoppable (no crowd control, knockback or displacement), +20% speed, War Cry the whole time |
 
-### Seraph: Support / Skirmisher
+### Valkyrie: Skirmisher / Support
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **190** | **10** (9%) | **34** | **1.05** | **1.6** (12 ticks) | 209 | 54 |
+| **220** | **15** (13%) | **38** | **1.05** | **1.6** (12 ticks) | 253 | 61 |
 
 Wings (passive): short flights on a gauge (~3s), free gliding on an elytra, Slow Falling (no fall damage).
 
 | Ability | Effect |
 |---|---|
 | Gilded Slash (primary) | **100%** in a 3.2-block arc |
-| Radiant Thrust | a 5-block thrust: **120%**; while gliding a dive: **140%**, knocked up, blinded 2s, stunned 1.5s |
+| Radiant Thrust | a 5-block thrust: **130%**; while gliding a dive: **160%**, knocked up, blinded 2s, stunned 1.5s |
 | Guardian's Tether | fly to an ally (stops 3 blocks short), 4s tether: **3% max HP** every 0.5s (24%); held all the way: +25% damage 5s |
-| Light Arrows | 8s with a bow, 3 arrows: a 3-block burst; enemies -25% damage and glowing 5s, allies cleansed and +30% speed 3s |
+| Light Arrows | 8s with a bow, 3 arrows: a 3-block burst, **120%** at full draw; enemies -25% damage and glowing 5s, allies cleansed and +30% speed 3s |
 | Divine Ward (ult) | LMB an ally / RMB herself: no damage for 4s, can't die |
 
 ---

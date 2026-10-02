@@ -607,7 +607,7 @@ slot, so an ability is only silenced when it's in an ability slot.
   ground: keep them in step with Reaping Cleave's radii), berserker_cleave, berserker_bloodlust (looping),
   berserker_rampage_start, berserker_rampage (looping).
 
-## Added for the Seraph
+## Added for the Valkyrie
 
 - **Hover:** `fuel: <resource>` and `fuel_drain: 20` (per second) - with `fly: true`, flying drains that resource (a
   gauge); empty, they drop and can't take off again until it's back to a quarter. The resource's own `regen` and
@@ -619,6 +619,6 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Effects:** `cleanse` - removes every debuff (a non-buff status someone else put on them).
 - **Forms:** a form may change `secondary` (RMB) too, e.g. LMB / RMB picking someone while an ultimate chooses. A BOW
   weapon (in a form) works like any weapon: LMB fires the primary.
-- **Cues:** seraph_slash, seraph_thrust, seraph_dive, seraph_stab, seraph_smite, seraph_flit, seraph_tether_1 (line),
-  seraph_mend, seraph_valor, seraph_tether_snap, seraph_bow, seraph_arrow_shot, seraph_light_burst (3 blocks),
-  seraph_blessing_open, seraph_blessing, seraph_blessed (looping).
+- **Cues:** valkyrie_slash, valkyrie_thrust, valkyrie_dive, valkyrie_stab, valkyrie_smite, valkyrie_flit, valkyrie_tether_1 (line),
+  valkyrie_mend, valkyrie_valor, valkyrie_tether_snap, valkyrie_bow, valkyrie_arrow_shot, valkyrie_light_burst (3 blocks),
+  valkyrie_blessing_open, valkyrie_blessing, valkyrie_blessed (looping).

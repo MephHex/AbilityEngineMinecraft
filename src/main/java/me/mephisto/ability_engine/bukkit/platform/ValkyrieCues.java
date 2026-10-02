@@ -11,8 +11,8 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
-/** The Seraph's cues: gold and white light, wings, bells. */
-final class SeraphCues {
+/** The Valkyrie's cues: gold and white light, wings, bells. */
+final class ValkyrieCues {
 
     private static final Particle.DustOptions GOLD = new Particle.DustOptions(Color.fromRGB(255, 205, 60), 1.2f);
     private static final Particle.DustOptions PALE_GOLD = new Particle.DustOptions(Color.fromRGB(255, 240, 170), 0.9f);
@@ -22,27 +22,27 @@ final class SeraphCues {
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary: Gilded Slash ----
-        c.register("seraph_slash", loc -> {
+        c.register("valkyrie_slash", loc -> {
             loc.getWorld().spawnParticle(Particle.SWEEP_ATTACK, loc, 1, 0.3, 0.1, 0.3, 0);
             loc.getWorld().spawnParticle(Particle.DUST, loc, 6, 0.6, 0.2, 0.6, 0, GOLD);
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 1.4f);
         });
 
         // ---- 1: Radiant Thrust (and its dive while gliding) ----
-        c.register("seraph_thrust", loc -> {
+        c.register("valkyrie_thrust", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 8, 0.2, 0.2, 0.2, 0.05);
             loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_THROW, 1f, 1.3f);
         });
-        c.register("seraph_dive", loc -> {
+        c.register("valkyrie_dive", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 20, 0.3, 0.3, 0.3, 0.08);
             loc.getWorld().spawnParticle(Particle.DUST, loc, 15, 0.5, 0.5, 0.5, 0, GOLD);
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_SWOOP, 1f, 1.4f);
         });
-        c.register("seraph_stab", loc -> {
+        c.register("valkyrie_stab", loc -> {
             loc.getWorld().spawnParticle(Particle.CRIT, loc, 12, 0.3, 0.4, 0.3, 0.2);
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_STRONG, 1f, 1.3f);
         });
-        c.register("seraph_smite", loc -> { // a dive that lands: a flash of light, a bell
+        c.register("valkyrie_smite", loc -> { // a dive that lands: a flash of light, a bell
             World w = loc.getWorld();
             w.spawnParticle(Particle.END_ROD, loc, 40, 0.4, 0.6, 0.4, 0.15);
             w.spawnParticle(Particle.DUST, loc, 30, 0.6, 0.8, 0.6, 0, GOLD);
@@ -52,11 +52,11 @@ final class SeraphCues {
         });
 
         // ---- 2: Guardian's Tether ----
-        c.register("seraph_flit", loc -> {
+        c.register("valkyrie_flit", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 12, 0.3, 0.5, 0.3, 0.03);
             loc.getWorld().playSound(loc, Sound.ENTITY_ALLAY_AMBIENT_WITH_ITEM, 1f, 1.2f);
         });
-        c.registerLine("seraph_tether_1", (w, from, to) -> { // a thread of golden light, drawn every 2 ticks
+        c.registerLine("valkyrie_tether_1", (w, from, to) -> { // a thread of golden light, drawn every 2 ticks
             Vector d = to.clone().subtract(from);
             double len = d.length();
             if (len < 0.1) return;
@@ -65,27 +65,27 @@ final class SeraphCues {
                 w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0, 0, 0, 0, PALE_GOLD);
             }
         });
-        c.register("seraph_mend", loc -> { // each pulse of healing on the ally
+        c.register("valkyrie_mend", loc -> { // each pulse of healing on the ally
             loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 5, 0.4, 0.6, 0.4, 0);
             loc.getWorld().spawnParticle(Particle.DUST, loc, 6, 0.4, 0.6, 0.4, 0, PALE_GOLD);
             loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.6f, 1.6f);
         });
-        c.register("seraph_valor", loc -> { // held all the way: Strength
+        c.register("valkyrie_valor", loc -> { // held all the way: Strength
             loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 25, 0.4, 0.7, 0.4, 0.2);
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
         });
-        c.register("seraph_tether_snap", loc -> {
+        c.register("valkyrie_tether_snap", loc -> {
             loc.getWorld().spawnParticle(Particle.SMOKE, loc, 8, 0.3, 0.4, 0.3, 0.02);
             loc.getWorld().playSound(loc, Sound.ENTITY_ALLAY_HURT, 0.8f, 1.2f);
         });
 
         // ---- 3: Light Arrows ----
-        c.register("seraph_bow", loc -> {
+        c.register("valkyrie_bow", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 15, 0.4, 0.6, 0.4, 0.03);
             loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.7f, 1.8f);
         });
-        c.register("seraph_arrow_shot", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_ARROW_SHOOT, 1f, 1.5f));
-        c.register("seraph_light_burst", loc -> {
+        c.register("valkyrie_arrow_shot", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_ARROW_SHOOT, 1f, 1.5f));
+        c.register("valkyrie_light_burst", loc -> {
             World w = loc.getWorld();
             w.spawnParticle(Particle.END_ROD, loc, 40, 0.5, 0.5, 0.5, 0.2);
             w.spawnParticle(Particle.WAX_ON, loc, 15, 1, 0.5, 1, 0.5);
@@ -99,17 +99,17 @@ final class SeraphCues {
         });
 
         // ---- ultimate: Divine Ward ----
-        c.register("seraph_blessing_open", loc -> {
+        c.register("valkyrie_blessing_open", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 30, 0.6, 1, 0.6, 0.05);
             loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 1f, 1.2f);
         });
-        c.register("seraph_blessing", loc -> {
+        c.register("valkyrie_blessing", loc -> {
             loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 50, 0.5, 0.9, 0.5, 0.3);
             loc.getWorld().playSound(loc, Sound.ITEM_TOTEM_USE, 0.6f, 1.4f);
             loc.getWorld().playSound(loc, Sound.BLOCK_BELL_RESONATE, 0.8f, 1.6f);
         });
         // While warded: a golden halo over their head
-        c.registerLoop("seraph_blessed", e -> {
+        c.registerLoop("valkyrie_blessed", e -> {
             int[] tick = {0};
             BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
                 if (!e.isValid()) return;
@@ -128,5 +128,5 @@ final class SeraphCues {
         });
     }
 
-    private SeraphCues() {}
+    private ValkyrieCues() {}
 }
