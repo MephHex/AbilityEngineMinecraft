@@ -9,6 +9,8 @@ public final class ActiveStatus {
     final StatusDef def;
     final UUID source;
     long expiresAt; // Long.MAX_VALUE = infinite
+    /** How long it had to go when its time was last set (a gauge drains against this). */
+    long span;
     int stacks = 1;
     TaskHandle expiryTask;
     TaskHandle tickTask;

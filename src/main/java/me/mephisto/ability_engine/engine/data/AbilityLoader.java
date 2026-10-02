@@ -433,7 +433,7 @@ public final class AbilityLoader {
             try {
                 level = CharacterDef.StatusBar.Level.valueOf(bar.getString("level", "stacks").toUpperCase(java.util.Locale.ROOT));
             } catch (IllegalArgumentException e) {
-                throw bar.error("level", "expected stacks, reload_speed or none");
+                throw bar.error("level", "expected stacks, reload_speed, seconds or none");
             }
             try {
                 fill = CharacterDef.StatusBar.Fill.valueOf(bar.getString("fill", "time").toUpperCase(java.util.Locale.ROOT));

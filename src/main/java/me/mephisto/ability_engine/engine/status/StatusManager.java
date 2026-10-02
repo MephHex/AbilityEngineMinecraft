@@ -185,6 +185,7 @@ public final class StatusManager {
 
         if (existing == null) {
             ActiveStatus s = new ActiveStatus(def, source, newExpiry);
+            s.span = Math.max(0, durationTicks);
             mine.put(def.id(), s);
             s.granted = tagsFor(target, s); // unstoppable: without its crowd-control tags
             tags.grantAll(target, s.granted);
@@ -201,6 +202,7 @@ public final class StatusManager {
             return;
         }
 
+        long expiredAt = existing.expiresAt;
         switch (def.stacking()) {
             case REFRESH -> existing.expiresAt = Math.max(existing.expiresAt, newExpiry);
             case EXTEND -> existing.expiresAt = existing.isInfinite() || newExpiry == Long.MAX_VALUE
@@ -211,6 +213,7 @@ public final class StatusManager {
                 existing.expiresAt = newExpiry;
             }
         }
+        if (existing.expiresAt != expiredAt && !existing.isInfinite()) existing.span = existing.expiresAt - now; // a new time
         schedule(target, existing);
     }
 
@@ -293,7 +296,8 @@ public final class StatusManager {
     public Optional<Gauge> gauge(UUID target, String statusId) {
         return find(target, statusId).map(s -> {
             if (s.isInfinite()) return new Gauge(s.stacks(), 1);
-            double full = Math.max(1, s.def().defaultDurationTicks());
+            // against the time it was given (e.g. an ultimate's longer one), else its default duration
+            double full = Math.max(1, s.span > 0 ? s.span : s.def().defaultDurationTicks());
             double left = Math.max(0, s.expiresAt() - clock.now());
             return new Gauge(s.stacks(), Math.min(1, left / full));
         });

@@ -270,4 +270,18 @@ class BerserkerTest {
         assertFalse(t.engine.activator().isPassive(p, warCry));
         use(Slots.ABILITY_2); // usable again
     }
+
+    @Test
+    void theXpBarCountsDownWarCry() throws IOException {
+        setup();
+        var bar = t.engine.loadouts().characterOf(p).orElseThrow().statusBar();
+        assertEquals("berserker_war_cry", bar.status());
+        assertEquals(me.mephisto.ability_engine.engine.loadout.CharacterDef.StatusBar.Level.SECONDS, bar.level());
+
+        use(Slots.ULTIMATE); // 8s of War Cry, longer than its own 5s
+        assertEquals(1, t.engine.statuses().gauge(p, "berserker_war_cry").orElseThrow().fraction(), 1e-9, "full");
+        t.time.advance(80);
+        assertEquals(0.5, t.engine.statuses().gauge(p, "berserker_war_cry").orElseThrow().fraction(), 1e-9,
+                "halfway through the 8s, not still full");
+    }
 }
