@@ -51,6 +51,19 @@ public final class CooldownManager {
         return Math.max(0, ready - clock.now());
     }
 
+    /**
+     * Ticks until the next charge comes back (0 with all of them there); without charges, the same as
+     * {@link #remainingTicks}. E.g. one of 3 used: the time until it's back, though 2 are still left to use.
+     */
+    public long nextChargeTicks(UUID caster, String abilityId) {
+        Charges c = chargesOf.apply(abilityId);
+        if (c.max() <= 1 || c.cooldownTicks() <= 0) return remainingTicks(caster, abilityId);
+        long left = rechargeTicks(caster, abilityId);
+        if (left <= 0) return 0;
+        long missing = (long) Math.ceil(left / (double) c.cooldownTicks());
+        return left - (missing - 1) * c.cooldownTicks();
+    }
+
     /** Charges available right now (1/0 for abilities without charges). */
     public int charges(UUID caster, String abilityId) {
         Charges c = chargesOf.apply(abilityId);
