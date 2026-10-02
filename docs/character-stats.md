@@ -332,20 +332,21 @@ and Reaping Cleave's blade, and Rampage keeps him from being peeled.
 | Reaping Cleave | 0.75s windup, then **90%** within 5 blocks; the outer band (2.5-5) also takes **8% max HP** true damage, all of it healed |
 | Rampage (ult) | 8s: unstoppable (no crowd control, knockback or displacement), +20% speed, War Cry the whole time |
 
-### Valkyrie: Skirmisher / Support
+### Valkyrie: Diver / Skirmisher
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **220** | **15** (13%) | **38** | **1.05** | **1.6** (12 ticks) | 253 | 61 |
+| **220** | **15** (13%) | **38** | **1.05** | **1.4** (14 ticks; 2.06 at 5 Fervor) | 253 | 53 (78 at 5 Fervor) |
 
-Wings (passive): short flights on a gauge (~3s), free gliding on an elytra, Slow Falling (no fall damage).
+Wings (passive): gliding on an elytra, Slow Falling (no fall damage). Fervor (passive): each enemy hit, a stack
+(5 max, 3s): +8% attack speed a stack.
 
 | Ability | Effect |
 |---|---|
 | Gilded Slash (primary) | **100%** in a 3.2-block arc |
-| Radiant Thrust | a 5-block thrust: **130%**; while gliding a dive: **160%**, knocked up, blinded 2s, stunned 1.5s |
-| Guardian's Tether | fly to an ally (stops 3 blocks short), 4s tether: **3% max HP** every 0.5s (24%); held all the way: +25% damage 5s |
-| Light Arrows | 8s with a bow, 3 arrows: a 3-block burst, **120%** at full draw; enemies -25% damage and glowing 5s, allies cleansed and +30% speed 3s |
+| Valkyrie's Leap (1, 8s) | leap + a 4-block half circle: **100%**, attack reset; on a hit again (x2); then soar up and dive onto a spot: **140%** in 4 blocks, knocked up. Not while gliding |
+| Valkyrie's Charge (2, 10s) | on foot: a 6-block dash, **80%**, flung behind her, stunned 1s; gliding: home onto an enemy (25 blocks), **60%**, carry them 8 blocks: into terrain **15% max HP**. A hit: a shield of 15% her max HP (4s) |
+| War Cry (3, 16s) | she and allies within 8 blocks: +25% speed, +20% damage, 4s |
 | Divine Ward (ult) | LMB an ally / RMB herself: no damage for 4s, can't die |
 
 ### Amethyst: Mage / Zone Control

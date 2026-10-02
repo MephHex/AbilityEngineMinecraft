@@ -17,8 +17,10 @@ final class ValkyrieCues {
     private static final Particle.DustOptions GOLD = new Particle.DustOptions(Color.fromRGB(255, 205, 60), 1.2f);
     private static final Particle.DustOptions PALE_GOLD = new Particle.DustOptions(Color.fromRGB(255, 240, 170), 0.9f);
 
-    /** Light Arrow's burst: keep it in step with the ability's radius. */
-    static final double BURST_RADIUS = 3;
+    /** Keep these in step with the abilities' reach: Valkyrie's Leap's slashes and dive, War Cry. */
+    static final double CLEAVE_RADIUS = 4;
+    static final double SMITE_RADIUS = 4;
+    static final double CRY_RADIUS = 8;
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary: Gilded Slash ----
@@ -28,74 +30,78 @@ final class ValkyrieCues {
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 1.4f);
         });
 
-        // ---- 1: Radiant Thrust (and its dive while gliding) ----
-        c.register("valkyrie_thrust", loc -> {
-            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 8, 0.2, 0.2, 0.2, 0.05);
-            loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_THROW, 1f, 1.3f);
+        // ---- 1: Valkyrie's Leap (two leaping slashes, then the dive) ----
+        c.register("valkyrie_flit", loc -> { // a leap or a dash: a rush of wings
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 12, 0.3, 0.5, 0.3, 0.03);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_FLAP, 1f, 1.4f);
+        });
+        c.register("valkyrie_cleave", loc -> { // a golden half circle in front of her (4 blocks)
+            World w = loc.getWorld();
+            Vector f = loc.getDirection().setY(0);
+            if (f.lengthSquared() < 1e-6) f = new Vector(1, 0, 0);
+            f.normalize();
+            double base = Math.atan2(f.getZ(), f.getX());
+            double y = loc.getY() + 1.0;
+            for (int i = 0; i <= 18; i++) {
+                double a = base - Math.PI / 2 + Math.PI * i / 18;
+                for (double r = 2.0; r <= CLEAVE_RADIUS; r += 1.0) {
+                    w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * r, y, loc.getZ() + Math.sin(a) * r,
+                            1, 0, 0, 0, 0, r >= CLEAVE_RADIUS ? GOLD : PALE_GOLD);
+                }
+            }
+            w.spawnParticle(Particle.SWEEP_ATTACK, loc.clone().add(f.clone().multiply(1.5)).add(0, 1, 0), 3, 0.8, 0.1, 0.8, 0);
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 1.1f);
+            w.playSound(loc, Sound.ITEM_TRIDENT_RETURN, 0.6f, 1.6f);
+        });
+        c.register("valkyrie_rise", loc -> { // soaring up for the dive
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.CLOUD, loc, 20, 0.5, 0.1, 0.5, 0.05);
+            w.spawnParticle(Particle.END_ROD, loc, 25, 0.3, 1.0, 0.3, 0.08);
+            w.playSound(loc, Sound.ENTITY_ENDER_DRAGON_FLAP, 0.8f, 1.5f);
         });
         c.register("valkyrie_dive", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 20, 0.3, 0.3, 0.3, 0.08);
             loc.getWorld().spawnParticle(Particle.DUST, loc, 15, 0.5, 0.5, 0.5, 0, GOLD);
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_SWOOP, 1f, 1.4f);
         });
-        c.register("valkyrie_stab", loc -> {
-            loc.getWorld().spawnParticle(Particle.CRIT, loc, 12, 0.3, 0.4, 0.3, 0.2);
-            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_STRONG, 1f, 1.3f);
-        });
-        c.register("valkyrie_smite", loc -> { // a dive that lands: a flash of light, a bell
+        c.register("valkyrie_smite", loc -> { // the dive lands: a flash of light, a bell
             World w = loc.getWorld();
             w.spawnParticle(Particle.END_ROD, loc, 40, 0.4, 0.6, 0.4, 0.15);
             w.spawnParticle(Particle.DUST, loc, 30, 0.6, 0.8, 0.6, 0, GOLD);
             w.spawnParticle(Particle.CRIT, loc, 20, 0.4, 0.6, 0.4, 0.3);
-            w.playSound(loc, Sound.BLOCK_BELL_USE, 1f, 1.5f);
-            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.8f);
-        });
-
-        // ---- 2: Guardian's Tether ----
-        c.register("valkyrie_flit", loc -> {
-            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 12, 0.3, 0.5, 0.3, 0.03);
-            loc.getWorld().playSound(loc, Sound.ENTITY_ALLAY_AMBIENT_WITH_ITEM, 1f, 1.2f);
-        });
-        c.registerLine("valkyrie_tether_1", (w, from, to) -> { // a thread of golden light, drawn every 2 ticks
-            Vector d = to.clone().subtract(from);
-            double len = d.length();
-            if (len < 0.1) return;
-            for (double t = 0; t <= len; t += 0.35) {
-                Vector q = from.clone().add(d.clone().multiply(t / len));
-                w.spawnParticle(Particle.DUST, q.getX(), q.getY(), q.getZ(), 1, 0, 0, 0, 0, PALE_GOLD);
-            }
-        });
-        c.register("valkyrie_mend", loc -> { // each pulse of healing on the ally
-            loc.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 5, 0.4, 0.6, 0.4, 0);
-            loc.getWorld().spawnParticle(Particle.DUST, loc, 6, 0.4, 0.6, 0.4, 0, PALE_GOLD);
-            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.6f, 1.6f);
-        });
-        c.register("valkyrie_valor", loc -> { // held all the way: Strength
-            loc.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, loc, 25, 0.4, 0.7, 0.4, 0.2);
-            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
-        });
-        c.register("valkyrie_tether_snap", loc -> {
-            loc.getWorld().spawnParticle(Particle.SMOKE, loc, 8, 0.3, 0.4, 0.3, 0.02);
-            loc.getWorld().playSound(loc, Sound.ENTITY_ALLAY_HURT, 0.8f, 1.2f);
-        });
-
-        // ---- 3: Light Arrows ----
-        c.register("valkyrie_bow", loc -> {
-            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 15, 0.4, 0.6, 0.4, 0.03);
-            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 0.7f, 1.8f);
-        });
-        c.register("valkyrie_arrow_shot", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_ARROW_SHOOT, 1f, 1.5f));
-        c.register("valkyrie_light_burst", loc -> {
-            World w = loc.getWorld();
-            w.spawnParticle(Particle.END_ROD, loc, 40, 0.5, 0.5, 0.5, 0.2);
-            w.spawnParticle(Particle.WAX_ON, loc, 15, 1, 0.5, 1, 0.5);
             for (int i = 0; i < 28; i++) { // its reach, on the ground
                 double a = Math.PI * 2 * i / 28;
-                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * BURST_RADIUS, loc.getY(),
-                        loc.getZ() + Math.sin(a) * BURST_RADIUS, 1, 0, 0.05, 0, 0, GOLD);
+                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * SMITE_RADIUS, loc.getY() + 0.1,
+                        loc.getZ() + Math.sin(a) * SMITE_RADIUS, 1, 0, 0, 0, 0, GOLD);
             }
-            w.playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 1f, 1.8f);
-            w.playSound(loc, Sound.ENTITY_FIREWORK_ROCKET_BLAST, 0.6f, 1.6f);
+            w.playSound(loc, Sound.BLOCK_BELL_USE, 1f, 1.5f);
+            w.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.6f);
+        });
+
+        // ---- 2: Valkyrie's Charge ----
+        c.register("valkyrie_stab", loc -> { // she reaches them
+            loc.getWorld().spawnParticle(Particle.CRIT, loc, 12, 0.3, 0.4, 0.3, 0.2);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_STRONG, 1f, 1.3f);
+        });
+        c.register("valkyrie_crash", loc -> { // carried into terrain
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.BLOCK, loc, 30, 0.4, 0.5, 0.4, 0.1, org.bukkit.Material.STONE.createBlockData());
+            w.spawnParticle(Particle.CRIT, loc, 20, 0.4, 0.5, 0.4, 0.3);
+            w.playSound(loc, Sound.ENTITY_IRON_GOLEM_DAMAGE, 1f, 0.8f);
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.7f);
+        });
+
+        // ---- 3: War Cry ----
+        c.register("valkyrie_cry", loc -> { // a ring of gold going out to its reach (8 blocks)
+            World w = loc.getWorld();
+            for (int i = 0; i < 48; i++) {
+                double a = Math.PI * 2 * i / 48;
+                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * CRY_RADIUS, loc.getY() + 0.2,
+                        loc.getZ() + Math.sin(a) * CRY_RADIUS, 1, 0, 0, 0, 0, GOLD);
+            }
+            w.spawnParticle(Particle.END_ROD, loc.clone().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.1);
+            w.playSound(loc, Sound.EVENT_RAID_HORN, 1f, 1.4f);
+            w.playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
         });
 
         // ---- ultimate: Divine Ward ----

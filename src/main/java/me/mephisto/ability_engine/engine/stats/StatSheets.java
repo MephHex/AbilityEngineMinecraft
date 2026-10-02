@@ -64,14 +64,15 @@ public final class StatSheets {
     }
 
     /**
-     * How much faster the entity's basic attacks come right now: its statuses' {@code attack_speed}
-     * multiplied together (Paralysis 0.6: 40% slower). 1 = normal. Unstoppable, debuffs don't slow them.
+     * How much faster the entity's basic attacks come right now: its statuses' {@code attack_speed}, each to the power
+     * of its stacks, multiplied together (Paralysis 0.6: 40% slower; Fervor's 1.08 x 5 stacks: 47% faster). 1 = normal.
+     * Unstoppable, debuffs don't slow them.
      */
     public double attackSpeedMultiplier(UUID entity) {
         double m = 1;
         for (ActiveStatus s : statuses.on(entity)) {
             if (s.def().attackSpeed() < 1 && statuses.crowdControlSuppressed(entity, s)) continue;
-            m *= s.def().attackSpeed();
+            if (s.def().attackSpeed() != 1) m *= Math.pow(s.def().attackSpeed(), Math.max(1, s.stacks()));
         }
         return m;
     }
