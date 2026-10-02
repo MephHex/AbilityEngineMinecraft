@@ -348,6 +348,24 @@ Wings (passive): short flights on a gauge (~3s), free gliding on an elytra, Slow
 | Light Arrows | 8s with a bow, 3 arrows: a 3-block burst, **120%** at full draw; enemies -25% damage and glowing 5s, allies cleansed and +30% speed 3s |
 | Divine Ward (ult) | LMB an ally / RMB herself: no damage for 4s, can't die |
 
+### Amethyst: Mage / Zone Control
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **180** | **5** (5%) | **32** | **1.00** | **2.5** (8 ticks) | 189 | 64 |
+
+Lingering Shards (passive): her shards pierce (100% of the hit to the first enemy, half to those behind) and hang at
+full range for 5s, 6 at most.
+
+| Ability | Effect |
+|---|---|
+| Amethyst Shard (primary) | **80%** to the first, **40%** to up to 3 behind; at full range it hangs 5s |
+| Recall (RMB) | every hanging shard flies back: **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (-40% healing, -15% damage) |
+| Shard Volley | gather up to 6 (0.3s each), LMB looses them: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
+| Crystal Ward | 2.5s barrier, +30% speed; shots it catches are thrown back, **100%** |
+| Shardfall | a 4-block area: **20%** every 0.5s for 5s (200%), 30% slower, +15% damage taken inside |
+| Crystallize (ult) | LMB an enemy / RMB herself: 2.5s in crystal (untouchable, can't act), then **180%** within 4 blocks, knockback, slowed; on herself she heals 25% |
+
 ---
 
 ## 3. Sanity check: time to kill with basic attacks only

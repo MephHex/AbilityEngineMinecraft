@@ -217,6 +217,7 @@ public final class ProjectileSystem {
                 // Absorbed by an enemy's frontal barrier: no hit logic, no explosion.
                 moveTo(p, barrier.get().position());
                 barriers.blocked(p.world, barrier.get().position());
+                barriers.absorbed(p.world, barrier.get(), ctx.caster()); // e.g. a barrier that sends one back
                 p.done = true;
                 p.visual.remove();
                 p.resumer.abandon();
@@ -357,11 +358,18 @@ public final class ProjectileSystem {
         return along >= MIN_SLIDE_SPEED;
     }
 
+    /**
+     * Blackboard key on a hit_entity: which enemy along the projectile's path this is, 0 for the first, 1 for the next
+     * one it pierced through to... (e.g. a switch on it: less damage to the ones behind).
+     */
+    public static final String HIT_INDEX = "hit_index";
+
     /** A pierced enemy: run "hit_entity" for it in a branch of its own, while the projectile keeps flying. */
     private void pierceHit(Projectile p, Target target) {
         ExecutionContext branch = p.resumer.context().fork();
         Resumer resumer = branch.suspend();
         branch.put(Keys.HIT, target);
+        branch.blackboard().putRaw(HIT_INDEX, p.pierced.size() - 1); // (it was just added)
         branch.blackboard().putRaw(Keys.HIT_FROM.name(), new PointTarget(p.world, p.lastPosition));
         log.debug(() -> "projectile -> pierced " + target);
         resumer.resume(Ports.HIT_ENTITY);
@@ -380,6 +388,7 @@ public final class ProjectileSystem {
         p.visual.remove();
         if (hit != null) {
             p.resumer.context().put(Keys.HIT, hit);
+            if (hit instanceof EntityTarget) p.resumer.context().blackboard().putRaw(HIT_INDEX, p.pierced.size());
             // Where the hit came from (the projectile's approach), so frontal blocks judge direction correctly.
             p.resumer.context().blackboard().putRaw(Keys.HIT_FROM.name(), new PointTarget(p.world, p.lastPosition));
         }

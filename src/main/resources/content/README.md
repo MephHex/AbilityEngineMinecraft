@@ -622,3 +622,18 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Cues:** valkyrie_slash, valkyrie_thrust, valkyrie_dive, valkyrie_stab, valkyrie_smite, valkyrie_flit, valkyrie_tether_1 (line),
   valkyrie_mend, valkyrie_valor, valkyrie_tether_snap, valkyrie_bow, valkyrie_arrow_shot, valkyrie_light_burst (3 blocks),
   valkyrie_blessing_open, valkyrie_blessing, valkyrie_blessed (looping).
+
+## Added for the Amethyst
+
+- **Projectile hits:** every `hit_entity` gets `hit_index`: which enemy along its path this is, 0 for the first, 1 for
+  the one behind it (with `pierce`)... E.g. `switch { key: hit_index, on: { "0": full, default: less } }`.
+- **Barrier:** every enemy projectile it absorbs runs its `absorbed` port as a branch of its own, with `absorbed_at`
+  (where it was caught) and `absorbed_from` (whose it was): e.g. a projectile `from: absorbed_at, toward:
+  absorbed_from` that throws it back.
+- **Constructs as lingering shots:** a projectile's `expired` into a `construct` `at: <its store key>, height: 0` leaves
+  it hanging where it ran out; `set_off_constructs` (e.g. on RMB) makes them all exit `triggered`, where a projectile
+  `from: construct, toward: caster, hits_caster: true` flies it back.
+- **Cues:** amethyst_shard_shot, amethyst_shard_hit, amethyst_shard_linger, amethyst_shard_fade, amethyst_shard_caught,
+  amethyst_recall, amethyst_recall_hit, amethyst_gather, amethyst_volley_shot, amethyst_burst, amethyst_ward (looping),
+  amethyst_reflect, amethyst_shardfall_cast, amethyst_shardfall_impact, amethyst_shardfall_rain (4 blocks),
+  amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.

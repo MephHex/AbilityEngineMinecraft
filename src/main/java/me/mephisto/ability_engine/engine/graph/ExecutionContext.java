@@ -41,6 +41,17 @@ public final class ExecutionContext {
     }
 
     /**
+     * Split off a new branch at {@code nodeId} (a node this cast already ran, e.g. one that reports later events through a
+     * port of its own) with its own child blackboard. The instance stays alive until every branch has finished.
+     */
+    public ExecutionContext forkAt(String nodeId) {
+        instance.openBranch();
+        ExecutionContext child = new ExecutionContext(instance, blackboard.child());
+        child.currentNode = nodeId;
+        return child;
+    }
+
+    /**
      * Split off a new branch at the current node with its own child blackboard.
      * The instance stays alive until every branch has finished.
      */
