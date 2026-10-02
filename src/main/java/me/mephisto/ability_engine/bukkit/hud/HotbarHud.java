@@ -160,6 +160,7 @@ public final class HotbarHud {
             inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
         }
         drawBolts(p, character.get());
+        if (character.get().has(CharacterDef.ELYTRA)) wearElytra(p);
         statusItemsShown.remove(p.getUniqueId());
         weaponGlint.put(p.getUniqueId(), weaponGlints(p.getUniqueId(), character.get()));
         updateStatusItems(p);
@@ -265,6 +266,21 @@ public final class HotbarHud {
                 });
             }
         });
+    }
+
+    // ---- elytra (trait) ---------------------------------------------------------------------
+
+    /** An elytra in the chest slot (never wears out). A chestplate of their own stays: no elytra then. */
+    private void wearElytra(Player p) {
+        ItemStack worn = p.getInventory().getChestplate();
+        if (worn != null && !worn.getType().isAir() && !isHudItem(worn)) return;
+        ItemStack elytra = new ItemStack(Material.ELYTRA);
+        ItemMeta meta = elytra.getItemMeta();
+        meta.setUnbreakable(true);
+        meta.displayName(plain("Wings", NamedTextColor.GOLD));
+        meta.lore(List.of(plain("Jump while falling to glide.", NamedTextColor.GRAY)));
+        meta.addItemFlags(ItemFlag.HIDE_UNBREAKABLE, ItemFlag.HIDE_ATTRIBUTES);
+        p.getInventory().setChestplate(tag(elytra, meta));
     }
 
     // ---- quiver -----------------------------------------------------------------------------
@@ -782,7 +798,7 @@ public final class HotbarHud {
      */
     private static boolean iconsPassForWeapon(CharacterDef c) {
         Material weapon = weaponMaterial(c);
-        return weapon != Material.CROSSBOW && weapon != Material.SPYGLASS;
+        return weapon != Material.CROSSBOW && weapon != Material.SPYGLASS && weapon != Material.BOW;
     }
 
     /** The cooldown group of a hotbar icon (see iconBase). */

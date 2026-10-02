@@ -722,6 +722,7 @@ public final class BukkitCuePlayer implements CuePlayer {
         PyroCues.register(c, plugin);
         TreeCues.register(c, plugin);
         BerserkerCues.register(c, plugin);
+        SeraphCues.register(c, plugin);
         return c;
     }
 

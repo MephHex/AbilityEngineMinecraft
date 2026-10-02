@@ -63,10 +63,18 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * @param visualTurn degrees it's turned about its upright axis, away from facing where they face (e.g. so a
      *                   petal isn't straight ahead of them); 0 = not turned
      * @param visualUp   blocks it's raised above their feet (1/16 = one pixel); 0 = right at their feet
+     * @param fuel       fly: true only: a resource of theirs that flying drains (a gauge); empty, they drop and can't
+     *                   take off again until it's back to a quarter. null = flying is free
+     * @param fuelDrain  how much of {@code fuel} a second of flying costs
      */
     public record Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead,
-                        double visualTurn, double visualUp) {
+                        double visualTurn, double visualUp, String fuel, double fuelDrain) {
         public static final double DEFAULT_LEAD = 2;
+
+        public Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead,
+                     double visualTurn, double visualUp) {
+            this(height, speed, visual, fly, visualSize, visualLead, visualTurn, visualUp, null, 0);
+        }
 
         public Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead,
                      double visualTurn) {
@@ -176,7 +184,11 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
 
     /** Holding sneak while falling: slow falling (the Umbrella's parasol). */
     public static final String SNEAK_SLOW_FALL = "sneak_slow_fall";
-    public static final java.util.Set<String> TRAITS = java.util.Set.of(SNEAK_SLOW_FALL);
+    /** Always Slow Falling while falling (not while flying or gliding). */
+    public static final String SLOW_FALL = "slow_fall";
+    /** An elytra in the chest slot: jump while falling to glide. */
+    public static final String ELYTRA = "elytra";
+    public static final java.util.Set<String> TRAITS = java.util.Set.of(SNEAK_SLOW_FALL, SLOW_FALL, ELYTRA);
 
     /**
      * A kit change while the player has {@code tag} (e.g. an ultimate that replaces the primary, or a stage of growth).

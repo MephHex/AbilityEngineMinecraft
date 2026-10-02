@@ -260,7 +260,11 @@ public final class AbilityLoader {
         if (turn < -360 || turn > 360) throw h.error("visual_turn", "degrees, -360 to 360 (45 = an eighth of a turn)");
         double up = h.getDouble("visual_up", 0);
         if (up < -1 || up > 1) throw h.error("visual_up", "blocks, -1 to 1 (0.0625 = one pixel higher)");
-        return new CharacterDef.Hover(height, speed, h.getString("visual", null), fly, visualSize, lead, turn, up);
+        String fuel = h.getString("fuel", null);
+        double drain = h.getDouble("fuel_drain", 20);
+        if (fuel != null && !fly) throw h.error("fuel", "only flying (fly: true) uses fuel");
+        if (drain <= 0) throw h.error("fuel_drain", "must be above 0 (fuel a second of flying costs)");
+        return new CharacterDef.Hover(height, speed, h.getString("visual", null), fly, visualSize, lead, turn, up, fuel, drain);
     }
 
     /** {@code stats: { health, armor, base_damage, move_speed, attack_speed }}: missing ones get the defaults. */
@@ -336,9 +340,13 @@ public final class AbilityLoader {
         }
         CharacterDef.StatusBar statusBar = statusBar(p);
         CharacterDef.Stats stats = stats(p);
+        CharacterDef.Hover hover = hover(p);
+        if (hover != null && hover.fuel() != null && !resources.containsKey(hover.fuel())) {
+            throw p.getParams("hover").error("fuel", "unknown resource '" + hover.fuel() + "' (define it under resources:)");
+        }
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
-                hover(p), variants(p), lowHealth(p));
+                hover, variants(p), lowHealth(p));
     }
 
     /** {@code low_health: { below: 0.4, status: <status> }}: that status is kept on them while their health is below it. */

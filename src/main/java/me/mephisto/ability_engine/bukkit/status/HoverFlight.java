@@ -117,6 +117,11 @@ public final class HoverFlight implements Listener {
                 wasFree.remove(id);
                 continue;
             }
+            if (!free && hover.fuel() != null && !fuelled(p, hover)) { // the gauge ran dry: down they go
+                if (p.isFlying()) p.setFlying(false);
+                if (p.getAllowFlight()) p.setAllowFlight(false);
+                continue;
+            }
             if (!p.getAllowFlight()) p.setAllowFlight(true);
             if (free) wasFree.add(id);
             else if (wasFree.remove(id) && !p.isOnGround()) p.setFlying(true); // free flight over: hover on
@@ -125,7 +130,20 @@ public final class HoverFlight implements Listener {
             if (Math.abs(p.getFlySpeed() - speed) > 1e-4) p.setFlySpeed(speed);
 
             if (!free && p.isFlying() && !engine.tags().has(id, Tags.DASHING)) cap(p, hover.height(), before, here);
+            if (!free && p.isFlying() && hover.fuel() != null) engine.resources().consume(id, hover.fuel(), hover.fuelDrain() / 20.0);
         }
+    }
+
+    /** Taking off needs this share of the fuel gauge (so an empty one doesn't flicker on and off as it refills). */
+    private static final double TAKE_OFF_SHARE = 0.25;
+
+    /** Enough fuel to fly: any while flying; a quarter of the gauge to take off. */
+    private boolean fuelled(Player p, CharacterDef.Hover hover) {
+        UUID id = p.getUniqueId();
+        double left = engine.resources().value(id, hover.fuel());
+        if (p.isFlying()) return left > 0;
+        double max = engine.resources().definition(id, hover.fuel()).map(d -> d.max()).orElse(0.0);
+        return left >= max * TAKE_OFF_SHARE;
     }
 
     // ---- floating (fly: false): a floor only they see, a fixed height above the ground ----------------------
