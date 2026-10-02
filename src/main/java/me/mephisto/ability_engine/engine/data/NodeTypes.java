@@ -257,6 +257,8 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SetOffConstructsNode(p.requireString("ability"),
                     p.getString("center", "hit"), radius);
         });
+        t.register("end_projectiles", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.EndProjectilesNode(
+                p.requireString("ability"), p.getString("node", null)));
         t.register("strike_constructs", (p, e) -> {
             double range = p.requireDouble("range");
             if (range <= 0) throw p.error("range", "must be above 0");

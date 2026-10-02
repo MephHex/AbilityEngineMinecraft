@@ -47,7 +47,11 @@ public final class AbilityActivator {
      * or -1 if it doesn't need any.
      */
     public int constructsFor(UUID caster, Ability ability) {
-        return ability.needsConstructs() == null ? -1 : engine.constructs().count(caster, ability.needsConstructs());
+        if (ability.needsConstructs() == null) return -1;
+        int standing = engine.constructs().count(caster, ability.needsConstructs());
+        int flying = ability.alsoFlying() == null ? 0
+                : engine.projectiles().countFlying(caster, ability.needsConstructs(), ability.alsoFlying());
+        return standing + flying;
     }
 
     /** Nothing to use right now (needs_constructs, none standing): it can't be cast, and its icon is greyed out. */

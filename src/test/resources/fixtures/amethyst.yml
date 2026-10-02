@@ -164,7 +164,7 @@ abilities:
         fuse: 160                    # 8s from when it starts hanging (each its own: they hang as they arrive)
         solid: false                 # (nothing bumps into it)
         limit: 6                     # 6 at most at once: one more ends the oldest
-        visual: "hover:AMETHYST_SHARD"   # standing upright in the air, bobbing gently
+        visual: "hover:glow:AMETHYST_SHARD"   # standing upright in the air, bobbing gently; glowing for her only
         cue: amethyst_shard_linger
         cue_every: 10
         on: { triggered: recall, fuse: fade }
@@ -245,13 +245,14 @@ abilities:
           - { id: damage, base: 0.4, knockback: false }
         next: hit_cue
 
-  # 3: Recall (6s). Only with shards hanging (its icon counts them; greyed out with none). Every shard hanging in the
-  # air flies back to you (each one back in your ammo), through
+  # 3: Recall (6s). Only with shards out (its icon counts them; greyed out with none). Shards still flying stop where
+  # they are, and every shard (hanging or just stopped) flies back to you (each one back in your ammo), through
   # enemies on the way: each shard that hits them deals 45% base damage and slows them a bit more (x0.88 a shard, 2s),
   # and they bleed for 4s (40% less healing, -15% damage, 6% of their max HP over the 4s).
   amethyst_recall:
     cooldown: 120                    # 6s
-    needs_constructs: amethyst_primary   # only with shards hanging: the icon counts them, grey with none
+    needs_constructs: amethyst_primary   # only with shards out: the icon counts them, grey with none
+    also_flying: shoot                   # (shards still flying count too: Recall stops them mid-flight)
     display:
       name: "Recall"
       icon: SMALL_AMETHYST_BUD
@@ -262,8 +263,13 @@ abilities:
         - "bleed 4s (6% max HP, less healing,"
         - "-15% damage)."
     nodes:
+      stop:
+        type: end_projectiles        # shards still flying stop right where they are (and hang there)...
+        ability: amethyst_primary
+        node: shoot                  # (not the plain out-of-ammo ones)
+        next: call
       call:
-        type: set_off_constructs
+        type: set_off_constructs     # ...and every hanging shard comes back
         ability: amethyst_primary
         center: caster
         radius: 60

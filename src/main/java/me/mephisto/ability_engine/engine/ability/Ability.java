@@ -35,6 +35,8 @@ import java.util.Set;
  *                        ultimate keeps it up), so pressing its key does nothing and its icon glints (null = never)
  * @param needsConstructs it can only be used while the caster has constructs from this ability standing (e.g. a recall
  *                        of shards left lying around); its icon counts them, greyed out with none (null = always)
+ * @param alsoFlying      with needsConstructs: the projectiles that ability's node of this name has flying count too
+ *                        (e.g. shards still on their way, that a recall stops and calls back); null = only constructs
  */
 public record Ability(
         String id,
@@ -57,7 +59,8 @@ public record Ability(
         int charges,
         boolean recastMovement,
         String passiveWhile,
-        String needsConstructs
+        String needsConstructs,
+        String alsoFlying
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -92,6 +95,7 @@ public record Ability(
         private boolean recastMovement;
         private String passiveWhile;
         private String needsConstructs;
+        private String alsoFlying;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -121,6 +125,8 @@ public record Ability(
         public Builder passiveWhile(String tag) { this.passiveWhile = tag; return this; }
         /** Only usable while the caster has constructs from this ability standing. */
         public Builder needsConstructs(String abilityId) { this.needsConstructs = abilityId; return this; }
+        /** With needsConstructs: that ability's projectiles from this node, still flying, count too. */
+        public Builder alsoFlying(String node) { this.alsoFlying = node; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -135,7 +141,7 @@ public record Ability(
             }
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
                     cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
-                    refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile, needsConstructs);
+                    refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile, needsConstructs, alsoFlying);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

@@ -140,6 +140,22 @@ class AmethystTest {
     }
 
     @Test
+    void recallStopsShardsMidFlightAndBringsThemBack() throws IOException {
+        setup();
+        var recall = t.engine.abilities().find("amethyst_recall").orElseThrow();
+        use(Slots.PRIMARY);
+        t.time.advance(3); // still flying (it takes ~12 ticks to reach its range)
+        assertEquals(0, t.engine.constructs().activeCount(), "not hanging yet");
+        assertEquals(1, t.engine.activator().constructsFor(p, recall), "but it counts: Recall can be used");
+        UUID enemy = foe(2, 0); // between where it is and her
+        use(Slots.ABILITY_3);
+        t.time.advance(15);
+        assertEquals(0, t.engine.constructs().activeCount(), "stopped where it was, and came back");
+        assertEquals(BASE * 0.45, t.damage(enemy), 1e-6, "through the enemy on the way");
+        assertEquals(6, t.engine.resources().get(p, "ammo"), "back in the ammo");
+    }
+
+    @Test
     void atMostSixShardsHang() throws IOException {
         setup();
         for (int i = 0; i < 6; i++) {

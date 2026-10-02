@@ -637,10 +637,15 @@ slot, so an ability is only silenced when it's in an ability slot.
   `from: construct, toward: caster, hits_caster: true` flies it back.
 - **Abilities:** `needs_constructs: <ability>` - it can only be used while the caster has constructs from that ability
   standing (e.g. recalling shards left hanging). Its icon's stack counts them; with none its cooldown sweep stays full
-  (greyed out) and its key does nothing.
+  (greyed out) and its key does nothing. `also_flying: <node>` counts that ability's projectiles from that node still
+  flying too.
+- **end_projectiles** `{ ability, node }`: the caster's projectiles from that ability (only those its `node` launched;
+  default any) end right where they are, mid-flight: each exits `expired` there (e.g. a shard that then hangs, to be
+  recalled with `set_off_constructs` right after).
 - **Constructs:** `fuse_spread: 30` - each one's fuse is its `fuse` give or take up to that many ticks, at random (so
   they don't all end together). A non-solid one's visual `"hover:<item>"` stands upright, facing whoever looks at it, and
-  bobs gently in the air (each at its own pace), e.g. a shard hanging where it stopped.
+  bobs gently in the air (each at its own pace), e.g. a shard hanging where it stopped. `"hover:glow:<item>"` also makes
+  it glow for its owner only (nobody else sees the glow).
 - **Cues:** amethyst_shard_shot, amethyst_shard_hit, amethyst_shard_linger, amethyst_shard_fade, amethyst_shard_caught,
   amethyst_recall, amethyst_recall_hit, amethyst_gather, amethyst_volley_shot, amethyst_burst, amethyst_ward (looping),
   amethyst_reflect, amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.
