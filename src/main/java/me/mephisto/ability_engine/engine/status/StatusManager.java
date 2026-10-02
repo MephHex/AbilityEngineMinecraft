@@ -115,7 +115,7 @@ public final class StatusManager {
         return isCrowdControl(def) && CROWD_CONTROL_TAGS.containsAll(def.grantedTags())
                 && def.tickEffects().isEmpty() && def.onHit().isEmpty()
                 && def.damageDealt() == 1 && def.damageTaken() == 1 && def.farDamage() == null
-                && def.moveSpeed() <= 1 && def.attackSpeed() <= 1 && def.jumpBoost() == 0;
+                && def.moveSpeed() <= 1 && def.attackSpeed() <= 1 && def.jumpBoost() == 0 && def.healingTaken() == 1;
     }
 
     /** They're unstoppable and this is a debuff on them: its crowd-control parts don't apply right now. */

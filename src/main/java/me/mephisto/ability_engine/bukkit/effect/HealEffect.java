@@ -28,7 +28,8 @@ public final class HealEffect implements Effect {
         if (!(ctx.target() instanceof EntityTarget t) || !(Bukkit.getEntity(t.id()) instanceof LivingEntity living)) return;
         double scale = scaleSource.scale();
         Params p = ctx.params();
-        double amount = me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx); // flat, or max_hp share
+        double amount = me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx) // flat, or max_hp share
+                * ctx.engine().stats().healingMultiplier(t.id());                      // less while poisoned
         shields.heal(living, amount / scale, p.getBool("overflow", false),
                 p.getDouble("overflow_max", 150) / scale, p.getDouble("overflow_decay", 25) / scale);
     }

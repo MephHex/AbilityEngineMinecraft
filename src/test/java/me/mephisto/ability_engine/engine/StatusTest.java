@@ -116,4 +116,20 @@ class StatusTest {
         t.time.advance(40);
         assertEquals(0, t.engine.stats().jumpBoost(player));
     }
+
+    @Test
+    void poisonedTheyHealLess() {
+        TestEngine t = new TestEngine();
+        UUID player = t.spawn(0, 1, 0);
+        t.load(map("statuses", map(
+                "venom", map("duration", 40, "healing_taken", 0.6),
+                "rot", map("duration", 40, "healing_taken", 0.5))));
+        assertEquals(1, t.engine.stats().healingMultiplier(player), 1e-9);
+        t.engine.statuses().apply(player, "venom", null);
+        assertEquals(0.6, t.engine.stats().healingMultiplier(player), 1e-9, "40% less healing");
+        t.engine.statuses().apply(player, "rot", null);
+        assertEquals(0.3, t.engine.stats().healingMultiplier(player), 1e-9, "several multiply");
+        t.time.advance(40);
+        assertEquals(1, t.engine.stats().healingMultiplier(player), 1e-9, "over: all of it again");
+    }
 }

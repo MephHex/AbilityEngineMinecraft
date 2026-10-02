@@ -90,6 +90,16 @@ public final class StatSheets {
         return m;
     }
 
+    /**
+     * How much of the healing the entity gets lands right now: its statuses' {@code healing_taken} multiplied together
+     * (a poison's 0.6: 40% less). 1 = all of it. Every heal counts: heal effects, lifesteal, vanilla regeneration.
+     */
+    public double healingMultiplier(UUID entity) {
+        double m = 1;
+        for (ActiveStatus s : statuses.on(entity)) m *= s.def().healingTaken();
+        return m;
+    }
+
     /** The Jump Boost level the entity's statuses give it right now ({@code jump_boost}: the highest one); 0 = none. */
     public int jumpBoost(UUID entity) {
         int level = 0;

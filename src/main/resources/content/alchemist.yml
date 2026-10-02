@@ -25,6 +25,7 @@ statuses:
     duration: 80                     # 4s...
     stacking: refresh
     tags: [state.poisoned]
+    healing_taken: 0.6               # poisoned: 40% less healing
     tick:
       every: 20                      # ...5% of their max HP per second = 20% total
       effects:
