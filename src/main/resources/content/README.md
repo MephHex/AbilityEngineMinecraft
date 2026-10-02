@@ -515,7 +515,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   `cue: <looping cue>`: runs on the holder while it lasts (their character's variants apply).
 - **landings** `{ ticks, store }` -> landed / out: for `ticks`, every time the caster lands (after at least 3 ticks
   in the air: a jump, a fall) "landed" runs as its own branch, with the spot on the ground stored as `store`.
-- **Tags:** `state.jump_boost` (Jump Boost II).
+- **Statuses:** `jump_boost: 3` - Jump Boost of that level while it lasts (3 = Jump Boost III); with several, the
+  highest counts. (The old tag `state.jump_boost` still works: Jump Boost II.)
 - **Characters:** `status_bar: { status, fill: stacks }` fills the XP bar with the status's stacks out of its
   `max_stacks` (a gauge) instead of its time left.
   `variants: [ { while: <tag>, cue_suffix: _blue, visuals: { "block:FIRE": "block:SOUL_FIRE" } } ]`: while they have

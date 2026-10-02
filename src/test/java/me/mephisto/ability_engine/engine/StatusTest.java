@@ -77,4 +77,21 @@ class StatusTest {
         t.time.advance(60);
         assertTrue(t.engine.activator().activate(caster, "noop").success());
     }
+
+    @Test
+    void jumpBoostIsAStatusLevelAndTheHighestCounts() {
+        TestEngine t = new TestEngine();
+        UUID player = t.spawn(0, 1, 0);
+        t.load(map("statuses", map(
+                "springy", map("duration", 40, "jump_boost", 3),
+                "hoppy", map("duration", 80, "jump_boost", 1))));
+        assertEquals(0, t.engine.stats().jumpBoost(player));
+        t.engine.statuses().apply(player, "hoppy", player);
+        t.engine.statuses().apply(player, "springy", player);
+        assertEquals(3, t.engine.stats().jumpBoost(player), "Jump Boost III");
+        t.time.advance(40);
+        assertEquals(1, t.engine.stats().jumpBoost(player), "springy over: hoppy's I");
+        t.time.advance(40);
+        assertEquals(0, t.engine.stats().jumpBoost(player));
+    }
 }
