@@ -22,10 +22,6 @@ statuses:
     tags: [state.untargetable, state.perched]   # abilities pass through her; no Blossom Shots up there
     damage_taken: 0                  # and nothing else hurts her either
     positive: false
-  fae_gust:                          # recast while perched: a burst of speed for the ally
-    duration: 40                     # 2s
-    move_speed: 1.35                 # +35% (on top of the blessing)
-    tags: [buff.fae_gust]
   fae_toxin:                         # Deathcap Snare: poisoned, slowed and nauseous
     duration: 80                     # 4s...
     stacking: refresh
@@ -201,7 +197,7 @@ abilities:
   # They don't see you (you'd be in their way), everyone else does; your hunger bar shows their hearts.
   # Landing on them gives them a 60 HP shield for 2s. They're 20% faster
   # and their basic attacks deal +2 HP. The cooldown (10s) starts as you sit down. Press 2 again once it's
-  # over: a gust, +35% speed for them for 2s; aim at ANOTHER ally instead and you fly over to them (vulnerable
+  # over: a gust, the 60 HP shield again for them (2s); aim at ANOTHER ally instead and you fly over to them (vulnerable
   # again on the way). Either one starts the cooldown again. Press SHIFT to hop off. It ends too when they die.
   fae_ab2:
     cooldown: 200                    # 10s
@@ -213,8 +209,9 @@ abilities:
         - "Fly onto an ally's head (20 blocks): a"
         - "60 HP shield for them (2s); untouchable;"
         - "they're 20% faster, +2 HP"
-        - "per basic attack. Again (off cooldown): gust"
-        - "(+35% speed) or fly to another ally."
+        - "per basic attack. Again (off cooldown):"
+        - "shield them again, or fly to another"
+        - "ally."
         - "Shift: hop off."
     nodes:
       pick:
@@ -280,7 +277,7 @@ abilities:
         affects: allies
         on_hit: false
         effects:
-          - { id: status, status: fae_gust }
+          - { id: shield, amount: 60, lasts: 40 }   # the shield again (60 HP, 2s): no speed
         next: gust_cue
       gust_cue:
         type: play_cue

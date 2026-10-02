@@ -341,23 +341,25 @@ class FaeTest {
     }
 
     @Test
-    void pressingAgainGivesHerAllyAGust() throws IOException {
+    void pressingAgainShieldsHerAllyAgain() throws IOException {
         setup();
         UUID pal = perchOnNewFriend();
         t.world.look(p, new Vec3(1, 0, 0)); // nobody in sight
         t.time.advance(200); // the cooldown's over
+        double shieldBefore = t.shields.getOrDefault(pal, 0.0);
         use(Slots.ABILITY_2);
-        assertTrue(has(pal, "fae_gust"), "a burst of speed");
-        assertEquals(1.2 * 1.35, t.engine.stats().moveSpeedMultiplier(pal), 1e-9);
-        assertEquals(100, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "a gust starts the cooldown again");
+        assertEquals(60, t.shields.getOrDefault(pal, 0.0) - shieldBefore, 1e-6, "the shield again");
+        assertFalse(has(pal, "fae_gust"), "no burst of speed any more");
+        assertEquals(1.2, t.engine.stats().moveSpeedMultiplier(pal), 1e-9, "just the blessing's");
+        assertEquals(100, t.engine.cooldowns().remainingTicks(p, "fae_ab2"), "it starts the cooldown again");
         t.time.advance(41);
-        assertFalse(has(pal, "fae_gust"), "2s");
+        double after = t.shields.getOrDefault(pal, 0.0);
         use(Slots.ABILITY_2);
-        assertFalse(has(pal, "fae_gust"), "on cooldown: no second gust");
+        assertEquals(after, t.shields.getOrDefault(pal, 0.0), 1e-6, "on cooldown: no second shield");
         assertEquals(pal, t.world.riding.get(p), "still up there");
         t.time.advance(60);
         use(Slots.ABILITY_2);
-        assertTrue(has(pal, "fae_gust"), "5s after the first");
+        assertEquals(after + 60, t.shields.getOrDefault(pal, 0.0), 1e-6, "5s after the first: shielded again");
     }
 
     @Test

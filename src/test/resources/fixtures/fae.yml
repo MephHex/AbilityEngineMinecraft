@@ -278,7 +278,7 @@ abilities:
         affects: allies
         on_hit: false
         effects:
-          - { id: status, status: fae_gust }
+          - { id: shield, amount: 60, lasts: 40 }   # the shield again (60 HP, 2s): no speed
         next: gust_cue
       gust_cue:
         type: play_cue
