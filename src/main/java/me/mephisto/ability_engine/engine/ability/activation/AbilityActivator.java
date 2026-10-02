@@ -28,6 +28,8 @@ public final class AbilityActivator {
     public static final String BUFFERED = "buffered";
     /** The failure reason for a press of an ability that's passive right now (passive_while): nothing to report. */
     public static final String PASSIVE = "passive";
+    /** The failure reason for an ability with nothing to use (needs_constructs, none standing): its icon is greyed out. */
+    public static final String UNAVAILABLE = "unavailable";
 
     private final AbilityEngine engine;
 
@@ -40,9 +42,23 @@ public final class AbilityActivator {
         return ability.passiveWhile() != null && engine.tags().has(caster, ability.passiveWhile());
     }
 
+    /**
+     * How many constructs it can use right now (needs_constructs: the caster's standing constructs from that ability),
+     * or -1 if it doesn't need any.
+     */
+    public int constructsFor(UUID caster, Ability ability) {
+        return ability.needsConstructs() == null ? -1 : engine.constructs().count(caster, ability.needsConstructs());
+    }
+
+    /** Nothing to use right now (needs_constructs, none standing): it can't be cast, and its icon is greyed out. */
+    public boolean isUnavailable(UUID caster, Ability ability) {
+        return constructsFor(caster, ability) == 0;
+    }
+
     /** Could {@code caster} activate this right now? Side-effect free — safe for UI (greying out hotbar slots). */
     public ActivationResult check(UUID caster, Ability ability) {
         if (isPassive(caster, ability)) return ActivationResult.fail(PASSIVE);
+        if (isUnavailable(caster, ability)) return ActivationResult.fail(UNAVAILABLE);
         if (ability.mode().exclusive() && engine.instances().isRunning(caster, ability.id())) {
             return ActivationResult.fail("already_active");
         }

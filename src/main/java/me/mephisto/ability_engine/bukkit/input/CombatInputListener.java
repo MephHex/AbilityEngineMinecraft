@@ -463,8 +463,8 @@ public final class CombatInputListener implements Listener {
                 return true;
             } else if (AbilityActivator.BUFFERED.equals(result.reason())) {
                 return true; // an early recast press: it lands as the window opens, nothing to report
-            } else if (AbilityActivator.PASSIVE.equals(result.reason())) {
-                return false; // in effect anyway (its icon glints): the key does nothing, nothing to report
+            } else if (AbilityActivator.PASSIVE.equals(result.reason()) || AbilityActivator.UNAVAILABLE.equals(result.reason())) {
+                return false; // in effect anyway (its icon glints), or nothing to use (greyed out): nothing to report
             } else if (freshPress && !(Slots.PRIMARY.equals(slot) && result.reason().startsWith("on_cooldown"))) {
                 // Clicking primary fire faster than its fire rate is normal; don't nag about it.
                 p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));

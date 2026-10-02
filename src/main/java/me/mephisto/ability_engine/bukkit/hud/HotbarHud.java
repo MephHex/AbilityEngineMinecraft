@@ -396,7 +396,9 @@ public final class HotbarHud {
         Map<String, String> now = new HashMap<>();
         for (String slot : HUD_SLOTS) {
             if (ability(c, slot).isEmpty()) continue;
-            now.put(slot, engine.loadouts().crowdControl(id, slot).orElse(""));
+            String cc = engine.loadouts().crowdControl(id, slot).orElse("");
+            if (cc.isEmpty() && engine.activator().isUnavailable(id, ability(c, slot).get())) cc = UNAVAILABLE; // greyed out
+            now.put(slot, cc);
         }
         Map<String, String> before = ccShown.getOrDefault(id, Map.of());
         if (now.equals(before)) return;
@@ -411,10 +413,28 @@ public final class HotbarHud {
             } else if (!onWeapon(slot)) {
                 Ability a = ability(c, slot).get();
                 inv.setItem(position(slot), cc.isEmpty() ? icon(slot, a, c)
+                        : UNAVAILABLE.equals(cc) ? greyedOut(slot, a, c)
                         : barrier(iconBase(slot, Material.BARRIER, c), a.display().name(), cc));
             }
         }
         refresh(p); // counters and sweeps back on the restored icons
+    }
+
+    /** Not a crowd control: an ability with nothing to use right now (needs_constructs, none standing). */
+    private static final String UNAVAILABLE = "unavailable";
+
+    /** An ability with nothing to use right now: a grey icon, until there's something again. */
+    private ItemStack greyedOut(String slot, Ability a, CharacterDef c) {
+        ItemStack item = iconBase(slot, Material.GRAY_DYE, c);
+        ItemMeta meta = item.getItemMeta();
+        meta.setMaxStackSize(MAX_COUNT);
+        String key = keybinds.actionFor(slot).map(InputAction::defaultKey).orElse("-");
+        meta.displayName(plain("[" + key + "] ", NamedTextColor.DARK_GRAY).append(plain(a.display().name(), NamedTextColor.GRAY)));
+        List<Component> lore = new ArrayList<>();
+        for (String line : a.display().description()) lore.add(plain(line, NamedTextColor.DARK_GRAY));
+        lore.add(plain("Nothing to use right now", NamedTextColor.RED));
+        meta.lore(lore);
+        return tag(item, meta);
     }
 
     private ItemStack barrier(ItemStack item, String name, String ccTag) {
@@ -660,6 +680,9 @@ public final class HotbarHud {
                     int seconds = remaining <= 0 ? 1 : (int) Math.min(MAX_COUNT, Math.ceil(remaining / 20.0));
                     // Charges: while any are left, the stack shows how many (the sweep shows the next one coming back).
                     if (a.charges() > 1 && remaining <= 0) seconds = engine.cooldowns().charges(id, a.id());
+                    // needs_constructs: off cooldown, the stack counts what it can use (e.g. shards hanging to recall)
+                    int usable = engine.activator().constructsFor(id, a);
+                    if (usable > 0 && remaining <= 0) seconds = Math.min(MAX_COUNT, usable);
                     if (item.getAmount() != seconds) {
                         item.setAmount(seconds);
                         inv.setItem(pos, item);

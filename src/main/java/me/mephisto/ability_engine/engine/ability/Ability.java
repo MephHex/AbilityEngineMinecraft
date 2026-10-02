@@ -33,6 +33,8 @@ import java.util.Set;
  *                        ({@code block.move}), the window staying open; the first cast isn't affected
  * @param passiveWhile    while the caster has this tag the ability is passive: it's already in effect (e.g. an
  *                        ultimate keeps it up), so pressing its key does nothing and its icon glints (null = never)
+ * @param needsConstructs it can only be used while the caster has constructs from this ability standing (e.g. a recall
+ *                        of shards left lying around); its icon counts them, greyed out with none (null = always)
  */
 public record Ability(
         String id,
@@ -54,7 +56,8 @@ public record Ability(
         boolean manualCooldown,
         int charges,
         boolean recastMovement,
-        String passiveWhile
+        String passiveWhile,
+        String needsConstructs
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -88,6 +91,7 @@ public record Ability(
         private int charges = 1;
         private boolean recastMovement;
         private String passiveWhile;
+        private String needsConstructs;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -115,6 +119,8 @@ public record Ability(
         public Builder recastMovement(boolean v) { this.recastMovement = v; return this; }
         /** While the caster has this tag, pressing it does nothing (it's in effect anyway) and its icon glints. */
         public Builder passiveWhile(String tag) { this.passiveWhile = tag; return this; }
+        /** Only usable while the caster has constructs from this ability standing. */
+        public Builder needsConstructs(String abilityId) { this.needsConstructs = abilityId; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -129,7 +135,7 @@ public record Ability(
             }
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
                     cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
-                    refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile);
+                    refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile, needsConstructs);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

@@ -120,6 +120,26 @@ class AmethystTest {
     }
 
     @Test
+    void recallOnlyWithShardsHangingAndItsIconCountsThem() throws IOException {
+        setup();
+        var recall = t.engine.abilities().find("amethyst_recall").orElseThrow();
+        assertTrue(t.engine.activator().isUnavailable(p, recall), "none hanging: greyed out");
+        var none = t.engine.loadouts().activate(p, Slots.ABILITY_3);
+        assertFalse(none.success());
+        assertEquals(me.mephisto.ability_engine.engine.ability.activation.AbilityActivator.UNAVAILABLE, none.reason());
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "amethyst_recall"), "and it costs nothing");
+
+        for (int i = 0; i < 3; i++) {
+            use(Slots.PRIMARY);
+            t.time.advance(4);
+        }
+        t.time.advance(15);
+        assertEquals(3, t.engine.activator().constructsFor(p, recall), "3 to recall (the icon's count)");
+        assertFalse(t.engine.activator().isUnavailable(p, recall));
+        use(Slots.ABILITY_3);
+    }
+
+    @Test
     void atMostSixShardsHang() throws IOException {
         setup();
         for (int i = 0; i < 6; i++) {
@@ -168,12 +188,30 @@ class AmethystTest {
         t.time.advance(25);
         assertTrue(stacks(p, "amethyst_gathering") >= 3, "the XP bar counts them: " + stacks(p, "amethyst_gathering"));
         assertTrue(t.engine.tags().has(p, "state.slowed"), "slowed while she gathers");
+        assertFalse(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "a channel: nothing else meanwhile");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success());
         assertEquals(0, t.damage(enemy), 1e-6, "not loosed yet");
         t.time.advance(60);
         assertFalse(t.engine.tags().has(p, "state.slowed"), "loosed: not slowed any more");
+        t.time.advance(10);
+        use(Slots.PRIMARY); // and free again
         assertTrue(has(enemy, "amethyst_volley_slow"), "loosed by itself: slowed");
         assertTrue(t.damage(enemy) >= BASE * 0.6, "and the burst behind them hurt: " + t.damage(enemy));
         assertFalse(has(p, "amethyst_gathering"), "over: the count's gone");
+    }
+
+    @Test
+    void aStunBreaksTheVolleysChannel() throws IOException {
+        setup();
+        UUID enemy = foe(6, 0);
+        use(Slots.ABILITY_1);
+        t.time.advance(20);
+        t.engine.statuses().apply(p, "stun", 20, enemy);
+        assertFalse(t.engine.tags().has(p, "state.channeling"), "broken");
+        assertFalse(t.engine.tags().has(p, "state.slowed"));
+        t.time.advance(80);
+        assertEquals(0, t.damage(enemy), 1e-6, "nothing was loosed");
+        assertFalse(has(p, "amethyst_gathering"), "the XP bar's count is gone");
     }
 
     // ---- Crystal Ward -----------------------------------------------------------------------------------------
