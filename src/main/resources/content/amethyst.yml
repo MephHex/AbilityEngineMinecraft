@@ -7,7 +7,7 @@
 # PASSIVE (Lingering Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (5 a second). Each shard pierces
 #   enemies (the first one hit takes full damage, those behind it half), and one that reaches its full range, or hits
 #   the ground or a wall, hangs there upright, bobbing, for 5s from when it got there (6 at most). Recall (3) brings them
-#   back into the ammo; one that fades on its own is gone. Otherwise the ammo refills by itself, a shard every 3s.
+#   back into the ammo; one that fades on its own is gone. Otherwise the ammo refills by itself, a shard every 5s.
 #   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again.
 #
 # ULTIMATE (F): Crystallize. 5s to choose (the enemy in your sights glows): LMB that enemy, RMB yourself. The target
@@ -95,7 +95,7 @@ abilities:
         - "20% to those behind. 6 shards of ammo;"
         - "where they end (range, ground, wall)"
         - "they hang 5s (6 at most). 3: Recall"
-        - "them into the ammo; +1 every 3s."
+        - "them into the ammo; +1 every 5s."
         - "Out of ammo: plain, slower shards."
     nodes:
       load:
@@ -593,8 +593,8 @@ characters:
     weapon: AMETHYST_SHARD
     stats:                           # see docs/character-stats.md
       health: 180                    # max HP
-      armor: 5                       # damage taken x 100 / (100 + armor)
-      base_damage: 32                # abilities deal % of this
+      armor: 15                      # damage taken x 100 / (100 + armor)
+      base_damage: 45                # abilities deal % of this
       move_speed: 1.0                # x vanilla walking speed
       attack_speed: 5.0              # shards per second (out of ammo: 1.5)
     status_bar: amethyst_gathering   # XP bar: Shard Volley's shards gathered (the level), while she gathers
@@ -603,7 +603,7 @@ characters:
         max: 6
       ammo:                          # PASSIVE: her shards (slot 9)
         max: 6
-        regen_every: 60              # a shard every 3s (60 ticks), all the time (Recall brings hanging ones back sooner)
+        regen_every: 100             # a shard every 5s (100 ticks), all the time (Recall brings hanging ones back sooner)
         refill_sweep: true           # its item shows the next shard coming back (a grey sweep)
         hotbar: 9
         icon: AMETHYST_SHARD
