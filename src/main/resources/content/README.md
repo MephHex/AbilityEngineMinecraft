@@ -267,7 +267,8 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 ## Added for Soul Rend, Umbrella and the flask reroll
 
 - **Abilities:** `charges: N` - N uses stored up; each comes back `cooldown` after the last one used.
-  It only counts as on cooldown with none left (the hotbar stack shows the charges left).
+  It only counts as on cooldown with none left. On the hotbar the stack shows the charges left, and the cooldown sweep
+  shows the next one coming back, even while others are left to use (with none left, the stack counts the seconds).
 - **Characters:** `traits: [sneak_slow_fall]` - always-on behaviours: hold SHIFT while falling to float
   down (Slow Falling).
 - **summon_clone:** `of: <key>` makes it a look-alike of someone else, where THEY stand (it's still your

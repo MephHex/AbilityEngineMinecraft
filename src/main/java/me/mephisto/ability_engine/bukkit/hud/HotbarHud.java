@@ -181,7 +181,9 @@ public final class HotbarHud {
         engine.loadouts().characterOf(id).ifPresent(c -> {
             for (String slot : HUD_SLOTS) {
                 ability(c, slot).ifPresent(a -> {
-                    long remaining = engine.cooldowns().remainingTicks(id, a.id());
+                    // Charges: the sweep shows the next one coming back, even while others are left to use
+                    // (the stack still counts the charges left, see updateCounters).
+                    long remaining = engine.cooldowns().nextChargeTicks(id, a.id());
                     syncSweep(p, sent, sweepKey(id, c, slot, a), now, remaining);
                 });
             }
@@ -632,7 +634,7 @@ public final class HotbarHud {
                     if (!isHudItem(item)) return;
                     long remaining = engine.cooldowns().remainingTicks(id, a.id());
                     int seconds = remaining <= 0 ? 1 : (int) Math.min(MAX_COUNT, Math.ceil(remaining / 20.0));
-                    // Charges: while any are left, the stack shows how many (the sweep only shows with none).
+                    // Charges: while any are left, the stack shows how many (the sweep shows the next one coming back).
                     if (a.charges() > 1 && remaining <= 0) seconds = engine.cooldowns().charges(id, a.id());
                     if (item.getAmount() != seconds) {
                         item.setAmount(seconds);

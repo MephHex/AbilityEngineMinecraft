@@ -545,6 +545,25 @@ class FaeTest {
     }
 
     @Test
+    void theNextChargeCountsDownWhileOthersAreLeft() throws IOException {
+        setup();
+        var cd = t.engine.cooldowns();
+        assertEquals(0, cd.nextChargeTicks(p, "fae_ab3"), "all 3 there");
+        cd.start(p, "fae_ab3", 240);
+        cd.start(p, "fae_ab3", 240);
+        assertEquals(1, cd.charges(p, "fae_ab3"));
+        assertEquals(0, cd.remainingTicks(p, "fae_ab3"), "one left: not on cooldown");
+        assertEquals(240, cd.nextChargeTicks(p, "fae_ab3"), "but the next one is 12s away (the hotbar's sweep)");
+        t.time.advance(100);
+        assertEquals(140, cd.nextChargeTicks(p, "fae_ab3"));
+        t.time.advance(140);
+        assertEquals(2, cd.charges(p, "fae_ab3"));
+        assertEquals(240, cd.nextChargeTicks(p, "fae_ab3"), "and the last missing one after it");
+        t.time.advance(240);
+        assertEquals(0, cd.nextChargeTicks(p, "fae_ab3"));
+    }
+
+    @Test
     void cancellingThePreviewSpendsNothing() throws IOException {
         setup();
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting());
