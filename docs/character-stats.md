@@ -315,6 +315,23 @@ place, not slowed: her view isn't zoomed in). The young and large tree can't be 
 | | Screech | whole domain: knocked away, disarmed 3s |
 | | Walking Tree (ult) | walks 8s, no abilities: **30%** every 0.5s to enemies in the domain, all of it heals her |
 
+### Berserker: Bruiser / Juggernaut
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **260** | **20** (17%) | **42** | **1.00** | **1.15** (17 ticks) | 312 | 48 (~84 bloodlusted) |
+
+Bloodlust (passive): below 40% health, +25% damage and 40% faster swings. He sustains through War Cry's lifesteal
+and Reaping Cleave's blade, and Rampage keeps him from being peeled.
+
+| Ability | Damage |
+|---|---|
+| Axe Chop (primary) | **100%** in a wide 3.3-block arc; 30% lifesteal during War Cry; landing on a player: Whirling Leap -0.25s |
+| Whirling Leap | a ~2.5-block hop, then a spin: **90%** within 3.2 blocks, slowed 40% 1.5s |
+| War Cry | 0.5s charge, then 5s: +25% speed, Axe Chops heal 30% of their damage |
+| Reaping Cleave | 0.75s windup, then **90%** within 5 blocks; the outer band (2.5-5) also takes **8% max HP** true damage, all of it healed |
+| Rampage (ult) | 8s: unstoppable (no crowd control, knockback or displacement), +20% speed, War Cry the whole time |
+
 ### Test kit (Pyro)
 
 No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).

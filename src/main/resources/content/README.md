@@ -579,3 +579,26 @@ slot, so an ability is only silenced when it's in an ability slot.
   the preview was (unless someone's in the way). `range` isn't needed with it.
 - **Radius query:** `sight: true` - only those the centre can see: nobody behind a wall or around a corner (e.g. a burst
   that doesn't go through walls).
+
+## Added for the Berserker
+
+- **Characters:** `low_health: { below: 0.4, status: <status> }` - a passive: while their health is below that share of
+  their max HP, the status is kept on them (it drops off within half a second once they're healed back above it). Show
+  it with a `status_items` entry (and `glint_weapon: true`).
+- **Abilities:** `passive_while: <tag>` - while the caster has that tag the ability is passive: it's in effect anyway
+  (e.g. an ultimate keeps its buff up), so its icon glints and pressing its key does nothing (no cast, no cooldown,
+  no message).
+- **apply_effects:** `count_players: <key>` - like `count`, but only the players it affected (mobs, summons and
+  projectile bodies don't count), e.g. "a basic attack that lands on a player": a `switch` on the key after it.
+- **Tags:** `state.unstoppable` - crowd control doesn't hold them. The crowd-control parts of a debuff are a slower
+  move or attack speed and the tags `state.stunned`, `state.silenced`, `state.disarmed`, `state.rooted`,
+  `state.slowed`, `state.frozen`, `state.paralyzed`, `block.ability`, `block.move`, `block.walk`; while they're
+  unstoppable those parts are switched off, and everything else about the debuff still works: a slowing poison (the
+  Fae's toxin) still poisons them, it just doesn't slow them. If it's still on them when they stop being unstoppable,
+  it slows them again for the time it has left. A debuff that's nothing but crowd control (a stun, a root, a plain
+  slow) doesn't land at all, and ends as they become unstoppable. Give `block.knockback` and `block.displace` too for
+  "nothing moves them".
+- **Cues:** berserker_chop, berserker_leap, berserker_spin (3.2 blocks), berserker_war_cry_charge, berserker_war_cry,
+  berserker_war_cry_aura (looping), berserker_cleave_windup, berserker_cleave_ring (rings of 2.5 and 5 blocks on the
+  ground: keep them in step with Reaping Cleave's radii), berserker_cleave, berserker_bloodlust (looping),
+  berserker_rampage_start, berserker_rampage (looping).

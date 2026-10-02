@@ -50,6 +50,9 @@ public interface WorldQuery {
     /** Current health as a share of max health (0..1), e.g. "below 40%". Empty = unknown. */
     default java.util.OptionalDouble healthFraction(UUID entity) { return java.util.OptionalDouble.empty(); }
 
+    /** A player (not a mob, a summon or a projectile's body). Default: unknown (false). */
+    default boolean isPlayer(UUID entity) { return false; }
+
     /**
      * Which way the entity is moving right now, horizontally (walking, strafing, backpedalling),
      * as a unit vector. Empty when standing still. Default: unknown (always empty).

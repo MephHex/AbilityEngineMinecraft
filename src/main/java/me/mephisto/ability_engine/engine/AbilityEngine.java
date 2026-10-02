@@ -64,6 +64,7 @@ public final class AbilityEngine {
     private final me.mephisto.ability_engine.engine.combat.CombatTracker combat;
     private final me.mephisto.ability_engine.engine.ward.WardManager wards;
     private final me.mephisto.ability_engine.engine.ward.HearingManager hearing;
+    private final me.mephisto.ability_engine.engine.ward.LowHealthManager lowHealth;
     private final me.mephisto.ability_engine.engine.combat.SpellShields spellShields;
     private final me.mephisto.ability_engine.engine.ride.RideManager rides;
 
@@ -101,6 +102,8 @@ public final class AbilityEngine {
                 platform.cues(), platform.world(), platform.scheduler(), statuses);
         this.hearing = new me.mephisto.ability_engine.engine.ward.HearingManager(loadouts, platform.world(), teams, statuses,
                 summons, platform.scheduler());
+        this.lowHealth = new me.mephisto.ability_engine.engine.ward.LowHealthManager(loadouts, platform.world(), statuses,
+                platform.scheduler());
         // A reflex (a ward with cast:) casts its ability at whoever hit its holder, wherever they're aiming.
         wards.setReflexes((holder, attacker, ability) -> activator.activateOnId(holder, ability,
                 new me.mephisto.ability_engine.engine.target.EntityTarget(attacker), java.util.Map.of()));
@@ -109,11 +112,26 @@ public final class AbilityEngine {
         // Debuff immunity from anything else (a status granting state.debuff_immune): blocks without using it up.
         statuses.addGuard((target, def, source) -> tags.has(target, me.mephisto.ability_engine.engine.tag.Tags.DEBUFF_IMMUNE)
                 && me.mephisto.ability_engine.engine.status.StatusManager.isDebuff(target, def, source));
+        // Unstoppable: pure crowd control (a stun, a root) doesn't land; the rest does, without its crowd-control parts.
+        statuses.addGuard((target, def, source) -> tags.has(target, me.mephisto.ability_engine.engine.tag.Tags.UNSTOPPABLE)
+                && me.mephisto.ability_engine.engine.status.StatusManager.isDebuff(target, def, source)
+                && me.mephisto.ability_engine.engine.status.StatusManager.isPureCrowdControl(def));
         // Nothing lands on the dead: a hit that kills and also poisons / slows would otherwise put that on the corpse,
         // after the death already cleared everything, and it would still be on them when they respawn.
         statuses.addGuard((target, def, source) -> !platform.world().isAlive(target));
 
         tags.addListener(instances); // interrupts
+        tags.addListener(new me.mephisto.ability_engine.engine.tag.TagListener() {
+            @Override
+            public void onTagAdded(UUID entity, String tag) { // crowd control on them lets go
+                if (me.mephisto.ability_engine.engine.tag.Tags.UNSTOPPABLE.equals(tag)) statuses.suppressCrowdControl(entity);
+            }
+
+            @Override
+            public void onTagRemoved(UUID entity, String tag) { // what's still on them hinders them again
+                if (me.mephisto.ability_engine.engine.tag.Tags.UNSTOPPABLE.equals(tag)) statuses.restoreCrowdControl(entity);
+            }
+        });
         statuses.setEffectApplier((source, target, list) -> { // status ticks (burn damage etc.)
             if (!platform.world().isAlive(target)) return;
             for (var config : list) {
@@ -228,6 +246,8 @@ public final class AbilityEngine {
     /** Characters' wards: debuff immunity that recharges out of combat. */
     public me.mephisto.ability_engine.engine.ward.WardManager wards() { return wards; }
     public me.mephisto.ability_engine.engine.ward.HearingManager hearing() { return hearing; }
+    /** Characters' low-health passives (a status kept on them while they're low). */
+    public me.mephisto.ability_engine.engine.ward.LowHealthManager lowHealth() { return lowHealth; }
     /** Who rides whom (a fae perched on an ally). */
     public me.mephisto.ability_engine.engine.ride.RideManager rides() { return rides; }
     /** Spell shields: spell damage absorbed as charge. */

@@ -178,6 +178,11 @@ public final class BukkitWorldQuery implements WorldQuery {
     }
 
     @Override
+    public boolean isPlayer(UUID entity) {
+        return Bukkit.getPlayer(entity) != null;
+    }
+
+    @Override
     public boolean isAlive(UUID entity) {
         Entity e = Bukkit.getEntity(entity);
         return e != null && e.isValid() && !(e instanceof LivingEntity l && l.isDead());

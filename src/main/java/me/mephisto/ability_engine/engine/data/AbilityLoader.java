@@ -335,7 +335,20 @@ public final class AbilityLoader {
         CharacterDef.Stats stats = stats(p);
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
-                hover(p), variants(p));
+                hover(p), variants(p), lowHealth(p));
+    }
+
+    /** {@code low_health: { below: 0.4, status: <status> }}: that status is kept on them while their health is below it. */
+    private CharacterDef.LowHealth lowHealth(Params p) {
+        if (!p.has("low_health")) return null;
+        Params l = p.getParams("low_health");
+        double below = l.requireDouble("below");
+        if (below <= 0 || below > 1) throw l.error("below", "a share of max HP, e.g. 0.4");
+        String status = l.requireString("status");
+        if (engine.statusDefs().find(status).isEmpty()) {
+            throw l.error("status", "unknown status '" + status + "' (define it under 'statuses:')");
+        }
+        return new CharacterDef.LowHealth(below, status);
     }
 
     /** {@code variants: [ { while: <tag>, cue_suffix: _blue, visuals: { <visual>: <visual> } } ]}. */
@@ -475,6 +488,7 @@ public final class AbilityLoader {
                 .refreshOnKill(refreshOnKill(p))
                 .charges(charges(p))
                 .recastMovement(p.getBool("recast_movement", false))
+                .passiveWhile(p.getString("passive_while", null))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))

@@ -65,21 +65,26 @@ public final class StatSheets {
 
     /**
      * How much faster the entity's basic attacks come right now: its statuses' {@code attack_speed}
-     * multiplied together (Paralysis 0.6: 40% slower). 1 = normal.
+     * multiplied together (Paralysis 0.6: 40% slower). 1 = normal. Unstoppable, debuffs don't slow them.
      */
     public double attackSpeedMultiplier(UUID entity) {
         double m = 1;
-        for (ActiveStatus s : statuses.on(entity)) m *= s.def().attackSpeed();
+        for (ActiveStatus s : statuses.on(entity)) {
+            if (s.def().attackSpeed() < 1 && statuses.crowdControlSuppressed(entity, s)) continue;
+            m *= s.def().attackSpeed();
+        }
         return m;
     }
 
     /**
      * The entity's statuses' {@code move_speed}, each to the power of its stacks, multiplied together
-     * (a slow that builds up). 1 = normal. The platform applies it on top of the sheet's move speed.
+     * (a slow that builds up). 1 = normal. The platform applies it on top of the sheet's move speed. Unstoppable,
+     * debuffs don't slow them (a slowing poison still poisons).
      */
     public double moveSpeedMultiplier(UUID entity) {
         double m = 1;
         for (ActiveStatus s : statuses.on(entity)) {
+            if (s.def().moveSpeed() < 1 && statuses.crowdControlSuppressed(entity, s)) continue;
             if (s.def().moveSpeed() != 1) m *= Math.pow(s.def().moveSpeed(), Math.max(1, s.stacks()));
         }
         return m;

@@ -48,6 +48,13 @@ public final class Tags {
     public static final String NAUSEOUS = "state.nauseous";
     /** Debuffs (non-buff statuses from others) don't land; see the character ward. */
     public static final String DEBUFF_IMMUNE = "state.debuff_immune";
+    /**
+     * Crowd control doesn't hold them: its parts (stunned, rooted, silenced, disarmed, slowed...: see
+     * StatusManager#isCrowdControl) are switched off while they have it. Pure crowd control (a stun, a root) doesn't
+     * land at all and ends as they get it; anything else lands and keeps the rest (a slowing poison still poisons).
+     * Knockback and being moved are block.knockback and block.displace: give those too for a full "unstoppable".
+     */
+    public static final String UNSTOPPABLE = "state.unstoppable";
 
     public static final String BLOCK_ABILITY = "block.ability";
     public static final String BLOCK_MOVE = "block.move";
