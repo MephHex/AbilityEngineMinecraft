@@ -148,13 +148,20 @@ public final class LoadoutManager {
 
     /** @param freshPress false for auto-repeat while a button is held; held input never recasts */
     public ActivationResult activate(UUID player, String slot, boolean freshPress) {
+        return activate(player, slot, freshPress, java.util.Map.of());
+    }
+
+    /** @param extra more blackboard values for the cast (e.g. how far a bow was drawn: {@code draw}) */
+    public ActivationResult activate(UUID player, String slot, boolean freshPress, java.util.Map<String, Object> extra) {
         Optional<CharacterDef> character = characterOf(player);
         if (character.isEmpty()) return ActivationResult.fail("no_character");
         String abilityId = character.get().abilityIn(slot);
         if (abilityId == null) return ActivationResult.fail("empty_slot:" + slot);
         var blocked = slotBlocked(player, slot);
         if (blocked.isPresent()) return blocked.get();
-        return activator.activate(player, abilityId, freshPress, java.util.Map.of(Keys.SLOT.name(), slot));
+        java.util.Map<String, Object> presets = new java.util.HashMap<>(extra);
+        presets.put(Keys.SLOT.name(), slot);
+        return activator.activate(player, abilityId, freshPress, presets);
     }
 
     /** Fire a slot at a specific entity (melee clicks). Empty slot: empty_slot:<slot>. */

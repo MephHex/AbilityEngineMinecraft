@@ -138,8 +138,9 @@ class SeraphTest {
         assertEquals("seraph_light_arrow", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "the bow");
         assertEquals(3, t.engine.resources().get(p, "light"));
 
-        use(Slots.PRIMARY);
+        use(Slots.PRIMARY); // (a full draw)
         t.time.advance(15);
+        assertEquals(BASE, t.damage(enemy), 1e-6, "the burst hurts the enemy: 100% base damage");
         assertTrue(has(enemy, "seraph_weakened"), "the enemy: weakened (and glowing)");
         assertTrue(t.engine.tags().has(enemy, Tags.GLOWING));
         assertFalse(has(friend, "root"), "the ally: cleansed");
@@ -150,6 +151,16 @@ class SeraphTest {
         use(Slots.PRIMARY);
         t.time.advance(2);
         assertEquals("seraph_primary", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "out of arrows: the sword");
+    }
+
+    @Test
+    void aShortDrawHitsSofter() throws IOException {
+        setup();
+        UUID enemy = foe(8, 0);
+        use(Slots.ABILITY_3);
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY, true, java.util.Map.of("draw", 0.5)).success());
+        t.time.advance(15);
+        assertEquals(BASE * 0.5, t.damage(enemy), 1e-6, "half drawn: half the damage");
     }
 
     @Test

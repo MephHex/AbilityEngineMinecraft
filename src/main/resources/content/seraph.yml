@@ -212,10 +212,11 @@ abilities:
       done:
         type: end_cast               # (stops the healing too, if it broke)
 
-  # 3: Light Arrows (14s). Your sword becomes a bow for 8s (a boss bar): LMB shoots an arrow of light, 3 at most (hotbar
-  # slot 8 counts them). Press 3 again to put it away early. Each bursts on whoever or whatever it hits: enemies within 3
-  # blocks are weakened (-25% damage) and glow for 5s; allies within 3 blocks (you too) are cleansed (poison, burns,
-  # slows... any debuff) and 30% faster for 3s.
+  # 3: Light Arrows (14s). Your sword becomes a bow for 8s (a boss bar): hold RMB to draw it, let go to loose an arrow
+  # of light, 3 at most (hotbar slot 8: they're its arrows). Press 3 again to put it away early. Each bursts on whoever
+  # or whatever it hits: enemies within 3 blocks take 100% base damage (less on a short draw), are weakened (-25%
+  # damage) and glow for 5s; allies within 3 blocks (you too) are cleansed (poison, burns, slows... any debuff) and 30%
+  # faster for 3s.
   seraph_ab3:
     cooldown: 280                    # 14s
     cancel_on_repress: true          # 3 again: put the bow away
@@ -224,8 +225,9 @@ abilities:
       name: "Light Arrows"
       icon: GLOW_INK_SAC               # (no arrow item: the bow could draw it)
       description:
-        - "8s with a bow: up to 3 arrows of light."
-        - "They burst (3 blocks): enemies weakened"
+        - "8s with a bow (hold RMB, let go): up to 3"
+        - "arrows of light. They burst (3 blocks):"
+        - "enemies take 100% base damage, weakened"
         - "and glowing; allies cleansed and faster."
         - "Press 3 again to put it away."
     nodes:
@@ -242,15 +244,16 @@ abilities:
         ticks: 160                   # 8s
         boss_bar: true
 
-  # LMB with the bow: an arrow of light (1.8 blocks/tick, a slight drop) that bursts where it lands or on whoever it
-  # hits, friend or foe.
+  # The bow let go (RMB): an arrow of light (1.8 blocks/tick, a slight drop) that bursts where it lands or on whoever it
+  # hits, friend or foe. Its damage follows how far the bow was drawn ("draw": 0.1-1, a full draw takes 1s).
   seraph_light_arrow:
     cooldown: 12                     # (the attack_speed stat sets it)
     display:
       name: "Light Arrow"
       description:
-        - "An arrow of light (3 left at most): it"
-        - "bursts on friend, foe or the ground."
+        - "Hold RMB to draw, let go: an arrow of"
+        - "light that bursts on friend, foe or the"
+        - "ground (100% base damage at full draw)."
     nodes:
       nock:
         type: spend
@@ -280,10 +283,11 @@ abilities:
         type: cancel_ability
         ability: seraph_ab3
       smite:
-        type: apply_effects          # enemies: weakened and glowing
+        type: apply_effects          # enemies: hurt, weakened and glowing
         targets: { type: radius, center: hit, radius: 3 }   # (the cue's ring: 3)
         on_hit: false
         effects:
+          - { id: damage, base: 1.0, scale_by: draw }   # x how far the bow was drawn
           - { id: status, status: seraph_weakened }
         next: bless
       bless:
@@ -419,10 +423,10 @@ characters:
         delay: 20                    # ...1s without flying
         hotbar: 9
         icon: FEATHER
-      light:                         # Light Arrows left (slot 8, only while the bow is out)
+      light:                         # Light Arrows left (slot 8, only while the bow is out: the bow's arrows)
         max: 3
         hotbar: 8
-        icon: GLOWSTONE_DUST
+        icon: SPECTRAL_ARROW         # (an arrow item: what lets the bow draw)
         shown_while: state.radiant_bow
     forms:
       - while: state.choosing_ward   # Divine Ward: choosing
