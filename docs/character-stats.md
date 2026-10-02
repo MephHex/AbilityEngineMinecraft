@@ -353,10 +353,10 @@ Wings (passive): gliding on an elytra, Slow Falling (no fall damage). Fervor (pa
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **180** | **5** (5%) | **32** | **1.00** | **5.0** (4 ticks; 1.5 out of ammo) | 189 | 64 (19 out of ammo) |
+| **180** | **15** (13%) | **45** | **1.00** | **5.0** (4 ticks; 1.5 out of ammo) | 207 | 90 (27 out of ammo) |
 
 Lingering Shards (passive): 6 shards of ammo; they pierce (half damage to those behind the first) and hang at full
-range for 5s (6 at most); Recall brings them back into the ammo, which also refills a shard every 3s. Out of ammo: plain, slower shards.
+range for 5s (6 at most); Recall brings them back into the ammo, which also refills a shard every 5s. Out of ammo: plain, slower shards.
 
 | Ability | Effect |
 |---|---|
