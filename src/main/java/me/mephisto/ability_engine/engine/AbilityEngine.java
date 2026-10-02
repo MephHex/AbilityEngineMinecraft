@@ -144,6 +144,7 @@ public final class AbilityEngine {
         effects.register("status", new ApplyStatusEffect(statusDefs));
         effects.register("remove_status", new me.mephisto.ability_engine.engine.effect.RemoveStatusEffect(statusDefs));
         effects.register("purge_buffs", new me.mephisto.ability_engine.engine.effect.PurgeBuffsEffect());
+        effects.register("cleanse", new me.mephisto.ability_engine.engine.effect.CleanseEffect());
     }
 
     // ---- platform ----

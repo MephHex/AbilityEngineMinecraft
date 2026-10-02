@@ -2,6 +2,7 @@ package me.mephisto.ability_engine.bukkit.status;
 
 import me.mephisto.ability_engine.engine.AbilityEngine;
 import me.mephisto.ability_engine.engine.loadout.CharacterDef;
+import me.mephisto.ability_engine.engine.tag.Tags;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,7 +20,10 @@ import java.util.UUID;
  * <ul>
  *   <li>{@code sneak_slow_fall}: holding SHIFT while falling gives Slow Falling; letting go (or landing)
  *       takes it away at once.</li>
+ *   <li>{@code slow_fall}: always Slow Falling while falling (not flying or gliding).</li>
+ *   <li>{@code elytra}: an elytra in the chest slot (HotbarHud puts it there).</li>
  * </ul>
+ * Also keeps {@code state.gliding} on whoever glides on an elytra (anyone), for abilities to check.
  */
 public final class Traits implements Listener {
 
@@ -29,6 +33,8 @@ public final class Traits implements Listener {
     private final AbilityEngine engine;
     /** Players we gave Slow Falling (so we only take away our own). */
     private final Set<UUID> drifting = new HashSet<>();
+    /** Players we gave state.gliding. */
+    private final Set<UUID> gliding = new HashSet<>();
     /** Each player's height last tick: a player's own velocity isn't reliable on the server. */
     private final java.util.Map<UUID, Double> lastY = new java.util.HashMap<>();
 
@@ -43,11 +49,16 @@ public final class Traits implements Listener {
     private void tick() {
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
-            boolean has = engine.loadouts().characterOf(id).map(c -> c.has(CharacterDef.SNEAK_SLOW_FALL)).orElse(false);
+            boolean sneakFall = engine.loadouts().characterOf(id).map(c -> c.has(CharacterDef.SNEAK_SLOW_FALL)).orElse(false);
+            boolean alwaysFall = engine.loadouts().characterOf(id).map(c -> c.has(CharacterDef.SLOW_FALL)).orElse(false);
             double y = p.getLocation().getY();
             Double before = lastY.put(id, y);
             boolean falling = before != null && y < before - 1e-3 && !p.isOnGround() && !p.isFlying() && !p.isGliding();
-            if (has && p.isSneaking() && falling) {
+            if (p.isGliding() && !p.isDead() ? gliding.add(id) : gliding.remove(id)) { // only on a change
+                if (gliding.contains(id)) engine.tags().grant(id, Tags.GLIDING);
+                else engine.tags().revoke(id, Tags.GLIDING);
+            }
+            if ((alwaysFall || sneakFall && p.isSneaking()) && falling) {
                 p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, SLOW_FALL_TICKS, 0, false, false, false));
                 drifting.add(id);
             } else if (drifting.remove(id)) {
@@ -59,6 +70,7 @@ public final class Traits implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         lastY.remove(event.getPlayer().getUniqueId());
+        if (gliding.remove(event.getPlayer().getUniqueId())) engine.tags().revoke(event.getPlayer().getUniqueId(), Tags.GLIDING);
         if (drifting.remove(event.getPlayer().getUniqueId())) event.getPlayer().removePotionEffect(PotionEffectType.SLOW_FALLING);
     }
 }

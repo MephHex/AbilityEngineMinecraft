@@ -606,3 +606,19 @@ slot, so an ability is only silenced when it's in an ability slot.
   berserker_war_cry_aura (looping), berserker_cleave_windup, berserker_cleave_ring (rings of 2.5 and 5 blocks on the
   ground: keep them in step with Reaping Cleave's radii), berserker_cleave, berserker_bloodlust (looping),
   berserker_rampage_start, berserker_rampage (looping).
+
+## Added for the Seraph
+
+- **Hover:** `fuel: <resource>` and `fuel_drain: 20` (per second) - with `fly: true`, flying drains that resource (a
+  gauge); empty, they drop and can't take off again until it's back to a quarter. The resource's own `regen` and
+  `delay` refill it.
+- **Traits:** `slow_fall` - always Slow Falling while falling (not flying or gliding); `elytra` - an elytra in the
+  chest slot (jump while falling to glide; a chestplate of their own stays, and then there's no elytra).
+- **Tags:** `state.gliding` - on whoever glides on an elytra right now (e.g. `has_tag` for an ability that's different
+  while gliding).
+- **Effects:** `cleanse` - removes every debuff (a non-buff status someone else put on them).
+- **Forms:** a form may change `secondary` (RMB) too, e.g. LMB / RMB picking someone while an ultimate chooses. A BOW
+  weapon (in a form) works like any weapon: LMB fires the primary.
+- **Cues:** seraph_slash, seraph_thrust, seraph_dive, seraph_stab, seraph_smite, seraph_flit, seraph_tether_1 (line),
+  seraph_mend, seraph_valor, seraph_tether_snap, seraph_bow, seraph_arrow_shot, seraph_light_burst (3 blocks),
+  seraph_blessing_open, seraph_blessing, seraph_blessed (looping).

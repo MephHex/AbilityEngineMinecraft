@@ -44,6 +44,8 @@ public final class Tags {
     public static final String FLYING = "state.flying";
     /** In the middle of a dash (granted by the dash itself to whoever it moves), e.g. a hover passive holds off. */
     public static final String DASHING = "state.dashing";
+    /** Gliding on an elytra right now (the platform keeps it up to date). */
+    public static final String GLIDING = "state.gliding";
     /** Nauseous (on Bukkit: vanilla Nausea, the wobbling screen). */
     public static final String NAUSEOUS = "state.nauseous";
     /** Debuffs (non-buff statuses from others) don't land; see the character ward. */

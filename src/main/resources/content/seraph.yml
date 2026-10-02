@@ -1,0 +1,438 @@
+# content: seraph
+# The Seraph: a winged guardian with a golden sword. Flies in short bursts and glides on her wings, dives onto enemies,
+# flies to her allies to mend them, looses arrows of light, and wards an ally (or herself) from death.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Wings): double-tap jump to fly, as long as the flight gauge lasts (hotbar slot 9: ~3s of flight; it
+#   refills 1s after you land or stop flying, and you can take off again from a quarter). Jump while falling to glide
+#   on your elytra (free). Falling (not flying or gliding), you drift down: Slow Falling, and no fall damage.
+#
+# ULTIMATE (F): Divine Ward. 5s to choose (the ally in your sights glows): LMB wards that ally, RMB wards yourself. The
+#   warded one takes no damage for 4s and can't die. F again: cancel.
+
+statuses:
+  seraph_dazzled:                    # Radiant Thrust's dive: blinded
+    duration: 40                     # 2s
+    stacking: refresh
+    tags: [state.blinded]
+  seraph_valor:                      # Guardian's Tether held all the way: Strength
+    duration: 100                    # 5s
+    stacking: refresh
+    damage_dealt: 1.25               # +25% damage
+    tags: [buff.valor]
+  seraph_weakened:                   # a Light Arrow's burst on enemies: weakened and glowing
+    duration: 100                    # 5s
+    stacking: refresh
+    damage_dealt: 0.75               # -25% damage dealt
+    tags: [state.glowing]
+  seraph_swiftness:                  # a Light Arrow's burst on allies: faster
+    duration: 60                     # 3s
+    stacking: refresh
+    move_speed: 1.3                  # +30%
+    tags: [buff.swiftness]
+  seraph_marked:                     # Divine Ward: the ally in her sights while she chooses (they glow)
+    duration: 4                      # (kept on every 2 ticks while she looks at them)
+    stacking: refresh
+    tags: [state.glowing]
+    positive: true                   # (just a highlight: not a debuff)
+  seraph_warded:                     # Divine Ward: no damage, can't die
+    duration: 80                     # 4s
+    stacking: refresh
+    damage_taken: 0                  # every hit, vanilla ones too, is multiplied by 0
+    tags: [buff.warded]
+    cue: seraph_blessed              # a golden halo
+    positive: true
+
+abilities:
+
+  # PRIMARY (LMB): Gilded Slash. A golden sword sweep in front of you (3.2 blocks): 100% base damage.
+  seraph_primary:
+    cooldown: 12                     # (the attack_speed stat sets it)
+    display:
+      name: "Gilded Slash"
+      description:
+        - "A golden sword sweep: 100% base damage."
+        - "Passive - Wings: double-tap jump to fly"
+        - "(the gauge in slot 9), jump while falling"
+        - "to glide; you fall slowly."
+    nodes:
+      slash:
+        type: apply_effects
+        targets: { type: cone, range: 3.2, angle: 90 }
+        effects:
+          - { id: damage, base: 1.0 }
+        next: slash_cue
+      slash_cue:
+        type: play_cue
+        cue: seraph_slash
+
+  # 1: Radiant Thrust (7s). Thrust forward where you look (5 blocks): the first enemy you reach takes 120% base damage.
+  # Used while GLIDING it's a dive (6 blocks, faster): the enemy takes 140%, is knocked up, blinded 2s and stunned 1.5s.
+  seraph_ab1:
+    cooldown: 140                    # 7s
+    display:
+      name: "Radiant Thrust"
+      icon: TRIDENT
+      description:
+        - "Thrust where you look: 120% base damage."
+        - "While gliding, a dive: 140%, knocked up,"
+        - "blinded 2s and stunned 1.5s."
+    nodes:
+      stance:
+        type: has_tag                # gliding on her wings: a dive
+        tag: state.gliding
+        on: { has: dive_cue, lacks: thrust_cue }
+      thrust_cue:
+        type: play_cue
+        cue: seraph_thrust
+        next: thrust
+      thrust:
+        type: dash
+        range: 5
+        speed: 1.3
+        radius: 0.8
+        on: { hit: stab }
+      stab:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.2 }
+        next: stab_cue
+      stab_cue:
+        type: play_cue
+        cue: seraph_stab
+        at: hit
+      dive_cue:
+        type: play_cue
+        cue: seraph_dive
+        next: dive
+      dive:
+        type: dash
+        range: 6
+        speed: 1.6
+        radius: 0.9
+        on: { hit: smite }
+      smite:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.4, knockback: false }
+          - { id: knockback, from: caster, radius: 3, center: 0.2, edge: 0.2, lift: 0.9 }   # knocked UP
+          - { id: status, status: seraph_dazzled }
+          - { id: status, status: stun, duration: 30 }   # 1.5s
+        next: smite_cue
+      smite_cue:
+        type: play_cue
+        cue: seraph_smite
+        at: hit
+
+  # 2: Guardian's Tether (16s). Pick an ally in your sights (25 blocks, a forgiving aim) and fly to them, stopping 3
+  # blocks away (Radiant Thrust works on the way: knock a foe off them). Then a tether of light: 4s, healing them 3% of
+  # their max HP every 0.5s (24% in all). Held all 4s: they get Strength (+25% damage, 5s). It breaks past 12 blocks,
+  # out of sight for 1s, or if you're stunned or silenced. The cooldown starts when you pick someone (a miss is free).
+  seraph_ab2:
+    cooldown: 320                    # 16s
+    cooldown_starts: manual
+    display:
+      name: "Guardian's Tether"
+      icon: LEAD
+      description:
+        - "Fly to an ally (25 blocks), then tether"
+        - "them 4s: healing 24% of their max HP."
+        - "Held all the way: Strength (+25%, 5s)."
+    nodes:
+      pick:
+        type: acquire_target
+        query: { type: hitscan, range: 25, ray_size: 1.2, targets: allies }
+        on: { hit: picked, miss: ~ }
+      picked:
+        type: start_cooldown
+        next: flit
+      flit:
+        type: play_cue
+        cue: seraph_flit
+        next: fly
+      fly:
+        type: dash                   # after them, wherever they go, stopping 3 blocks away
+        to: target
+        follow: true
+        stop_short: 3
+        speed: 1.1
+        range: 40
+        radius: 0.3
+        on: { hit: split, miss: split }   # (already close, or lost on the way: tether from where she is)
+      split:
+        type: fork                   # the tether, and the healing while it holds
+        on: { out: hold, also: mend }
+      hold:
+        type: tether
+        target: target
+        duration: 80                 # 4s
+        range: 12
+        sight_grace: 20
+        break_on: [state.stunned, state.silenced]
+        cue: seraph_tether           # drawn as seraph_tether_1
+        stages: 1
+        on: { complete: valor, broken: snap }
+      mend:
+        type: repeat                 # 8 x 0.5s
+        times: 8
+        every: 10
+        on: { each: heal }
+      heal:
+        type: apply_effects
+        targets: { type: key, key: target }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: heal, max_hp: 0.03 }
+        next: heal_cue
+      heal_cue:
+        type: play_cue
+        cue: seraph_mend
+        at: target
+      valor:
+        type: apply_effects          # held all the way: Strength
+        targets: { type: key, key: target }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: seraph_valor }
+        next: valor_cue
+      valor_cue:
+        type: play_cue
+        cue: seraph_valor
+        at: target
+        next: done
+      snap:
+        type: play_cue
+        cue: seraph_tether_snap
+        at: target
+        next: done
+      done:
+        type: end_cast               # (stops the healing too, if it broke)
+
+  # 3: Light Arrows (14s). Your sword becomes a bow for 8s (a boss bar): LMB shoots an arrow of light, 3 at most (hotbar
+  # slot 8 counts them). Press 3 again to put it away early. Each bursts on whoever or whatever it hits: enemies within 3
+  # blocks are weakened (-25% damage) and glow for 5s; allies within 3 blocks (you too) are cleansed (poison, burns,
+  # slows... any debuff) and 30% faster for 3s.
+  seraph_ab3:
+    cooldown: 280                    # 14s
+    cancel_on_repress: true          # 3 again: put the bow away
+    active_tags: [state.radiant_bow] # (the bow: see forms below)
+    display:
+      name: "Light Arrows"
+      icon: GLOW_INK_SAC               # (no arrow item: the bow could draw it)
+      description:
+        - "8s with a bow: up to 3 arrows of light."
+        - "They burst (3 blocks): enemies weakened"
+        - "and glowing; allies cleansed and faster."
+        - "Press 3 again to put it away."
+    nodes:
+      draw:
+        type: refill
+        resource: light
+        next: draw_cue
+      draw_cue:
+        type: play_cue
+        cue: seraph_bow
+        next: hold
+      hold:
+        type: delay
+        ticks: 160                   # 8s
+        boss_bar: true
+
+  # LMB with the bow: an arrow of light (1.8 blocks/tick, a slight drop) that bursts where it lands or on whoever it
+  # hits, friend or foe.
+  seraph_light_arrow:
+    cooldown: 12                     # (the attack_speed stat sets it)
+    display:
+      name: "Light Arrow"
+      description:
+        - "An arrow of light (3 left at most): it"
+        - "bursts on friend, foe or the ground."
+    nodes:
+      nock:
+        type: spend
+        resource: light
+        on: { out: shoot, empty: ~ }
+      shoot:
+        type: projectile
+        speed: 1.8
+        size: 0.4
+        lifetime: 30
+        visual: SPECTRAL_ARROW
+        face_flight: true
+        hits_allies: true            # bursts on allies too (to cleanse them)
+        motion:
+          - { type: gravity, amount: 0.02 }
+        on: { spawned: shoot_cue, hit_entity: smite, hit_block: smite }
+      shoot_cue:
+        type: play_cue
+        cue: seraph_arrow_shot
+        next: last
+      last:
+        type: spend                  # the last one gone: the bow too
+        resource: light
+        peek: true
+        on: { out: ~, empty: put_away }
+      put_away:
+        type: cancel_ability
+        ability: seraph_ab3
+      smite:
+        type: apply_effects          # enemies: weakened and glowing
+        targets: { type: radius, center: hit, radius: 3 }   # (the cue's ring: 3)
+        on_hit: false
+        effects:
+          - { id: status, status: seraph_weakened }
+        next: bless
+      bless:
+        type: apply_effects          # allies (and her): cleansed and faster
+        targets: { type: radius, center: hit, radius: 3, include_caster: true }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: cleanse }
+          - { id: status, status: seraph_swiftness }
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: seraph_light_burst
+        at: hit
+
+  # ULTIMATE (F): Divine Ward. 5s to choose (a boss bar; the ally in your sights glows): LMB wards that ally, RMB wards
+  # yourself: no damage for 4s, and they can't die. F again: cancel. (The cooldown starts as you press F.)
+  seraph_ult1:
+    cooldown: 1200                   # placeholder until ults charge from damage
+    cancel_on_repress: true          # F again: cancel
+    active_tags: [state.choosing_ward]   # LMB / RMB pick (see forms below)
+    display:
+      name: "Divine Ward"
+      icon: TOTEM_OF_UNDYING
+      description:
+        - "Choose: LMB an ally in your sights, RMB"
+        - "yourself. No damage for 4s, can't die."
+    nodes:
+      open:
+        type: play_cue
+        cue: seraph_blessing_open
+        next: split
+      split:
+        type: fork                   # the time to choose, and the glow on whoever she looks at
+        on: { out: window, also: seek }
+      window:
+        type: delay
+        ticks: 100                   # 5s
+        boss_bar: true
+        next: closed
+      closed:
+        type: end_cast
+      seek:
+        type: repeat                 # every 2 ticks: who's in her sights
+        times: 50
+        every: 2
+        on: { each: look }
+      look:
+        type: acquire_target
+        query: { type: hitscan, range: 30, ray_size: 1.0, targets: allies }
+        store: chosen
+        on: { hit: mark }
+      mark:
+        type: apply_effects
+        targets: { type: key, key: chosen }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: seraph_marked }
+
+  # Divine Ward, LMB: the ally in her sights is warded (nobody there: nothing, keep choosing).
+  seraph_ward_ally:
+    display:
+      name: "Ward an Ally"
+      description:
+        - "LMB: ward the ally in your sights."
+    nodes:
+      pick:
+        type: acquire_target
+        query: { type: hitscan, range: 30, ray_size: 1.0, targets: allies }
+        on: { hit: ward, miss: ~ }
+      ward:
+        type: apply_effects
+        targets: { type: key, key: target }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: seraph_warded }
+        next: ward_cue
+      ward_cue:
+        type: play_cue
+        cue: seraph_blessing
+        at: target
+        next: chosen
+      chosen:
+        type: cancel_ability         # chosen: the choice is over
+        ability: seraph_ult1
+
+  # Divine Ward, RMB: she wards herself.
+  seraph_ward_self:
+    display:
+      name: "Ward Yourself"
+      description:
+        - "RMB: ward yourself."
+    nodes:
+      ward:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: seraph_warded }
+        next: ward_cue
+      ward_cue:
+        type: play_cue
+        cue: seraph_blessing
+        next: chosen
+      chosen:
+        type: cancel_ability
+        ability: seraph_ult1
+
+characters:
+  seraph:
+    name: "Seraph"
+    weapon: GOLDEN_SWORD
+    stats:                           # see docs/character-stats.md
+      health: 190                    # max HP
+      armor: 10                      # damage taken x 100 / (100 + armor)
+      base_damage: 34                # abilities deal % of this
+      move_speed: 1.05               # x vanilla walking speed
+      attack_speed: 1.6              # sword sweeps per second
+    traits: [slow_fall, elytra]      # always drifting down when falling; an elytra to glide on
+    hover:                           # PASSIVE: Wings
+      fly: true
+      height: 40                     # (free flight, as high as you like within reason)
+      speed: 0.8                     # x vanilla flying speed
+      fuel: flight                   # flying drains the gauge...
+      fuel_drain: 20                 # ...20 a second: 3s from full
+    resources:
+      flight:                        # the flight gauge (slot 9)
+        max: 60
+        regen: 20                    # full again 3s after...
+        delay: 20                    # ...1s without flying
+        hotbar: 9
+        icon: FEATHER
+      light:                         # Light Arrows left (slot 8, only while the bow is out)
+        max: 3
+        hotbar: 8
+        icon: GLOWSTONE_DUST
+        shown_while: state.radiant_bow
+    forms:
+      - while: state.choosing_ward   # Divine Ward: choosing
+        slots: { primary: seraph_ward_ally, secondary: seraph_ward_self }
+      - while: state.radiant_bow     # Light Arrows: the bow
+        weapon: BOW
+        slots: { primary: seraph_light_arrow }
+    slots:
+      primary: seraph_primary        # LMB: Gilded Slash (no RMB)
+      ability_1: seraph_ab1          # 1: Radiant Thrust (a dive while gliding)
+      ability_2: seraph_ab2          # 2: Guardian's Tether
+      ability_3: seraph_ab3          # 3: Light Arrows
+      ultimate: seraph_ult1          # F: Divine Ward
