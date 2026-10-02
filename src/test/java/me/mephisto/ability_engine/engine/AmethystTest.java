@@ -106,17 +106,17 @@ class AmethystTest {
     }
 
     @Test
-    void eachShardHangsFiveSecondsFromWhenItGotThere() throws IOException {
+    void eachShardHangsEightSecondsFromWhenItGotThere() throws IOException {
         setup();
         use(Slots.PRIMARY);
         t.time.advance(40);
         use(Slots.PRIMARY); // 2s later
         t.time.advance(15);
         assertEquals(2, t.engine.constructs().activeCount(), "both hanging");
-        t.time.advance(60); // t=115: the first got there at ~12 (its flight), so 5s later it's gone
+        t.time.advance(120); // t=175: the first got there at ~12 (its flight), so 8s later it's gone
         assertEquals(1, t.engine.constructs().activeCount(), "the first has faded");
         t.time.advance(40);
-        assertEquals(0, t.engine.constructs().activeCount(), "t=155: the second too (it got there at ~52)");
+        assertEquals(0, t.engine.constructs().activeCount(), "t=215: the second too (it got there at ~52)");
     }
 
     @Test
@@ -166,9 +166,11 @@ class AmethystTest {
         UUID enemy = foe(6, 0);
         use(Slots.ABILITY_1);
         t.time.advance(25);
-        assertTrue(stacks(p, "amethyst_gathering") >= 4, "the XP bar counts them: " + stacks(p, "amethyst_gathering"));
+        assertTrue(stacks(p, "amethyst_gathering") >= 3, "the XP bar counts them: " + stacks(p, "amethyst_gathering"));
+        assertTrue(t.engine.tags().has(p, "state.slowed"), "slowed while she gathers");
         assertEquals(0, t.damage(enemy), 1e-6, "not loosed yet");
-        t.time.advance(40);
+        t.time.advance(60);
+        assertFalse(t.engine.tags().has(p, "state.slowed"), "loosed: not slowed any more");
         assertTrue(has(enemy, "amethyst_volley_slow"), "loosed by itself: slowed");
         assertTrue(t.damage(enemy) >= BASE * 0.6, "and the burst behind them hurt: " + t.damage(enemy));
         assertFalse(has(p, "amethyst_gathering"), "over: the count's gone");

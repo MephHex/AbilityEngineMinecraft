@@ -6,7 +6,7 @@
 #
 # PASSIVE (Lingering Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (5 a second). Each shard pierces
 #   enemies (the first one hit takes full damage, those behind it half), and one that reaches its full range, or hits
-#   the ground or a wall, hangs there upright, bobbing, for 5s from when it got there. Every hanging shard comes back to
+#   the ground or a wall, hangs there upright, bobbing, for 8s from when it got there (6 at most). Every hanging shard comes back to
 #   the ammo: one when it fades, or all of them at once with Recall (3).
 #   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again. (The ammo
 #   also refills by itself, a shard every 2s after 2s without shooting, so she's never left with none.)
@@ -80,7 +80,7 @@ abilities:
 
   # PRIMARY (LMB): Amethyst Shard. A quick shard (1.6 blocks/tick, 18 blocks) that pierces up to 3 enemies: 40% base
   # damage to the first, 20% to each behind it. It costs a shard of ammo; where it ends (its full range, the ground, a
-  # wall) it hangs for 5s.
+  # wall) it hangs for 8s (6 at most: one more ends the oldest).
   # Out of ammo: a plain shard (no piercing, it doesn't hang, 12 blocks) at 1.5 a second.
   amethyst_primary:
     cooldown: 4                      # (the attack_speed stat sets it)
@@ -90,7 +90,7 @@ abilities:
         - "Fast piercing shards: 40% base damage,"
         - "20% to those behind. 6 shards of ammo;"
         - "where they end (range, ground, wall)"
-        - "they hang 5s"
+        - "they hang 8s (6 at most)"
         - "and come back to it. 3: Recall them."
         - "Out of ammo: plain, slower shards."
     nodes:
@@ -161,9 +161,9 @@ abilities:
         at: shard
         height: 0
         size: 0.4
-        fuse: 100                    # 5s from when it starts hanging (each its own: they hang as they arrive)
+        fuse: 160                    # 8s from when it starts hanging (each its own: they hang as they arrive)
         solid: false                 # (nothing bumps into it)
-        limit: 6
+        limit: 6                     # 6 at most at once: one more ends the oldest
         visual: "hover:AMETHYST_SHARD"   # standing upright in the air, bobbing gently
         cue: amethyst_shard_linger
         cue_every: 10
@@ -245,11 +245,11 @@ abilities:
           - { id: damage, base: 0.4, knockback: false }
         next: hit_cue
 
-  # 3: Recall (1s). Every shard hanging in the air flies back to you (each one back in your ammo), through
+  # 3: Recall (6s). Every shard hanging in the air flies back to you (each one back in your ammo), through
   # enemies on the way: each shard that hits them deals 45% base damage and slows them a bit more (x0.88 a shard, 2s),
   # and they bleed for 4s (40% less healing, -15% damage, 6% of their max HP over the 4s).
   amethyst_recall:
-    cooldown: 20                     # 1s
+    cooldown: 120                    # 6s
     display:
       name: "Recall"
       icon: SMALL_AMETHYST_BUD
@@ -270,24 +270,29 @@ abilities:
         type: play_cue
         cue: amethyst_recall
 
-  # 1: Shard Volley (9s). Gather 6 shards (one every 0.3s: the XP bar's level counts them), then they're loosed by
-  # themselves in a quick volley where you look. Each that hits an enemy slows them 30% for 1.5s and bursts behind them:
+  # 1: Shard Volley (9s). Gather 6 shards (one every 0.45s: the XP bar's level counts them; you're 40% slower while
+  # you gather), then they're loosed by themselves in a quick volley where you look. Each that hits an enemy slows them 30% for 1.5s and bursts behind them:
   # 60% base damage within 2.5 blocks of that spot (they're in it too).
   amethyst_ab1:
     cooldown: 180                    # 9s
+    active_tags: [state.slowed]      # slowed (-40%) while gathering (let go as the volley flies)
     display:
       name: "Shard Volley"
       icon: AMETHYST_CLUSTER
       description:
-        - "Gather 6 shards (the XP bar counts them),"
-        - "then a volley by itself. Each hit slows"
+        - "Gather 6 shards (the XP bar counts them;"
+        - "you're slowed meanwhile), then a volley"
+        - "by itself. Each hit slows"
         - "30% and bursts behind them: 60% base."
     nodes:
       gather:
-        type: repeat                 # one every 0.3s
+        type: repeat                 # one every 0.45s (2.7s in all)
         times: 6
-        every: 6
-        on: { each: one, out: volley }
+        every: 9
+        on: { each: one, out: loosed }
+      loosed:
+        type: release_tags           # gathered: no longer slowed
+        next: volley
       one:
         type: apply_effects          # (the XP bar's level: how many so far)
         targets: { type: self }
