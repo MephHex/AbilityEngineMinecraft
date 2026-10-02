@@ -70,9 +70,11 @@ abilities:
   # damage, and your next basic attack is ready at once. Hit someone: press 1 again (within 3s) to leap and slash again.
   # Hit again: press 1 once more to soar up (you can't move up there) and pick a spot (1 again, or where you look after
   # 3s): you dive onto it, 140% base damage within 4 blocks, knocking enemies up. Not while gliding. Builds Fervor.
-  # The cooldown starts when the chain ends.
+  # The cooldown starts when the chain ends: a miss, a window let go, or the third press (the dive). Until then its icon
+  # glints while 1 can be pressed again.
   valkyrie_ab1:
     cooldown: 160                    # 8s
+    cooldown_starts: manual          # when the chain ends (see spent / dive_spent), not on the second leap
     blocked_by: [block.ability, state.gliding]   # not while gliding
     display:
       name: "Valkyrie's Leap"
@@ -113,11 +115,11 @@ abilities:
       hit1:
         type: switch                 # hit someone: the second leap
         key: struck1
-        on: { "0": ~, default: wait1 }
+        on: { "0": spent, default: wait1 }
       wait1:
         type: await_recast
         window: 60                   # 3s
-        on: { recast: leap2_cue }
+        on: { recast: leap2_cue, timeout: spent }
       leap2_cue:
         type: play_cue
         cue: valkyrie_flit
@@ -148,11 +150,16 @@ abilities:
       hit2:
         type: switch                 # hit again: the dive
         key: struck2
-        on: { "0": ~, default: wait2 }
+        on: { "0": spent, default: wait2 }
       wait2:
         type: await_recast
         window: 60
-        on: { recast: rise_cue }
+        on: { recast: dive_spent, timeout: spent }
+      spent:
+        type: start_cooldown         # the chain's over: missed, or not pressed again in time
+      dive_spent:
+        type: start_cooldown         # the third press: the dive
+        next: rise_cue
       rise_cue:
         type: play_cue
         cue: valkyrie_rise
@@ -187,6 +194,10 @@ abilities:
       dive_cue:
         type: play_cue
         cue: valkyrie_dive
+        next: dive_trail
+      dive_trail:
+        type: start_cue              # feathers streaming off her as she dives
+        cue: valkyrie_feather_trail
         next: dive
       dive:
         type: dash                   # straight down onto the spot
@@ -272,6 +283,10 @@ abilities:
       home_cue:
         type: play_cue
         cue: valkyrie_dive
+        next: home_trail
+      home_trail:
+        type: start_cue              # feathers streaming off her as she flies at them
+        cue: valkyrie_feather_trail
         next: home
       home:
         type: dash                   # after them, wherever they go

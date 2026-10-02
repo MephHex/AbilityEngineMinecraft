@@ -115,6 +115,8 @@ class ValkyrieTest {
         use(Slots.ABILITY_1);
         t.time.advance(15);
         assertEquals(2 * BASE, t.damage(enemy), 1e-6, "the second slash");
+        assertEquals(0, cooldown("valkyrie_ab1"), "a second hit: still no cooldown...");
+        assertTrue(t.engine.instances().awaitingRecast(p, "valkyrie_ab1"), "...and 1 can be pressed again (it glints)");
 
         use(Slots.ABILITY_1); // soar up
         for (int i = 0; i < 40 && !t.engine.targeting().isTargeting(p); i++) t.time.advance(1);
@@ -140,6 +142,17 @@ class ValkyrieTest {
         use(Slots.ABILITY_1);
         t.time.advance(15);
         assertTrue(cooldown("valkyrie_ab1") > 140, "nothing hit: no second leap, the cooldown starts");
+    }
+
+    @Test
+    void notPressingAgainInTimeStartsTheCooldown() throws IOException {
+        setup();
+        foe(6, 0);
+        use(Slots.ABILITY_1);
+        t.time.advance(15);
+        assertEquals(0, cooldown("valkyrie_ab1"), "a hit: waiting for the second leap");
+        t.time.advance(61);
+        assertTrue(cooldown("valkyrie_ab1") > 140, "3s without pressing 1: the cooldown starts");
     }
 
     @Test

@@ -4,9 +4,11 @@ import me.mephisto.ability_engine.engine.platform.CueHandle;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
@@ -16,11 +18,21 @@ final class ValkyrieCues {
 
     private static final Particle.DustOptions GOLD = new Particle.DustOptions(Color.fromRGB(255, 205, 60), 1.2f);
     private static final Particle.DustOptions PALE_GOLD = new Particle.DustOptions(Color.fromRGB(255, 240, 170), 0.9f);
+    private static final ItemStack FEATHER = new ItemStack(Material.FEATHER);
 
     /** Keep these in step with the abilities' reach: Valkyrie's Leap's slashes and dive, War Cry. */
     static final double CLEAVE_RADIUS = 4;
     static final double SMITE_RADIUS = 4;
     static final double CRY_RADIUS = 8;
+
+    /** Loose feathers from her wings (the FEATHER item's particles), drifting out at {@code speed}. */
+    private static void feathers(World w, double x, double y, double z, int count, double spread, double speed) {
+        w.spawnParticle(Particle.ITEM, x, y, z, count, spread, spread * 0.6, spread, speed, FEATHER);
+    }
+
+    private static void feathers(Location loc, int count, double spread, double speed) {
+        feathers(loc.getWorld(), loc.getX(), loc.getY(), loc.getZ(), count, spread, speed);
+    }
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary: Gilded Slash ----
@@ -33,6 +45,7 @@ final class ValkyrieCues {
         // ---- 1: Valkyrie's Leap (two leaping slashes, then the dive) ----
         c.register("valkyrie_flit", loc -> { // a leap or a dash: a rush of wings (low, around her legs)
             loc.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(0, -0.5, 0), 12, 0.3, 0.3, 0.3, 0.03);
+            feathers(loc, 6, 0.4, 0.05);
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_FLAP, 1f, 1.4f);
         });
         // A golden half circle in front of her (4 blocks), low, with sword sweeps along it. A line cue (at: caster,
@@ -57,6 +70,7 @@ final class ValkyrieCues {
             }
             w.spawnParticle(Particle.CRIT, from.getX() + f.getX() * 2, y + 0.2, from.getZ() + f.getZ() * 2,
                     12, 1.2, 0.1, 1.2, 0.15);
+            feathers(w, from.getX() + f.getX() * 1.5, y + 0.4, from.getZ() + f.getZ() * 1.5, 6, 1.0, 0.04);
             Location at = new Location(w, from.getX(), from.getY(), from.getZ());
             w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 1.1f);
             w.playSound(at, Sound.ITEM_TRIDENT_RETURN, 0.6f, 1.6f);
@@ -65,11 +79,13 @@ final class ValkyrieCues {
             World w = loc.getWorld();
             w.spawnParticle(Particle.CLOUD, loc.clone().add(0, -0.8, 0), 20, 0.5, 0.1, 0.5, 0.05);
             w.spawnParticle(Particle.END_ROD, loc.clone().add(0, -0.5, 0), 25, 0.3, 0.6, 0.3, 0.08);
+            feathers(loc.clone().add(0, -0.3, 0), 20, 0.6, 0.12);
             w.playSound(loc, Sound.ENTITY_ENDER_DRAGON_FLAP, 0.8f, 1.5f);
         });
         c.register("valkyrie_dive", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 20, 0.3, 0.3, 0.3, 0.08);
             loc.getWorld().spawnParticle(Particle.DUST, loc, 15, 0.5, 0.5, 0.5, 0, GOLD);
+            feathers(loc, 18, 0.5, 0.1);
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_SWOOP, 1f, 1.4f);
         });
         c.register("valkyrie_smite", loc -> { // the dive lands: a flash of light, a bell (played at her body's centre)
@@ -79,6 +95,7 @@ final class ValkyrieCues {
             w.spawnParticle(Particle.END_ROD, low, 40, 0.4, 0.3, 0.4, 0.15);
             w.spawnParticle(Particle.DUST, low, 30, 0.6, 0.3, 0.6, 0, GOLD);
             w.spawnParticle(Particle.CRIT, low, 20, 0.4, 0.3, 0.4, 0.3);
+            feathers(low, 45, 0.8, 0.25);    // a burst of feathers
             for (int i = 0; i < 28; i++) { // its reach, on the ground
                 double a = Math.PI * 2 * i / 28;
                 w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * SMITE_RADIUS, ground + 0.1,
@@ -93,15 +110,27 @@ final class ValkyrieCues {
             w.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.6f);
         });
 
+        c.registerLoop("valkyrie_feather_trail", e -> { // diving: feathers stream off her wings
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location at = e.getLocation().add(0, 1, 0);
+                feathers(at, 4, 0.35, 0.02);
+                at.getWorld().spawnParticle(Particle.END_ROD, at, 1, 0.2, 0.3, 0.2, 0.01);
+            }, 0, 1);
+            return (CueHandle) task::cancel;
+        });
+
         // ---- 2: Valkyrie's Charge ----
         c.register("valkyrie_stab", loc -> { // she reaches them
             loc.getWorld().spawnParticle(Particle.CRIT, loc, 12, 0.3, 0.4, 0.3, 0.2);
+            feathers(loc, 25, 0.5, 0.18);
             loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_STRONG, 1f, 1.3f);
         });
         c.register("valkyrie_crash", loc -> { // carried into terrain
             World w = loc.getWorld();
             w.spawnParticle(Particle.BLOCK, loc, 30, 0.4, 0.5, 0.4, 0.1, org.bukkit.Material.STONE.createBlockData());
             w.spawnParticle(Particle.CRIT, loc, 20, 0.4, 0.5, 0.4, 0.3);
+            feathers(loc, 30, 0.6, 0.2);
             w.playSound(loc, Sound.ENTITY_IRON_GOLEM_DAMAGE, 1f, 0.8f);
             w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.7f);
         });
@@ -115,6 +144,7 @@ final class ValkyrieCues {
                         loc.getZ() + Math.sin(a) * CRY_RADIUS, 1, 0, 0, 0, 0, GOLD);
             }
             w.spawnParticle(Particle.END_ROD, loc.clone().add(0, 1, 0), 30, 0.5, 0.8, 0.5, 0.1);
+            feathers(loc.clone().add(0, 0.5, 0), 25, 0.8, 0.15);
             w.playSound(loc, Sound.EVENT_RAID_HORN, 1f, 1.4f);
             w.playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.2f);
         });
