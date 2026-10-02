@@ -34,7 +34,7 @@ statuses:
         - { id: damage, max_hp: 0.02, knockback: false }
   pyro_coals:                        # Hot Coals: jumping higher
     duration: 120                    # 6s
-    tags: [state.jump_boost]         # Jump Boost II
+    jump_boost: 3                    # Jump Boost III (the level: 2 = II, 4 = IV...)
     cue: pyro_coals                  # the coals, tossed from hand to hand
     positive: false                  # (a tether doesn't copy it: the scorch is hers anyway)
   pyro_scorched:                     # standing in her scorched ground: slowed
@@ -199,7 +199,7 @@ abilities:
         cue: pyro_wisp_fade
         at: wisp                     # where it waited
 
-  # 3: Hot Coals. She juggles a handful of hot coals for 6s (a boss bar): Jump Boost II, and every time she lands
+  # 3: Hot Coals. She juggles a handful of hot coals for 6s (a boss bar): Jump Boost III, and every time she lands
   # (a jump, a fall) the coals scorch the ground under her for 4s (1.8 blocks): enemies who walk in are slowed 35%
   # and burn while they stay (and 3s after).
   pyro_ab3:
@@ -208,7 +208,7 @@ abilities:
       name: "Hot Coals"
       icon: COAL
       description:
-        - "6s: Jump Boost II. Each landing scorches"
+        - "6s: Jump Boost III. Each landing scorches"
         - "the ground under you for 4s: enemies in"
         - "it are slowed 35% and burn."
     nodes:

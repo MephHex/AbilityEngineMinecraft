@@ -21,6 +21,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,6 +84,7 @@ public final class StatsHud {
         engine.scheduler().every(2, 2, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (engine.loadouts().has(p.getUniqueId())) syncStatusSpeed(p);
+                syncJumpBoost(p); // anyone: a status can be on a player without a character too
             }
         });
     }
@@ -141,6 +144,29 @@ public final class StatsHud {
         }
     }
 
+    /** The old tag for Jump Boost II (Hot Coals before jump_boost: on statuses). */
+    private static final String JUMP_BOOST_TAG = "state.jump_boost";
+    /** Players wearing our Jump Boost, so only ours is ever taken away (not a potion they drank). */
+    private final java.util.Set<UUID> jumpBoosted = new java.util.HashSet<>();
+
+    /**
+     * Statuses' {@code jump_boost} (the highest one; the old {@code state.jump_boost} tag counts as 2): vanilla Jump
+     * Boost of that level while it lasts. Only touched when it changes.
+     */
+    private void syncJumpBoost(Player p) {
+        UUID id = p.getUniqueId();
+        int level = Math.max(engine.stats().jumpBoost(id), engine.tags().has(id, JUMP_BOOST_TAG) ? 2 : 0);
+        PotionEffect has = p.getPotionEffect(PotionEffectType.JUMP_BOOST);
+        if (level <= 0) {
+            if (jumpBoosted.remove(id) && has != null && has.isInfinite()) p.removePotionEffect(PotionEffectType.JUMP_BOOST);
+            return;
+        }
+        jumpBoosted.add(id);
+        if (has != null && has.isInfinite() && has.getAmplifier() == level - 1) return;
+        if (has != null) p.removePotionEffect(PotionEffectType.JUMP_BOOST); // a lower level doesn't replace a higher one
+        p.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, PotionEffect.INFINITE_DURATION, level - 1, false, false));
+    }
+
     /**
      * Vanilla attack speed (attacks per second) = the primary fire's rate right now: 20 / its cooldown in
      * ticks, after the sheet's attack speed and any slowed/faster attacks. Whatever the held weapon item adds
@@ -181,6 +207,7 @@ public final class StatsHud {
         strip(p.getAttribute(Attribute.ATTACK_SPEED), attackSpeedKey);
         strip(p.getAttribute(Attribute.SCALE), scaleKey);
         strip(p.getAttribute(Attribute.MOVEMENT_SPEED), statusSpeedKey);
+        if (jumpBoosted.remove(p.getUniqueId())) p.removePotionEffect(PotionEffectType.JUMP_BOOST); // not saved with them
         p.setHealthScaled(false);
         AttributeInstance health = p.getAttribute(Attribute.MAX_HEALTH);
         if (health != null && p.getHealth() > health.getValue()) p.setHealth(health.getValue());

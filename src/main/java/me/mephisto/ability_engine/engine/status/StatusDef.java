@@ -24,12 +24,14 @@ import java.util.Set;
  * @param links                how it hangs together with other statuses, and its looping cue
  * @param farDamage            damage from attackers farther than {@code beyond} blocks from the holder is multiplied by
  *                             {@code multiplier} (a domain: 0.5 = half from outside it, 0 = immune); null = none
+ * @param jumpBoost            the holder jumps higher: Jump Boost of this level (2 = Jump Boost II); 0 = none. With
+ *                             several, the highest counts
  */
 public record StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
                         List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
                         boolean breakOnDamage, boolean once,
                         boolean positive, double damageDealt, double damageTaken, double attackSpeed,
-                        double moveSpeed, int decayEvery, Links links, FarDamage farDamage) {
+                        double moveSpeed, int decayEvery, Links links, FarDamage farDamage, int jumpBoost) {
 
     /** Damage from attackers more than {@code beyond} blocks away is multiplied by {@code multiplier}. */
     public record FarDamage(double beyond, double multiplier) {}
@@ -50,10 +52,20 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
 
     public StatusDef {
         if (links == null) links = Links.NONE;
+        if (jumpBoost < 0) jumpBoost = 0;
         grantedTags = Set.copyOf(grantedTags);
         onHit = List.copyOf(onHit);
         tickEffects = List.copyOf(tickEffects);
         if (maxStacks < 1) maxStacks = 1;
+    }
+
+    /** Without jump boost. */
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken,
+                     double attackSpeed, double moveSpeed, int decayEvery, Links links, FarDamage farDamage) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, links, farDamage, 0);
     }
 
     /** Without far damage. */
@@ -125,12 +137,14 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     /** The same, with {@code decay}. */
     public StatusDef withDecay(int every) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
-                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every, links, farDamage);
+                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every, links, farDamage,
+                jumpBoost);
     }
 
     /** The same, with these links. */
     public StatusDef withLinks(Links other) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
-                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, other, farDamage);
+                breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, other, farDamage,
+                jumpBoost);
     }
 }

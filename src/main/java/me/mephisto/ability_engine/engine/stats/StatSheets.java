@@ -85,6 +85,13 @@ public final class StatSheets {
         return m;
     }
 
+    /** The Jump Boost level the entity's statuses give it right now ({@code jump_boost}: the highest one); 0 = none. */
+    public int jumpBoost(UUID entity) {
+        int level = 0;
+        for (ActiveStatus s : statuses.on(entity)) level = Math.max(level, s.def().jumpBoost());
+        return level;
+    }
+
     /**
      * Cooldown of an ability for this caster: the character's primary follows their attack speed
      * ({@code 20 / attack_speed} ticks) when the sheet has one; everything else its own cooldown.

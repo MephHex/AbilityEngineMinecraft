@@ -305,17 +305,19 @@ public final class Parsers {
         if (attackSpeed <= 0) throw p.error("attack_speed", "must be above 0 (0.6 = basic attacks 40% slower)");
         double moveSpeed = p.getDouble("move_speed", 1);
         if (moveSpeed <= 0) throw p.error("move_speed", "must be above 0 (0.9 = 10% slower per stack)");
+        int jumpBoost = p.getInt("jump_boost", 0);
+        if (jumpBoost < 0 || jumpBoost > 10) throw p.error("jump_boost", "a Jump Boost level, 1-10 (2 = Jump Boost II)");
         // A buff (copied by tethers like Radiant Bond): said so, or recognisably one: a buff.* tag, on-hit
         // effects, more damage dealt or less taken, faster attacks. positive: false opts one out (e.g. an ult's charge).
         boolean looksPositive = base.grantedTags().stream().anyMatch(t -> t.startsWith(BUFF_TAG_PREFIX))
-                || !onHit.isEmpty() || dealt > 1 || taken < 1 || attackSpeed > 1 || moveSpeed > 1;
+                || !onHit.isEmpty() || dealt > 1 || taken < 1 || attackSpeed > 1 || moveSpeed > 1 || jumpBoost > 0;
         boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
                 p.getBool("break_on_damage", false), p.getBool("once", false),
                 positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery(),
                 new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null),
-                        p.getString("then", null)), farDamage(p));
+                        p.getString("then", null)), farDamage(p), jumpBoost);
     }
 
     /** {@code far_damage_taken: { beyond: 8, multiplier: 0.5 }} (a domain): null without one. */

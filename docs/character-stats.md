@@ -279,7 +279,7 @@ every 3 ticks (x3.3), +25% speed.
 | Fire Bolt (primary) | **100%** magic damage |
 | Fireball | **160%** within 3.5 blocks, small knockback, burn (12% max HP over 3s) |
 | Hunting Wisp | sent to a spot (25 blocks); waits up to 30s for an enemy within 7, hunts the first one (they glow): **140%** within 3 blocks + burn |
-| Hot Coals | 6s of Jump Boost II; every landing scorches the ground for 4s (1.8 blocks): enemies in it are slowed 35% and burn |
+| Hot Coals | 6s of Jump Boost III; every landing scorches the ground for 4s (1.8 blocks): enemies in it are slowed 35% and burn |
 | Scorching Judgment (ult) | marked 6-block area (everyone sees its edge): ~2s later a meteor, **300%** + knockback + burn; then 8s of scorched ground, **15%** every 0.5s + burn |
 
 ### Sylvan: Grows from Skirmisher to Siege Tree

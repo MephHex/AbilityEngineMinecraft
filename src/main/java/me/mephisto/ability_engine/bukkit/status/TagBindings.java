@@ -79,10 +79,7 @@ public final class TagBindings implements TagListener {
         b.bind(Tags.NAUSEOUS,
                 e -> e.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, PotionEffect.INFINITE_DURATION, 0, false, false)),
                 e -> e.removePotionEffect(PotionEffectType.NAUSEA));
-        // The Pyromancer's Hot Coals: Jump Boost II
-        b.bind("state.jump_boost",
-                e -> e.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, PotionEffect.INFINITE_DURATION, 1, false, false)),
-                e -> e.removePotionEffect(PotionEffectType.JUMP_BOOST));
+        // (state.jump_boost, Jump Boost II, is StatsHud's: it gives the highest of that and the statuses' jump_boost)
         StatusAuras.bindAll(b);   // silenced / poisoned / paralyzed: particles on them while it lasts
         return b;
     }
