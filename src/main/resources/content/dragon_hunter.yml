@@ -160,6 +160,10 @@ abilities:
       windup_cue:
         type: play_cue
         cue: dh_windup
+        next: charge_cone
+      charge_cone:
+        type: start_cue              # the cone on the ground, filling up as he winds up (until the slam)
+        cue: dh_slam_charge
         next: wind
       wind:
         type: repeat                 # every tick for 2s
@@ -191,6 +195,8 @@ abilities:
       slam_cue:
         type: play_cue
         cue: dh_slam
+        at: caster
+        to: aim                      # (a line cue: it faces where he aims)
         next: done
       full_slam:
         type: apply_effects
@@ -202,6 +208,8 @@ abilities:
       full_cue:
         type: play_cue
         cue: dh_slam_full
+        at: caster
+        to: aim                      # (a line cue: it faces where he aims)
         next: done
       done:
         type: end_cast
