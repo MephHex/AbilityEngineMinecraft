@@ -1,35 +1,34 @@
 # content: valkyrie
-# The Valkyrie: a winged guardian with a golden sword. Flies in short bursts and glides on her wings, dives onto enemies,
-# flies to her allies to mend them, looses arrows of light, and wards an ally (or herself) from death.
+# The Valkyrie: a winged warrior with a golden sword. Glides on her wings, leaps in with chained slashes and dives from
+# the sky, crashes enemies into walls, rallies her allies with a war cry, and wards an ally (or herself) from death.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Wings): double-tap jump to fly, as long as the flight gauge lasts (hotbar slot 9: ~3s of flight; it
-#   refills 1s after you land or stop flying, and you can take off again from a quarter). Jump while falling to glide
-#   on your elytra (free). Falling (not flying or gliding), you drift down: Slow Falling, and no fall damage.
+# PASSIVE (Wings): an elytra - jump while falling to glide. Falling (not gliding), you drift down: Slow Falling, and no
+#   fall damage.
+# PASSIVE (Fervor, the XP bar): every enemy your attacks and abilities hit builds a stack of Fervor (5 at most; 3s,
+#   kept up by hitting): each makes your basic attacks 8% faster (5 stacks: 47% faster).
 #
 # ULTIMATE (F): Divine Ward. 5s to choose (the ally in your sights glows): LMB wards that ally, RMB wards yourself. The
 #   warded one takes no damage for 4s and can't die. F again: cancel.
 
 statuses:
-  valkyrie_dazzled:                    # Radiant Thrust's dive: blinded
-    duration: 40                     # 2s
+  valkyrie_fervor:                     # PASSIVE: Fervor (the XP bar shows its stacks)
+    duration: 60                     # 3s without a hit and it's gone
+    stacking: stack
+    max_stacks: 5
+    attack_speed: 1.08               # x1.08 per stack (5 stacks: x1.47)
+    positive: false                  # hers alone (a tether doesn't copy it)
+  valkyrie_hovering:                   # Valkyrie's Leap, the dive: hanging in the sky while choosing where to dive
+    duration: 80                     # safety cap; removed as the dive starts
     stacking: refresh
-    tags: [state.blinded]
-  valkyrie_valor:                      # Guardian's Tether held all the way: Strength
-    duration: 100                    # 5s
+    tags: [state.anchored, block.walk]   # hangs there, can't move
+    positive: false
+  valkyrie_battle_cry:                 # War Cry: faster and stronger
+    duration: 80                     # 4s
     stacking: refresh
-    damage_dealt: 1.25               # +25% damage
-    tags: [buff.valor]
-  valkyrie_weakened:                   # a Light Arrow's burst on enemies: weakened and glowing
-    duration: 100                    # 5s
-    stacking: refresh
-    damage_dealt: 0.75               # -25% damage dealt
-    tags: [state.glowing]
-  valkyrie_swiftness:                  # a Light Arrow's burst on allies: faster
-    duration: 60                     # 3s
-    stacking: refresh
-    move_speed: 1.3                  # +30%
-    tags: [buff.swiftness]
+    move_speed: 1.25                 # +25%
+    damage_dealt: 1.2                # +20% damage
+    tags: [buff.battle_cry]
   valkyrie_marked:                     # Divine Ward: the ally in her sights while she chooses (they glow)
     duration: 4                      # (kept on every 2 ticks while she looks at them)
     stacking: refresh
@@ -45,264 +44,316 @@ statuses:
 
 abilities:
 
-  # PRIMARY (LMB): Gilded Slash. A golden sword sweep in front of you (3.2 blocks): 100% base damage.
+  # PRIMARY (LMB): Gilded Slash. A golden sword sweep in front of you (3.2 blocks): 100% base damage. Builds Fervor.
   valkyrie_primary:
-    cooldown: 12                     # (the attack_speed stat sets it)
+    cooldown: 14                     # (the attack_speed stat sets it)
     display:
       name: "Gilded Slash"
       description:
         - "A golden sword sweep: 100% base damage."
-        - "Passive - Wings: double-tap jump to fly"
-        - "(the gauge in slot 9), jump while falling"
-        - "to glide; you fall slowly."
+        - "Passive - Wings: jump while falling to"
+        - "glide; you fall slowly. Fervor: hits make"
+        - "your attacks faster (+8% a stack, 5 max)."
     nodes:
       slash:
         type: apply_effects
         targets: { type: cone, range: 3.2, angle: 90 }
         effects:
           - { id: damage, base: 1.0 }
+          - { id: status, status: valkyrie_fervor, self: true }   # a stack of Fervor per enemy hit
         next: slash_cue
       slash_cue:
         type: play_cue
         cue: valkyrie_slash
 
-  # 1: Radiant Thrust (7s). Thrust forward where you look (5 blocks): the first enemy you reach takes 120% base damage.
-  # Used while GLIDING it's a dive (6 blocks, faster): the enemy takes 140%, is knocked up, blinded 2s and stunned 1.5s.
+  # 1: Valkyrie's Leap (8s). Leap forward and slash a half circle in front of you as you land (4 blocks): 100% base
+  # damage, and your next basic attack is ready at once. Hit someone: press 1 again (within 3s) to leap and slash again.
+  # Hit again: press 1 once more to soar up (you can't move up there) and pick a spot (1 again, or where you look after
+  # 3s): you dive onto it, 140% base damage within 4 blocks, knocking enemies up. Not while gliding. Builds Fervor.
+  # The cooldown starts when the chain ends.
   valkyrie_ab1:
-    cooldown: 140                    # 7s
+    cooldown: 160                    # 8s
+    blocked_by: [block.ability, state.gliding]   # not while gliding
     display:
-      name: "Radiant Thrust"
-      icon: TRIDENT
+      name: "Valkyrie's Leap"
+      icon: FEATHER
       description:
-        - "Thrust where you look: 120% base damage."
-        - "While gliding, a dive: 140%, knocked up,"
-        - "blinded 2s and stunned 1.5s."
+        - "Leap and slash a half circle: 100%, and"
+        - "attack reset. Hit: again (1). Hit again:"
+        - "soar up, pick a spot (1) and dive: 140%,"
+        - "enemies knocked up. Not while gliding."
     nodes:
-      stance:
-        type: has_tag                # gliding on her wings: a dive
-        tag: state.gliding
-        on: { has: dive_cue, lacks: thrust_cue }
-      thrust_cue:
+      leap1_cue:
         type: play_cue
-        cue: valkyrie_thrust
-        next: thrust
-      thrust:
-        type: dash
-        range: 5
-        speed: 1.3
-        radius: 0.8
-        on: { hit: stab }
-      stab:
+        cue: valkyrie_flit
+        next: leap1
+      leap1:
+        type: leap                   # ~4.5 blocks forward
+        speed: 0.45
+        up: 0.42
+        next: slash1
+      slash1:
         type: apply_effects
-        targets: { type: key, key: hit }
+        targets: { type: cone, range: 4, angle: 180 }   # a half circle in front of her
         effects:
-          - { id: damage, base: 1.2 }
-        next: stab_cue
-      stab_cue:
+          - { id: damage, base: 1.0 }
+          - { id: status, status: valkyrie_fervor, self: true }
+        count: struck1
+        next: slash1_cue
+      slash1_cue:
         type: play_cue
-        cue: valkyrie_stab
-        at: hit
+        cue: valkyrie_cleave
+        next: reset1
+      reset1:
+        type: reset_cooldowns        # the next basic attack, at once
+        slots: [primary]
+        next: hit1
+      hit1:
+        type: switch                 # hit someone: the second leap
+        key: struck1
+        on: { "0": ~, default: wait1 }
+      wait1:
+        type: await_recast
+        window: 60                   # 3s
+        on: { recast: leap2_cue }
+      leap2_cue:
+        type: play_cue
+        cue: valkyrie_flit
+        next: leap2
+      leap2:
+        type: leap
+        speed: 0.45
+        up: 0.42
+        next: slash2
+      slash2:
+        type: apply_effects
+        targets: { type: cone, range: 4, angle: 180 }
+        effects:
+          - { id: damage, base: 1.0 }
+          - { id: status, status: valkyrie_fervor, self: true }
+        count: struck2
+        next: slash2_cue
+      slash2_cue:
+        type: play_cue
+        cue: valkyrie_cleave
+        next: reset2
+      reset2:
+        type: reset_cooldowns
+        slots: [primary]
+        next: hit2
+      hit2:
+        type: switch                 # hit again: the dive
+        key: struck2
+        on: { "0": ~, default: wait2 }
+      wait2:
+        type: await_recast
+        window: 60
+        on: { recast: rise_cue }
+      rise_cue:
+        type: play_cue
+        cue: valkyrie_rise
+        next: rise
+      rise:
+        type: leap                   # up into the sky...
+        direction: up
+        up: 1.0                      # ~6 blocks
+        until: apex
+        next: hover
+      hover:
+        type: apply_effects          # ...and hang there (can't move)
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: valkyrie_hovering }
+        next: choose
+      choose:
+        type: choose_spot            # a preview circle follows your crosshair: 1 again to dive there
+        range: 30
+        radius: 4
+        timeout: 60                  # 3s, then: wherever you're looking
+        store: landing
+        on: { out: descend, none: give_up }
+      descend:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: valkyrie_hovering }
+        next: dive_cue
       dive_cue:
         type: play_cue
         cue: valkyrie_dive
         next: dive
       dive:
-        type: dash
-        range: 6
-        speed: 1.6
-        radius: 0.9
-        on: { hit: smite }
-      smite:
+        type: dash                   # straight down onto the spot
+        to: landing
+        speed: 2.0
+        range: 50
+        pierce: true
+        on: { miss: impact }
+      impact:
         type: apply_effects
-        targets: { type: key, key: hit }
+        targets: { type: radius, radius: 4 }
         effects:
           - { id: damage, base: 1.4, knockback: false }
-          - { id: knockback, from: caster, radius: 3, center: 0.2, edge: 0.2, lift: 0.9 }   # knocked UP
-          - { id: status, status: valkyrie_dazzled }
-          - { id: status, status: stun, duration: 30 }   # 1.5s
-        next: smite_cue
-      smite_cue:
+          - { id: knockback, from: caster, radius: 4, center: 0.2, edge: 0.2, lift: 1.0 }   # knocked UP
+          - { id: status, status: valkyrie_fervor, self: true }
+        next: impact_cue
+      impact_cue:
         type: play_cue
         cue: valkyrie_smite
-        at: hit
+      give_up:
+        type: apply_effects          # nowhere to dive (looking at the sky): just drop down
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: valkyrie_hovering }
 
-  # 2: Guardian's Tether (16s). Pick an ally in your sights (25 blocks, a forgiving aim) and fly to them, stopping 3
-  # blocks away (Radiant Thrust works on the way: knock a foe off them). Then a tether of light: 4s, healing them 3% of
-  # their max HP every 0.5s (24% in all). Held all 4s: they get Strength (+25% damage, 5s). It breaks past 12 blocks,
-  # out of sight for 1s, or if you're stunned or silenced. The cooldown starts when you pick someone (a miss is free).
+  # 2: Valkyrie's Charge (10s). On foot: dash forward (6 blocks); the first enemy you reach takes 80% base damage, is
+  # flung over you to land behind you, and is stunned 1s. Gliding: an enemy in your sights (25 blocks, a forgiving aim)
+  # - you fly at them (homing), catch them (60% base damage, stunned) and carry them along with you (8 blocks): if they
+  # hit terrain on the way, they take 15% of their max HP. A hit either way gives you a shield (15% of your max HP, 4s)
+  # and builds Fervor. Gliding, a miss (nobody in your sights) costs nothing.
   valkyrie_ab2:
-    cooldown: 320                    # 16s
-    cooldown_starts: manual
+    cooldown: 200                    # 10s
+    cooldown_starts: manual          # on foot: as you dash; gliding: once there's someone to fly at
     display:
-      name: "Guardian's Tether"
-      icon: LEAD
+      name: "Valkyrie's Charge"
+      icon: TRIDENT
       description:
-        - "Fly to an ally (25 blocks), then tether"
-        - "them 4s: healing 24% of their max HP."
-        - "Held all the way: Strength (+25%, 5s)."
+        - "On foot: dash, fling the enemy behind you"
+        - "and stun 1s. Gliding: fly at an enemy and"
+        - "carry them: into terrain, 15% max HP."
+        - "A hit: a shield (15% of your max HP)."
     nodes:
-      pick:
-        type: acquire_target
-        query: { type: hitscan, range: 25, ray_size: 1.2, targets: allies }
-        on: { hit: picked, miss: ~ }
-      picked:
+      stance:
+        type: has_tag                # gliding: the carry; on foot: the dash
+        tag: state.gliding
+        on: { has: sight, lacks: dash_start }
+      dash_start:
         type: start_cooldown
-        next: flit
-      flit:
+        next: dash_cue
+      dash_cue:
         type: play_cue
         cue: valkyrie_flit
-        next: fly
-      fly:
-        type: dash                   # after them, wherever they go, stopping 3 blocks away
+        next: dash
+      dash:
+        type: dash
+        range: 6
+        speed: 1.4
+        radius: 0.8
+        flat: true
+        on: { hit: fling }
+      fling:
+        type: apply_effects          # flung over her shoulder, then stunned
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8, knockback: false }
+          - { id: knockback, from: caster, radius: 3, center: -1.3, edge: -1.3, lift: 0.6 }   # toward her, and past
+          - { id: status, status: stun, duration: 20 }   # 1s
+          - { id: status, status: valkyrie_fervor, self: true }
+        next: fling_cue
+      fling_cue:
+        type: play_cue
+        cue: valkyrie_stab
+        at: hit
+        next: shield
+      sight:
+        type: acquire_target
+        query: { type: hitscan, range: 25, ray_size: 1.0 }
+        on: { hit: home_start, miss: ~ }
+      home_start:
+        type: start_cooldown
+        next: home_cue
+      home_cue:
+        type: play_cue
+        cue: valkyrie_dive
+        next: home
+      home:
+        type: dash                   # after them, wherever they go
         to: target
         follow: true
-        stop_short: 3
-        speed: 1.1
-        range: 40
+        speed: 1.6
+        range: 35
+        radius: 0.6
+        on: { hit: seize }
+      seize:
+        type: apply_effects          # caught
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 0.6, knockback: false }
+          - { id: status, status: stun, duration: 30 }   # 1.5s: while she carries them
+          - { id: status, status: valkyrie_fervor, self: true }
+        next: seize_cue
+      seize_cue:
+        type: play_cue
+        cue: valkyrie_stab
+        at: target
+        next: carry
+      carry:
+        type: fork                   # she flies on and carries them with her (the same way, the same speed)
+        on: { out: fly_on, also: haul }
+      fly_on:
+        type: dash
+        range: 8
+        speed: 1.2
         radius: 0.3
-        on: { hit: split, miss: split }   # (already close, or lost on the way: tether from where she is)
-      split:
-        type: fork                   # the tether, and the healing while it holds
-        on: { out: hold, also: mend }
-      hold:
-        type: tether
+        pierce: true
+        on: { hit: shield, miss: shield }
+      haul:
+        type: dash                   # them: terrain stops them short
+        mover: target
+        range: 8
+        speed: 1.2
+        radius: 0.3
+        pierce: true
+        store: haul
+        on: { hit: crashed, miss: crashed }
+      crashed:
+        type: in_range               # stopped well short of the 8 blocks: they hit terrain
+        center: haul_start
+        radius: 7
         target: target
-        duration: 80                 # 4s
-        range: 12
-        sight_grace: 20
-        break_on: [state.stunned, state.silenced]
-        cue: valkyrie_tether           # drawn as valkyrie_tether_1
-        stages: 1
-        on: { complete: valor, broken: snap }
-      mend:
-        type: repeat                 # 8 x 0.5s
-        times: 8
-        every: 10
-        on: { each: heal }
-      heal:
+        on: { inside: crash }
+      crash:
         type: apply_effects
         targets: { type: key, key: target }
-        affects: allies
+        effects:
+          - { id: damage, max_hp: 0.15, knockback: false }   # 15% of their max HP
+        next: crash_cue
+      crash_cue:
+        type: play_cue
+        cue: valkyrie_crash
+        at: target
+      shield:
+        type: apply_effects          # a hit: a shield for her
+        targets: { type: self }
         on_hit: false
         effects:
-          - { id: heal, max_hp: 0.03 }
-        next: heal_cue
-      heal_cue:
-        type: play_cue
-        cue: valkyrie_mend
-        at: target
-      valor:
-        type: apply_effects          # held all the way: Strength
-        targets: { type: key, key: target }
-        affects: allies
-        on_hit: false
-        effects:
-          - { id: status, status: valkyrie_valor }
-        next: valor_cue
-      valor_cue:
-        type: play_cue
-        cue: valkyrie_valor
-        at: target
-        next: done
-      snap:
-        type: play_cue
-        cue: valkyrie_tether_snap
-        at: target
-        next: done
-      done:
-        type: end_cast               # (stops the healing too, if it broke)
+          - { id: shield, max_hp: 0.15, lasts: 80 }   # 15% of her max HP, 4s
 
-  # 3: Light Arrows (14s). Your sword becomes a bow for 8s (a boss bar): hold RMB to draw it, let go to loose an arrow
-  # of light, 3 at most (hotbar slot 8: they're its arrows). Press 3 again to put it away early. Each bursts on whoever
-  # or whatever it hits: enemies within 3 blocks take 100% base damage (less on a short draw), are weakened (-25%
-  # damage) and glow for 5s; allies within 3 blocks (you too) are cleansed (poison, burns, slows... any debuff) and 30%
-  # faster for 3s.
+  # 3: War Cry (16s). A battle cry: you and allies within 8 blocks are 25% faster and deal 20% more damage for 4s.
   valkyrie_ab3:
-    cooldown: 280                    # 14s
-    cancel_on_repress: true          # 3 again: put the bow away
-    active_tags: [state.radiant_bow] # (the bow: see forms below)
+    cooldown: 320                    # 16s
     display:
-      name: "Light Arrows"
-      icon: GLOW_INK_SAC               # (no arrow item: the bow could draw it)
+      name: "War Cry"
+      icon: GOAT_HORN
       description:
-        - "8s with a bow (hold RMB, let go): up to 3"
-        - "arrows of light. They burst (3 blocks):"
-        - "enemies take 100% base damage, weakened"
-        - "and glowing; allies cleansed and faster."
-        - "Press 3 again to put it away."
+        - "A battle cry: you and allies within 8"
+        - "blocks are 25% faster and deal 20% more"
+        - "damage for 4s."
     nodes:
-      draw:
-        type: refill
-        resource: light
-        next: draw_cue
-      draw_cue:
-        type: play_cue
-        cue: valkyrie_bow
-        next: hold
-      hold:
-        type: delay
-        ticks: 160                   # 8s
-        boss_bar: true
-
-  # The bow let go (RMB): an arrow of light (1.8 blocks/tick, a slight drop) that bursts where it lands or on whoever it
-  # hits, friend or foe. Its damage follows how far the bow was drawn ("draw": 0.1-1, a full draw takes 1s).
-  valkyrie_light_arrow:
-    cooldown: 12                     # (the attack_speed stat sets it)
-    display:
-      name: "Light Arrow"
-      description:
-        - "Hold RMB to draw, let go: an arrow of"
-        - "light that bursts on friend, foe or the"
-        - "ground (100% base damage at full draw)."
-    nodes:
-      nock:
-        type: spend
-        resource: light
-        on: { out: shoot, empty: ~ }
-      shoot:
-        type: projectile
-        speed: 1.8
-        size: 0.4
-        lifetime: 30
-        visual: SPECTRAL_ARROW
-        face_flight: true
-        hits_allies: true            # bursts on allies too (to cleanse them)
-        motion:
-          - { type: gravity, amount: 0.02 }
-        on: { spawned: shoot_cue, hit_entity: smite, hit_block: smite }
-      shoot_cue:
-        type: play_cue
-        cue: valkyrie_arrow_shot
-        next: last
-      last:
-        type: spend                  # the last one gone: the bow too
-        resource: light
-        peek: true
-        on: { out: ~, empty: put_away }
-      put_away:
-        type: cancel_ability
-        ability: valkyrie_ab3
-      smite:
-        type: apply_effects          # enemies: hurt, weakened and glowing
-        targets: { type: radius, center: hit, radius: 3 }   # (the cue's ring: 3)
-        on_hit: false
-        effects:
-          - { id: damage, base: 1.0, scale_by: draw }   # x how far the bow was drawn
-          - { id: status, status: valkyrie_weakened }
-        next: bless
-      bless:
-        type: apply_effects          # allies (and her): cleansed and faster
-        targets: { type: radius, center: hit, radius: 3, include_caster: true }
+      cry:
+        type: apply_effects
+        targets: { type: radius, radius: 8, include_caster: true }
         affects: allies
         on_hit: false
         effects:
-          - { id: cleanse }
-          - { id: status, status: valkyrie_swiftness }
-        next: burst_cue
-      burst_cue:
+          - { id: status, status: valkyrie_battle_cry }
+        next: cry_cue
+      cry_cue:
         type: play_cue
-        cue: valkyrie_light_burst
-        at: hit
+        cue: valkyrie_cry
 
   # ULTIMATE (F): Divine Ward. 5s to choose (a boss bar; the ally in your sights glows): LMB wards that ally, RMB wards
   # yourself: no damage for 4s, and they can't die. F again: cancel. (The cooldown starts as you press F.)
@@ -399,44 +450,25 @@ abilities:
         type: cancel_ability
         ability: valkyrie_ult1
 
+
 characters:
   valkyrie:
     name: "Valkyrie"
     weapon: GOLDEN_SWORD
     stats:                           # see docs/character-stats.md
-      health: 190                    # max HP
-      armor: 10                      # damage taken x 100 / (100 + armor)
-      base_damage: 34                # abilities deal % of this
+      health: 220                    # max HP
+      armor: 15                      # damage taken x 100 / (100 + armor)
+      base_damage: 38                # abilities deal % of this
       move_speed: 1.05               # x vanilla walking speed
-      attack_speed: 1.6              # sword sweeps per second
+      attack_speed: 1.4              # sword sweeps per second (Fervor: up to 47% faster)
     traits: [slow_fall, elytra]      # always drifting down when falling; an elytra to glide on
-    hover:                           # PASSIVE: Wings
-      fly: true
-      height: 40                     # (free flight, as high as you like within reason)
-      speed: 0.8                     # x vanilla flying speed
-      fuel: flight                   # flying drains the gauge...
-      fuel_drain: 20                 # ...20 a second: 3s from full
-    resources:
-      flight:                        # the flight gauge (slot 9)
-        max: 60
-        regen: 20                    # full again 3s after...
-        delay: 20                    # ...1s without flying
-        hotbar: 9
-        icon: FEATHER
-      light:                         # Light Arrows left (slot 8, only while the bow is out: the bow's arrows)
-        max: 3
-        hotbar: 8
-        icon: SPECTRAL_ARROW         # (an arrow item: what lets the bow draw)
-        shown_while: state.radiant_bow
+    status_bar: { status: valkyrie_fervor, fill: stacks }   # XP bar: Fervor (the number and the bar: its stacks)
     forms:
       - while: state.choosing_ward   # Divine Ward: choosing
         slots: { primary: valkyrie_ward_ally, secondary: valkyrie_ward_self }
-      - while: state.radiant_bow     # Light Arrows: the bow
-        weapon: BOW
-        slots: { primary: valkyrie_light_arrow }
     slots:
       primary: valkyrie_primary        # LMB: Gilded Slash (no RMB)
-      ability_1: valkyrie_ab1          # 1: Radiant Thrust (a dive while gliding)
-      ability_2: valkyrie_ab2          # 2: Guardian's Tether
-      ability_3: valkyrie_ab3          # 3: Light Arrows
+      ability_1: valkyrie_ab1          # 1: Valkyrie's Leap (again on a hit, twice; then the dive)
+      ability_2: valkyrie_ab2          # 2: Valkyrie's Charge (a dash on foot, a carry while gliding)
+      ability_3: valkyrie_ab3          # 3: War Cry
       ultimate: valkyrie_ult1          # F: Divine Ward

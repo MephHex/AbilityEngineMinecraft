@@ -618,14 +618,16 @@ slot, so an ability is only silenced when it's in an ability slot.
   `delay` refill it.
 - **Traits:** `slow_fall` - always Slow Falling while falling (not flying or gliding); `elytra` - an elytra in the
   chest slot (jump while falling to glide; a chestplate of their own stays, and then there's no elytra).
+- **Statuses:** `attack_speed` now counts per stack, like `move_speed`: `attack_speed: 1.08` with 5 stacks = x1.47
+  (the Valkyrie's Fervor).
 - **Tags:** `state.gliding` - on whoever glides on an elytra right now (e.g. `has_tag` for an ability that's different
   while gliding).
 - **Effects:** `cleanse` - removes every debuff (a non-buff status someone else put on them).
 - **Forms:** a form may change `secondary` (RMB) too, e.g. LMB / RMB picking someone while an ultimate chooses. A BOW
   weapon (in a form) works like any weapon: LMB fires the primary.
-- **Cues:** valkyrie_slash, valkyrie_thrust, valkyrie_dive, valkyrie_stab, valkyrie_smite, valkyrie_flit, valkyrie_tether_1 (line),
-  valkyrie_mend, valkyrie_valor, valkyrie_tether_snap, valkyrie_bow, valkyrie_arrow_shot, valkyrie_light_burst (3 blocks),
-  valkyrie_blessing_open, valkyrie_blessing, valkyrie_blessed (looping).
+- **Cues:** valkyrie_slash, valkyrie_flit, valkyrie_cleave (a half circle, 4 blocks), valkyrie_rise, valkyrie_dive,
+  valkyrie_smite (4 blocks), valkyrie_stab, valkyrie_crash, valkyrie_cry (8 blocks), valkyrie_blessing_open,
+  valkyrie_blessing, valkyrie_blessed (looping).
 
 ## Added for the Amethyst
 
