@@ -292,6 +292,11 @@ public final class HotbarHud {
     }
 
     /** A SPYGLASS weapon (e.g. during Arcane Barrage): hold RMB to zoom in and charge the primary, let go to fire. */
+    /** A BOW weapon (e.g. during Light Arrows): hold RMB to draw it (vanilla), let go to fire the primary; LMB does nothing. */
+    public boolean usesBow(Player p) {
+        return engine.loadouts().characterOf(p.getUniqueId()).filter(c -> weaponMaterial(c) == Material.BOW).isPresent();
+    }
+
     public boolean usesScope(Player p) {
         return engine.loadouts().characterOf(p.getUniqueId()).filter(c -> weaponMaterial(c) == Material.SPYGLASS).isPresent();
     }

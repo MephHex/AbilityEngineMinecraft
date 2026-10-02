@@ -168,6 +168,11 @@ public final class CombatInputListener implements Listener {
             scopeRightClick(p, e);
             return;
         }
+        if (right && !aiming(p) && hud.usesBow(p)) { // vanilla draws it (its arrows are the HUD's); letting go fires
+            e.setUseInteractedBlock(Event.Result.DENY); // no doors or chests
+            e.setUseItemInHand(Event.Result.ALLOW);
+            return;
+        }
         e.setCancelled(true); // no block breaking, doors, chests or item use
         if (left) leftClick(p);
         else rightClick(p);
@@ -239,6 +244,22 @@ public final class CombatInputListener implements Listener {
         }
     }
 
+    /**
+     * A BOW weapon let go: vanilla's arrow never flies (nor is one used up); the primary slot fires instead, with how far
+     * it was drawn (0.1-1) as {@code draw} for the ability (e.g. {@code scale_by: draw} on its damage).
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onShootBow(org.bukkit.event.entity.EntityShootBowEvent e) {
+        if (!(e.getEntity() instanceof Player p) || !inCombat(p) || !hud.usesBow(p)) return;
+        e.setCancelled(true);
+        e.setConsumeItem(false);
+        ActivationResult result = engine.loadouts().activate(p.getUniqueId(), Slots.PRIMARY, true,
+                java.util.Map.of("draw", (double) e.getForce()));
+        engine.scheduler().after(1, p::updateInventory); // the client thinks an arrow was used up
+        if (result.success()) hud.refresh(p);
+        else if (!result.reason().startsWith("on_cooldown")) p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));
+    }
+
     /** Crossbow characters: fire the primary slot (it takes the loaded bolt). */
     private void shoot(Player p) {
         ActivationResult result = engine.loadouts().activate(p.getUniqueId(), Slots.PRIMARY, true);
@@ -283,7 +304,7 @@ public final class CombatInputListener implements Listener {
             ActivationResult r = engine.loadouts().activateOn(id, Slots.MELEE, new EntityTarget(e.getAttacked().getUniqueId()));
             if (r.success()) hud.refresh(p);
             else if (!r.reason().startsWith("on_cooldown")) p.sendActionBar(Component.text(r.reason(), NamedTextColor.RED));
-        } else if (!hud.usesCrossbow(p) && !hud.usesScope(p)) { // crossbows shoot with RMB, spyglasses charge with it
+        } else if (!hud.usesCrossbow(p) && !hud.usesScope(p) && !hud.usesBow(p)) { // crossbows and bows shoot with RMB, spyglasses charge with it
             fire(p, InputAction.LEFT_CLICK, true);
         }
     }
@@ -304,8 +325,8 @@ public final class CombatInputListener implements Listener {
             confirm(p);
             return;
         }
-        // Crossbows shoot with RMB, spyglasses charge with it: their LMB does nothing.
-        boolean did = !hud.usesCrossbow(p) && !hud.usesScope(p) && fire(p, InputAction.LEFT_CLICK, true);
+        // Crossbows and bows shoot with RMB, spyglasses charge with it: their LMB does nothing.
+        boolean did = !hud.usesCrossbow(p) && !hud.usesScope(p) && !hud.usesBow(p) && fire(p, InputAction.LEFT_CLICK, true);
         if (!did) idleClickAt.put(p.getUniqueId(), (long) Bukkit.getCurrentTick()); // may be meant for a preview (see CLICK_BUFFER_TICKS)
     }
 
@@ -367,7 +388,7 @@ public final class CombatInputListener implements Listener {
      * isn't a fresh press (which would shoot a loaded bolt, cancel an aim preview, or start a new volley).
      */
     private void settleHands(Player p) {
-        boolean drawing = p.isHandRaised() && hud.usesCrossbow(p);
+        boolean drawing = p.isHandRaised() && (hud.usesCrossbow(p) || hud.usesBow(p));
         if (drawing) p.clearActiveItem();
         if (drawing || ticksSince(p, InputAction.RIGHT_CLICK) <= RIGHT_CLICK_HOLD_GAP) {
             // Back on the weapon after about the ping, then up to 4 ticks until the client re-sends "use".
