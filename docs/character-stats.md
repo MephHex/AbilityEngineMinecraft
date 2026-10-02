@@ -355,7 +355,7 @@ Wings (passive): short flights on a gauge (~3s), free gliding on an elytra, Slow
 | **180** | **5** (5%) | **32** | **1.00** | **5.0** (4 ticks; 1.5 out of ammo) | 189 | 64 (19 out of ammo) |
 
 Lingering Shards (passive): 6 shards of ammo; they pierce (half damage to those behind the first) and hang at full
-range for 5s (6 at most); Recall brings them back into the ammo, which also refills a shard every 8s. Out of ammo: plain, slower shards.
+range for 5s (6 at most); Recall brings them back into the ammo, which also refills a shard every 3s. Out of ammo: plain, slower shards.
 
 | Ability | Effect |
 |---|---|

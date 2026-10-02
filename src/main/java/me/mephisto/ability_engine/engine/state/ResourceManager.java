@@ -138,7 +138,7 @@ public final class ResourceManager {
         long now = clock.now();
         long delayLeft = Math.max(0, p.lastSpend + p.def.delayTicks() - now);
         double toNext = Math.floor(p.value + 1e-9) + 1 - p.value;
-        return delayLeft + (long) Math.ceil(toNext / p.def.regenPerSecond() * 20.0 - 1e-9);
+        return delayLeft + (long) Math.ceil(toNext / p.def.regenPerSecond() * 20.0 - 1e-6); // (rounding: 20/60 isn't exact)
     }
 
     private void update(Pool p) {

@@ -325,7 +325,14 @@ public final class AbilityLoader {
             if (hotbar < 0 || hotbar > 9) throw r.error("hotbar", "expected a hotbar slot 1-9");
             int reload = r.getInt("reload", 0);
             if (reload < 0) throw r.error("reload", "must be >= 0 (ticks to refill once it's empty)");
-            resources.put(name, new ResourceDef(name, r.requireDouble("max"), r.getDouble("regen", 0),
+            double regen = r.getDouble("regen", 0);
+            if (r.has("regen_every")) { // one unit every so many ticks: the same as regen, written the other way round
+                if (r.has("regen")) throw r.error("regen_every", "give regen (per second) or regen_every (ticks a unit), not both");
+                int every = r.getInt("regen_every", 0);
+                if (every < 1) throw r.error("regen_every", "ticks for one unit to come back, at least 1 (60 = 3s)");
+                regen = 20.0 / every;
+            }
+            resources.put(name, new ResourceDef(name, r.requireDouble("max"), regen,
                     r.getInt("delay", 0), hotbar, r.getString("icon", null), reload,
                     r.getString("shown_while", null), r.getString("hidden_while", null), r.getBool("refill_sweep", false)));
         }
