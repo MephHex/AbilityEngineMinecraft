@@ -479,14 +479,14 @@ characters:
     hover:                           # no hover (no height): just what she sits in
       visual: SPORE_BLOSSOM          # the blossom, upside down, she sits in its cup
       # its size, x the default (1.0: as wide as she is; its petals reach 0.4 of that up and spread 1.75x)
-      visual_size: 1.5
+      visual_size: 1.3
       # drawn this many ticks of her movement ahead of her, so it keeps up instead of trailing behind (0 = at her feet)
       visual_lead: 2
       # turned this many degrees: its 4 petals point ahead, behind and to the sides, so one sat right in front of her
       # view; 45 puts the gap between two petals there (90 would look just like 0: the petals are at right angles)
       visual_turn: 45
       # raised this many blocks above her feet (0.0625 = one pixel)
-      visual_up: 0.125               # 2 pixels
+      visual_up: 0.06                # about 1 pixel
     ward:                            # PASSIVE: Spore Burst
       name: "Spore Burst"
       cast: fae_spore_burst          # the next enemy hit on her...
