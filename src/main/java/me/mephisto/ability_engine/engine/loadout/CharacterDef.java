@@ -54,8 +54,21 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * @param speed  flying speed (fly: true), x vanilla (creative) flight, scaled by their move speed and slows
      * @param visual what they ride, shown under their feet (a platform visual id, e.g. an item; null = nothing)
      * @param visualSize its size, x the default (1.0: as wide as the character, by their scale)
+     * @param visualLead how many ticks of their movement it's drawn ahead of them (it would trail behind: the
+     *                   platform glides it to each new spot); 0 = right at their feet
+     * @param visualTurn degrees it's turned about its upright axis, away from facing where they face (e.g. so a
+     *                   petal isn't straight ahead of them); 0 = not turned
      */
-    public record Hover(double height, double speed, String visual, boolean fly, double visualSize) {
+    public record Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead,
+                        double visualTurn) {
+        public static final double DEFAULT_LEAD = 2;
+
+        public Hover(double height, double speed, String visual, boolean fly, double visualSize, double visualLead) {
+            this(height, speed, visual, fly, visualSize, visualLead, 0);
+        }
+        public Hover(double height, double speed, String visual, boolean fly, double visualSize) {
+            this(height, speed, visual, fly, visualSize, DEFAULT_LEAD);
+        }
         public Hover(double height, double speed, String visual, boolean fly) { this(height, speed, visual, fly, 1.0); }
         public Hover(double height, double speed, String visual) { this(height, speed, visual, true); }
     }

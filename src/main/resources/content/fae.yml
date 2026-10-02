@@ -316,17 +316,17 @@ abilities:
       end:
         type: end_cast
 
-  # 3: Deathcap Snare (3 charges, 12s each). Press 3: an aim preview shows where the toadstool would come down if
-  # thrown now (its arc, bouncing off walls); press 3 again to throw it. It bursts where it lands, or on whoever it
-  # hits: enemies within 3.5 blocks it can see (nobody behind a wall) take 100% base damage and are poisoned (8% max
-  # HP over 4s), 35% slower and nauseous for 4s.
+  # 3: Deathcap Snare (3 charges, 12s each). Press 3: a small marker shows where the toadstool would come down if
+  # thrown now (its arc, bouncing off walls; up to ~17 blocks away); press 3 again to throw it. It bursts where it
+  # lands, or on whoever it hits: enemies within 3.5 blocks it can see (nobody behind a wall) take 100% base damage
+  # and are poisoned (8% max HP over 4s), 35% slower and nauseous for 4s.
   fae_ab3:
     cooldown: 240                    # 12s per charge
     charges: 3
     survives_death: true             # (one in flight still bursts)
     targeting:
       shape: circle
-      radius: 3.5                    # = the burst
+      radius: 0.75                   # just a marker where it lands (the burst itself is 3.5, see below)
       arc: throw                     # the preview follows the throw's arc to where it lands
     display:
       name: "Deathcap Snare"
@@ -340,7 +340,7 @@ abilities:
     nodes:
       throw:
         type: projectile
-        speed: 0.8
+        speed: 1.0                   # how far it goes: thrown at 45 degrees ~17 blocks (0.8 was ~11)
         size: 0.4
         lifetime: 60
         visual: "block:Warped_fungus"
@@ -479,6 +479,11 @@ characters:
       visual: SPORE_BLOSSOM          # the blossom, upside down, she sits in its cup
       # its size, x the default (1.0: as wide as she is; its petals reach 0.4 of that up and spread 1.75x)
       visual_size: 1.5
+      # drawn this many ticks of her movement ahead of her, so it keeps up instead of trailing behind (0 = at her feet)
+      visual_lead: 3
+      # turned this many degrees: its 4 petals point ahead, behind and to the sides, so one sat right in front of her
+      # view; 45 puts the gap between two petals there (90 would look just like 0: the petals are at right angles)
+      visual_turn: 45
     ward:                            # PASSIVE: Spore Burst
       name: "Spore Burst"
       cast: fae_spore_burst          # the next enemy hit on her...
