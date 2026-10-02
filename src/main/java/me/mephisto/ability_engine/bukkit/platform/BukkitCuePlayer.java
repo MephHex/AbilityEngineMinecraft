@@ -723,6 +723,7 @@ public final class BukkitCuePlayer implements CuePlayer {
         TreeCues.register(c, plugin);
         BerserkerCues.register(c, plugin);
         ValkyrieCues.register(c, plugin);
+        AmethystCues.register(c, plugin);
         return c;
     }
 

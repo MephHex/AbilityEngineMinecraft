@@ -1,0 +1,557 @@
+# content: amethyst
+# The Amethyst (a working name): a crystal mage. Her shards pierce, hang in the air where they run out and come back to
+# her, she looses volleys of them, wards herself with a crystal barrier that throws shots back, rains crystal on an area
+# and turns someone (or herself) into crystal.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Lingering Shards): her shards pierce through enemies (the first one hit takes full damage, those behind it
+#   half), and a shard that reaches its full range hangs there for 5s (6 at most: one more ends the oldest).
+#
+# ULTIMATE (F): Crystallize. 5s to choose (the enemy in your sights glows): LMB that enemy, RMB yourself. The target
+#   turns to crystal for 2.5s: it can't be hurt, and can't move or act. Then it shatters: 180% base damage within 4
+#   blocks, knocked back a little and slowed. On yourself you also heal 25% of your max HP while in the crystal.
+
+statuses:
+  amethyst_shard_slow:               # Recall: slowed, more with every shard that hit them
+    duration: 40                     # 2s
+    stacking: stack
+    max_stacks: 6
+    move_speed: 0.88                 # x0.88 per shard: 6 shards = x0.46
+  amethyst_bleed:                    # Recall: bleeding (less healing, weaker)
+    duration: 80                     # 4s
+    stacking: refresh
+    healing_taken: 0.6               # 40% less healing
+    damage_dealt: 0.85               # -15% damage dealt
+    tags: [state.bleeding]
+  amethyst_volley_slow:              # Shard Volley: slowed
+    duration: 30                     # 1.5s
+    stacking: refresh
+    move_speed: 0.7                  # -30%
+  amethyst_warding:                  # Crystal Ward: faster while the barrier stands
+    duration: 50                     # 2.5s
+    stacking: refresh
+    move_speed: 1.3                  # +30%
+    tags: [buff.crystal_ward]
+    positive: false                  # (hers: a tether doesn't copy it)
+  amethyst_shardfall:                # Shardfall: inside the rain, slowed and easier to hurt
+    duration: 15                     # (kept on every 0.5s while they stand in it)
+    stacking: refresh
+    move_speed: 0.7                  # -30%
+    damage_taken: 1.15               # +15% damage taken
+  amethyst_sighted:                  # Crystallize: the enemy in her sights while she chooses (they glow)
+    duration: 4
+    stacking: refresh
+    tags: [state.glowing]
+    positive: true                   # (just a highlight: not a debuff, so no ward is used up on it)
+  amethyst_crystal:                  # Crystallize: encased, untouchable and helpless
+    duration: 50                     # 2.5s
+    tags: [state.stunned, block.move, block.ability, block.knockback, block.displace, state.crystallized]
+    damage_taken: 0
+    cue: amethyst_crystal
+    positive: false                  # on an enemy it's crowd control, not a buff
+  amethyst_crystal_self:             # Crystallize on herself: the same, and she heals
+    duration: 50
+    tags: [state.stunned, block.move, block.ability, block.knockback, block.displace, state.crystallized]
+    damage_taken: 0
+    cue: amethyst_crystal
+    tick:
+      every: 10                      # 5 x 5% = 25% max HP
+      effects:
+        - { id: heal, max_hp: 0.05 }
+  amethyst_shattered:                # Crystallize's shatter: slowed
+    duration: 40                     # 2s
+    stacking: refresh
+    move_speed: 0.6                  # -40%
+
+abilities:
+
+  # PRIMARY (LMB): Amethyst Shard. A quick shard (1.6 blocks/tick, 18 blocks) that pierces up to 3 enemies: 80% base
+  # damage to the first, 40% to each behind it. At its full range it hangs in the air for 5s (6 at most), for Recall.
+  amethyst_primary:
+    cooldown: 8                      # (the attack_speed stat sets it)
+    display:
+      name: "Amethyst Shard"
+      description:
+        - "A quick piercing shard: 80% base damage,"
+        - "40% to those behind. At full range it"
+        - "hangs in the air 5s (6 at most)."
+        - "RMB: Recall them."
+    nodes:
+      shoot:
+        type: projectile
+        speed: 1.6
+        size: 0.35
+        range: 18
+        lifetime: 20
+        pierce: 3
+        visual: AMETHYST_SHARD
+        visual_size: 0.6
+        face_flight: true
+        store: shard
+        on: { spawned: shoot_cue, hit_entity: which, hit_block: shatter, expired: linger }
+      shoot_cue:
+        type: play_cue
+        cue: amethyst_shard_shot
+      which:
+        type: switch                 # the first enemy it hits, or one behind it
+        key: hit_index
+        on: { "0": first, default: behind }
+      first:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8 }
+        next: hit_cue
+      behind:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.4 }
+        next: hit_cue
+      hit_cue:
+        type: play_cue
+        cue: amethyst_shard_hit
+        at: hit
+      shatter:
+        type: play_cue
+        cue: amethyst_shard_hit
+        at: hit
+      linger:
+        type: construct              # it hangs where it ran out, until Recall (or 5s)
+        at: shard
+        height: 0
+        size: 0.4
+        fuse: 100                    # 5s
+        solid: false                 # (nothing bumps into it)
+        limit: 6
+        visual: "block:AMETHYST_CLUSTER"
+        cue: amethyst_shard_linger
+        cue_every: 10
+        on: { triggered: recall, fuse: fade }
+      fade:
+        type: play_cue
+        cue: amethyst_shard_fade
+        at: construct
+      recall:
+        type: projectile             # Recall: it flies back to her, through every enemy in the way
+        from: construct
+        toward: caster
+        speed: 1.4
+        size: 0.5
+        lifetime: 40
+        pierce: 20
+        hits_caster: true            # (caught: it's back)
+        visual: AMETHYST_SHARD
+        visual_size: 0.6
+        face_flight: true
+        on: { hit_entity: back, hit_block: ~ }
+      back:
+        type: is_ally                # her (it's back), or an enemy on the way
+        target: hit
+        on: { ally: caught, enemy: rend }
+      caught:
+        type: play_cue
+        cue: amethyst_shard_caught
+      rend:
+        type: apply_effects          # per shard: the more that hit them, the more damage and slow
+        targets: { type: key, key: hit }
+        on_hit: false
+        effects:
+          - { id: damage, base: 0.45, ignore_iframes: true }
+          - { id: status, status: amethyst_shard_slow }
+          - { id: status, status: amethyst_bleed }
+        next: rend_cue
+      rend_cue:
+        type: play_cue
+        cue: amethyst_recall_hit
+        at: hit
+
+  # SECONDARY (RMB): Recall. Every shard hanging in the air flies back to you, through enemies on the way: each shard
+  # that hits them deals 45% base damage and slows them a bit more (x0.88 a shard, 2s), and they bleed for 4s (40% less
+  # healing, -15% damage).
+  amethyst_recall:
+    cooldown: 20                     # 1s
+    display:
+      name: "Recall"
+      description:
+        - "RMB: every hanging shard flies back to"
+        - "you. Each that hits: 45% base damage and"
+        - "a stronger slow; they bleed 4s (less"
+        - "healing, -15% damage)."
+    nodes:
+      call:
+        type: set_off_constructs
+        ability: amethyst_primary
+        center: caster
+        radius: 60
+        next: call_cue
+      call_cue:
+        type: play_cue
+        cue: amethyst_recall
+
+  # 1: Shard Volley (9s). Gather shards (one every 0.3s, 6 at most: hotbar slot 8), then LMB to loose them all in a
+  # quick volley (up to 3s after the last). Each that hits an enemy slows them 30% for 1.5s and bursts behind them: 60%
+  # base damage within 2.5 blocks of that spot (they're in it too).
+  amethyst_ab1:
+    cooldown: 180                    # 9s
+    active_tags: [state.gathering]   # LMB looses the volley (see forms below)
+    display:
+      name: "Shard Volley"
+      icon: AMETHYST_CLUSTER
+      description:
+        - "Gather up to 6 shards, then LMB: a quick"
+        - "volley. Each hit slows 30% and bursts"
+        - "behind them: 60% base damage."
+    nodes:
+      empty:
+        type: repeat                 # none gathered yet
+        times: 6
+        spend: gathered
+        on: { out: gather }
+      gather:
+        type: repeat                 # one every 0.3s
+        times: 6
+        every: 6
+        on: { each: one, out: wait }
+      one:
+        type: refill
+        resource: gathered
+        amount: 1
+        next: one_cue
+      one_cue:
+        type: play_cue
+        cue: amethyst_gather
+      wait:
+        type: delay
+        ticks: 60                    # 3s to loose them
+        cast_bar: true
+
+  # LMB while gathering: the volley. Every gathered shard, 2 ticks apart.
+  amethyst_volley:
+    display:
+      name: "Loose the Volley"
+      description:
+        - "LMB: loose every gathered shard."
+    nodes:
+      volley:
+        type: repeat
+        times: 6
+        every: 2
+        spend: gathered              # as many as were gathered
+        on: { each: shoot, out: done }
+      shoot:
+        type: projectile
+        speed: 1.9
+        size: 0.35
+        range: 22
+        lifetime: 20
+        spread: 2
+        visual: AMETHYST_SHARD
+        visual_size: 0.6
+        face_flight: true
+        on: { spawned: shoot_cue, hit_entity: pin }
+      shoot_cue:
+        type: play_cue
+        cue: amethyst_volley_shot
+      pin:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: status, status: amethyst_volley_slow }
+        next: splinter
+      splinter:
+        type: projectile             # the shard bursts out behind them...
+        from: hit
+        back: -1.5                   # (1.5 blocks beyond them)
+        speed: 0.1
+        size: 0.2
+        lifetime: 1
+        through_blocks: true
+        visual: AMETHYST_SHARD
+        visual_size: 0.3
+        store: splinter
+        on: { hit_entity: burst, hit_block: burst, expired: burst }
+      burst:
+        type: apply_effects          # ...a spray of crystal there
+        targets: { type: radius, center: splinter, radius: 2.5 }
+        effects:
+          - { id: damage, base: 0.6, ignore_iframes: true }
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: amethyst_burst
+        at: splinter
+      done:
+        type: cancel_ability         # all loosed: gathering's over
+        ability: amethyst_ab1
+
+  # 2: Crystal Ward (12s). A crystal barrier in front of you for 2.5s, and you're 30% faster meanwhile. Every enemy
+  # projectile it catches is thrown back at whoever shot it: a shard, 100% base damage.
+  amethyst_ab2:
+    cooldown: 240                    # 12s
+    display:
+      name: "Crystal Ward"
+      icon: AMETHYST_BLOCK
+      description:
+        - "2.5s crystal barrier in front of you,"
+        - "+30% speed. Shots it catches are thrown"
+        - "back at the shooter (100% base damage)."
+    nodes:
+      ward:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: amethyst_warding }
+        next: raise
+      raise:
+        type: barrier                # stands until the cast ends
+        distance: 1.0
+        radius: 1.4
+        on: { out: shimmer, absorbed: reflect }
+      shimmer:
+        type: start_cue
+        cue: amethyst_ward
+        next: hold
+      hold:
+        type: delay
+        ticks: 50                    # 2.5s
+      reflect:
+        type: projectile             # back at whoever shot it
+        from: absorbed_at
+        toward: absorbed_from
+        speed: 2.0
+        size: 0.5
+        lifetime: 30
+        visual: AMETHYST_SHARD
+        visual_size: 0.8
+        face_flight: true
+        on: { spawned: reflect_cue, hit_entity: reflected }
+      reflect_cue:
+        type: play_cue
+        cue: amethyst_reflect
+        at: absorbed_at
+      reflected:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.0 }
+        next: reflected_cue
+      reflected_cue:
+        type: play_cue
+        cue: amethyst_shard_hit
+        at: hit
+
+  # 3: Shardfall (14s). Mark an area (aim preview, 25 blocks, 4-block radius): a great shard falls on it and shatters,
+  # and crystal rains there for 5s: enemies inside take 20% base damage every 0.5s (200% in all), are 30% slower and
+  # take 15% more damage while they stay in it.
+  amethyst_ab3:
+    cooldown: 280                    # 14s
+    targeting:
+      shape: circle
+      range: 25
+      radius: 4                      # = the rain (and the cue's ring)
+      ground: true
+    display:
+      name: "Shardfall"
+      icon: BUDDING_AMETHYST
+      description:
+        - "A great shard falls on an area and"
+        - "shatters: 5s of crystal rain, 20% base"
+        - "damage every 0.5s, 30% slower, +15%"
+        - "damage taken inside."
+    nodes:
+      cast:
+        type: play_cue
+        cue: amethyst_shardfall_cast
+        next: drop
+      drop:
+        type: projectile             # out of the sky onto the spot
+        from: aim
+        up: 12
+        back: 3
+        toward: aim
+        speed: 1.2
+        size: 1.0
+        lifetime: 40
+        visual: "block:AMETHYST_BLOCK"
+        visual_size: 1.4
+        on: { hit_entity: shatter, hit_block: shatter, expired: shatter }
+      shatter:
+        type: play_cue
+        cue: amethyst_shardfall_impact
+        at: aim
+        next: rain
+      rain:
+        type: repeat                 # 10 x 0.5s
+        times: 10
+        every: 10
+        on: { each: drops }
+      drops:
+        type: apply_effects
+        targets: { type: radius, center: aim, radius: 4 }
+        effects:
+          - { id: damage, base: 0.2, knockback: false }
+          - { id: status, status: amethyst_shardfall }
+        next: drops_cue
+      drops_cue:
+        type: play_cue
+        cue: amethyst_shardfall_rain
+        at: aim
+
+  # ULTIMATE (F): Crystallize. 5s to choose (a boss bar; the enemy in your sights glows): LMB that enemy, RMB yourself.
+  # F again: cancel. (The cooldown starts as you press F.)
+  amethyst_ult1:
+    cooldown: 1200                   # placeholder until ults charge from damage
+    cancel_on_repress: true
+    active_tags: [state.choosing_crystal]   # LMB / RMB pick (see forms below)
+    display:
+      name: "Crystallize"
+      icon: ECHO_SHARD
+      description:
+        - "LMB an enemy in your sights or RMB"
+        - "yourself: encased in crystal 2.5s (can't"
+        - "be hurt or act), then it shatters: 180%"
+        - "base damage. On you: heal 25%."
+    nodes:
+      open:
+        type: play_cue
+        cue: amethyst_choose
+        next: split
+      split:
+        type: fork
+        on: { out: window, also: seek }
+      window:
+        type: delay
+        ticks: 100
+        boss_bar: true
+        next: closed
+      closed:
+        type: end_cast
+      seek:
+        type: repeat
+        times: 50
+        every: 2
+        on: { each: look }
+      look:
+        type: acquire_target
+        query: { type: hitscan, range: 30, ray_size: 0.8 }
+        store: sighted
+        on: { hit: mark }
+      mark:
+        type: apply_effects
+        targets: { type: key, key: sighted }
+        on_hit: false
+        effects:
+          - { id: status, status: amethyst_sighted }
+
+  # Crystallize, LMB: the enemy in her sights is encased, then shatters.
+  amethyst_crystallize_enemy:
+    display:
+      name: "Crystallize an Enemy"
+      description:
+        - "LMB: encase the enemy in your sights."
+    nodes:
+      pick:
+        type: acquire_target
+        query: { type: hitscan, range: 30, ray_size: 0.8 }
+        on: { hit: encase, miss: ~ }
+      encase:
+        type: apply_effects
+        targets: { type: key, key: target }
+        on_hit: false
+        effects:
+          - { id: status, status: amethyst_crystal }
+        next: encase_cue
+      encase_cue:
+        type: play_cue
+        cue: amethyst_encase
+        at: target
+        next: chosen
+      chosen:
+        type: cancel_ability
+        ability: amethyst_ult1
+        next: wait
+      wait:
+        type: delay
+        ticks: 50                    # 2.5s
+        next: shatter
+      shatter:
+        type: apply_effects
+        targets: { type: radius, center: target, radius: 4, include_caster: false }
+        effects:
+          - { id: damage, base: 1.8 }
+          - { id: knockback, from: target, radius: 4, center: 0.6, edge: 0.3, lift: 0.25 }
+          - { id: status, status: amethyst_shattered }
+        next: shatter_cue
+      shatter_cue:
+        type: play_cue
+        cue: amethyst_shatter
+        at: target
+
+  # Crystallize, RMB: she encases herself (and heals), then shatters around her.
+  amethyst_crystallize_self:
+    display:
+      name: "Crystallize Yourself"
+      description:
+        - "RMB: encase yourself (heal 25%)."
+    nodes:
+      encase:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: amethyst_crystal_self }
+        next: encase_cue
+      encase_cue:
+        type: play_cue
+        cue: amethyst_encase
+        next: chosen
+      chosen:
+        type: cancel_ability
+        ability: amethyst_ult1
+        next: wait
+      wait:
+        type: delay
+        ticks: 50
+        next: shatter
+      shatter:
+        type: apply_effects
+        targets: { type: radius, radius: 4 }
+        effects:
+          - { id: damage, base: 1.8 }
+          - { id: knockback, from: caster, radius: 4, center: 0.6, edge: 0.3, lift: 0.25 }
+          - { id: status, status: amethyst_shattered }
+        next: shatter_cue
+      shatter_cue:
+        type: play_cue
+        cue: amethyst_shatter
+
+characters:
+  amethyst:
+    name: "Amethyst"
+    weapon: AMETHYST_SHARD
+    stats:                           # see docs/character-stats.md
+      health: 180                    # max HP
+      armor: 5                       # damage taken x 100 / (100 + armor)
+      base_damage: 32                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      attack_speed: 2.5              # shards per second
+    resources:
+      gathered:                      # Shard Volley: shards gathered (slot 8, only while gathering)
+        max: 6
+        hotbar: 8
+        icon: SMALL_AMETHYST_BUD
+        shown_while: state.gathering
+    forms:
+      - while: state.choosing_crystal   # Crystallize: choosing
+        slots: { primary: amethyst_crystallize_enemy, secondary: amethyst_crystallize_self }
+      - while: state.gathering          # Shard Volley: LMB looses it
+        slots: { primary: amethyst_volley }
+    slots:
+      primary: amethyst_primary      # LMB: Amethyst Shard (pierces; lingers at full range)
+      secondary: amethyst_recall     # RMB: Recall
+      ability_1: amethyst_ab1        # 1: Shard Volley
+      ability_2: amethyst_ab2        # 2: Crystal Ward
+      ability_3: amethyst_ab3        # 3: Shardfall
+      ultimate: amethyst_ult1        # F: Crystallize

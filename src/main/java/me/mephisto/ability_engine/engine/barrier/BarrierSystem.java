@@ -26,10 +26,18 @@ public final class BarrierSystem {
     public static final String BLOCK_CUE = "barrier_block";
 
     /** @param projectilesOnly it only stops projectiles (not rays, dashes or melee) */
-    private record Barrier(UUID owner, double distance, double radius, boolean projectilesOnly) {}
+    private record Barrier(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb) {}
+
+    /** Told when a barrier absorbs an enemy projectile: in which world, where, and whose it was. */
+    @FunctionalInterface
+    public interface Absorb {
+        void absorbed(String world, Vec3 at, UUID attacker);
+    }
 
     /** Where a crossing path hits a barrier, and how far along the path that is. */
-    public record Crossing(Vec3 position, double distance) {}
+    public record Crossing(Vec3 position, double distance, Absorb onAbsorb) {
+        public Crossing(Vec3 position, double distance) { this(position, distance, null); }
+    }
 
     private final WorldQuery world;
     private final Teams teams;
@@ -48,7 +56,12 @@ public final class BarrierSystem {
     }
 
     public Runnable raise(UUID owner, double distance, double radius, boolean projectilesOnly) {
-        Barrier b = new Barrier(owner, distance, radius, projectilesOnly);
+        return raise(owner, distance, radius, projectilesOnly, null);
+    }
+
+    /** @param onAbsorb told whenever it absorbs an enemy projectile (null = nobody) */
+    public Runnable raise(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb) {
+        Barrier b = new Barrier(owner, distance, radius, projectilesOnly, onAbsorb);
         active.add(b);
         return () -> active.remove(b);
     }
@@ -86,7 +99,7 @@ public final class BarrierSystem {
             Vec3 hit = from.add(d.multiply(t));
             if (hit.distance(pl.center) > b.radius() + thickness) continue;
             double dist = hit.distance(from);
-            if (best == null || dist < best.distance()) best = new Crossing(hit, dist);
+            if (best == null || dist < best.distance()) best = new Crossing(hit, dist, b.onAbsorb());
         }
         return Optional.ofNullable(best);
     }
@@ -108,6 +121,11 @@ public final class BarrierSystem {
             if (flat.isZero() || plane.get().normal.angleTo(flat) <= FRONT_HALF_ANGLE) return true;
         }
         return false;
+    }
+
+    /** A projectile of {@code attacker}'s was absorbed at this crossing: tell the barrier, if it wants to know. */
+    public void absorbed(String world, Crossing crossing, UUID attacker) {
+        if (crossing.onAbsorb() != null) crossing.onAbsorb().absorbed(world, crossing.position(), attacker);
     }
 
     /** Splash where something was blocked. */
