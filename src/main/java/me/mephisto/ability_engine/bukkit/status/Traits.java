@@ -72,7 +72,7 @@ public final class Traits implements Listener {
 
     /**
      * elytra: a jump pressed in the air opens the wings. The game's client won't do it by itself while flying is
-     * allowed (the Seraph's wings): it takes that press as the first half of a double-tap to fly. A quick second press
+     * allowed (the Valkyrie's wings): it takes that press as the first half of a double-tap to fly. A quick second press
      * still toggles flight as usual.
      */
     @EventHandler
