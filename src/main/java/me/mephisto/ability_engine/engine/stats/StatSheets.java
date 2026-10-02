@@ -47,7 +47,15 @@ public final class StatSheets {
         return world.maxHealth(entity).orElse(CharacterDef.Stats.DEFAULT.health());
     }
 
-    public double armor(UUID entity) { return hasSheet(entity) ? of(entity).armor() : 0; }
+    /** The sheet's armor, x the holder's statuses' {@code armor} (each to the power of its stacks: a shred). */
+    public double armor(UUID entity) {
+        if (!hasSheet(entity)) return 0;
+        double armor = of(entity).armor();
+        for (ActiveStatus s : statuses.on(entity)) {
+            if (s.def().armor() != 1) armor *= Math.pow(s.def().armor(), Math.max(1, s.stacks()));
+        }
+        return armor;
+    }
 
     public double baseDamage(UUID entity) { return of(entity).baseDamage(); }
 

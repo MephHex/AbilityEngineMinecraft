@@ -13,6 +13,7 @@ import me.mephisto.ability_engine.engine.target.EntityTarget;
  *   <li>{@code max_hp: 0.1} - 10% of the TARGET's max HP. On damage this part ignores armor (damage over
  *       time like poison, and "% max HP" hits).</li>
  * </ul>
+ * {@code ignore_armor: true} makes the whole hit ignore armor.
  * E.g. {@code { id: damage, base: 1.2, max_hp: 0.1 }}: 120% base damage (armor reduces it) + 10% of their
  * max HP (it doesn't). Damage then gets backstab and {@code scale_by} multipliers, on both parts.
  */
@@ -39,6 +40,7 @@ public final class DamageAmount {
         if (p.has("base")) armored += stats.baseDamage(ctx.caster()) * p.getDouble("base", 0);
         double pierce = maxHpPart(ctx);
         double mult = Backstab.multiplier(ctx) * DamageScale.multiplier(ctx);
+        if (p.getBool("ignore_armor", false)) return new Parts(0, (armored + pierce) * mult); // all of it goes through
         return new Parts(armored * mult, pierce * mult);
     }
 

@@ -366,6 +366,23 @@ range for 5s (6 at most); Recall brings them back into the ammo, which also refi
 | Crystal Ward | 2.5s shell all around her (4 circling shards), +30% speed; the first shot it catches (any side) goes back at the shooter as their own shot, now hers, and it ends |
 | Crystallize (ult) | LMB an enemy / RMB herself: 2.5s as an amethyst geode (untouchable, can't act), then **180%** within 4 blocks, knockback, slowed; on herself she heals 25% |
 
+### Dragon Hunter: Fighter / Debuffer
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **230** | **20** (17%) | **42** | **1.00** | **0.8** (25 ticks) | 276 | 34 |
+
+Blind Obsession (passive): each basic attack that lands shreds 6% of the target's armor (5 stacks: 27%, 5s); a new
+target resets it.
+
+| Ability | Effect |
+|---|---|
+| Zweihander Swing (primary) | **100%** to the first enemy within 2.8 blocks, a little knockback; after Hunter's Lunge it stuns 1s |
+| Hunter's Lunge (1, 7s) | a 4-block dash; the next basic attack is ready at once and stuns |
+| Dragonbone Slam (2, 10s) | wind up to 2s (down to x0.55 speed, nothing else usable), slam a 4.5-block cone: **60%** + up to **120%** by wind-up (LMB early); full: **200%** ignoring armor |
+| Venom Dagger (3, 12s) | **60%** all around (3.5 blocks), poison 12% max HP over 4s (-40% healing); Hunter's Lunge ready |
+| Dragon Harpoon (ult) | a harpoon (**80%**): 5s disarmed, slowed 67% wearing off; below 20% max HP while it's stuck, F again: blink and execute |
+
 ---
 
 ## 3. Sanity check: time to kill with basic attacks only
