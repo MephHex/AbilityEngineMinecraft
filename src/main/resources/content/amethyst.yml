@@ -245,11 +245,13 @@ abilities:
           - { id: damage, base: 0.4, knockback: false }
         next: hit_cue
 
-  # 3: Recall (6s). Every shard hanging in the air flies back to you (each one back in your ammo), through
+  # 3: Recall (6s). Only with shards hanging (its icon counts them; greyed out with none). Every shard hanging in the
+  # air flies back to you (each one back in your ammo), through
   # enemies on the way: each shard that hits them deals 45% base damage and slows them a bit more (x0.88 a shard, 2s),
   # and they bleed for 4s (40% less healing, -15% damage, 6% of their max HP over the 4s).
   amethyst_recall:
     cooldown: 120                    # 6s
+    needs_constructs: amethyst_primary   # only with shards hanging: the icon counts them, grey with none
     display:
       name: "Recall"
       icon: SMALL_AMETHYST_BUD
@@ -270,19 +272,20 @@ abilities:
         type: play_cue
         cue: amethyst_recall
 
-  # 1: Shard Volley (9s). Gather 6 shards (one every 0.45s: the XP bar's level counts them; you're 40% slower while
-  # you gather), then they're loosed by themselves in a quick volley where you look. Each that hits an enemy slows them 30% for 1.5s and bursts behind them:
+  # 1: Shard Volley (9s). A channel: gather 6 shards (one every 0.45s: the XP bar's level counts them; meanwhile you're
+  # 40% slower and can't use anything else), then they're loosed by themselves in a quick volley where you look. Each that hits an enemy slows them 30% for 1.5s and bursts behind them:
   # 60% base damage within 2.5 blocks of that spot (they're in it too).
   amethyst_ab1:
     cooldown: 180                    # 9s
-    active_tags: [state.slowed]      # slowed (-40%) while gathering (let go as the volley flies)
+    active_tags: [state.slowed, block.ability, state.channeling]   # a channel: slowed (-40%) and nothing else usable
+                                     # while gathering (let go as the volley flies)
     display:
       name: "Shard Volley"
       icon: AMETHYST_CLUSTER
       description:
-        - "Gather 6 shards (the XP bar counts them;"
-        - "you're slowed meanwhile), then a volley"
-        - "by itself. Each hit slows"
+        - "Channel: gather 6 shards (the XP bar"
+        - "counts them; slowed, nothing else usable),"
+        - "then a volley by itself. Each hit slows"
         - "30% and bursts behind them: 60% base."
     nodes:
       gather:
@@ -291,7 +294,7 @@ abilities:
         every: 9
         on: { each: one, out: loosed }
       loosed:
-        type: release_tags           # gathered: no longer slowed
+        type: release_tags           # gathered: no longer slowed, the rest usable again
         next: volley
       one:
         type: apply_effects          # (the XP bar's level: how many so far)

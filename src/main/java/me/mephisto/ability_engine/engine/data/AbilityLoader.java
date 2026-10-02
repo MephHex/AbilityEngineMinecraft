@@ -500,6 +500,7 @@ public final class AbilityLoader {
                 .charges(charges(p))
                 .recastMovement(p.getBool("recast_movement", false))
                 .passiveWhile(p.getString("passive_while", null))
+                .needsConstructs(p.getString("needs_constructs", null))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))

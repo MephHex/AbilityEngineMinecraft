@@ -132,6 +132,12 @@ public final class ConstructSystem {
         for (int i = 0; i <= mine.size() - limit; i++) finish(mine.get(i), Ports.FUSE, null);
     }
 
+    /** How many of {@code owner}'s constructs from {@code ability} are standing right now. */
+    public int count(UUID owner, String ability) {
+        return (int) active.stream()
+                .filter(c -> !c.done && c.owner.equals(owner) && abilityOf(c.resumer).equals(ability)).count();
+    }
+
     /** Constructs still standing (ended ones are dropped from the list on the next tick). */
     public int activeCount() { return (int) active.stream().filter(c -> !c.done).count(); }
 

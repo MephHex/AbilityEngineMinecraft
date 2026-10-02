@@ -635,6 +635,9 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Constructs as lingering shots:** a projectile's `expired` into a `construct` `at: <its store key>, height: 0` leaves
   it hanging where it ran out; `set_off_constructs` (e.g. on RMB) makes them all exit `triggered`, where a projectile
   `from: construct, toward: caster, hits_caster: true` flies it back.
+- **Abilities:** `needs_constructs: <ability>` - it can only be used while the caster has constructs from that ability
+  standing (e.g. recalling shards left hanging). Its icon's stack counts them; with none it's greyed out and its key does
+  nothing.
 - **Constructs:** `fuse_spread: 30` - each one's fuse is its `fuse` give or take up to that many ticks, at random (so
   they don't all end together). A non-solid one's visual `"hover:<item>"` stands upright, facing whoever looks at it, and
   bobs gently in the air (each at its own pace), e.g. a shard hanging where it stopped.
