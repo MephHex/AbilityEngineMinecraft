@@ -226,7 +226,7 @@ class AmethystTest {
         assertEquals("amethyst_volley", t.engine.loadouts().abilityIn(p, Slots.PRIMARY).orElseThrow(), "LMB looses it");
         use(Slots.PRIMARY);
         assertEquals(1, t.engine.stats().moveSpeedMultiplier(p), 1e-9, "loosed: no more slow");
-        t.time.advance(10); // the 3 circling shards fly, 2 ticks apart
+        t.time.advance(14); // the 3 circling shards fly, 0.2s apart
         assertFalse(t.engine.tags().has(p, "state.channeling"), "then the channel's over");
         assertEquals(0, t.engine.resources().get(p, "gathered"), "no more gathered meanwhile");
         t.time.advance(10);

@@ -342,7 +342,7 @@ abilities:
         type: cast
         ability: amethyst_volley
 
-  # LMB while gathering (or Shard Volley, full): the volley. Every gathered shard, 2 ticks apart, where you look.
+  # LMB while gathering (or Shard Volley, full): the volley. Every gathered shard, 0.2s apart, where you look.
   amethyst_volley:
     blocked_by: []                   # (the channel blocks everything else, not this)
     display:
@@ -363,9 +363,9 @@ abilities:
           - { id: remove_status, status: amethyst_gathering }
         next: volley
       volley:
-        type: repeat                 # every gathered shard, 2 ticks apart: the circling ones fly
+        type: repeat                 # every gathered shard, 0.2s apart: the circling ones fly
         times: 6
-        every: 2
+        every: 4
         spend: gathered
         on: { each: fire, out: stop }
       fire:
