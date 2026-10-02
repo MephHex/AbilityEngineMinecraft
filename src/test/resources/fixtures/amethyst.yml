@@ -5,8 +5,8 @@
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
 # PASSIVE (Lingering Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (5 a second). Each shard pierces
-#   enemies (the first one hit takes full damage, those behind it half), and one that reaches its full range hangs there
-#   for 5s. Every hanging shard comes back to the ammo: one when it fades, or all of them at once with Recall (RMB).
+#   enemies (the first one hit takes full damage, those behind it half), and one that reaches its full range, or hits
+#   the ground or a wall, hangs there for 5s. Every hanging shard comes back to the ammo: one when it fades, or all of them at once with Recall (RMB).
 #   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again. (The ammo
 #   also refills by itself, a shard every 2s after 2s without shooting, so she's never left with none.)
 #
@@ -79,7 +79,8 @@ statuses:
 abilities:
 
   # PRIMARY (LMB): Amethyst Shard. A quick shard (1.6 blocks/tick, 18 blocks) that pierces up to 3 enemies: 40% base
-  # damage to the first, 20% to each behind it. It costs a shard of ammo; at its full range it hangs in the air for 5s.
+  # damage to the first, 20% to each behind it. It costs a shard of ammo; where it ends (its full range, the ground, a
+  # wall) it hangs for 5s.
   # Out of ammo: a plain shard (no piercing, it doesn't hang, 12 blocks) at 1.5 a second.
   amethyst_primary:
     cooldown: 4                      # (the attack_speed stat sets it)
@@ -88,7 +89,8 @@ abilities:
       description:
         - "Fast piercing shards: 40% base damage,"
         - "20% to those behind. 6 shards of ammo;"
-        - "at full range they hang in the air 5s"
+        - "where they end (range, ground, wall)"
+        - "they hang 5s"
         - "and come back to it. RMB: Recall them."
         - "Out of ammo: plain, slower shards."
     nodes:
@@ -114,7 +116,7 @@ abilities:
         visual_size: 0.6
         face_flight: true
         store: shard
-        on: { spawned: shoot_cue, hit_entity: which, hit_block: shatter, expired: linger }
+        on: { spawned: shoot_cue, hit_entity: which, hit_block: linger, expired: linger }   # the ground or a wall: it stays there
       shoot_cue:
         type: play_cue
         cue: amethyst_shard_shot
@@ -155,7 +157,7 @@ abilities:
         cue: amethyst_shard_hit
         at: hit
       linger:
-        type: construct              # it hangs where it ran out, until Recall (or 5s)
+        type: construct              # it hangs where it ended (its range, the ground, a wall), until Recall (or 5s)
         at: shard
         height: 0
         size: 0.4

@@ -89,6 +89,19 @@ class AmethystTest {
     }
 
     @Test
+    void aShardThatHitsTheGroundHangsThereToo() throws IOException {
+        setup();
+        t.world.look(p, new Vec3(1, -1, 0)); // at the floor, a couple of blocks ahead
+        use(Slots.PRIMARY);
+        t.time.advance(5);
+        assertEquals(1, t.engine.constructs().activeCount(), "it stays where it hit");
+        use(Slots.SECONDARY);
+        t.time.advance(10);
+        assertEquals(0, t.engine.constructs().activeCount(), "and comes back with Recall");
+        assertEquals(6, t.engine.resources().get(p, "ammo"));
+    }
+
+    @Test
     void atMostSixShardsHang() throws IOException {
         setup();
         for (int i = 0; i < 6; i++) {
