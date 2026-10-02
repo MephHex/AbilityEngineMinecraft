@@ -109,6 +109,9 @@ public final class AbilityEngine {
         // Debuff immunity from anything else (a status granting state.debuff_immune): blocks without using it up.
         statuses.addGuard((target, def, source) -> tags.has(target, me.mephisto.ability_engine.engine.tag.Tags.DEBUFF_IMMUNE)
                 && me.mephisto.ability_engine.engine.status.StatusManager.isDebuff(target, def, source));
+        // Nothing lands on the dead: a hit that kills and also poisons / slows would otherwise put that on the corpse,
+        // after the death already cleared everything, and it would still be on them when they respawn.
+        statuses.addGuard((target, def, source) -> !platform.world().isAlive(target));
 
         tags.addListener(instances); // interrupts
         statuses.setEffectApplier((source, target, list) -> { // status ticks (burn damage etc.)
@@ -251,6 +254,15 @@ public final class AbilityEngine {
         for (var instance : instances.of(entity)) {
             if (!instance.ability().survivesDeath()) instance.cancel("death");
         }
+        statuses.clear(entity);
+        tags.clear(entity);
+    }
+
+    /**
+     * Back from the dead: a fresh start, nothing from their last life on them (statuses, tags), even what landed
+     * between the death and now. Casts that survive death keep running.
+     */
+    public void resetOnRespawn(UUID entity) {
         statuses.clear(entity);
         tags.clear(entity);
     }

@@ -106,10 +106,13 @@ public final class HotbarHud {
 
     // ---- character sessions -------------------------------------------------------------
 
-    /** Overwrites the kit's hotbar slots and the offhand. Returns false for an unknown character. */
+    /**
+     * Overwrites the kit's hotbar slots and the offhand. Returns false for an unknown character. The old character's
+     * casts end and nothing of it stays on them (statuses, tags: e.g. a Sylvan planted in the ground walks again).
+     */
     public boolean equip(Player p, String characterId) {
         if (engine.characters().find(characterId).isEmpty()) return false;
-        engine.instances().cancelAll(p.getUniqueId(), "character_change");
+        engine.resetEntity(p.getUniqueId(), "character_change");
         engine.loadouts().assign(p.getUniqueId(), characterId);
         render(p);
         if (stats != null) stats.fill(p); // a fresh character starts at full health
@@ -128,7 +131,7 @@ public final class HotbarHud {
 
     public void unequip(Player p) {
         if (stats != null) stats.remove(p);
-        engine.instances().cancelAll(p.getUniqueId(), "character_change");
+        engine.resetEntity(p.getUniqueId(), "character_change");
         engine.loadouts().clear(p.getUniqueId());
         clear(p);
     }

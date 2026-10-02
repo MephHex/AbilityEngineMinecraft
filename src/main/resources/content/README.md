@@ -75,6 +75,9 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Ability options:** `aura: <looping cue>` runs for the whole cast; `cancel_on_repress: true` lets
   the ability's key end it early; `survives_death: true` keeps its casts running when the caster dies
   (thrown traps stay armed; logging out or changing character still ends them).
+- **Death and character changes:** dying clears every status and tag on you, and nothing lands on you while you're
+  dead (a hit that kills and also poisons doesn't poison the corpse); respawning starts clean too. Changing character
+  (`/ae char`) clears them as well: nothing of the old kit stays on you (e.g. a planted Sylvan walks again).
 - **Tags with effects in game:** `state.resistant` = 40% less damage taken, `state.slowed` = -40% speed,
   `state.hasted` = +30% speed, `state.sturdy` = half knockback, `state.invisible` = invisible (held items
   still show, like vanilla).
