@@ -102,6 +102,28 @@ class AmethystTest {
     }
 
     @Test
+    void eachHangingShardHasItsOwnLifetime() throws IOException {
+        setup();
+        t.engine.setRandom(new java.util.Random(7));
+        for (int i = 0; i < 6; i++) { // 6 shards, hanging within a second of each other
+            use(Slots.PRIMARY);
+            t.time.advance(4);
+        }
+        t.time.advance(15);
+        assertEquals(6, t.engine.constructs().activeCount());
+        java.util.Set<Integer> fadeTicks = new java.util.HashSet<>();
+        int before = 6;
+        for (int tick = 0; tick < 140 && before > 0; tick++) {
+            t.time.advance(1);
+            int now = t.engine.constructs().activeCount();
+            if (now < before) fadeTicks.add(tick);
+            before = now;
+        }
+        assertEquals(0, before, "all gone within 6.5s");
+        assertTrue(fadeTicks.size() >= 3, "not all together: they faded on " + fadeTicks.size() + " different ticks");
+    }
+
+    @Test
     void atMostSixShardsHang() throws IOException {
         setup();
         for (int i = 0; i < 6; i++) {

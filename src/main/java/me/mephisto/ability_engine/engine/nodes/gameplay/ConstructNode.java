@@ -35,6 +35,14 @@ public final class ConstructNode implements GraphNode {
     private final int fuseTicks;
     private final String visual;
     private final ConstructSystem.Options options;
+    /** Each one's fuse is {@code fuseTicks} give or take up to this many ticks, at random (0 = all the same). */
+    private int fuseSpread;
+
+    /** @param fuseSpread each one's fuse is {@code fuseTicks} give or take up to this many ticks, at random */
+    public ConstructNode withFuseSpread(int fuseSpread) {
+        this.fuseSpread = Math.max(0, fuseSpread);
+        return this;
+    }
 
     public ConstructNode(String atKey, String store, double height, double size, int fragileTicks, int fuseTicks, String visual) {
         this(atKey, store, height, size, fragileTicks, fuseTicks, visual, ConstructSystem.Options.DEFAULT);
@@ -59,7 +67,9 @@ public final class ConstructNode implements GraphNode {
 
         Vec3 center = at.get().position().add(0, height, 0);
         ctx.blackboard().putRaw(store, new PointTarget(at.get().world(), center));
-        ctx.engine().constructs().place(ctx.caster(), at.get().world(), center, size, fragileTicks, fuseTicks,
+        int fuse = fuseSpread <= 0 ? fuseTicks
+                : Math.max(1, fuseTicks + ctx.engine().random().nextInt(-fuseSpread, fuseSpread + 1)); // each its own
+        ctx.engine().constructs().place(ctx.caster(), at.get().world(), center, size, fragileTicks, fuse,
                 visual, ctx.suspend(), options);
         return NodeResult.SUSPENDED;
     }
