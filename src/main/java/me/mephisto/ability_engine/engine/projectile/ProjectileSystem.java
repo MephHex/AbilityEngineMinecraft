@@ -296,7 +296,9 @@ public final class ProjectileSystem {
             SweepHit h = hit.get();
             if (h.target() instanceof EntityTarget e) {
                 moveTo(p, h.position());
-                if (p.piercesLeft > 0) { // through them: this hit runs on its own, the projectile flies on
+                // through them: this hit runs on its own, the projectile flies on. Never through its own caster (hits_caster:
+                // caught, it stops there, or a recalled shard would be caught and then fly on and count again)
+                if (p.piercesLeft > 0 && !e.id().equals(ctx.caster())) {
                     p.piercesLeft--;
                     p.pierced.add(e.id());
                     pierceHit(p, h.target());
