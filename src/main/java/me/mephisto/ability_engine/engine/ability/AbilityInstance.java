@@ -84,6 +84,17 @@ public final class AbilityInstance {
         closeBranch();
     }
 
+    /**
+     * Started from outside its graph (no active tags, no aura, nothing run from its start node): a copy of someone
+     * else's projectile (a reflected shot) running this ability's hit logic as this caster. The returned root branch
+     * is open: fork from it, then close it.
+     */
+    public ExecutionContext adopt() {
+        if (started) throw new IllegalStateException("instance already started");
+        started = true;
+        return newBranch();
+    }
+
     /** A fresh root branch with a new blackboard containing the caster. */
     public ExecutionContext newBranch() {
         openBranch();

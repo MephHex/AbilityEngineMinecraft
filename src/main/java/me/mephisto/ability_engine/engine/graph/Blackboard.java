@@ -20,6 +20,13 @@ public final class Blackboard {
 
     public Blackboard child() { return new Blackboard(this); }
 
+    /** Every value it can read (its own, and its parents' it doesn't hide), e.g. to start a copy of a cast. */
+    public Map<String, Object> snapshot() {
+        Map<String, Object> out = parent == null ? new HashMap<>() : parent.snapshot();
+        out.putAll(values);
+        return out;
+    }
+
     public <T> void put(Key<T> key, T value) { values.put(key.name(), value); }
 
     public <T> T get(Key<T> key) { return key.cast(raw(key.name())); }

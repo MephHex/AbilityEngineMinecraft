@@ -26,7 +26,8 @@ public final class BarrierSystem {
     public static final String BLOCK_CUE = "barrier_block";
 
     /** @param projectilesOnly it only stops projectiles (not rays, dashes or melee) */
-    private record Barrier(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb) {}
+    private record Barrier(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb,
+                           boolean reflect) {}
 
     /** Told when a barrier absorbs an enemy projectile: in which world, where, and whose it was. */
     @FunctionalInterface
@@ -35,8 +36,12 @@ public final class BarrierSystem {
     }
 
     /** Where a crossing path hits a barrier, and how far along the path that is. */
-    public record Crossing(Vec3 position, double distance, Absorb onAbsorb) {
-        public Crossing(Vec3 position, double distance) { this(position, distance, null); }
+    /**
+     * @param owner   whose barrier it is
+     * @param reflect it sends what it catches back (see ProjectileSystem#reflect)
+     */
+    public record Crossing(Vec3 position, double distance, Absorb onAbsorb, UUID owner, boolean reflect) {
+        public Crossing(Vec3 position, double distance) { this(position, distance, null, null, false); }
     }
 
     private final WorldQuery world;
@@ -61,7 +66,13 @@ public final class BarrierSystem {
 
     /** @param onAbsorb told whenever it absorbs an enemy projectile (null = nobody) */
     public Runnable raise(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb) {
-        Barrier b = new Barrier(owner, distance, radius, projectilesOnly, onAbsorb);
+        return raise(owner, distance, radius, projectilesOnly, onAbsorb, false);
+    }
+
+    /** @param reflect what it absorbs is sent back at whoever shot it: a copy of the shot, cast by the owner */
+    public Runnable raise(UUID owner, double distance, double radius, boolean projectilesOnly, Absorb onAbsorb,
+                          boolean reflect) {
+        Barrier b = new Barrier(owner, distance, radius, projectilesOnly, onAbsorb, reflect);
         active.add(b);
         return () -> active.remove(b);
     }
@@ -99,7 +110,7 @@ public final class BarrierSystem {
             Vec3 hit = from.add(d.multiply(t));
             if (hit.distance(pl.center) > b.radius() + thickness) continue;
             double dist = hit.distance(from);
-            if (best == null || dist < best.distance()) best = new Crossing(hit, dist, b.onAbsorb());
+            if (best == null || dist < best.distance()) best = new Crossing(hit, dist, b.onAbsorb(), b.owner(), b.reflect());
         }
         return Optional.ofNullable(best);
     }

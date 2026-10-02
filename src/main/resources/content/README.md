@@ -628,8 +628,9 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Projectile hits:** every `hit_entity` gets `hit_index`: which enemy along its path this is, 0 for the first, 1 for
   the one behind it (with `pierce`)... E.g. `switch { key: hit_index, on: { "0": full, default: less } }`.
 - **Barrier:** every enemy projectile it absorbs runs its `absorbed` port as a branch of its own, with `absorbed_at`
-  (where it was caught) and `absorbed_from` (whose it was): e.g. a projectile `from: absorbed_at, toward:
-  absorbed_from` that throws it back.
+  (where it was caught) and `absorbed_from` (whose it was). `reflect: true` sends what it catches back at the shooter:
+  a copy of their own shot (the same projectile and its hit logic, the shot's values carried over), now cast by the
+  barrier's owner, so its damage and effects land on the shooter and their side.
 - **Constructs as lingering shots:** a projectile's `expired` into a `construct` `at: <its store key>, height: 0` leaves
   it hanging where it ran out; `set_off_constructs` (e.g. on RMB) makes them all exit `triggered`, where a projectile
   `from: construct, toward: caster, hits_caster: true` flies it back.

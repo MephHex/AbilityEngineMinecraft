@@ -352,19 +352,19 @@ Wings (passive): short flights on a gauge (~3s), free gliding on an elytra, Slow
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **180** | **5** (5%) | **32** | **1.00** | **2.5** (8 ticks) | 189 | 64 |
+| **180** | **5** (5%) | **32** | **1.00** | **5.0** (4 ticks; 1.5 out of ammo) | 189 | 64 (19 out of ammo) |
 
-Lingering Shards (passive): her shards pierce (100% of the hit to the first enemy, half to those behind) and hang at
-full range for 5s, 6 at most.
+Lingering Shards (passive): 6 shards of ammo; they pierce (half damage to those behind the first) and hang at full
+range for 5s, coming back to the ammo when they fade or are recalled. Out of ammo: plain, slower shards.
 
 | Ability | Effect |
 |---|---|
-| Amethyst Shard (primary) | **80%** to the first, **40%** to up to 3 behind; at full range it hangs 5s |
-| Recall (RMB) | every hanging shard flies back: **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (-40% healing, -15% damage) |
-| Shard Volley | gather up to 6 (0.3s each), LMB looses them: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
-| Crystal Ward | 2.5s barrier, +30% speed; shots it catches are thrown back, **100%** |
+| Amethyst Shard (primary) | **40%** to the first, **20%** to up to 3 behind; at full range it hangs 5s. Out of ammo: **40%**, no pierce |
+| Recall (RMB) | every hanging shard flies back (and into the ammo): **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (-40% healing, -15% damage) |
+| Shard Volley | gathers 6 (0.3s each, the XP bar counts them), then looses them by itself: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
+| Crystal Ward | 2.5s barrier, +30% speed; shots it catches go back at the shooter: their own shot, now hers |
 | Shardfall | a 4-block area: **20%** every 0.5s for 5s (200%), 30% slower, +15% damage taken inside |
-| Crystallize (ult) | LMB an enemy / RMB herself: 2.5s in crystal (untouchable, can't act), then **180%** within 4 blocks, knockback, slowed; on herself she heals 25% |
+| Crystallize (ult) | LMB an enemy / RMB herself: 2.5s as an amethyst geode (untouchable, can't act), then **180%** within 4 blocks, knockback, slowed; on herself she heals 25% |
 
 ---
 
