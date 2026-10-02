@@ -332,10 +332,6 @@ and Reaping Cleave's blade, and Rampage keeps him from being peeled.
 | Reaping Cleave | 0.75s windup, then **90%** within 5 blocks; the outer band (2.5-5) also takes **8% max HP** true damage, all of it healed |
 | Rampage (ult) | 8s: unstoppable (no crowd control, knockback or displacement), +20% speed, War Cry the whole time |
 
-### Test kit (Pyro)
-
-No sheet: they get the defaults (200 HP, 0 armor, base damage 40, speed 1.0).
-
 ---
 
 ## 3. Sanity check: time to kill with basic attacks only
