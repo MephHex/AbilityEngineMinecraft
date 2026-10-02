@@ -168,6 +168,20 @@ class AmethystTest {
     }
 
     @Test
+    void eachRecalledShardGivesExactlyOneAmmo() throws IOException {
+        setup();
+        use(Slots.PRIMARY);
+        t.time.advance(4);
+        use(Slots.PRIMARY);
+        t.time.advance(15); // 2 hanging
+        t.engine.resources().set(p, "ammo", 0);
+        use(Slots.ABILITY_3);
+        t.time.advance(60); // caught (and past the end of their 2s flight, had they flown on)
+        assertEquals(2 + 60 / 20.0 * 0.125, t.engine.resources().value(p, "ammo"), 1e-6,
+                "2 shards caught: 2 ammo (plus the 3s of slow refill), not 2 each");
+    }
+
+    @Test
     void atMostSixShardsHang() throws IOException {
         setup();
         for (int i = 0; i < 6; i++) {
