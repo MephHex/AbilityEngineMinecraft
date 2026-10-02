@@ -200,6 +200,20 @@ class AmethystTest {
         assertFalse(has(p, "amethyst_gathering"), "over: the count's gone");
     }
 
+    @Test
+    void aStunBreaksTheVolleysChannel() throws IOException {
+        setup();
+        UUID enemy = foe(6, 0);
+        use(Slots.ABILITY_1);
+        t.time.advance(20);
+        t.engine.statuses().apply(p, "stun", 20, enemy);
+        assertFalse(t.engine.tags().has(p, "state.channeling"), "broken");
+        assertFalse(t.engine.tags().has(p, "state.slowed"));
+        t.time.advance(80);
+        assertEquals(0, t.damage(enemy), 1e-6, "nothing was loosed");
+        assertFalse(has(p, "amethyst_gathering"), "the XP bar's count is gone");
+    }
+
     // ---- Crystal Ward -----------------------------------------------------------------------------------------
 
     @Test

@@ -37,7 +37,7 @@ statuses:
     attack_speed: 0.3                # 5 a second -> 1.5
     positive: false
   amethyst_gathering:                # Shard Volley: shards gathered so far (the XP bar's level)
-    duration: 60
+    duration: 12                     # (put on again with every shard: gone soon after a stun breaks the channel)
     stacking: stack
     max_stacks: 6
     positive: false
@@ -273,12 +273,14 @@ abilities:
         cue: amethyst_recall
 
   # 1: Shard Volley (9s). A channel: gather 6 shards (one every 0.45s: the XP bar's level counts them; meanwhile you're
-  # 40% slower and can't use anything else), then they're loosed by themselves in a quick volley where you look. Each that hits an enemy slows them 30% for 1.5s and bursts behind them:
+  # 40% slower and can't use anything else; a stun breaks it), then they're loosed by themselves in a quick volley where
+  # you look. Each that hits an enemy slows them 30% for 1.5s and bursts behind them:
   # 60% base damage within 2.5 blocks of that spot (they're in it too).
   amethyst_ab1:
     cooldown: 180                    # 9s
     active_tags: [state.slowed, block.ability, state.channeling]   # a channel: slowed (-40%) and nothing else usable
                                      # while gathering (let go as the volley flies)
+    interrupted_by: [state.stunned]  # a stun breaks it (nothing is loosed; the cooldown's spent)
     display:
       name: "Shard Volley"
       icon: AMETHYST_CLUSTER
