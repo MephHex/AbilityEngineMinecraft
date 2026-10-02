@@ -73,6 +73,7 @@ abilities:
   # The cooldown starts when the chain ends.
   valkyrie_ab1:
     cooldown: 160                    # 8s
+    cooldown_starts: manual          # when the chain ends (see spent / dive_spent), not on the second leap
     blocked_by: [block.ability, state.gliding]   # not while gliding
     display:
       name: "Valkyrie's Leap"
@@ -111,11 +112,11 @@ abilities:
       hit1:
         type: switch                 # hit someone: the second leap
         key: struck1
-        on: { "0": ~, default: wait1 }
+        on: { "0": spent, default: wait1 }
       wait1:
         type: await_recast
         window: 60                   # 3s
-        on: { recast: leap2_cue }
+        on: { recast: leap2_cue, timeout: spent }
       leap2_cue:
         type: play_cue
         cue: valkyrie_flit
@@ -144,11 +145,16 @@ abilities:
       hit2:
         type: switch                 # hit again: the dive
         key: struck2
-        on: { "0": ~, default: wait2 }
+        on: { "0": spent, default: wait2 }
       wait2:
         type: await_recast
         window: 60
-        on: { recast: rise_cue }
+        on: { recast: dive_spent, timeout: spent }
+      spent:
+        type: start_cooldown         # the chain's over: missed, or not pressed again in time
+      dive_spent:
+        type: start_cooldown         # the third press: the dive
+        next: rise_cue
       rise_cue:
         type: play_cue
         cue: valkyrie_rise
