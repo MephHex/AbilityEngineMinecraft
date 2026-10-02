@@ -102,7 +102,8 @@ public final class DamageEffect implements Effect {
         double lifesteal = ctx.params().getDouble("lifesteal", 0);
         if (lifesteal > 0 && after < before && shields != null && damager instanceof LivingEntity self && !self.equals(living)) {
             Params p = ctx.params();
-            shields.heal(self, (before - after) * lifesteal, p.getBool("overflow", false),
+            double healing = ctx.engine().stats().healingMultiplier(ctx.caster()); // a poisoned attacker heals less
+            shields.heal(self, (before - after) * lifesteal * healing, p.getBool("overflow", false),
                     p.getDouble("overflow_max", 150) / scale, p.getDouble("overflow_decay", 25) / scale);
         }
 

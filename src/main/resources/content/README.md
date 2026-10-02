@@ -521,6 +521,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   `cue: <looping cue>`: runs on the holder while it lasts (their character's variants apply).
 - **landings** `{ ticks, store }` -> landed / out: for `ticks`, every time the caster lands (after at least 3 ticks
   in the air: a jump, a fall) "landed" runs as its own branch, with the spot on the ground stored as `store`.
+- **Statuses:** `healing_taken: 0.6` - the holder heals that much of any healing (0.6 = 40% less): heal effects,
+  lifesteal, vanilla regeneration. Several multiply. The poisons (the Fae's toxin, the Alchemist's Poison) have it.
 - **Statuses:** `jump_boost: 3` - Jump Boost of that level while it lasts (3 = Jump Boost III); with several, the
   highest counts. (The old tag `state.jump_boost` still works: Jump Boost II.)
 - **Characters:** `status_bar: { status, fill: stacks }` fills the XP bar with the status's stacks out of its

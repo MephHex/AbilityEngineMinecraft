@@ -29,6 +29,13 @@ public final class DamageModifierListener implements Listener {
         this.engine = engine;
     }
 
+    /** Vanilla healing (regeneration, a full hunger bar, potions) is reduced like ability heals (healing_taken). */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onRegain(org.bukkit.event.entity.EntityRegainHealthEvent event) {
+        double m = engine.stats().healingMultiplier(event.getEntity().getUniqueId());
+        if (m != 1) event.setAmount(event.getAmount() * m);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (redirecting || !(event.getEntity() instanceof LivingEntity)) return;

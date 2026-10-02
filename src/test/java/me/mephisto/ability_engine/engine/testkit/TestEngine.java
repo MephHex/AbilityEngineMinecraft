@@ -67,7 +67,8 @@ public final class TestEngine {
                     world.hurt(e.id(), amount); // vulnerable clones (souls) die at 0
                     for (var r : result.redirects()) damageTaken.merge(r.to(), r.amount(), Double::sum);
                     double ls = ctx.params().getDouble("lifesteal", 0);
-                    if (ls > 0) lifesteal.merge(ctx.caster(), amount * ls, Double::sum);
+                    if (ls > 0) lifesteal.merge(ctx.caster(), amount * ls * ctx.engine().stats().healingMultiplier(ctx.caster()),
+                            Double::sum);
                 }
             }
 
@@ -89,7 +90,8 @@ public final class TestEngine {
             @Override
             public void apply(EffectContext ctx) {
                 if (ctx.target() instanceof EntityTarget e) {
-                    healed.merge(e.id(), me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx), Double::sum);
+                    healed.merge(e.id(), me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx)
+                            * ctx.engine().stats().healingMultiplier(e.id()), Double::sum);
                 }
             }
 

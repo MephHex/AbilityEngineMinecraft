@@ -30,6 +30,7 @@ statuses:
     duration: 80                     # 4s...
     stacking: refresh
     move_speed: 0.65                 # -35%
+    healing_taken: 0.6               # poisoned: 40% less healing
     tags: [state.poisoned, state.poison_hearts, state.nauseous]   # poison_hearts: vanilla's green hearts
     tick:
       every: 20                      # ...2% max HP a second = 8% (ignores armor)
