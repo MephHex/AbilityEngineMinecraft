@@ -86,6 +86,11 @@ class AmethystTest {
         assertEquals(2 * BASE * 0.45, t.damage(enemy), 1e-6, "45% per shard that hit");
         assertEquals(2, stacks(enemy, "amethyst_shard_slow"), "slowed more per shard");
         assertTrue(has(enemy, "amethyst_bleed"), "and bleeding");
+        assertFalse(t.knockbackVec.containsKey(enemy), "no knockback");
+        double hit = t.damage(enemy);
+        t.time.advance(80);
+        assertEquals(4 * 200 * 0.015, t.damage(enemy) - hit, 0.2 * 200 * 0.015 + 1e-6,
+                "the bleed hurts: 1.5% of their max HP a second for 4s");
     }
 
     @Test
@@ -102,25 +107,17 @@ class AmethystTest {
     }
 
     @Test
-    void eachHangingShardHasItsOwnLifetime() throws IOException {
+    void eachShardHangsFiveSecondsFromWhenItGotThere() throws IOException {
         setup();
-        t.engine.setRandom(new java.util.Random(7));
-        for (int i = 0; i < 6; i++) { // 6 shards, hanging within a second of each other
-            use(Slots.PRIMARY);
-            t.time.advance(4);
-        }
+        use(Slots.PRIMARY);
+        t.time.advance(40);
+        use(Slots.PRIMARY); // 2s later
         t.time.advance(15);
-        assertEquals(6, t.engine.constructs().activeCount());
-        java.util.Set<Integer> fadeTicks = new java.util.HashSet<>();
-        int before = 6;
-        for (int tick = 0; tick < 140 && before > 0; tick++) {
-            t.time.advance(1);
-            int now = t.engine.constructs().activeCount();
-            if (now < before) fadeTicks.add(tick);
-            before = now;
-        }
-        assertEquals(0, before, "all gone within 6.5s");
-        assertTrue(fadeTicks.size() >= 3, "not all together: they faded on " + fadeTicks.size() + " different ticks");
+        assertEquals(2, t.engine.constructs().activeCount(), "both hanging");
+        t.time.advance(60); // t=115: the first got there at ~12 (its flight), so 5s later it's gone
+        assertEquals(1, t.engine.constructs().activeCount(), "the first has faded");
+        t.time.advance(40);
+        assertEquals(0, t.engine.constructs().activeCount(), "t=155: the second too (it got there at ~52)");
     }
 
     @Test
