@@ -124,6 +124,9 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
     /** A trap: lies flat, nothing to punch, clicks once when it's armed. */
     /** A visual written {@code "hover:<item>"}: it stands upright (facing whoever looks) and bobs gently in the air. */
     private static final String HOVER = "hover:";
+    /** After "hover:": {@code "glow:<item>"} also makes it glow for its owner only (e.g. their own shards). */
+    private static final String OWNER_GLOW = "glow:";
+    private static final Color OWNER_GLOW_COLOR = Color.fromRGB(190, 120, 255);
 
     private ConstructVisual trap(ConstructHandle construct, Location center, String visual, float size) {
         if (visual != null && visual.startsWith(HOVER)) return hovering(construct, center, visual.substring(HOVER.length()), size);
@@ -172,16 +175,31 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
      * it points straight up), always facing whoever looks at it, and bobbing gently, each one at its own pace.
      */
     private ConstructVisual hovering(ConstructHandle construct, Location center, String visual, float size) {
+        boolean ownerGlow = visual.startsWith(OWNER_GLOW);
+        if (ownerGlow) visual = visual.substring(OWNER_GLOW.length());
         VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
         Entity look = spawned.entity();
         float s = size * 1.5f;
         double phase = java.util.concurrent.ThreadLocalRandom.current().nextDouble(Math.PI * 2);
-        if (look instanceof ItemDisplay d) {
+        // Glowing for its owner only: Minecraft has no per-viewer glow, so the owner sees a glowing twin instead of it.
+        org.bukkit.entity.Player owner = ownerGlow ? org.bukkit.Bukkit.getPlayer(construct.owner()) : null;
+        Entity twin = owner == null ? null : VisualSpawner.spawn(center, visual, size * 1.5f, log).entity();
+        java.util.List<Entity> looks = twin == null ? java.util.List.of(look) : java.util.List.of(look, twin);
+        for (Entity e : looks) {
+            if (!(e instanceof ItemDisplay d)) continue;
             d.setBillboard(org.bukkit.entity.Display.Billboard.VERTICAL);
             d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateZ(UPRIGHT),
                     new Vector3f(s, s, s), new Quaternionf())); // upright from the start
             d.setInterpolationDelay(0);
             d.setInterpolationDuration(2);
+        }
+        if (twin != null) {
+            var plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(BukkitConstructRenderer.class);
+            twin.setGlowing(true);
+            if (twin instanceof org.bukkit.entity.Display d) d.setGlowColorOverride(OWNER_GLOW_COLOR);
+            twin.setVisibleByDefault(false);
+            owner.showEntity(plugin, twin);
+            owner.hideEntity(plugin, look);
         }
         if (construct.hidden()) showOnlyToAllies(construct, look);
         return new ConstructVisual() {
@@ -191,16 +209,19 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
             public void update(double progress, boolean fragile) {
                 ticks++;
                 if (construct.hidden() && ticks % HIDDEN_REFRESH_TICKS == 0) showOnlyToAllies(construct, look);
-                if (ticks % 2 != 0 || !(look instanceof ItemDisplay d) || !d.isValid()) return;
+                if (ticks % 2 != 0) return;
                 float y = (float) (Math.sin(ticks * BOB_SPEED + phase) * BOB_HEIGHT);
-                d.setInterpolationDelay(0);
-                d.setTransformation(new Transformation(new Vector3f(0, y, 0), new Quaternionf().rotateZ(UPRIGHT),
-                        new Vector3f(s, s, s), new Quaternionf()));
+                for (Entity e : looks) { // (the twin bobs along with it)
+                    if (!(e instanceof ItemDisplay d) || !d.isValid()) continue;
+                    d.setInterpolationDelay(0);
+                    d.setTransformation(new Transformation(new Vector3f(0, y, 0), new Quaternionf().rotateZ(UPRIGHT),
+                            new Vector3f(s, s, s), new Quaternionf()));
+                }
             }
 
             @Override
             public void remove() {
-                if (look.isValid()) look.remove();
+                for (Entity e : looks) if (e.isValid()) e.remove();
             }
         };
     }

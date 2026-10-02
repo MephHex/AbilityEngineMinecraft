@@ -119,6 +119,28 @@ public final class ProjectileSystem {
         log.debug(() -> "projectile -> reflected by " + newOwner + " at " + shooter);
     }
 
+    /** Is {@code p} one of {@code caster}'s from {@code ability}, launched by its node {@code node} (null = any), still flying? */
+    private static boolean from(Projectile p, UUID caster, String ability, String node) {
+        var instance = p.resumer.context().instance();
+        return !p.done && instance.caster().equals(caster) && instance.ability().id().equals(ability)
+                && (node == null || node.equals(p.resumer.node()));
+    }
+
+    /** How many of {@code caster}'s projectiles from {@code ability}'s node {@code node} (null = any) are flying right now. */
+    public int countFlying(UUID caster, String ability, String node) {
+        return (int) active.stream().filter(p -> from(p, caster, ability, node)).count();
+    }
+
+    /**
+     * End {@code caster}'s projectiles from {@code ability}'s node {@code node} (null = any) right where they are: each
+     * exits "expired" there, as if it had run its course (e.g. a shard that hangs where it stops, to be recalled).
+     */
+    public void endFlying(UUID caster, String ability, String node) {
+        for (Projectile p : List.copyOf(active)) {
+            if (from(p, caster, ability, node)) finish(p, Ports.EXPIRED, null);
+        }
+    }
+
     public int activeCount() { return active.size(); }
 
     /** Whose projectile this entity is the body of (a projectile with health), if it is one. */

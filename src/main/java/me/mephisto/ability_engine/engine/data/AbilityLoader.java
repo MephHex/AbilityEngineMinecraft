@@ -501,6 +501,7 @@ public final class AbilityLoader {
                 .recastMovement(p.getBool("recast_movement", false))
                 .passiveWhile(p.getString("passive_while", null))
                 .needsConstructs(p.getString("needs_constructs", null))
+                .alsoFlying(p.getString("also_flying", null))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))
