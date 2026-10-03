@@ -1,7 +1,7 @@
 # content: amethyst
 # The Amethyst (a working name): a crystal mage. Her shards pierce, hang in the air where they run out and come back to
-# her, she looses volleys of them, wards herself with a crystal shell that throws shots back, and turns someone (or
-# herself) into crystal.
+# her, she looses volleys of them, rushes in a burst of gems, and wards herself with a crystal shell that throws shots
+# back.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
 # PASSIVE (Lingering Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (5 a second). Each shard pierces
@@ -10,9 +10,8 @@
 #   back into the ammo; one that fades on its own is gone. Otherwise the ammo refills by itself, a shard every 3s.
 #   Out of ammo, her shots don't pierce or hang, and come much slower (1.5 a second) until she has some again.
 #
-# ULTIMATE (F): Crystallize. 5s to choose (the enemy in your sights glows): LMB that enemy, RMB yourself. The target
-#   turns into an amethyst geode for 2.5s: it can't be hurt, and can't move or act. Then it shatters: 180% base damage
-#   within 4 blocks, knocked back a little and slowed. On yourself you also heal 25% of your max HP while in it.
+# ULTIMATE (F): Crystal Ward. 5s in a crystal shell all around you, 30% faster: every shot it catches goes back at
+#   whoever shot it.
 
 statuses:
   amethyst_shard_slow:               # Recall: slowed, more with every shard that hit them
@@ -49,36 +48,12 @@ statuses:
     duration: 30                     # 1.5s
     stacking: refresh
     move_speed: 0.7                  # -30%
-  amethyst_warding:                  # Crystal Ward: faster while the barrier stands
-    duration: 50                     # 2.5s
+  amethyst_warding:                  # Crystal Ward (ultimate): faster while the shell stands
+    duration: 100                    # 5s
     stacking: refresh
     move_speed: 1.3                  # +30%
     tags: [buff.crystal_ward]
     positive: false                  # (hers: a tether doesn't copy it)
-  amethyst_sighted:                  # Crystallize: the enemy in her sights while she chooses (they glow)
-    duration: 4
-    stacking: refresh
-    tags: [state.glowing]
-    positive: true                   # (just a highlight: not a debuff, so no ward is used up on it)
-  amethyst_crystal:                  # Crystallize: encased, untouchable and helpless
-    duration: 50                     # 2.5s
-    tags: [state.stunned, block.move, block.ability, block.knockback, block.displace, state.crystallized]
-    damage_taken: 0
-    cue: amethyst_crystal            # an amethyst geode around them
-    positive: false                  # on an enemy it's crowd control, not a buff
-  amethyst_crystal_self:             # Crystallize on herself: the same, and she heals
-    duration: 50
-    tags: [state.stunned, block.move, block.ability, block.knockback, block.displace, state.crystallized]
-    damage_taken: 0
-    cue: amethyst_crystal
-    tick:
-      every: 10                      # 5 x 5% = 25% max HP
-      effects:
-        - { id: heal, max_hp: 0.05 }
-  amethyst_shattered:                # Crystallize's shatter: slowed
-    duration: 40                     # 2s
-    stacking: refresh
-    move_speed: 0.6                  # -40%
 
 abilities:
 
@@ -418,20 +393,60 @@ abilities:
         cue: amethyst_burst
         at: splinter
 
-  # 2: Crystal Ward (12s). A crystal shell all around you (4 large shards circling close, facing you) for 2.5s, and you're 30% faster
-  # meanwhile. The first enemy projectile it catches, from any side, is sent back at whoever shot it (a copy of their own
-  # shot, now yours: their ability's damage and effects, on them), and the ward ends. It stops melee hits and rays from
-  # every side too.
+  # 2: Gem Rush (8s). Dash quickly the way you're moving (6 blocks; standing still: straight ahead), through enemies:
+  # 3 shards back into your ammo, and a 40 HP crystal shield for 3s.
   amethyst_ab2:
-    cooldown: 240                    # 12s
+    cooldown: 160                    # 8s
+    display:
+      name: "Gem Rush"
+      icon: AMETHYST_CLUSTER
+      description:
+        - "Dash the way you're moving (6 blocks):"
+        - "+3 ammo, and a 40 HP shield for 3s."
+    nodes:
+      rush_cue:
+        type: play_cue
+        cue: amethyst_gem_rush
+        next: gems
+      gems:
+        type: refill                 # 3 shards back
+        resource: ammo
+        amount: 3
+        next: guard
+      guard:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: shield, amount: 40, lasts: 60 }
+        next: trail
+      trail:
+        type: start_cue              # gems glinting behind her as she dashes
+        cue: amethyst_gem_trail
+        next: rush
+      rush:
+        type: dash
+        direction: movement          # where she's walking (strafe left = dash left); standing still: ahead
+        range: 6
+        speed: 1.8
+        radius: 0.5
+        flat: true
+        pierce: true                 # through enemies
+
+  # ULTIMATE (F): Crystal Ward. A crystal shell all around you (4 large shards circling close, facing you) for 5s, and
+  # you're 30% faster meanwhile. Every enemy projectile it catches, from any side, is sent back at whoever shot it (a
+  # copy of their own shot, now yours: their ability's damage and effects, on them). It stops melee hits and rays from
+  # every side too.
+  amethyst_ult1:
+    cooldown: 1200                   # placeholder until ults charge from damage
     display:
       name: "Crystal Ward"
       icon: AMETHYST_BLOCK
       description:
-        - "2.5s crystal shell all around you, +30%"
-        - "speed. The first shot it catches (any"
-        - "side) goes back at the shooter: their own,"
-        - "now yours. Then it ends."
+        - "5s crystal shell all around you, +30%"
+        - "speed. Every shot it catches (any side)"
+        - "goes back at the shooter: their own, now"
+        - "yours."
     nodes:
       ward:
         type: apply_effects
@@ -452,142 +467,12 @@ abilities:
         next: hold
       hold:
         type: delay
-        ticks: 50                    # 2.5s
+        ticks: 100                   # 5s
+        boss_bar: true
       reflect_cue:
-        type: play_cue
+        type: play_cue               # one caught and sent back: the ward stands on
         cue: amethyst_reflect
         at: absorbed_at
-        next: spent
-      spent:
-        type: end_cast               # one shot caught: the ward's done
-
-  # ULTIMATE (F): Crystallize. 5s to choose (a boss bar; the enemy in your sights glows): LMB that enemy, RMB yourself:
-  # they turn into an amethyst geode. F again: cancel. (The cooldown starts as you press F.)
-  amethyst_ult1:
-    cooldown: 1200                   # placeholder until ults charge from damage
-    cancel_on_repress: true
-    active_tags: [state.choosing_crystal]   # LMB / RMB pick (see forms below)
-    display:
-      name: "Crystallize"
-      icon: ECHO_SHARD
-      description:
-        - "LMB an enemy in your sights or RMB"
-        - "yourself: encased in crystal 2.5s (can't"
-        - "be hurt or act), then it shatters: 180%"
-        - "base damage. On you: heal 25%."
-    nodes:
-      open:
-        type: play_cue
-        cue: amethyst_choose
-        next: split
-      split:
-        type: fork
-        on: { out: window, also: seek }
-      window:
-        type: delay
-        ticks: 100
-        boss_bar: true
-        next: closed
-      closed:
-        type: end_cast
-      seek:
-        type: repeat
-        times: 50
-        every: 2
-        on: { each: look }
-      look:
-        type: acquire_target
-        query: { type: hitscan, range: 30, ray_size: 0.8 }
-        store: sighted
-        on: { hit: mark }
-      mark:
-        type: apply_effects
-        targets: { type: key, key: sighted }
-        on_hit: false
-        effects:
-          - { id: status, status: amethyst_sighted }
-
-  # Crystallize, LMB: the enemy in her sights is encased, then shatters.
-  amethyst_crystallize_enemy:
-    display:
-      name: "Crystallize an Enemy"
-      description:
-        - "LMB: encase the enemy in your sights."
-    nodes:
-      pick:
-        type: acquire_target
-        query: { type: hitscan, range: 30, ray_size: 0.8 }
-        on: { hit: encase, miss: ~ }
-      encase:
-        type: apply_effects
-        targets: { type: key, key: target }
-        on_hit: false
-        effects:
-          - { id: status, status: amethyst_crystal }
-        next: encase_cue
-      encase_cue:
-        type: play_cue
-        cue: amethyst_encase
-        at: target
-        next: chosen
-      chosen:
-        type: cancel_ability
-        ability: amethyst_ult1
-        next: wait
-      wait:
-        type: delay
-        ticks: 50                    # 2.5s
-        next: shatter
-      shatter:
-        type: apply_effects
-        targets: { type: radius, center: target, radius: 4, include_caster: false }
-        effects:
-          - { id: damage, base: 1.8 }
-          - { id: knockback, from: target, radius: 4, center: 0.6, edge: 0.3, lift: 0.25 }
-          - { id: status, status: amethyst_shattered }
-        next: shatter_cue
-      shatter_cue:
-        type: play_cue
-        cue: amethyst_shatter
-        at: target
-
-  # Crystallize, RMB: she encases herself (and heals), then shatters around her.
-  amethyst_crystallize_self:
-    display:
-      name: "Crystallize Yourself"
-      description:
-        - "RMB: encase yourself (heal 25%)."
-    nodes:
-      encase:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: status, status: amethyst_crystal_self }
-        next: encase_cue
-      encase_cue:
-        type: play_cue
-        cue: amethyst_encase
-        next: chosen
-      chosen:
-        type: cancel_ability
-        ability: amethyst_ult1
-        next: wait
-      wait:
-        type: delay
-        ticks: 50
-        next: shatter
-      shatter:
-        type: apply_effects
-        targets: { type: radius, radius: 4 }
-        effects:
-          - { id: damage, base: 1.8 }
-          - { id: knockback, from: caster, radius: 4, center: 0.6, edge: 0.3, lift: 0.25 }
-          - { id: status, status: amethyst_shattered }
-        next: shatter_cue
-      shatter_cue:
-        type: play_cue
-        cue: amethyst_shatter
 
 characters:
   amethyst:
@@ -610,13 +495,11 @@ characters:
         hotbar: 9
         icon: AMETHYST_SHARD
     forms:
-      - while: state.choosing_crystal   # Crystallize: choosing
-        slots: { primary: amethyst_crystallize_enemy, secondary: amethyst_crystallize_self }
       - while: state.gathering          # Shard Volley: LMB looses it early
         slots: { primary: amethyst_volley }
     slots:
       primary: amethyst_primary      # LMB: Amethyst Shard (pierces; lingers at full range)
       ability_1: amethyst_ab1        # 1: Shard Volley (by itself once gathered)
-      ability_2: amethyst_ab2        # 2: Crystal Ward
+      ability_2: amethyst_ab2        # 2: Gem Rush
       ability_3: amethyst_recall     # 3: Recall
-      ultimate: amethyst_ult1        # F: Crystallize
+      ultimate: amethyst_ult1        # F: Crystal Ward

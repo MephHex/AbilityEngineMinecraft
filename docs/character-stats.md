@@ -363,8 +363,8 @@ range for 5s (6 at most); Recall brings them back into the ammo, which also refi
 | Amethyst Shard (primary) | **40%** to the first, **20%** to up to 3 behind; at full range it hangs 5s. Out of ammo: **40%**, no pierce |
 | Recall (3, 10s) | every hanging shard flies back (and into the ammo): **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (6% max HP, -40% healing, -15% damage) |
 | Shard Volley | a channel: gathers up to 6 (0.45s each, circling her; x0.9 speed per shard, nothing else usable), LMB looses them early, full by itself: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
-| Crystal Ward | 2.5s shell all around her (4 circling shards), +30% speed; the first shot it catches (any side) goes back at the shooter as their own shot, now hers, and it ends |
-| Crystallize (ult) | LMB an enemy / RMB herself: 2.5s as an amethyst geode (untouchable, can't act), then **180%** within 4 blocks, knockback, slowed; on herself she heals 25% |
+| Gem Rush (2, 8s) | a quick 6-block dash the way she's moving (through enemies): +3 ammo, a 40 HP shield for 3s |
+| Crystal Ward (ult) | 5s shell all around her (4 circling shards), +30% speed; every shot it catches (any side) goes back at the shooter as their own, now hers |
 
 ### Dragon Hunter: Fighter / Debuffer
 
