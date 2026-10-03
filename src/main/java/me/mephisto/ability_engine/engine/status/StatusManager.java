@@ -196,7 +196,7 @@ public final class StatusManager {
             mine.put(def.id(), s);
             s.granted = tagsFor(target, s); // unstoppable: without its crowd-control tags
             tags.grantAll(target, s.granted);
-            if (def.links().cue() != null) s.cue = cueStarter.start(target, def.links().cue());
+            if (def.links().cue() != null) s.cue = cueStarter.start(target, def.links().cueFor(s.stacks));
             if (def.tickEvery() > 0 && !def.tickEffects().isEmpty()) {
                 // Refreshing doesn't restart the rhythm: ticks keep their pace until the status ends.
                 // Scheduled BEFORE the expiry, so a tick landing on the last tick still happens
@@ -216,8 +216,10 @@ public final class StatusManager {
                     ? Long.MAX_VALUE
                     : existing.expiresAt + durationTicks;
             case STACK -> {
+                int was = existing.stacks;
                 existing.stacks = Math.min(def.maxStacks(), existing.stacks + 1);
                 existing.expiresAt = newExpiry;
+                if (existing.stacks != was) restartCue(target, existing);
             }
         }
         if (existing.expiresAt != expiredAt && !existing.isInfinite()) existing.span = existing.expiresAt - now; // a new time
@@ -234,6 +236,7 @@ public final class StatusManager {
             if (mine == null || mine.get(s.def.id()) != s) return;
             if (s.def.decayEvery() > 0 && s.stacks > 1) { // decay: one stack at a time
                 s.stacks--;
+                restartCue(target, s);
                 s.expiresAt = clock.now() + s.def.decayEvery();
                 schedule(target, s);
                 return;
@@ -266,7 +269,17 @@ public final class StatusManager {
         ActiveStatus s = mine == null ? null : mine.get(statusId);
         if (s == null) return;
         if (s.stacks <= count) remove(target, statusId);
-        else s.stacks -= count;
+        else {
+            s.stacks -= count;
+            restartCue(target, s);
+        }
+    }
+
+    /** A cue_per_stack status's stacks changed: its looping cue becomes the one for the new count. */
+    private void restartCue(UUID target, ActiveStatus s) {
+        if (!s.def.links().cuePerStack() || s.def.links().cue() == null) return;
+        if (s.cue != null) s.cue.stop();
+        s.cue = cueStarter.start(target, s.def.links().cueFor(s.stacks));
     }
 
     public void clear(UUID target) {

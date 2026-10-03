@@ -92,6 +92,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         ItemBindings bindings = new ItemBindings(this);
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(new CombatInputListener(engine, keybinds, hud), this);
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.effect.PlaceBlocksEffect.Protection(), this);
         pm.registerEvents(new CrossbowListener(engine, hud), this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.input.SneakInput(engine, hud), this);
         pm.registerEvents(worldQuery.movementTracker(), this);
@@ -167,6 +168,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         if (castBar != null) castBar.stop();                        // give players their real XP back
         if (hover != null) hover.stop();
         engine.shutdown(); // cancels casts, removes projectiles, undoes stuns
+        me.mephisto.ability_engine.bukkit.effect.PlaceBlocksEffect.restoreAll(); // ice walls: the terrain as it was
         engine = null;
     }
 }

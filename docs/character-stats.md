@@ -383,6 +383,23 @@ target resets it.
 | Venom Dagger (3, 12s) | **60%** all around (3.5 blocks), poison 12% max HP over 4s (-40% healing); Hunter's Lunge ready |
 | Dragon Harpoon (ult) | a harpoon (**80%**): 5s disarmed, slowed 67% wearing off; below 20% max HP while it's stuck, F again: blink and execute |
 
+### Iceman: Tank / Control
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **320** | **40** (29%) | **34** | **0.95** | **0.7** (28 ticks) | 448 | 24 |
+
+Cold-Blooded (passive): nothing can freeze him. Ice Prison (passive): every 3rd mace hit on the same enemy freezes them
+1.25s (stunned, 3% max HP freeze damage every 0.5s).
+
+| Ability | Effect |
+|---|---|
+| Ice Mace (primary) | **100%** to the first enemy within 3 blocks; builds Ice Prison |
+| Glacial Shockwave (1, 10s) | a 7-block, 70-degree cone: **80%**, enemies pulled toward him; a 40 HP shield per enemy hit (5s) |
+| Frostbreath (2, 12s) | 3s channel, a 6-block cone: **12%** every 0.25s and a stacking slow (x0.93 each); 1.5s in it: frozen |
+| Ice Wall (3, 13s) | a real ice wall, 7 long and 3 tall, across the aim (16 blocks), 5s |
+| Glacial Tomb (ult) | thrown mace: the enemy hit is entombed 3s (untargetable, no damage, can't act) in a 5-block storm (-30% speed); then it explodes: **100%** and frozen; a miss: the storm where it lands |
+
 ---
 
 ## 3. Sanity check: time to kill with basic attacks only

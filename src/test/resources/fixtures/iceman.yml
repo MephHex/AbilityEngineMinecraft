@@ -1,0 +1,287 @@
+# content: iceman
+# The Iceman: a tank with an ice mace. Freezes whoever he keeps hitting, pulls enemies in with a shockwave (and shields
+# himself on it), breathes frost, walls off the fight with real ice, and buries an enemy in an ice tomb.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Cold-Blooded): nothing can freeze him (any status that freezes: his own kind, the Alchemist's Frost...).
+# PASSIVE (Ice Prison): every mace hit chills its target (ice shards over their head show how many: 1, 2); the 3rd
+#   hit on them freezes them solid for 1.25s (can't move or act; freeze damage).
+#
+# ULTIMATE (F): Glacial Tomb. Throw your mace: the enemy it hits is buried in a pillar of ice for 3s - nothing can
+#   target or hurt them, and they can't act - while a snowstorm rages around them (enemies inside are slowed). Then the
+#   storm explodes (5 blocks): every enemy in it takes 100% base damage and is frozen, and the tomb shatters. If it
+#   hits no one, the storm rages where the mace lands.
+
+statuses:
+  iceman_chill:                      # PASSIVE: Ice Prison (mace hits on them so far; the 3rd freezes)
+    duration: 100                    # 5s without a hit and it's gone
+    stacking: stack
+    max_stacks: 3
+    cue: iceman_chill                # ice shards over their head: iceman_chill_1, _2 (one per hit)
+    cue_per_stack: true
+  iceman_freeze:                     # frozen solid: can't move or act, freeze damage
+    duration: 25                     # 1.25s...
+    stacking: refresh
+    tags: [state.frozen, state.stunned, block.move, block.ability]
+    cue: iceman_frozen               # an ice crust on them
+    tick:
+      every: 10                      # ...3% of their max HP every 0.5s (freeze damage, ignores armor)
+      effects:
+        - { id: damage, max_hp: 0.03, damage_type: freeze }
+  iceman_frostbite:                  # Frostbreath: chilled more and more; 6 (1.5s in the breath) and they freeze
+    duration: 10                     # gone 0.5s after they're out of the breath
+    stacking: stack
+    max_stacks: 6
+    move_speed: 0.93                 # x0.93 per stack: 6 = x0.65
+    at_max: iceman_freeze
+  iceman_snowed:                     # Glacial Tomb's snowstorm: slowed while inside
+    duration: 6
+    stacking: refresh
+    move_speed: 0.7                  # -30%
+  iceman_entombed:                   # Glacial Tomb: buried in ice (nothing can target or hurt them; they can't act)
+    duration: 60                     # 3s (the storm explodes as it ends)
+    stacking: refresh
+    tags: [state.untargetable, state.stunned, block.move, block.ability, block.knockback, block.displace]
+    damage_taken: 0
+    positive: false                  # (an enemy's doing: not a buff, a tether doesn't copy it)
+
+abilities:
+
+  # PRIMARY (LMB): Ice Mace. A slow, heavy blow on the first enemy in reach (3 blocks): 100% base damage. Ice Prison:
+  # it chills them; the 3rd hit freezes them.
+  iceman_primary:
+    cooldown: 28                     # (the attack_speed stat sets it)
+    display:
+      name: "Ice Mace"
+      description:
+        - "A heavy blow (3 blocks): 100% base damage."
+        - "Passive - Ice Prison: the 3rd hit on someone"
+        - "freezes them 1.25s. Cold-Blooded: nothing"
+        - "can freeze you."
+    nodes:
+      reach:
+        type: acquire_target
+        query: { type: hitscan, range: 3.0, ray_size: 0.8 }
+        on: { hit: smash, miss: whiff }
+      smash:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 1.0 }
+          - { id: status, status: iceman_chill }
+        next: smash_cue
+      smash_cue:
+        type: play_cue
+        cue: iceman_mace
+        at: target
+        next: third
+      third:
+        type: has_status             # the 3rd hit: frozen
+        status: iceman_chill
+        target: target
+        min_stacks: 3
+        on: { has: prison }
+      prison:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: remove_status, status: iceman_chill }
+          - { id: status, status: iceman_freeze }
+        next: prison_cue
+      prison_cue:
+        type: play_cue
+        cue: iceman_prison
+        at: target
+      whiff:
+        type: play_cue
+        cue: iceman_whiff
+
+  # 1: Glacial Shockwave (10s). Slam the mace into the ground: a cone of ice in front of you (7 blocks, 70 degrees).
+  # Enemies in it take 80% base damage and are pulled toward you (the farther, the harder). You gain a 40 HP shield for
+  # each enemy hit (5s).
+  iceman_ab1:
+    cooldown: 200                    # 10s
+    display:
+      name: "Glacial Shockwave"
+      icon: BLUE_ICE
+      description:
+        - "A cone of ice (7 blocks): 80% base damage,"
+        - "enemies pulled toward you. A 40 HP shield"
+        - "for each one hit (5s)."
+    nodes:
+      wave:
+        type: apply_effects
+        targets: { type: cone, range: 7, angle: 70 }
+        effects:
+          - { id: damage, base: 0.8, knockback: false }
+          - { id: knockback, from: caster, radius: 7, center: -0.4, edge: -1.4, lift: 0.4 }   # toward him
+        count: struck
+        next: wave_cue
+      wave_cue:
+        type: play_cue
+        cue: iceman_shockwave
+        at: caster
+        to: aim                      # (a line cue: it faces where he aims)
+        next: guard
+      guard:
+        type: apply_effects          # a shield per enemy hit
+        targets: { type: self }
+        on_hit: false
+        times: struck
+        effects:
+          - { id: shield, amount: 40, lasts: 100 }
+
+  # 2: Frostbreath (12s). Breathe frost in a cone in front of you for 3s (6 blocks; press 2 again to stop): every 0.25s
+  # enemies in it take 12% base damage and are chilled more (slower each time); 1.5s in it and they freeze solid.
+  iceman_ab2:
+    cooldown: 240                    # 12s
+    cancel_on_repress: true          # 2 again: stop
+    active_tags: [state.channeling]
+    display:
+      name: "Frostbreath"
+      icon: SNOW_BLOCK
+      description:
+        - "Breathe frost for 3s (6 blocks): enemies"
+        - "in it are slowed more and more, and freeze"
+        - "after 1.5s. Press 2 again to stop."
+    nodes:
+      breath_cue:
+        type: start_cue              # the frost, out of his mouth where he looks
+        cue: iceman_frostbreath
+        next: breathe
+      breathe:
+        type: repeat                 # 12 x 0.25s
+        times: 12
+        every: 5
+        on: { each: chill }
+      chill:
+        type: apply_effects
+        targets: { type: cone, range: 6, angle: 50 }
+        effects:
+          - { id: damage, base: 0.12, knockback: false }
+          - { id: status, status: iceman_frostbite }
+
+  # 3: Ice Wall (13s). Pick a spot (16 blocks; the preview shows the wall): a wall of real ice rises there, 7 blocks
+  # long and 3 tall, across your aim, for 5s. It blocks movement, shots and sight; then it melts and the ground is as
+  # it was.
+  iceman_ab3:
+    cooldown: 260                    # 13s
+    targeting: { shape: wall, range: 16, width: 7, ground: true }
+    display:
+      name: "Ice Wall"
+      icon: PACKED_ICE
+      description:
+        - "A wall of ice where you aim (7 long, 3"
+        - "tall) for 5s: it blocks movement, shots"
+        - "and sight."
+    nodes:
+      wall:
+        type: apply_effects
+        targets: { type: key, key: aim }
+        on_hit: false
+        effects:
+          - { id: place_blocks, shape: wall, width: 7, height: 3, duration: 100, block: PACKED_ICE }
+        next: wall_cue
+      wall_cue:
+        type: play_cue
+        cue: iceman_wall
+        at: aim
+
+  # ULTIMATE (F): Glacial Tomb (see the top of this file).
+  iceman_ult1:
+    cooldown: 1200                   # placeholder until ults charge from damage
+    cooldown_starts: cast
+    display:
+      name: "Glacial Tomb"
+      icon: ICE
+      description:
+        - "Throw your mace: the enemy hit is buried"
+        - "in ice 3s (untouchable, can't act) in a"
+        - "snowstorm, which then explodes: 100%,"
+        - "every enemy in 5 blocks frozen."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.6
+        size: 0.6
+        lifetime: 25                 # about 35 blocks
+        visual: MACE
+        face_flight: true
+        motion:
+          - { type: gravity, amount: 0.02 }
+        store: mace
+        on: { spawned: throw_cue, hit_entity: entomb, hit_block: landed, expired: landed }
+      throw_cue:
+        type: play_cue
+        cue: iceman_throw
+      entomb:
+        type: apply_effects          # buried in ice
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.5, knockback: false }
+          - { id: place_blocks, shape: tomb, height: 3, duration: 60, block: PACKED_ICE }
+          - { id: status, status: iceman_entombed }   # (last: from now on nothing can target them)
+        next: entomb_cue
+      entomb_cue:
+        type: play_cue
+        cue: iceman_entomb
+        at: hit
+        next: tomb_spot
+      tomb_spot:
+        type: remember_spot          # the storm rages around the tomb
+        of: hit
+        store: storm
+        next: storm
+      landed:
+        type: remember_spot          # nobody hit: the storm rages where the mace landed
+        of: mace
+        store: storm
+        next: storm
+      storm:
+        type: repeat                 # 3s of snowstorm
+        times: 12
+        every: 5
+        on: { each: snow, out: brewing }
+      snow:
+        type: apply_effects
+        targets: { type: radius, radius: 5, center: storm }
+        effects:
+          - { id: status, status: iceman_snowed }
+        next: snow_cue
+      snow_cue:
+        type: play_cue
+        cue: iceman_storm
+        at: storm
+      brewing:
+        type: delay                  # (until the tomb has shattered: it's untargetable until then)
+        ticks: 6
+        next: blast
+      blast:
+        type: apply_effects
+        targets: { type: radius, radius: 5, center: storm }
+        effects:
+          - { id: damage, base: 1.0, knockback: false }
+          - { id: status, status: iceman_freeze }
+        next: blast_cue
+      blast_cue:
+        type: play_cue
+        cue: iceman_storm_blast
+        at: storm
+
+characters:
+  iceman:
+    name: "Iceman"
+    weapon: MACE                     # the ice mace
+    stats:                           # see docs/character-stats.md
+      health: 320                    # max HP
+      armor: 40                      # damage taken x 100 / (100 + armor)
+      base_damage: 34                # abilities deal % of this
+      move_speed: 0.95               # x vanilla walking speed
+      attack_speed: 0.7              # mace blows per second
+    traits: [freeze_immune]          # PASSIVE: Cold-Blooded
+    slots:
+      primary: iceman_primary        # LMB: Ice Mace (no RMB)
+      ability_1: iceman_ab1          # 1: Glacial Shockwave
+      ability_2: iceman_ab2          # 2: Frostbreath
+      ability_3: iceman_ab3          # 3: Ice Wall
+      ultimate: iceman_ult1          # F: Glacial Tomb
