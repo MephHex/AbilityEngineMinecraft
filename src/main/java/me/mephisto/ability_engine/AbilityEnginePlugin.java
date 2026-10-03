@@ -36,6 +36,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
 
     private AbilityEngine engine;
     private AbilityFiles files;
+    private BukkitCuePlayer cuePlayer;
     private Keybinds keybinds;
     private HotbarHud hud;
     private CastBarHud castBar;
@@ -57,7 +58,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
                 worldQuery,
                 new BukkitMovementControl(),
                 projectileRenderer,
-                BukkitCuePlayer.withDefaults(this, getLogger()),
+                cuePlayer = BukkitCuePlayer.withDefaults(this, getLogger()),
                 indicators,
                 constructRenderer,
                 cloneSpawner,
@@ -144,6 +145,25 @@ public final class AbilityEnginePlugin extends JavaPlugin {
             hud.clear(p);
         }
     }
+
+    // ---- API for other plugins (e.g. ItemSystem) ----
+
+    /** The engine: statuses, stats, abilities... */
+    public AbilityEngine engine() { return engine; }
+
+    /**
+     * Content from another plugin, loaded with ours on every reload (after the content folder): {@code source} gives
+     * the parsed YAML (statuses:, abilities:, characters:...). Call {@link #reloadContent()} after registering.
+     */
+    public void registerContent(String name, java.util.function.Supplier<java.util.Map<String, Object>> source) {
+        files.addExternal(name, source);
+    }
+
+    /** Where cues are registered: other plugins add their own (register, registerLine, registerLoop). */
+    public BukkitCuePlayer cues() { return cuePlayer; }
+
+    /** Reload config and every content file (ours and registered ones); the HUD is redrawn. */
+    public LoadReport reloadContent() { return reloadAll(); }
 
     /** config.yml + abilities.yml, then redraw everyone's HUD (kits may have changed or vanished). */
     private LoadReport reloadAll() {

@@ -43,7 +43,7 @@ public final class StatSheets {
 
     /** Max HP (design HP): a character's sheet, else what the platform says, else the default. */
     public double maxHealth(UUID entity) {
-        if (hasSheet(entity)) return of(entity).health();
+        if (hasSheet(entity)) return of(entity).health() * maxHealthMultiplier(entity);
         return world.maxHealth(entity).orElse(CharacterDef.Stats.DEFAULT.health());
     }
 
@@ -116,6 +116,43 @@ public final class StatSheets {
         return level;
     }
 
+    /** The holder's statuses' {@code max_health}, multiplied together (1 = none). Characters only. */
+    public double maxHealthMultiplier(UUID entity) {
+        double m = 1;
+        for (ActiveStatus s : statuses.on(entity)) m *= s.def().extras().maxHealth();
+        return m;
+    }
+
+    /** The share of their ability damage the attacker heals (their statuses' {@code ability_lifesteal}, added up). */
+    public double abilityLifesteal(UUID attacker) {
+        double sum = 0;
+        for (ActiveStatus s : statuses.on(attacker)) sum += s.def().extras().abilityLifesteal();
+        return sum;
+    }
+
+    /**
+     * Is this ability the caster's primary or secondary fire (or melee): whatever is in those slots now? The rest (1, 2,
+     * 3, the ultimate) are their "abilities" for ability_lifesteal, ability_on_hit and ability_damage_taken.
+     */
+    public boolean isFire(UUID caster, String abilityId) {
+        return loadouts.characterOf(caster)
+                .map(c -> abilityId.equals(c.abilityIn(Slots.PRIMARY)) || abilityId.equals(c.abilityIn(Slots.SECONDARY))
+                        || abilityId.equals(c.abilityIn(Slots.MELEE)))
+                .orElse(false);
+    }
+
+    /** Is this effect's hit from the caster's primary / secondary fire (see {@link #isFire})? Status ticks aren't. */
+    public boolean fromFire(me.mephisto.ability_engine.engine.effect.EffectContext ctx) {
+        return ctx.execution() != null && isFire(ctx.caster(), ctx.execution().instance().ability().id());
+    }
+
+    /** Is this ability one of the caster's basic attacks: whatever is in their primary or melee slot now? */
+    public boolean isBasicAttack(UUID caster, String abilityId) {
+        return loadouts.characterOf(caster)
+                .map(c -> abilityId.equals(c.abilityIn(Slots.PRIMARY)) || abilityId.equals(c.abilityIn(Slots.MELEE)))
+                .orElse(false);
+    }
+
     /**
      * Cooldown of an ability for this caster: the character's primary follows their attack speed
      * ({@code 20 / attack_speed} ticks) when the sheet has one; everything else its own cooldown.
@@ -127,9 +164,7 @@ public final class StatSheets {
                 .filter(c -> c.stats().attackSpeed() > 0 && abilityId.equals(c.abilityIn(Slots.PRIMARY)))
                 .map(c -> Math.max(1, (int) Math.round(20 / c.stats().attackSpeed())))
                 .orElse(ownCooldown);
-        boolean basic = loadouts.characterOf(caster)
-                .map(c -> abilityId.equals(c.abilityIn(Slots.PRIMARY)) || abilityId.equals(c.abilityIn(Slots.MELEE)))
-                .orElse(false);
+        boolean basic = isBasicAttack(caster, abilityId);
         double m = basic ? attackSpeedMultiplier(caster) : 1;
         return m == 1 || ticks <= 0 ? ticks : Math.max(1, (int) Math.round(ticks / m));
     }

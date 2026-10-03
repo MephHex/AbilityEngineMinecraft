@@ -95,12 +95,22 @@ public final class ApplyEffectsNode implements GraphNode {
         return Slots.PRIMARY.equals(ctx.blackboard().raw(Keys.SLOT.name()));
     }
 
+    /** The caster's statuses' ability_on_hit effects, on an enemy one of their abilities hit. */
+    private static void applyAbilityOnHit(ExecutionContext ctx, Target target) {
+        for (ActiveStatus s : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
+            for (EffectConfig config : s.def().extras().abilityOnHit()) apply(ctx, config, target);
+        }
+    }
+
     /** The caster's buffs: every on-hit effect of every status they have, applied to this target. */
     private static void applyOnHit(ExecutionContext ctx, Target target) {
         java.util.List<String> usedUp = new java.util.ArrayList<>();
+        boolean basic = ctx.engine().stats().isBasicAttack(ctx.caster(), ctx.instance().ability().id());
         for (ActiveStatus buff : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
             for (EffectConfig config : buff.def().onHit()) apply(ctx, config, target);
-            if (buff.def().once() && !buff.def().onHit().isEmpty()) usedUp.add(buff.def().id());
+            var basicOnHit = buff.def().extras().basicOnHit();
+            if (basic) for (EffectConfig config : basicOnHit) apply(ctx, config, target); // basic attacks only
+            if (buff.def().once() && (!buff.def().onHit().isEmpty() || (basic && !basicOnHit.isEmpty()))) usedUp.add(buff.def().id());
         }
         usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id)); // "your NEXT hit" buffs
     }
@@ -144,6 +154,9 @@ public final class ApplyEffectsNode implements GraphNode {
         List<Target> found = targets.find(ctx).stream().filter(t -> allowed(ctx, t)).filter(t -> !blockedFromFront(ctx, t)).toList();
         ctx.engine().log().debug(() -> "apply_effects: " + found.size() + " target(s)");
         boolean onHitHere = appliesOnHit(ctx);
+        // ability_on_hit: every enemy an ability (1, 2, 3, the ultimate: not fire) hits, unless the node says on_hit: false
+        boolean abilityOnHitHere = !Boolean.FALSE.equals(onHit)
+                && !ctx.engine().stats().isFire(ctx.caster(), ctx.instance().ability().id());
         if (countKey != null) ctx.blackboard().putRaw(countKey, found.size());
         if (countPlayersKey != null) {
             ctx.blackboard().putRaw(countPlayersKey, (int) found.stream()
@@ -160,6 +173,9 @@ public final class ApplyEffectsNode implements GraphNode {
             // On-hits only land on OTHER entities you hit, never on yourself.
             boolean other = target instanceof EntityTarget e && !e.id().equals(ctx.caster());
             if (onHitHere && other) applyOnHit(ctx, target);
+            if (abilityOnHitHere && other && ctx.engine().teams().enemies(ctx.caster(), ((EntityTarget) target).id())) {
+                applyAbilityOnHit(ctx, target);
+            }
             if (infusions && other) applyInfusions(ctx, target); // a bolt's magic is for whoever it hits
         }
         return NodeResult.NEXT;

@@ -315,7 +315,8 @@ public final class Parsers {
         // effects, more damage dealt or less taken, faster attacks. positive: false opts one out (e.g. an ult's charge).
         boolean looksPositive = base.grantedTags().stream().anyMatch(t -> t.startsWith(BUFF_TAG_PREFIX))
                 || !onHit.isEmpty() || dealt > 1 || taken < 1 || attackSpeed > 1 || moveSpeed > 1 || jumpBoost > 0
-                || healingTaken > 1 || p.getDouble("armor", 1) > 1;
+                || healingTaken > 1 || p.getDouble("armor", 1) > 1 || p.getDouble("max_health", 1) > 1
+                || p.getDouble("ability_damage_taken", 1) < 1 || p.getDouble("ability_lifesteal", 0) > 0 || p.has("basic_on_hit") || p.has("ability_on_hit");
         boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
@@ -324,7 +325,19 @@ public final class Parsers {
                 new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null),
                         p.getString("then", null), p.getBool("cue_per_stack", false)), farDamage(p), jumpBoost, healingTaken, armor,
                 p.getBool("single_target", false), new StatusDef.Life(onLethal(p), p.getBool("kill_on_end", false),
-                optionalEffects(p, "on_kill", registry)));
+                optionalEffects(p, "on_kill", registry)), extras(p, registry));
+    }
+
+    /** max_health, ability_damage_taken, ability_lifesteal, basic_on_hit (items use these). */
+    private static StatusDef.Extras extras(Params p, EffectRegistry registry) {
+        double maxHealth = p.getDouble("max_health", 1);
+        if (maxHealth <= 0) throw p.error("max_health", "must be above 0 (1.2 = +20% max HP)");
+        double abilityTaken = p.getDouble("ability_damage_taken", 1);
+        if (abilityTaken < 0) throw p.error("ability_damage_taken", "must be >= 0 (0.8 = 20% less damage from abilities)");
+        double lifesteal = p.getDouble("ability_lifesteal", 0);
+        if (lifesteal < 0) throw p.error("ability_lifesteal", "must be >= 0 (0.3 = heal 30% of your ability damage)");
+        return new StatusDef.Extras(maxHealth, abilityTaken, lifesteal, optionalEffects(p, "basic_on_hit", registry),
+                optionalEffects(p, "ability_on_hit", registry));
     }
 
     /** {@code on_lethal: { status, health }}: a killing blow leaves them at health (share of max HP) with that status. */

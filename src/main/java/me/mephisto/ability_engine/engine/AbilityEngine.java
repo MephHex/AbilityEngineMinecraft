@@ -150,6 +150,7 @@ public final class AbilityEngine {
         effects.register("purge_buffs", new me.mephisto.ability_engine.engine.effect.PurgeBuffsEffect());
         effects.register("cleanse", new me.mephisto.ability_engine.engine.effect.CleanseEffect());
         effects.register("set_health", new me.mephisto.ability_engine.engine.effect.SetHealthEffect());
+        effects.register("chain", new me.mephisto.ability_engine.engine.effect.ChainEffect());
         statuses.setKiller(this::kill);
     }
 
