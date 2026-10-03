@@ -3,6 +3,7 @@ package me.mephisto.ability_engine.engine.nodes.gameplay;
 import me.mephisto.ability_engine.engine.AbilityEngine;
 import me.mephisto.ability_engine.engine.graph.ExecutionContext;
 import me.mephisto.ability_engine.engine.graph.GraphNode;
+import me.mephisto.ability_engine.engine.graph.Keys;
 import me.mephisto.ability_engine.engine.graph.NodeResult;
 import me.mephisto.ability_engine.engine.graph.Ports;
 import me.mephisto.ability_engine.engine.graph.Resumer;
@@ -14,6 +15,7 @@ import me.mephisto.ability_engine.engine.target.EntityTarget;
 import me.mephisto.ability_engine.engine.target.PointTarget;
 
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Leap in an arc: {@code speed} blocks/tick along the ground ({@code direction: aim} = where you look,
@@ -21,6 +23,8 @@ import java.util.Optional;
  * upward at the start, losing {@code gravity} every tick. Exits "out" when you land
  * ({@code until: land}, default) or at the top of the arc ({@code until: apex}, e.g. to hover there).
  * Walls stop the forward part, not the fall. With {@code store: <name>}, where it ended is saved.
+ * With {@code stop_at_enemies: true} it stops dead on running into an enemy (within {@code radius} of her path) and exits
+ * "hit" instead, with them stored as "hit" (e.g. a leaping slash that lands on whoever it reaches).
  */
 public final class LeapNode implements GraphNode {
 
@@ -37,15 +41,33 @@ public final class LeapNode implements GraphNode {
     private final double gravity;
     private final boolean untilApex;
     private final String store;
+    private final boolean stopAtEnemies;
+    private final double radius;
+
+    private static final Set<String> OUTPUTS = Set.of(Ports.OUT);
+    /** stop_at_enemies: where along her body (blocks below its middle) the path is checked: the middle, the legs. */
+    private static final double[] BODY = {0, 0.7};
+    private static final Set<String> OUTPUTS_WITH_HIT = Set.of(Ports.OUT, Ports.HIT);
 
     public LeapNode(Direction direction, double speed, double up, double gravity, boolean untilApex, String store) {
+        this(direction, speed, up, gravity, untilApex, store, false, 0.6);
+    }
+
+    /** @param stopAtEnemies stop on running into an enemy (within {@code radius} of the path): exits "hit" */
+    public LeapNode(Direction direction, double speed, double up, double gravity, boolean untilApex, String store,
+                    boolean stopAtEnemies, double radius) {
         this.direction = direction;
         this.speed = speed;
         this.up = up;
         this.gravity = gravity;
         this.untilApex = untilApex;
         this.store = store;
+        this.stopAtEnemies = stopAtEnemies;
+        this.radius = radius;
     }
+
+    @Override
+    public Set<String> outputs() { return stopAtEnemies ? OUTPUTS_WITH_HIT : OUTPUTS; }
 
     @Override
     public NodeResult execute(ExecutionContext ctx) {
@@ -109,6 +131,19 @@ public final class LeapNode implements GraphNode {
                 finish(pos);
                 return;
             }
+            if (stopAtEnemies) { // running into an enemy: stop right there
+                Vec3 step = forward.add(0, vy, 0);
+                for (double down : BODY) { // along her body, not just its middle: over their head still collides
+                    Vec3 here = pos.get().position().add(0, -down, 0);
+                    Optional<SweepHit> who = engine.world().sweep(pos.get().world(), here, here.add(step), radius,
+                            engine.teams().passThroughFor(ctx.caster()));
+                    if (who.isPresent() && who.get().target() instanceof EntityTarget enemy) {
+                        ctx.put(Keys.HIT, enemy);
+                        finish(pos, Ports.HIT);
+                        return;
+                    }
+                }
+            }
             if (!forward.isZero()) { // a wall ahead: keep falling, stop going forward
                 Optional<SweepHit> wall = engine.world().sweep(pos.get().world(), pos.get().position(),
                         pos.get().position().add(forward), 0.3, id -> true);
@@ -124,13 +159,15 @@ public final class LeapNode implements GraphNode {
             return ctx.engine().world().groundBelow(at.world(), at.position(), LAND_DISTANCE).isPresent();
         }
 
-        private void finish(Optional<PointTarget> pos) {
+        private void finish(Optional<PointTarget> pos) { finish(pos, Ports.OUT); }
+
+        private void finish(Optional<PointTarget> pos, String port) {
             if (done) return;
             done = true;
             if (task != null) task.cancel();
             ctx.engine().movement().stop(ctx.caster());
             if (store != null) pos.ifPresent(p -> ctx.blackboard().putRaw(store, p));
-            resumer.resume(Ports.OUT);
+            resumer.resume(port);
         }
     }
 }

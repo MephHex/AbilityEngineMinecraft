@@ -681,6 +681,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   plugin stops.
 - **Statuses:** `cue_per_stack: true` - its looping `cue` is `<cue>_<stacks>` and changes with the stack count (e.g.
   one ice shard over their head per stack).
+- **leap:** `stop_at_enemies: true` (with `radius`, default 0.6) - it stops dead on running into an enemy and exits
+  `hit` (them stored as "hit") instead of `out`, e.g. a leaping slash that lands on whoever it reaches.
 - **Traits:** `freeze_immune` - no status that freezes (one with the tag `state.frozen`) lands on them.
 - **Cues:** iceman_mace, iceman_whiff, iceman_prison, iceman_chill_1 / _2 / _3 (looping: shards over the head),
   iceman_frozen (looping), iceman_shockwave (line: `at: caster, to: aim`; a 7-block, 70-degree cone),

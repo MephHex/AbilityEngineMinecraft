@@ -85,7 +85,8 @@ public final class NodeTypes {
             String until = p.getString("until", "land");
             if (!until.equals("land") && !until.equals("apex")) throw p.error("until", "expected land or apex");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode(dir, p.getDouble("speed", 0.6),
-                    p.requireDouble("up"), p.getDouble("gravity", 0.08), until.equals("apex"), p.getString("store", null));
+                    p.requireDouble("up"), p.getDouble("gravity", 0.08), until.equals("apex"), p.getString("store", null),
+                    p.getBool("stop_at_enemies", false), p.getDouble("radius", 0.6));
         });
         t.register("choose_spot", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.ChooseSpotNode(
                 new me.mephisto.ability_engine.engine.targeting.Targeting(
