@@ -40,6 +40,8 @@ public final class Tags {
     public static final String PARALYZED = "state.paralyzed";
     /** Frozen (on Bukkit: frozen, blue hearts and the powder-snow slow; no vanilla freeze damage). */
     public static final String FROZEN = "state.frozen";
+    /** Walks through other players and mobs (no collision). */
+    public static final String PHASING = "state.phasing";
     /** Can fly (on Bukkit: creative-style flight; no fall damage from the landing after it ends). */
     public static final String FLYING = "state.flying";
     /** In the middle of a dash (granted by the dash itself to whoever it moves), e.g. a hover passive holds off. */

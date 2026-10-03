@@ -30,6 +30,19 @@ public final class BukkitMovementControl implements MovementControl {
     }
 
     @Override
+    public void kill(UUID entity) {
+        if (Bukkit.getEntity(entity) instanceof org.bukkit.entity.LivingEntity living && !living.isDead()) living.setHealth(0);
+    }
+
+    @Override
+    public void setHealthShare(UUID entity, double share) {
+        if (!(Bukkit.getEntity(entity) instanceof org.bukkit.entity.LivingEntity living) || living.isDead()) return;
+        var max = living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        double cap = max == null ? 20 : max.getValue();
+        living.setHealth(Math.max(1, Math.min(cap, cap * share)));
+    }
+
+    @Override
     public void stop(UUID entity) {
         Entity e = Bukkit.getEntity(entity);
         if (e == null || !e.isValid()) return;

@@ -27,7 +27,8 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
                            java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
                            java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
-                           java.util.List<Variant> variants, LowHealth lowHealth) {
+                           java.util.List<Variant> variants, LowHealth lowHealth,
+                           me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal) {
 
     /** While their health is below {@code below} (a share of max HP), {@code status} is kept on them (e.g. a frenzy). */
     public record LowHealth(double below, String status) {}
@@ -300,6 +301,16 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                         java.util.List<Variant> variants) {
         this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
                 hearing, hover, variants, null);
+    }
+
+    /** Without on_lethal. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, null);
     }
 
     public CharacterDef {

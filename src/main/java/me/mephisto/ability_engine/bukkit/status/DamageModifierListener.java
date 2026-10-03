@@ -36,6 +36,21 @@ public final class DamageModifierListener implements Listener {
         if (m != 1) event.setAmount(event.getAmount() * m);
     }
 
+    /**
+     * A blow that would kill them: if something saves them (on_lethal: a status's, their character's), the blow is
+     * cancelled and they're left at that share of their max HP instead. Not for /kill or the void.
+     */
+    private void savedFromDeath(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity living)) return;
+        var cause = event.getCause();
+        if (cause == EntityDamageEvent.DamageCause.KILL || cause == EntityDamageEvent.DamageCause.VOID) return;
+        if (event.getFinalDamage() < living.getHealth()) return;
+        var saved = engine.preventDeath(living.getUniqueId());
+        if (saved.isEmpty()) return;
+        event.setCancelled(true);
+        engine.movement().setHealthShare(living.getUniqueId(), saved.getAsDouble());
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (redirecting || !(event.getEntity() instanceof LivingEntity)) return;
@@ -46,6 +61,7 @@ public final class DamageModifierListener implements Listener {
         var result = DamageModifiers.apply(engine, attacker != null ? attacker.getUniqueId() : null, victim,
                 event.getDamage(), pierce);
         if (result.amount() != event.getDamage()) event.setDamage(result.amount());
+        savedFromDeath(event);
 
         for (var redirect : result.redirects()) {
             if (!(Bukkit.getEntity(redirect.to()) instanceof LivingEntity owner) || owner.isDead()) continue;

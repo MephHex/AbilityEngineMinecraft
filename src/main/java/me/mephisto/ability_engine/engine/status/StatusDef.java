@@ -34,7 +34,29 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
                         boolean breakOnDamage, boolean once,
                         boolean positive, double damageDealt, double damageTaken, double attackSpeed,
                         double moveSpeed, int decayEvery, Links links, FarDamage farDamage, int jumpBoost,
-                        double healingTaken, double armor, boolean singleTarget) {
+                        double healingTaken, double armor, boolean singleTarget, Life life) {
+
+    /**
+     * A blow that would kill the holder doesn't: they're left at {@code health} (a share of their max HP) and get
+     * {@code status} instead (e.g. a spectral form, decaying health).
+     */
+    public record OnLethal(String status, double health) {}
+
+    /**
+     * Life and death.
+     *
+     * @param onLethal  while it's on them, a killing blow doesn't kill: this status replaces it (null = none)
+     * @param killOnEnd when its time runs out (not when it's removed early), the holder dies (unless something saves
+     *                  them again: their character's on_lethal)
+     * @param onKill    effects on the holder when they kill someone while it's on them (e.g. revived)
+     */
+    public record Life(OnLethal onLethal, boolean killOnEnd, List<EffectConfig> onKill) {
+        public static final Life NONE = new Life(null, false, List.of());
+
+        public Life {
+            onKill = onKill == null ? List.of() : List.copyOf(onKill);
+        }
+    }
 
     /** Damage from attackers more than {@code beyond} blocks away is multiplied by {@code multiplier}. */
     public record FarDamage(double beyond, double multiplier) {}
@@ -60,6 +82,7 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
 
     public StatusDef {
         if (links == null) links = Links.NONE;
+        if (life == null) life = Life.NONE;
         if (jumpBoost < 0) jumpBoost = 0;
         if (healingTaken < 0) healingTaken = 0;
         if (armor < 0) armor = 0;
@@ -81,7 +104,7 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
                      double healingTaken) {
         this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
                 positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, links, farDamage, jumpBoost,
-                healingTaken, 1, false);
+                healingTaken, 1, false, Life.NONE);
     }
 
     /** Without healing taken. */
@@ -172,13 +195,13 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     public StatusDef withDecay(int every) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
                 breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every, links, farDamage,
-                jumpBoost, healingTaken, armor, singleTarget);
+                jumpBoost, healingTaken, armor, singleTarget, life);
     }
 
     /** The same, with these links. */
     public StatusDef withLinks(Links other) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
                 breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, other, farDamage,
-                jumpBoost, healingTaken, armor, singleTarget);
+                jumpBoost, healingTaken, armor, singleTarget, life);
     }
 }

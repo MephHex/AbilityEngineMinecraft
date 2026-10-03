@@ -686,3 +686,21 @@ slot, so an ability is only silenced when it's in an ability slot.
   iceman_frozen (looping), iceman_shockwave (line: `at: caster, to: aim`; a 7-block, 70-degree cone),
   iceman_frostbreath (looping: from the eyes where they look; 50 degrees), iceman_wall, iceman_throw, iceman_entomb,
   iceman_storm (a 5-block circle), iceman_storm_blast.
+
+## Added for the Lifeweaver
+
+- **Statuses:** `on_lethal: { status, health }` - while it's on them, a blow that would kill them doesn't: they're left
+  at `health` (a share of max HP, default 0.05) and this status is replaced by `status` (e.g. decaying health).
+  `kill_on_end: true` - when its time runs out (not when it's removed), the holder dies (unless something else saves
+  them: see Characters). `on_kill: [effects]` - when the holder kills someone while it's on them, these effects land
+  on the holder (e.g. `remove_status` itself and `set_health` - revived).
+- **Characters:** `on_lethal: { status, health }` - a passive cheat death: a killing blow gives them that status
+  instead, unless they already have it (so it saves once: running out of it, they die). A status's on_lethal comes
+  first. Not for /kill or the void.
+- **Effects:** `set_health { share }` - their health becomes that share of their max HP (not a heal).
+- **apply_effects:** `times: "stacks:<status>"` - as many times as the caster has stacks of that status (e.g. a heal
+  per enemy an orb passed through, counted as stacks with `self: true`).
+- **Tags:** `state.phasing` - walks through players and mobs (no collision).
+- **Cues:** lw_drain (line), lw_orb_throw, lw_orb_trail, lw_orb_steal, lw_orb_mend, lw_weave, lw_beyond /
+  lw_decaying / lw_remnant / lw_lattice (looping), lw_tether_1..3 (lines), lw_bond, lw_tether_snap, lw_revive,
+  lw_ascend, lw_aura (7 blocks).
