@@ -106,6 +106,25 @@ final class AmethystCues {
             if (at != null) at.getWorld().spawnParticle(Particle.DUST, at, 6, 0.1, 0.1, 0.1, 0, PALE);
             shard.stop();
         });
+        // ---- 2: Gem Rush ----
+        c.register("amethyst_gem_rush", loc -> { // she bursts away in a spray of gems
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.BLOCK, loc, 25, 0.4, 0.5, 0.4, 0.15, Material.AMETHYST_BLOCK.createBlockData());
+            w.spawnParticle(Particle.DUST, loc, 15, 0.4, 0.5, 0.4, 0, VIOLET);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1f, 1.4f);
+            w.playSound(loc, Sound.ENTITY_BREEZE_JUMP, 0.7f, 1.4f);
+        });
+        c.registerLoop("amethyst_gem_trail", e -> { // gems glinting behind her while she dashes
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location at = e.getLocation().add(0, 1, 0);
+                at.getWorld().spawnParticle(Particle.DUST, at, 4, 0.25, 0.4, 0.25, 0, PALE);
+                at.getWorld().spawnParticle(Particle.DUST, at, 2, 0.25, 0.4, 0.25, 0, VIOLET);
+                at.getWorld().spawnParticle(Particle.END_ROD, at, 1, 0.2, 0.3, 0.2, 0.01);
+            }, 0, 1);
+            return (CueHandle) task::cancel;
+        });
+
         c.register("amethyst_reflect", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 8, 0.2, 0.2, 0.2, 0.05);
             loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1.8f);

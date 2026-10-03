@@ -287,76 +287,70 @@ class AmethystTest {
         assertFalse(has(p, "amethyst_gathering"), "the XP bar's count is gone");
     }
 
-    // ---- Crystal Ward -----------------------------------------------------------------------------------------
+    // ---- Crystal Ward (ultimate) ------------------------------------------------------------------------------
 
-    @Test
-    void crystalWardSendsTheShootersOwnShotBackAtThem() throws IOException {
-        setup();
+    private void loadTestBolt() {
         t.load(map("abilities", map("test_bolt", map("nodes", map( // (ordered: the first node is where it starts)
                 "shoot", map("type", "projectile", "speed", 1.0, "size", 0.4, "lifetime", 30,
                         "on", map("hit_entity", "hurt")),
                 "hurt", map("type", "apply_effects", "targets", map("type", "key", "key", "hit"),
                         "effects", List.of(map("id", "damage", "amount", 50))))))));
+    }
+
+    @Test
+    void crystalWardSendsEveryShotBackAndLasts5s() throws IOException {
+        setup();
+        loadTestBolt();
         UUID enemy = foe(8, 0);
         t.world.look(enemy, new Vec3(-1, 0, 0)); // at her
-        use(Slots.ABILITY_2);
+        use(Slots.ULTIMATE);
         assertTrue(has(p, "amethyst_warding"), "faster meanwhile");
         assertTrue(t.engine.activator().activate(enemy, "test_bolt").success());
         t.time.advance(20);
-        assertEquals(0, t.damage(p), 1e-6, "the barrier caught it");
+        assertEquals(0, t.damage(p), 1e-6, "the shell caught it");
         assertEquals(50, t.damage(enemy), 1e-6, "and sent their own shot back at them: its own 50 damage");
-        assertFalse(t.engine.barriers().has(p), "one shot caught: the ward's done");
+        assertTrue(t.engine.barriers().has(p), "one caught: it stands on");
+
+        assertTrue(t.engine.activator().activate(enemy, "test_bolt").success());
+        t.time.advance(20);
+        assertEquals(0, t.damage(p), 1e-6, "the second one too");
+        assertEquals(100, t.damage(enemy), 1e-6, "sent back as well");
+
+        t.time.advance(61);
+        assertFalse(t.engine.barriers().has(p), "5s: over");
+        assertFalse(has(p, "amethyst_warding"));
     }
 
     @Test
     void crystalWardCatchesShotsFromBehindToo() throws IOException {
         setup();
-        t.load(map("abilities", map("test_bolt", map("nodes", map(
-                "shoot", map("type", "projectile", "speed", 1.0, "size", 0.4, "lifetime", 30,
-                        "on", map("hit_entity", "hurt")),
-                "hurt", map("type", "apply_effects", "targets", map("type", "key", "key", "hit"),
-                        "effects", List.of(map("id", "damage", "amount", 50))))))));
+        loadTestBolt();
         UUID enemy = foe(-8, 0); // behind her (she looks +x)
         t.world.look(enemy, new Vec3(1, 0, 0));
-        use(Slots.ABILITY_2);
+        use(Slots.ULTIMATE);
         assertTrue(t.engine.activator().activate(enemy, "test_bolt").success());
         t.time.advance(20);
         assertEquals(0, t.damage(p), 1e-6, "all the way around: caught from behind");
         assertEquals(50, t.damage(enemy), 1e-6, "and sent back");
     }
 
-    // ---- Crystallize ------------------------------------------------------------------------------------------
+    // ---- Gem Rush ---------------------------------------------------------------------------------------------
 
     @Test
-    void crystallizeLmbEncasesTheEnemyThenItShatters() throws IOException {
+    void gemRushDashesTheWaySheMovesReloadsThreeAndShieldsHer() throws IOException {
         setup();
-        UUID enemy = foe(6, 0);
-        UUID near = foe(6, 2);
-        use(Slots.ULTIMATE);
-        t.time.advance(2);
-        assertTrue(has(enemy, "amethyst_sighted"), "the enemy in her sights glows");
-        use(Slots.PRIMARY); // LMB: them
-        assertTrue(has(enemy, "amethyst_crystal"), "encased");
-        assertTrue(t.engine.tags().has(enemy, "state.stunned"), "can't act");
-        assertEquals(0, DamageModifiers.apply(t.engine, p, enemy, 500, 0).amount(), 1e-9, "can't be hurt");
-        assertFalse(t.engine.tags().has(p, "state.choosing_crystal"), "chosen: over");
-
-        t.time.advance(50);
-        assertFalse(has(enemy, "amethyst_crystal"));
-        assertEquals(BASE * 1.8, t.damage(enemy), 1e-6, "it shatters: 180%");
-        assertEquals(BASE * 1.8, t.damage(near), 1e-6, "on whoever's near too");
-        assertTrue(has(near, "amethyst_shattered"), "slowed");
-    }
-
-    @Test
-    void crystallizeRmbEncasesHerselfAndSheHeals() throws IOException {
-        setup();
-        UUID enemy = foe(3, 0);
-        use(Slots.ULTIMATE);
-        use(Slots.SECONDARY); // RMB: herself
-        assertTrue(has(p, "amethyst_crystal_self"));
-        t.time.advance(50);
-        assertEquals(5 * 180 * 0.05, t.healed.getOrDefault(p, 0.0), 1e-6, "25% of her max HP");
-        assertEquals(BASE * 1.8, t.damage(enemy), 1e-6, "then it shatters around her");
+        for (int i = 0; i < 5; i++) { // 5 of her 6 shards out
+            use(Slots.PRIMARY);
+            t.time.advance(5);
+        }
+        double ammo = t.engine.resources().get(p, "ammo");
+        t.world.walk(p, new Vec3(0, 0, 1)); // strafing to her right (+z) while looking +x
+        use(Slots.ABILITY_2);
+        t.time.advance(8);
+        Vec3 at = t.world.positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(p)).orElseThrow().position();
+        assertTrue(at.z() > 4 && Math.abs(at.x()) < 1, "dashed the way she was moving, ~6 blocks: " + at);
+        assertEquals(Math.min(6, ammo + 3), t.engine.resources().get(p, "ammo"), 0.01, "3 shards back");
+        assertEquals(40, t.shields.getOrDefault(p, 0.0), 1e-6, "a 40 HP shield");
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "amethyst_ab2") > 0);
     }
 }
