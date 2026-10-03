@@ -66,14 +66,15 @@ public final class TestEngine {
                     me.mephisto.ability_engine.engine.combat.HitReactions.onHit(ctx);
                     // Strength, damage taken, tethers, armor: the same pipeline as the real damage effect.
                     var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(),
-                            parts.total(), parts.pierceShare(), true);
+                            parts.total(), parts.pierceShare(), !ctx.engine().stats().fromFire(ctx)); // an ability, or fire
                     double amount = result.amount();
                     ctx.engine().notifyDamageDealt(ctx.caster(), e.id());
                     damageTaken.merge(e.id(), amount, Double::sum);
                     world.hurt(e.id(), amount); // vulnerable clones (souls) die at 0
                     for (var r : result.redirects()) damageTaken.merge(r.to(), r.amount(), Double::sum);
                     double ls = ctx.params().getDouble("lifesteal", 0)
-                            + (e.id().equals(ctx.caster()) ? 0 : ctx.engine().stats().abilityLifesteal(ctx.caster()));
+                            + (e.id().equals(ctx.caster()) || ctx.engine().stats().fromFire(ctx) ? 0
+                            : ctx.engine().stats().abilityLifesteal(ctx.caster()));
                     if (ls > 0) lifesteal.merge(ctx.caster(), amount * ls * ctx.engine().stats().healingMultiplier(ctx.caster()),
                             Double::sum);
                 }

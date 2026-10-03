@@ -130,6 +130,22 @@ public final class StatSheets {
         return sum;
     }
 
+    /**
+     * Is this ability the caster's primary or secondary fire (or melee): whatever is in those slots now? The rest (1, 2,
+     * 3, the ultimate) are their "abilities" for ability_lifesteal, ability_on_hit and ability_damage_taken.
+     */
+    public boolean isFire(UUID caster, String abilityId) {
+        return loadouts.characterOf(caster)
+                .map(c -> abilityId.equals(c.abilityIn(Slots.PRIMARY)) || abilityId.equals(c.abilityIn(Slots.SECONDARY))
+                        || abilityId.equals(c.abilityIn(Slots.MELEE)))
+                .orElse(false);
+    }
+
+    /** Is this effect's hit from the caster's primary / secondary fire (see {@link #isFire})? Status ticks aren't. */
+    public boolean fromFire(me.mephisto.ability_engine.engine.effect.EffectContext ctx) {
+        return ctx.execution() != null && isFire(ctx.caster(), ctx.execution().instance().ability().id());
+    }
+
     /** Is this ability one of the caster's basic attacks: whatever is in their primary or melee slot now? */
     public boolean isBasicAttack(UUID caster, String abilityId) {
         return loadouts.characterOf(caster)

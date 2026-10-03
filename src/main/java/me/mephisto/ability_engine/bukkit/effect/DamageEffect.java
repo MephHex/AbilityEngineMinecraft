@@ -49,6 +49,12 @@ public final class DamageEffect implements Effect {
      */
     public static boolean isApplying() { return applying > 0; }
 
+    /** The hit being applied right now is primary / secondary fire (not an ability): see StatSheets#isFire. */
+    private static boolean firing;
+
+    /** Damage being applied now that comes from an ability (1, 2, 3, the ultimate), not from fire or vanilla. */
+    public static boolean isAbilityDamage() { return applying > 0 && !firing; }
+
     /** Share (0..1) of the hit this effect is dealing right now that armor doesn't reduce (its max_hp part). */
     public static double pierceShare() { return applying > 0 ? pierceShare : 0; }
 
@@ -84,6 +90,8 @@ public final class DamageEffect implements Effect {
         boolean knockback = type == null && ctx.params().getBool("knockback", true);
         Vector velocityBefore = living.getVelocity();
         applying++;
+        boolean previousFiring = firing;
+        firing = ctx.engine().stats().fromFire(ctx);
         double previousShare = pierceShare;
         pierceShare = parts.pierceShare();
         try {
@@ -93,13 +101,15 @@ public final class DamageEffect implements Effect {
         } finally {
             applying--;
             pierceShare = previousShare;
+            firing = previousFiring;
         }
         // Magic damage has no knockback in vanilla; if anything pushed them anyway, undo it.
         if (!knockback && !living.getVelocity().equals(velocityBefore)) living.setVelocity(velocityBefore);
         double after = living.getHealth();
         if (after < before) ctx.engine().notifyDamageDealt(ctx.caster(), target.id()); // e.g. stealth breaks
 
-        double lifesteal = ctx.params().getDouble("lifesteal", 0) + ctx.engine().stats().abilityLifesteal(ctx.caster());
+        double lifesteal = ctx.params().getDouble("lifesteal", 0)
+                + (ctx.engine().stats().fromFire(ctx) ? 0 : ctx.engine().stats().abilityLifesteal(ctx.caster())); // abilities only
         if (lifesteal > 0 && after < before && shields != null && damager instanceof LivingEntity self && !self.equals(living)) {
             Params p = ctx.params();
             double healing = ctx.engine().stats().healingMultiplier(ctx.caster()); // a poisoned attacker heals less

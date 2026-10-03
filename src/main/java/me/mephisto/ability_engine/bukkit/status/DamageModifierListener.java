@@ -59,7 +59,7 @@ public final class DamageModifierListener implements Listener {
         // Armor applies to everything (vanilla hits and falls too) except a hit's % max HP part (damage over time).
         double pierce = me.mephisto.ability_engine.bukkit.effect.DamageEffect.pierceShare();
         var result = DamageModifiers.apply(engine, attacker != null ? attacker.getUniqueId() : null, victim,
-                event.getDamage(), pierce, me.mephisto.ability_engine.bukkit.effect.DamageEffect.isApplying());
+                event.getDamage(), pierce, me.mephisto.ability_engine.bukkit.effect.DamageEffect.isAbilityDamage());
         if (result.amount() != event.getDamage()) event.setDamage(result.amount());
         savedFromDeath(event);
 

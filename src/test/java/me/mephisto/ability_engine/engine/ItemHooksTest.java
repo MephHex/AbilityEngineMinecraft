@@ -65,13 +65,39 @@ class ItemHooksTest {
     }
 
     @Test
-    void abilityLifestealHealsAShareOfAbilityDamage() throws IOException {
+    void abilityLifestealHealsAShareOfAbilityDamageNotFire() throws IOException {
         setup(Map.of("vamp", Map.of("ability_lifesteal", 0.3)));
         UUID enemy = foe(2, 0);
         give("vamp");
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
         assertEquals(BASE, t.damage(enemy), 1e-6);
-        assertEquals(BASE * 0.3, t.lifesteal.getOrDefault(p, 0.0), 1e-6, "30% of it back");
+        assertEquals(0, t.lifesteal.getOrDefault(p, 0.0), 1e-9, "primary fire: nothing back");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success()); // Venom Dagger: an ability
+        assertEquals(BASE * 0.6 * 0.3, t.lifesteal.getOrDefault(p, 0.0), 1e-6, "an ability: 30% of it back");
+    }
+
+    @Test
+    void abilityDamageTakenCutsAbilitiesNotFire() throws IOException {
+        setup(Map.of("nullmail", Map.of("ability_damage_taken", 0.8)));
+        UUID enemy = foe(2, 0);
+        t.engine.statuses().apply(enemy, "nullmail", 0, enemy); // the enemy wears it
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
+        assertEquals(BASE, t.damage(enemy), 1e-6, "primary fire: all of it");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
+        assertEquals(BASE + BASE * 0.6 * 0.8, t.damage(enemy), 1e-6, "an ability: 20% less");
+    }
+
+    @Test
+    void abilityOnHitOnlyLandsWithAbilities() throws IOException {
+        setup(Map.of(
+                "wounded", Map.of("duration", 60, "healing_taken", 0.6),
+                "vamp", Map.of("ability_on_hit", List.of(Map.of("id", "status", "status", "wounded")))));
+        UUID enemy = foe(2, 0);
+        give("vamp");
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
+        assertFalse(has(enemy, "wounded"), "primary fire: no");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
+        assertTrue(has(enemy, "wounded"), "an ability: yes");
     }
 
     @Test

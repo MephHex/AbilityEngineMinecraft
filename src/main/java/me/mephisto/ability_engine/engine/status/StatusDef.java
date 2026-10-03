@@ -61,16 +61,21 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     /**
      * More of what a status can do (items use these).
      *
+     * "Abilities" here are 1, 2, 3 and the ultimate: not primary / secondary fire (or melee), and not vanilla hits.
+     *
      * @param maxHealth          the holder's max HP is multiplied by this (1.2 = +20%)
-     * @param abilityDamageTaken damage from abilities (not vanilla hits) to the holder is multiplied by this
+     * @param abilityDamageTaken damage from others' abilities to the holder is multiplied by this
      * @param abilityLifesteal   the holder heals this share of the damage their abilities deal
      * @param basicOnHit         effects on whoever the holder's basic attacks (primary / melee) hit
+     * @param abilityOnHit       effects on whoever the holder's abilities hit
      */
-    public record Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit) {
-        public static final Extras NONE = new Extras(1, 1, 0, List.of());
+    public record Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                         List<EffectConfig> abilityOnHit) {
+        public static final Extras NONE = new Extras(1, 1, 0, List.of(), List.of());
 
         public Extras {
             basicOnHit = basicOnHit == null ? List.of() : List.copyOf(basicOnHit);
+            abilityOnHit = abilityOnHit == null ? List.of() : List.copyOf(abilityOnHit);
         }
     }
 
