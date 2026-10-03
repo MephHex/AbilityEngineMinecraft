@@ -45,7 +45,7 @@ final class ValkyrieCues {
         // ---- 1: Valkyrie's Leap (two leaping slashes, then the dive) ----
         c.register("valkyrie_flit", loc -> { // a leap or a dash: a rush of wings (low, around her legs)
             loc.getWorld().spawnParticle(Particle.END_ROD, loc.clone().add(0, -0.5, 0), 12, 0.3, 0.3, 0.3, 0.03);
-            feathers(loc, 6, 0.4, 0.05);
+            feathers(loc, 14, 0.5, 0.08);
             loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_FLAP, 1f, 1.4f);
         });
         // A golden half circle in front of her (4 blocks), low, with sword sweeps along it. A line cue (at: caster,
@@ -70,7 +70,7 @@ final class ValkyrieCues {
             }
             w.spawnParticle(Particle.CRIT, from.getX() + f.getX() * 2, y + 0.2, from.getZ() + f.getZ() * 2,
                     12, 1.2, 0.1, 1.2, 0.15);
-            feathers(w, from.getX() + f.getX() * 1.5, y + 0.4, from.getZ() + f.getZ() * 1.5, 6, 1.0, 0.04);
+            feathers(w, from.getX() + f.getX() * 1.5, y + 0.4, from.getZ() + f.getZ() * 1.5, 16, 1.2, 0.06);
             Location at = new Location(w, from.getX(), from.getY(), from.getZ());
             w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 1.1f);
             w.playSound(at, Sound.ITEM_TRIDENT_RETURN, 0.6f, 1.6f);
@@ -110,6 +110,21 @@ final class ValkyrieCues {
             w.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.6f);
         });
 
+        // A leap or a dash: feathers off her wings for 0.6s (it stops by itself; the cast may go on, waiting for a recast)
+        c.registerLoop("valkyrie_leap_feathers", e -> {
+            int[] tick = {0};
+            BukkitTask[] task = new BukkitTask[1];
+            task[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid() || tick[0]++ >= 12) {
+                    task[0].cancel();
+                    return;
+                }
+                Location at = e.getLocation().add(0, 1.1, 0);
+                feathers(at, 3, 0.4, 0.03);
+                if (tick[0] % 3 == 0) at.getWorld().spawnParticle(Particle.DUST, at, 2, 0.3, 0.2, 0.3, 0, PALE_GOLD);
+            }, 0, 1);
+            return (CueHandle) () -> task[0].cancel();
+        });
         c.registerLoop("valkyrie_feather_trail", e -> { // diving: feathers stream off her wings
             BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
                 if (!e.isValid()) return;

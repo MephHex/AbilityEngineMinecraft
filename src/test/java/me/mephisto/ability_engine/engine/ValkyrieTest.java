@@ -118,8 +118,10 @@ class ValkyrieTest {
         assertEquals(0, cooldown("valkyrie_ab1"), "a second hit: still no cooldown...");
         assertTrue(t.engine.instances().awaitingRecast(p, "valkyrie_ab1"), "...and 1 can be pressed again (it glints)");
 
+        double before = pos(p).x();
         use(Slots.ABILITY_1); // soar up
         for (int i = 0; i < 40 && !t.engine.targeting().isTargeting(p); i++) t.time.advance(1);
+        assertTrue(pos(p).x() < before - 1, "up, drifting back a little (away from where she looks): " + pos(p));
         assertTrue(t.engine.targeting().isTargeting(p), "choosing where to dive");
         assertTrue(pos(p).y() > 5, "high up: " + pos(p));
         assertTrue(t.engine.tags().has(p, Tags.ANCHORED), "hanging there");

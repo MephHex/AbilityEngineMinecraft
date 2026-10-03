@@ -88,6 +88,10 @@ abilities:
       leap1_cue:
         type: play_cue
         cue: valkyrie_flit
+        next: leap1_trail
+      leap1_trail:
+        type: start_cue              # feathers off her wings through the leap (0.6s)
+        cue: valkyrie_leap_feathers
         next: leap1
       leap1:
         type: leap                   # ~3 blocks forward
@@ -123,6 +127,10 @@ abilities:
       leap2_cue:
         type: play_cue
         cue: valkyrie_flit
+        next: leap2_trail
+      leap2_trail:
+        type: start_cue
+        cue: valkyrie_leap_feathers
         next: leap2
       leap2:
         type: leap
@@ -163,10 +171,15 @@ abilities:
       rise_cue:
         type: play_cue
         cue: valkyrie_rise
+        next: rise_trail
+      rise_trail:
+        type: start_cue
+        cue: valkyrie_leap_feathers
         next: rise
       rise:
-        type: leap                   # up into the sky...
-        direction: up
+        type: leap                   # up into the sky, drifting back a little (away from where she looks)...
+        direction: aim
+        speed: -0.15                 # (backwards: ~2 blocks by the top)
         up: 1.0                      # ~6 blocks
         until: apex
         next: hover
@@ -251,6 +264,10 @@ abilities:
       dash_cue:
         type: play_cue
         cue: valkyrie_flit
+        next: dash_trail
+      dash_trail:
+        type: start_cue              # feathers off her wings as she charges
+        cue: valkyrie_leap_feathers
         next: dash
       dash:
         type: dash

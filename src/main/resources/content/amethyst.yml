@@ -177,9 +177,11 @@ abilities:
         cue: amethyst_shard_fade
         at: construct
       recall:
-        type: projectile             # Recall: it flies back to her, through every enemy in the way
-        from: construct
+        type: projectile             # Recall: it flies back to her, through every enemy in the way (to where she is
+        from: construct              # NOW: it follows her)
         toward: caster
+        motion:
+          - { type: homing, key: caster, turn: 1.0 }
         speed: 1.4
         size: 0.5
         lifetime: 40

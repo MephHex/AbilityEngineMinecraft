@@ -636,7 +636,7 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Forms:** a form may change `secondary` (RMB) too, e.g. LMB / RMB picking someone while an ultimate chooses. A BOW
   weapon (in a form) works like any weapon: LMB fires the primary.
 - **Cues:** valkyrie_slash, valkyrie_flit, valkyrie_cleave (line: `at: caster, to: aim`; a half circle, 4 blocks), valkyrie_rise, valkyrie_dive,
-  valkyrie_smite (4 blocks), valkyrie_feather_trail (looping), valkyrie_stab, valkyrie_crash, valkyrie_cry (8 blocks), valkyrie_blessing_open,
+  valkyrie_smite (4 blocks), valkyrie_feather_trail (looping), valkyrie_leap_feathers (looping, stops by itself after 0.6s), valkyrie_stab, valkyrie_crash, valkyrie_cry (8 blocks), valkyrie_blessing_open,
   valkyrie_blessing, valkyrie_blessed (looping).
 
 ## Added for the Amethyst
