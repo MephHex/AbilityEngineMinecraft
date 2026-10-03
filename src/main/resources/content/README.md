@@ -723,4 +723,5 @@ slot, so an ability is only silenced when it's in an ability slot.
   `max` other enemies within `radius`: `base` x the caster's base damage each, plus the caster's on-hit effects (not
   another chain). `cue` is a line cue from the one hit to each.
 - **API (other plugins):** `AbilityEnginePlugin#engine()`, `#registerContent(name, () -> parsedYaml)` (loaded after the
-  content folder on every reload; then `#reloadContent()`), `#cues()` (register cues).
+  content folder on every reload; then `#reloadContent()`), `#cues()` (register cues), `#equipCharacter(player, id)` /
+  `#unequipCharacter(player)` (like /ae char, e.g. a champ select).

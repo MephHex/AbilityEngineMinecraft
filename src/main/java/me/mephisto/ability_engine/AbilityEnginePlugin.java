@@ -159,6 +159,15 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         files.addExternal(name, source);
     }
 
+    /**
+     * Gives the player a character, exactly like /ae char (HUD, stats, full health). False: no such character.
+     * E.g. a minigame's champ select.
+     */
+    public boolean equipCharacter(org.bukkit.entity.Player player, String characterId) { return hud.equip(player, characterId); }
+
+    /** Takes their character away (vanilla controls back), like /ae char none. */
+    public void unequipCharacter(org.bukkit.entity.Player player) { hud.unequip(player); }
+
     /** Where cues are registered: other plugins add their own (register, registerLine, registerLoop). */
     public BukkitCuePlayer cues() { return cuePlayer; }
 
