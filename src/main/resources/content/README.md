@@ -545,7 +545,7 @@ slot, so an ability is only silenced when it's in an ability slot.
   they're gone. `mark: <status>` - whoever it's after keeps that status meanwhile (e.g. `glowing`).
 - **Cues:** each in orange and `_blue`: pyro_bolt_cast, pyro_bolt_trail, pyro_bolt_hit, pyro_bolt_fizzle,
   pyro_fireball_cast, pyro_fireball_trail, pyro_fireball_explode, pyro_wisp_cast, pyro_wisp_trail, pyro_wisp_explode,
-  pyro_wisp_fade, pyro_coals (looping: coals tossed hand to hand), pyro_coal_scorch (also leaves fire on the ground,
+  pyro_wisp_fade, pyro_coals (looping: coals tossed hand to hand), pyro_coal_scorch (also turns the ground to magma, only a look,
   only a look, for 4s and 1.8 blocks: keep it in step with the patch), pyro_coal_patch (1.8 blocks),
   pyro_judgment_cast, pyro_judgment_ring (a 6-block ring on the ground: keep it in step with the ability's radius),
   pyro_meteor_fall, pyro_meteor_trail, pyro_meteor_impact, pyro_scorched (6 blocks). Blue only: pyro_overheat
@@ -719,6 +719,8 @@ slot, so an ability is only silenced when it's in an ability slot.
   `ability_on_hit: [effects]` - on every enemy the holder's abilities hit (any apply_effects without `on_hit: false`). `basic_on_hit: [effects]` -
   only on the holder's basic attacks (whatever is in their primary or melee slot); with `once: true` the first basic
   attack that hits uses it up.
+- **Damage:** `max_hp_armored: true` - the `max_hp` part is reduced by armor like the rest (poison: a share of max HP,
+  but not true damage).
 - **Effects:** `chain { radius: 5, max: 3, base: 0.3, cue }` - a chain lightning from whoever was hit to the nearest
   `max` other enemies within `radius`: `base` x the caster's base damage each, plus the caster's on-hit effects (not
   another chain). `cue` is a line cue from the one hit to each.

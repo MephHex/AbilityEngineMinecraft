@@ -38,9 +38,9 @@ statuses:
     healing_taken: 0.6               # 40% less healing
     tags: [state.poisoned, state.poison_hearts]
     tick:
-      every: 10                      # ...1.5% of their max HP every 0.5s = 12% in all
+      every: 10                      # ...1.5% of their max HP every 0.5s = 12% in all (armor reduces it)
       effects:
-        - { id: damage, max_hp: 0.015, knockback: false }
+        - { id: damage, max_hp: 0.015, max_hp_armored: true, knockback: false }
   dh_harpooned:                      # Dragon Harpoon: stuck in them (disarmed)
     duration: 100                    # 5s
     stacking: refresh

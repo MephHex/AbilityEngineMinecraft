@@ -27,9 +27,9 @@ statuses:
     tags: [state.poisoned]
     healing_taken: 0.6               # poisoned: 40% less healing
     tick:
-      every: 20                      # ...5% of their max HP per second = 20% total
+      every: 20                      # ...5% of their max HP per second = 20% total (armor reduces it)
       effects:
-        - { id: damage, max_hp: 0.05, knockback: false }   # 5% of their max HP a tick, ignores armor; no knockback
+        - { id: damage, max_hp: 0.05, max_hp_armored: true, knockback: false }   # 5% of their max HP a tick; no knockback
 
   flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
     duration: 60                     # 3s
