@@ -701,6 +701,6 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **apply_effects:** `times: "stacks:<status>"` - as many times as the caster has stacks of that status (e.g. a heal
   per enemy an orb passed through, counted as stacks with `self: true`).
 - **Tags:** `state.phasing` - walks through players and mobs (no collision).
-- **Cues:** lw_drain (line), lw_orb_throw, lw_orb_trail, lw_orb_steal, lw_orb_mend, lw_weave, lw_beyond /
+- **Cues** (oxidized copper colours): lw_drain (line), lw_orb_throw, lw_orb_trail, lw_orb_steal, lw_orb_mend, lw_weave, lw_beyond /
   lw_decaying / lw_remnant / lw_lattice (looping), lw_tether_1..3 (lines), lw_bond, lw_tether_snap, lw_revive,
   lw_ascend, lw_aura (7 blocks).

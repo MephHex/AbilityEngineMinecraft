@@ -138,7 +138,7 @@ abilities:
         size: 0.6
         lifetime: 13                 # about 14 blocks
         pierce: 6
-        visual: "block:VERDANT_FROGLIGHT"
+        visual: "block:OXIDIZED_COPPER"
         visual_size: 0.45
         trail: lw_orb_trail
         store: orb
@@ -167,7 +167,7 @@ abilities:
         pierce: 10
         hits_allies: true
         through_blocks: true
-        visual: "block:VERDANT_FROGLIGHT"
+        visual: "block:OXIDIZED_COPPER"
         visual_size: 0.45
         trail: lw_orb_trail
         on: { hit_entity: friend }
