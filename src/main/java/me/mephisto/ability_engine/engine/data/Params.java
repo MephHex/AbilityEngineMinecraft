@@ -136,6 +136,13 @@ public final class Params {
         return Set.copyOf(out);
     }
 
+    /** Copy with one more (or a replaced) value. */
+    public Params with(String key, Object value) {
+        Map<String, Object> copy = new LinkedHashMap<>(values);
+        copy.put(key, value);
+        return new Params(copy, path);
+    }
+
     /** Copy without the given keys — e.g. an effect entry minus its "id". */
     public Params without(String... keys) {
         Map<String, Object> copy = new LinkedHashMap<>(values);

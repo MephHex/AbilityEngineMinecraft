@@ -98,7 +98,7 @@ public final class ApplyEffectsNode implements GraphNode {
     /** The caster's statuses' ability_on_hit effects, on an enemy one of their abilities hit. */
     private static void applyAbilityOnHit(ExecutionContext ctx, Target target) {
         for (ActiveStatus s : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
-            for (EffectConfig config : s.def().extras().abilityOnHit()) apply(ctx, config, target);
+            for (EffectConfig config : s.def().extras().abilityOnHit()) apply(ctx, config.asOnHit(), target);
         }
     }
 
@@ -107,9 +107,9 @@ public final class ApplyEffectsNode implements GraphNode {
         java.util.List<String> usedUp = new java.util.ArrayList<>();
         boolean basic = ctx.engine().stats().isBasicAttack(ctx.caster(), ctx.instance().ability().id());
         for (ActiveStatus buff : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
-            for (EffectConfig config : buff.def().onHit()) apply(ctx, config, target);
+            for (EffectConfig config : buff.def().onHit()) apply(ctx, config.asOnHit(), target);
             var basicOnHit = buff.def().extras().basicOnHit();
-            if (basic) for (EffectConfig config : basicOnHit) apply(ctx, config, target); // basic attacks only
+            if (basic) for (EffectConfig config : basicOnHit) apply(ctx, config.asOnHit(), target); // basic attacks only
             if (buff.def().once() && (!buff.def().onHit().isEmpty() || (basic && !basicOnHit.isEmpty()))) usedUp.add(buff.def().id());
         }
         usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id)); // "your NEXT hit" buffs
@@ -122,7 +122,7 @@ public final class ApplyEffectsNode implements GraphNode {
         for (String id : bolt.infusions()) {
             // An infusion removed by /ae reload while the bolt was queued just does nothing.
             ctx.engine().infusions().find(id).ifPresent(infusion -> {
-                for (EffectConfig config : infusion.onHit()) apply(ctx, config, target);
+                for (EffectConfig config : infusion.onHit()) apply(ctx, config.asOnHit(), target);
             });
         }
     }

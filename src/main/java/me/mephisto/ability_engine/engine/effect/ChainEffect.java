@@ -39,14 +39,15 @@ public final class ChainEffect implements Effect {
                 .sorted(Comparator.comparingDouble(e -> e.center().distance(from.get().position())))
                 .limit(max)
                 .toList();
-        EffectConfig damage = new EffectConfig("damage", Params.of(Map.of("base", p.getDouble("base", 0.3), "knockback", false)));
+        EffectConfig damage = new EffectConfig("damage", Params.of(Map.of("base", p.getDouble("base", 0.3), "knockback", false,
+                "ignore_iframes", true))); // (the same swing may have just hit them too)
         for (EntitySnapshot e : next) {
             EntityTarget target = new EntityTarget(e.id());
             run(ctx, damage, target);
             for (ActiveStatus s : List.copyOf(engine.statuses().on(caster))) { // its on-hits: not another chain
                 if (s.def().once()) continue; // a one-hit empowerment (your NEXT hit) is for the one hit, not the chain
-                for (EffectConfig c : s.def().onHit()) if (!c.effectId().equals("chain")) run(ctx, c, target);
-                for (EffectConfig c : s.def().extras().basicOnHit()) if (!c.effectId().equals("chain")) run(ctx, c, target);
+                for (EffectConfig c : s.def().onHit()) if (!c.effectId().equals("chain")) run(ctx, c.asOnHit(), target);
+                for (EffectConfig c : s.def().extras().basicOnHit()) if (!c.effectId().equals("chain")) run(ctx, c.asOnHit(), target);
             }
             if (cue != null) engine.cuesFor(caster).playLine(cue, from.get().world(), from.get().position(), e.center());
         }

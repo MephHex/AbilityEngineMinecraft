@@ -48,6 +48,17 @@ class ItemHooksTest {
     private boolean has(UUID id, String status) { return t.engine.statuses().has(id, status); }
 
     @Test
+    void onHitDamageGoesThroughInvulnerabilityFrames() {
+        var plain = me.mephisto.ability_engine.engine.effect.EffectConfig.of("damage", Map.of("base", 0.5));
+        assertTrue(plain.asOnHit().params().getBool("ignore_iframes", false),
+                "it lands with the hit it rides on: the game would swallow it otherwise");
+        var chosen = me.mephisto.ability_engine.engine.effect.EffectConfig.of("damage", Map.of("base", 0.5, "ignore_iframes", false));
+        assertFalse(chosen.asOnHit().params().getBool("ignore_iframes", true), "unless the content says otherwise");
+        var status = me.mephisto.ability_engine.engine.effect.EffectConfig.of("status", Map.of("status", "x"));
+        assertEquals(status, status.asOnHit(), "only damage");
+    }
+
+    @Test
     void maxHealthMultipliesTheirMaxHp() throws IOException {
         setup(Map.of("elixir", Map.of("max_health", 1.2)));
         assertEquals(230, t.engine.stats().maxHealth(p), 1e-9);
