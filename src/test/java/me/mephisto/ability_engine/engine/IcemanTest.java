@@ -115,6 +115,32 @@ class IcemanTest {
     }
 
     @Test
+    void theBreathIsAChannelNothingElseWorksMeanwhile() throws IOException {
+        setup();
+        foe(3, 0);
+        use(Slots.ABILITY_2);
+        t.time.advance(10);
+        assertTrue(t.engine.tags().has(p, Tags.BLOCK_ABILITY), "a channel");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_1).success(), "no other ability");
+        assertFalse(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "no mace either");
+        t.time.advance(55);
+        assertFalse(t.engine.tags().has(p, Tags.BLOCK_ABILITY), "3s: over");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_1).success());
+    }
+
+    @Test
+    void aStunCutsTheBreathShort() throws IOException {
+        setup();
+        UUID enemy = foe(3, 0);
+        use(Slots.ABILITY_2);
+        t.time.advance(6);
+        t.engine.statuses().apply(p, "stun", enemy);
+        double dealt = t.damage(enemy);
+        t.time.advance(40);
+        assertEquals(dealt, t.damage(enemy), 1e-9, "stopped");
+    }
+
+    @Test
     void pressingTwoAgainStopsTheBreath() throws IOException {
         setup();
         UUID enemy = foe(3, 0);

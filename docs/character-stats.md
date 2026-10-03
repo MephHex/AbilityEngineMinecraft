@@ -396,7 +396,7 @@ Cold-Blooded (passive): nothing can freeze him. Ice Prison (passive): every 3rd 
 |---|---|
 | Ice Mace (primary) | **100%** to the first enemy within 3 blocks; builds Ice Prison |
 | Glacial Shockwave (1, 10s) | a 7-block, 70-degree cone: **80%**, enemies pulled toward him; a 40 HP shield per enemy hit (5s) |
-| Frostbreath (2, 12s) | 3s channel, a 6-block cone: **12%** every 0.25s and a stacking slow (x0.93 each); 1.5s in it: frozen |
+| Frostbreath (2, 12s) | 3s channel (nothing else usable, the XP bar fills), a 6-block cone: **12%** every 0.25s and a stacking slow (x0.93 each); 1.5s in it: frozen |
 | Ice Wall (3, 13s) | a real ice wall, 7 long and 3 tall, across the aim (16 blocks), 5s |
 | Glacial Tomb (ult) | thrown mace: the enemy hit is entombed 3s (untargetable, no damage, can't act) in a 5-block storm (-30% speed); then it explodes: **100%** and frozen; a miss: the storm where it lands |
 

@@ -131,24 +131,37 @@ abilities:
         effects:
           - { id: shield, amount: 40, lasts: 100 }
 
-  # 2: Frostbreath (12s). Breathe frost in a cone in front of you for 3s (6 blocks; press 2 again to stop): every 0.25s
-  # enemies in it take 12% base damage and are chilled more (slower each time); 1.5s in it and they freeze solid.
+  # 2: Frostbreath (12s). A channel: breathe frost in a cone in front of you for 3s (6 blocks; the XP bar fills; nothing
+  # else usable meanwhile; press 2 again to stop; a stun cuts it short): every 0.25s enemies in it take 12% base damage
+  # and are chilled more (slower each time); 1.5s in it and they freeze solid.
   iceman_ab2:
     cooldown: 240                    # 12s
     cancel_on_repress: true          # 2 again: stop
-    active_tags: [state.channeling]
+    active_tags: [block.ability, state.channeling]   # a channel: nothing else usable
+    interrupted_by: [state.stunned]
     display:
       name: "Frostbreath"
       icon: SNOW_BLOCK
       description:
-        - "Breathe frost for 3s (6 blocks): enemies"
+        - "Channel frost for 3s (6 blocks): enemies"
         - "in it are slowed more and more, and freeze"
-        - "after 1.5s. Press 2 again to stop."
+        - "after 1.5s. Nothing else usable; press 2"
+        - "again to stop."
     nodes:
       breath_cue:
         type: start_cue              # the frost, out of his mouth where he looks
         cue: iceman_frostbreath
-        next: breathe
+        next: split
+      split:
+        type: fork                   # the breath, and the XP bar filling meanwhile
+        on: { out: breathe, also: bar }
+      bar:
+        type: delay
+        ticks: 60                    # 3s
+        cast_bar: true               # the XP bar fills as he breathes
+        next: done
+      done:
+        type: end_cast
       breathe:
         type: repeat                 # 12 x 0.25s
         times: 12
