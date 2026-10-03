@@ -81,6 +81,21 @@ public final class BukkitIndicatorRenderer implements IndicatorRenderer {
                 line(p, dust, start, target);
                 ring(p, dust, target, Math.max(0.25, t.width() / 2));
             }
+            case WALL -> { // a wall across the aim, centred on the spot: its footprint, and its ends standing up
+                Vec3 forward = target.subtract(from.eye());
+                Vec3 flat = new Vec3(forward.x(), 0, forward.z());
+                if (flat.lengthSquared() < 1e-6) flat = new Vec3(1, 0, 0);
+                flat = flat.normalize();
+                Vec3 right = new Vec3(-flat.z(), 0, flat.x()).multiply(t.width() / 2);
+                Vec3 depth = flat.multiply(0.5);
+                Vec3 a = target.subtract(right), b = target.add(right);
+                line(p, dust, a.subtract(depth), b.subtract(depth));
+                line(p, dust, a.add(depth), b.add(depth));
+                line(p, dust, a.subtract(depth), a.add(depth));
+                line(p, dust, b.subtract(depth), b.add(depth));
+                line(p, dust, a, a.add(0, 2, 0));
+                line(p, dust, b, b.add(0, 2, 0));
+            }
             case CONE -> {
                 Vec3 start = from.eye().add(0, -0.4, 0);
                 Vec3 forward = target.subtract(start);

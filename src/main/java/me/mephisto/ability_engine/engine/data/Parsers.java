@@ -251,7 +251,7 @@ public final class Parsers {
         try {
             shape = Targeting.Shape.valueOf(p.getString("shape", "circle").toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw p.error("shape", "expected circle, line, cone or point");
+            throw p.error("shape", "expected circle, line, cone, point or wall");
         }
         ProjectileSpec arc = null;
         if (p.has("arc")) {
@@ -322,7 +322,7 @@ public final class Parsers {
                 p.getBool("break_on_damage", false), p.getBool("once", false),
                 positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery(),
                 new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null),
-                        p.getString("then", null)), farDamage(p), jumpBoost, healingTaken, armor,
+                        p.getString("then", null), p.getBool("cue_per_stack", false)), farDamage(p), jumpBoost, healingTaken, armor,
                 p.getBool("single_target", false));
     }
 

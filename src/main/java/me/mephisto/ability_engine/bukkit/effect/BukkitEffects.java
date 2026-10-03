@@ -14,6 +14,7 @@ public final class BukkitEffects {
         registry.register("shield", new ShieldEffect(damage, shields));
         registry.register("teleport", new TeleportEffect());
         registry.register("knockback", new KnockbackEffect());
+        registry.register("place_blocks", new PlaceBlocksEffect());
         return damage;
     }
 

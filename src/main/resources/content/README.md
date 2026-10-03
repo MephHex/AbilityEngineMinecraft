@@ -668,3 +668,21 @@ slot, so an ability is only silenced when it's in an ability slot.
   amethyst_recall, amethyst_recall_hit, amethyst_gather, amethyst_volley_shot, amethyst_burst, amethyst_ward (looping),
   amethyst_reflect, amethyst_orbit (looping: one more shard circling her each time), amethyst_orbit_fire (the oldest
   circling shard goes, as the volley's shot), amethyst_choose, amethyst_encase, amethyst_crystal (looping), amethyst_shatter.
+
+## Added for the Iceman
+
+- **Aim previews:** `shape: wall` (with `width`: its length) - a wall across your aim, centred on the spot: its
+  footprint and both ends standing up.
+- **Effects:** `place_blocks { shape, block, width, height, duration }` - REAL blocks for `duration` ticks, then the
+  terrain exactly as it was. `shape: wall` on a spot (e.g. `aim`): `width` long, `height` tall, standing on it, across
+  the line from the caster. `shape: tomb` on an entity: a 3x3 pillar `height` tall with a lid around them, only the
+  column they stand in left empty. `block` defaults to PACKED_ICE. Only air and replaceable blocks (grass, snow...)
+  are replaced, never inside someone; they can't be broken, blown up, pushed or melted, and all go back when the
+  plugin stops.
+- **Statuses:** `cue_per_stack: true` - its looping `cue` is `<cue>_<stacks>` and changes with the stack count (e.g.
+  one ice shard over their head per stack).
+- **Traits:** `freeze_immune` - no status that freezes (one with the tag `state.frozen`) lands on them.
+- **Cues:** iceman_mace, iceman_whiff, iceman_prison, iceman_chill_1 / _2 / _3 (looping: shards over the head),
+  iceman_frozen (looping), iceman_shockwave (line: `at: caster, to: aim`; a 7-block, 70-degree cone),
+  iceman_frostbreath (looping: from the eyes where they look; 50 degrees), iceman_wall, iceman_throw, iceman_entomb,
+  iceman_storm (a 5-block circle), iceman_storm_blast.

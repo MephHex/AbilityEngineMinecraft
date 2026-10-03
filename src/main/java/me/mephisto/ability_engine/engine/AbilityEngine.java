@@ -119,6 +119,10 @@ public final class AbilityEngine {
         // Nothing lands on the dead: a hit that kills and also poisons / slows would otherwise put that on the corpse,
         // after the death already cleared everything, and it would still be on them when they respawn.
         statuses.addGuard((target, def, source) -> !platform.world().isAlive(target));
+        // The freeze_immune trait (the Iceman): no status that freezes lands on them.
+        statuses.addGuard((target, def, source) -> def.grantedTags().contains(me.mephisto.ability_engine.engine.tag.Tags.FROZEN)
+                && loadouts.characterOf(target).map(c -> c.traits().contains(
+                        me.mephisto.ability_engine.engine.loadout.CharacterDef.FREEZE_IMMUNE)).orElse(false));
 
         tags.addListener(instances); // interrupts
         tags.addListener(new me.mephisto.ability_engine.engine.tag.TagListener() {

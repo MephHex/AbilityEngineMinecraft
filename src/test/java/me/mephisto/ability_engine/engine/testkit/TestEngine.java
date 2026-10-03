@@ -37,6 +37,12 @@ public final class TestEngine {
     public final Map<UUID, Double> knockback = new HashMap<>();
     /** The full knockback impulse each entity received (last one wins): direction matters for pulls. */
     public final Map<UUID, Vec3> knockbackVec = new HashMap<>();
+
+    /** A place_blocks effect: its shape, where (a spot or an entity), and its params. */
+    public record Placed(String shape, me.mephisto.ability_engine.engine.target.Target at, int duration) {}
+
+    /** Every place_blocks (ice walls, tombs): the fake world has no blocks, so they're only recorded. */
+    public final java.util.List<Placed> placed = new java.util.ArrayList<>();
     /** Total healing received per entity (design HP), and how much of it asked for overflow. */
     public final Map<UUID, Double> healed = new HashMap<>();
     /** Absorption shields received per entity (design HP, summed). */
@@ -121,6 +127,15 @@ public final class TestEngine {
                 params.requireString("from");
                 params.requireDouble("radius");
             }
+        });
+        engine.effects().register("place_blocks", new Effect() {
+            @Override
+            public void apply(EffectContext ctx) {
+                placed.add(new Placed(ctx.params().getString("shape", "wall"), ctx.target(), ctx.params().requireInt("duration")));
+            }
+
+            @Override
+            public void validate(Params params) { params.requireInt("duration"); }
         });
         engine.effects().register("teleport", new Effect() {
             @Override

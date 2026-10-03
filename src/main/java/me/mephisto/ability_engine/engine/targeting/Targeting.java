@@ -8,7 +8,8 @@ package me.mephisto.ability_engine.engine.targeting;
  *
  * @param range        max distance of the aim point from the caster's eyes
  * @param radius       circle size (shape CIRCLE)
- * @param width        line width (shape LINE)
+ * @param width        line width (shape LINE); the wall's length (shape WALL: a wall across the aim, centred on the
+ *                     spot)
  * @param angle        full cone width in degrees (shape CONE)
  * @param timeoutTicks the session cancels itself after this long; 0 = never (default, like Overwatch)
  * @param ground       project the aim straight down onto the ground below the crosshair
@@ -22,7 +23,7 @@ package me.mephisto.ability_engine.engine.targeting;
 public record Targeting(Shape shape, double range, double radius, double width, double angle, int timeoutTicks,
                         boolean ground, double maxDrop, me.mephisto.ability_engine.engine.projectile.ProjectileSpec arc) {
 
-    public enum Shape { CIRCLE, LINE, CONE, POINT }
+    public enum Shape { CIRCLE, LINE, CONE, POINT, WALL }
 
     public Targeting(Shape shape, double range, double radius, double width, double angle, int timeoutTicks,
                      boolean ground, double maxDrop) {

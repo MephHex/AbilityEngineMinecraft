@@ -188,7 +188,9 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
     public static final String SLOW_FALL = "slow_fall";
     /** An elytra in the chest slot: jump while falling to glide. */
     public static final String ELYTRA = "elytra";
-    public static final java.util.Set<String> TRAITS = java.util.Set.of(SNEAK_SLOW_FALL, SLOW_FALL, ELYTRA);
+    /** Nothing that freezes (a status with the tag state.frozen) lands on them. */
+    public static final String FREEZE_IMMUNE = "freeze_immune";
+    public static final java.util.Set<String> TRAITS = java.util.Set.of(SNEAK_SLOW_FALL, SLOW_FALL, ELYTRA, FREEZE_IMMUNE);
 
     /**
      * A kit change while the player has {@code tag} (e.g. an ultimate that replaces the primary, or a stage of growth).

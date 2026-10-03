@@ -47,10 +47,15 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      * @param then     when its time runs out (not when it's removed early), this status goes on the holder (null =
      *                 none), e.g. one stage growing into the next
      */
-    public record Links(String atMax, String requires, String cue, String then) {
+    public record Links(String atMax, String requires, String cue, String then, boolean cuePerStack) {
         public static final Links NONE = new Links(null, null, null, null);
 
         public Links(String atMax, String requires, String cue) { this(atMax, requires, cue, null); }
+
+        public Links(String atMax, String requires, String cue, String then) { this(atMax, requires, cue, then, false); }
+
+        /** The looping cue to run for this many stacks: {@code cue}, or {@code cue_<stacks>} with cuePerStack. */
+        public String cueFor(int stacks) { return cue == null ? null : cuePerStack ? cue + "_" + stacks : cue; }
     }
 
     public StatusDef {
