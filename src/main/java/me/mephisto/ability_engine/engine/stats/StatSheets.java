@@ -32,6 +32,13 @@ public final class StatSheets {
 
     public void setArmorConstant(double constant) { this.armorConstant = constant > 0 ? constant : DEFAULT_ARMOR_CONSTANT; }
 
+    /** For % max HP damage, a mob's (non-player's) max HP counts as at most this (design HP). */
+    private double mobMaxHpCap = 200;
+
+    public void setMobMaxHpCap(double cap) { this.mobMaxHpCap = cap > 0 ? cap : Double.MAX_VALUE; }
+
+    public double mobMaxHpCap() { return mobMaxHpCap; }
+
     public double armorConstant() { return armorConstant; }
 
     /** The sheet of the entity's character (or the form they're in, when it has stats), or the defaults. */

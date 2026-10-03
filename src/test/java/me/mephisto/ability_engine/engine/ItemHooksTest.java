@@ -59,6 +59,22 @@ class ItemHooksTest {
     }
 
     @Test
+    void percentMaxHpDamageOnMobsIsCappedAtAPlayersMaxHp() throws IOException {
+        setup(Map.of());
+        t.load(Map.of("abilities", Map.of("venom", Map.of("nodes", Map.of("bite", Map.of("type", "apply_effects",
+                "targets", Map.of("type", "radius", "radius", 20),
+                "effects", List.of(Map.of("id", "damage", "max_hp", 0.1, "knockback", false))))))));
+        UUID player = foe(5, 0);
+        t.world.players.add(player);               // a player: never capped
+        UUID boss = foe(-5, 0);                    // a mob with 1200 HP
+        t.world.maxHealth.put(boss, 1200.0);
+        t.world.maxHealth.put(player, 1200.0);
+        assertTrue(t.engine.activator().activate(p, "venom").success());
+        assertEquals(120, t.damage(player), 1e-6, "a player: 10% of their 1200");
+        assertEquals(20, t.damage(boss), 1e-6, "a mob: 10% of at most 200");
+    }
+
+    @Test
     void maxHealthMultipliesTheirMaxHp() throws IOException {
         setup(Map.of("elixir", Map.of("max_health", 1.2)));
         assertEquals(230, t.engine.stats().maxHealth(p), 1e-9);

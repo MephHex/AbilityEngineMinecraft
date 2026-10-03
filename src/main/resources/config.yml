@@ -24,6 +24,11 @@ damage-scale: 10
 # effective HP: 25 armor = 20% less damage, 100 armor = 50% less. (Characters' armor: stats: in the kits.)
 armor-constant: 100
 
+# "% of max HP" damage (poison, burns, freezes, executes) against mobs - camp monsters, bosses - counts their max HP as at
+# most this (design HP; a player has 200): a 1200 HP monster takes what a 200 HP player would, not 6x as much. Players
+# are never capped. 0: no cap.
+max-hp-damage-cap-for-mobs: 200
+
 # While a player has a character, their inventory is a display (the HUD): nothing can be moved.
 # Free some of it here, e.g. for an item plugin's bag. Read again on every /ae reload.
 inventory:

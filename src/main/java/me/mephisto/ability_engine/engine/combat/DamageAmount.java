@@ -38,7 +38,7 @@ public final class DamageAmount {
         var stats = ctx.engine().stats();
         double armored = p.getDouble("amount", 0);
         if (p.has("base")) armored += stats.baseDamage(ctx.caster()) * p.getDouble("base", 0);
-        double pierce = maxHpPart(ctx);
+        double pierce = maxHpPart(ctx, true);
         double mult = Backstab.multiplier(ctx) * DamageScale.multiplier(ctx);
         if (p.getBool("ignore_armor", false)) return new Parts(0, (armored + pierce) * mult); // all of it goes through
         return new Parts(armored * mult, pierce * mult);
@@ -46,13 +46,22 @@ public final class DamageAmount {
 
     /** Heal or shield: flat {@code amount} plus {@code max_hp} of the target's max HP. */
     public static double heal(EffectContext ctx) {
-        return ctx.params().getDouble("amount", 0) + maxHpPart(ctx);
+        return ctx.params().getDouble("amount", 0) + maxHpPart(ctx, false);
     }
 
-    private static double maxHpPart(EffectContext ctx) {
+    /**
+     * {@code max_hp} x the target's max HP. For damage to anything that isn't a player (mobs, camp monsters), their max
+     * HP counts as at most the stat sheets' mob cap (config.yml {@code max-hp-damage-cap-for-mobs}): % max HP damage
+     * (poison, burns, executes) does to a big monster what it would to a player, not a huge chunk of its health.
+     */
+    private static double maxHpPart(EffectContext ctx, boolean damage) {
         Params p = ctx.params();
         if (!p.has("max_hp") || !(ctx.target() instanceof EntityTarget t)) return 0;
-        return ctx.engine().stats().maxHealth(t.id()) * p.getDouble("max_hp", 0);
+        double max = ctx.engine().stats().maxHealth(t.id());
+        if (damage && !ctx.engine().world().isPlayer(t.id()) && !ctx.engine().stats().hasSheet(t.id())) { // a mob, not a character
+            max = Math.min(max, ctx.engine().stats().mobMaxHpCap());
+        }
+        return max * p.getDouble("max_hp", 0);
     }
 
     /** Load-time check: at least one part, none negative. */
