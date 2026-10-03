@@ -99,6 +99,9 @@ public final class AbilityLoader {
                 knownStatus(entry.getValue(), "at_max", def.links().atMax());
                 knownStatus(entry.getValue(), "requires", def.links().requires());
                 knownStatus(entry.getValue(), "then", def.links().then());
+                if (def.life().onLethal() != null) {
+                    knownStatus(entry.getValue().getParams("on_lethal"), "status", def.life().onLethal().status());
+                }
                 engine.statusDefs().define(def);
                 report.status();
             } catch (RuntimeException e) {
@@ -353,7 +356,16 @@ public final class AbilityLoader {
         }
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
-                hover, variants(p), lowHealth(p));
+                hover, variants(p), lowHealth(p), characterOnLethal(p));
+    }
+
+    /** {@code on_lethal: { status, health }}: their passive cheat death (not while they already have that status). */
+    private StatusDef.OnLethal characterOnLethal(Params p) {
+        StatusDef.OnLethal l = Parsers.onLethal(p);
+        if (l != null && engine.statusDefs().find(l.status()).isEmpty()) {
+            throw p.getParams("on_lethal").error("status", "unknown status '" + l.status() + "' (define it under 'statuses:')");
+        }
+        return l;
     }
 
     /** {@code low_health: { below: 0.4, status: <status> }}: that status is kept on them while their health is below it. */

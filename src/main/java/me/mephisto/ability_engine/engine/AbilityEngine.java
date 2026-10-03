@@ -149,6 +149,8 @@ public final class AbilityEngine {
         effects.register("remove_status", new me.mephisto.ability_engine.engine.effect.RemoveStatusEffect(statusDefs));
         effects.register("purge_buffs", new me.mephisto.ability_engine.engine.effect.PurgeBuffsEffect());
         effects.register("cleanse", new me.mephisto.ability_engine.engine.effect.CleanseEffect());
+        effects.register("set_health", new me.mephisto.ability_engine.engine.effect.SetHealthEffect());
+        statuses.setKiller(this::kill);
     }
 
     // ---- platform ----
@@ -318,11 +320,50 @@ public final class AbilityEngine {
     }
 
     /**
+     * A blow is about to kill {@code victim}. If something saves them, it's applied now and the share of their max HP
+     * to leave them at is returned (the platform sets it and cancels the blow); empty = they die.
+     * <ol>
+     *   <li>a status of theirs with {@code on_lethal}: it's replaced by its on_lethal status (e.g. decaying health)</li>
+     *   <li>their character's {@code on_lethal} (a passive), unless they already have that status (it only saves once:
+     *       running out of it, they die)</li>
+     * </ol>
+     */
+    public java.util.OptionalDouble preventDeath(UUID victim) {
+        for (var s : java.util.List.copyOf(statuses.on(victim))) {
+            var lethal = s.def().life().onLethal();
+            if (lethal == null) continue;
+            statuses.remove(victim, s.def().id());
+            statuses.apply(victim, lethal.status(), victim); // their own (its damage is theirs: no one's kill)
+            return java.util.OptionalDouble.of(lethal.health());
+        }
+        var passive = loadouts.characterOf(victim).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::onLethal);
+        if (passive.isPresent() && !statuses.has(victim, passive.get().status())) {
+            statuses.apply(victim, passive.get().status(), victim);
+            return java.util.OptionalDouble.of(passive.get().health());
+        }
+        return java.util.OptionalDouble.empty();
+    }
+
+    /** {@code entity} dies now, unless something saves them (see {@link #preventDeath}). */
+    public void kill(UUID entity) {
+        if (!platform.world().isAlive(entity)) return;
+        var saved = preventDeath(entity);
+        if (saved.isPresent()) platform.movement().setHealthShare(entity, saved.getAsDouble());
+        else platform.movement().kill(entity);
+    }
+
+    /**
      * Someone got a kill: wakes the killer's await_kill nodes and resets their abilities that refresh on
      * kills (refresh_on_kill).
      */
     public void notifyKill(UUID killer, UUID victim, boolean victimIsPlayer) {
         for (var instance : instances.of(killer)) instance.kill(victim, victimIsPlayer); // await_kill nodes
+        for (var s : java.util.List.copyOf(statuses.on(killer))) { // on_kill: e.g. decaying health, revived by a kill
+            for (var config : s.def().life().onKill()) {
+                effects.require(config.effectId()).apply(new me.mephisto.ability_engine.engine.effect.EffectContext(
+                        this, null, killer, new me.mephisto.ability_engine.engine.target.EntityTarget(killer), config.params()));
+            }
+        }
         loadouts.characterOf(killer).ifPresent(c -> c.slots().values().forEach(id -> abilities.find(id).ifPresent(a -> {
             if (a.refreshOnKill().equals("all") || (victimIsPlayer && a.refreshOnKill().equals("players"))) {
                 cooldowns.clear(killer, id);

@@ -400,6 +400,23 @@ Cold-Blooded (passive): nothing can freeze him. Ice Prison (passive): every 3rd 
 | Ice Wall (3, 13s) | a real ice wall, 7 long and 3 tall, across the aim (16 blocks), 5s |
 | Glacial Tomb (ult) | thrown mace: the enemy hit is entombed 3s (untargetable, no damage, can't act) in a 5-block storm (-30% speed); then it explodes: **100%** and frozen; a miss: the storm where it lands |
 
+### Lifeweaver: Support / Healer
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **200** | **5** (5%) | **32** | **1.05** | (no LMB; RMB drain 5 a second) | 210 | 48 (drain, half back as healing) |
+
+Lingering Soul (passive): a killing blow makes her a Spectral Remnant for 5s (untargetable, no abilities but the ult),
+then she dies; Apotheosis meanwhile revives her at 50% HP.
+
+| Ability | Effect |
+|---|---|
+| Life Drain (RMB, hold) | **30%** every 0.2s to the enemy in her sights (18 blocks), half back as healing |
+| Harmonic Strike (1, 8s) | an orb: **60%** to each enemy it passes (half heals her), then back: allies heal 30 + 15 per enemy hit |
+| Beyond Life and Death (2, 16s) | LMB an ally / RMB herself: 6s +25% speed, +30% attack speed; killed meanwhile: back at 50%, decaying 5s (5% max HP every 0.5s), a kill in time revives at 25% |
+| Lifeline (3, 14s) | a 3s tether: heal 4% max HP every 0.5s (24%); held all the way: a 60 HP shield for both |
+| Apotheosis (ult) | 6s: untargetable, through units, +30% speed, no abilities; allies within 7 blocks take 60% less damage, regenerate 6% max HP/s |
+
 ---
 
 ## 3. Sanity check: time to kill with basic attacks only

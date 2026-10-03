@@ -45,6 +45,11 @@ public final class StatusManager {
 
     public void setCueStarter(CueStarter starter) { this.cueStarter = starter; }
 
+    /** Who dies when a kill_on_end status runs out (the engine: it checks what saves them first). */
+    private java.util.function.Consumer<UUID> killer = id -> {};
+
+    public void setKiller(java.util.function.Consumer<UUID> killer) { this.killer = killer; }
+
     public StatusManager(GameClock clock, TaskScheduler scheduler, TagManager tags, StatusRegistry registry, EngineLog log) {
         this.clock = clock;
         this.scheduler = scheduler;
@@ -241,6 +246,9 @@ public final class StatusManager {
                 schedule(target, s);
                 return;
             }
+            // Its time is up and it kills: while it's still on them, so it can't save them from itself (a character's
+            // on_lethal for this very status), but anything else still can (decaying health -> a spectral form).
+            if (s.def.life().killOnEnd()) killer.accept(target);
             remove(target, s.def.id());
             String then = s.def.links().then();
             if (then != null && registry.find(then).isPresent()) apply(target, then, s.source); // its time is up: what comes next

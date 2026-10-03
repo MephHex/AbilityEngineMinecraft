@@ -48,6 +48,9 @@ public final class ApplyEffectsNode implements GraphNode {
     private String countKey;
     /** Where to store how many of them were players (null = don't). */
     private String countPlayersKey;
+    /** {@code times: "stacks:<status>"}: as many times as the caster has stacks of that status. */
+    static final String STACKS_OF = "stacks:";
+
     /** Apply the effects this many times per target: the number stored under this key (null = once). */
     private String timesKey;
 
@@ -146,7 +149,10 @@ public final class ApplyEffectsNode implements GraphNode {
             ctx.blackboard().putRaw(countPlayersKey, (int) found.stream()
                     .filter(t -> t instanceof EntityTarget e && ctx.engine().world().isPlayer(e.id())).count());
         }
-        int times = timesKey == null ? 1 : ctx.blackboard().raw(timesKey) instanceof Number n ? n.intValue() : 0;
+        int times = timesKey == null ? 1
+                : timesKey.startsWith(STACKS_OF) // the caster's stacks of a status (e.g. enemies hit so far)
+                ? ctx.engine().statuses().find(ctx.caster(), timesKey.substring(STACKS_OF.length())).map(s -> s.stacks()).orElse(0)
+                : ctx.blackboard().raw(timesKey) instanceof Number n ? n.intValue() : 0;
         for (Target target : found) {
             for (int i = 0; i < times; i++) {
                 for (EffectConfig config : effects) apply(ctx, config, target);

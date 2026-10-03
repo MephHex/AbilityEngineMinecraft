@@ -323,7 +323,17 @@ public final class Parsers {
                 positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery(),
                 new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null),
                         p.getString("then", null), p.getBool("cue_per_stack", false)), farDamage(p), jumpBoost, healingTaken, armor,
-                p.getBool("single_target", false));
+                p.getBool("single_target", false), new StatusDef.Life(onLethal(p), p.getBool("kill_on_end", false),
+                optionalEffects(p, "on_kill", registry)));
+    }
+
+    /** {@code on_lethal: { status, health }}: a killing blow leaves them at health (share of max HP) with that status. */
+    public static StatusDef.OnLethal onLethal(Params p) {
+        if (!p.has("on_lethal")) return null;
+        Params l = p.getParams("on_lethal");
+        double health = l.getDouble("health", 0.05);
+        if (health <= 0 || health > 1) throw l.error("health", "a share of max HP to be left at, above 0 (0.5 = half)");
+        return new StatusDef.OnLethal(l.requireString("status"), health);
     }
 
     /** {@code far_damage_taken: { beyond: 8, multiplier: 0.5 }} (a domain): null without one. */

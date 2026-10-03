@@ -49,6 +49,7 @@ public final class TagBindings implements TagListener {
                     e.setFallDistance(0); // hovering high up doesn't turn into fall damage
                 });
         b.bind(Tags.GLOWING, e -> e.setGlowing(true), e -> e.setGlowing(false));
+        b.bind(Tags.PHASING, e -> e.setCollidable(false), e -> e.setCollidable(true));   // through units
         b.bind(Tags.FROZEN, FrostAndFlight::freeze, FrostAndFlight::thaw);   // blue hearts + frost overlay
         b.bind(Tags.FLYING, FrostAndFlight::fly, FrostAndFlight::land);
         // Truly hidden: other players don't see the entity at all (armor and held items included).

@@ -1,0 +1,440 @@
+# content: lifeweaver
+# The Lifeweaver: a healer who steals life from enemies and weaves it into her allies - and cheats death.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Lingering Soul): a blow that would kill her doesn't: she becomes a Spectral Remnant for 5s instead (nothing
+#   can target or hurt her, she walks through units; her abilities don't work, except her ultimate). When the 5s are
+#   up, she dies. Casting Apotheosis meanwhile revives her at 50% HP, and it starts at once.
+#
+# ULTIMATE (F): Apotheosis (6s). She becomes a lattice of life: nothing can target her, she walks through units, 30%
+#   faster, and can't use her abilities. Allies around her (7 blocks, her too) take 60% less damage and regenerate 6% of
+#   their max HP a second.
+
+statuses:
+  lw_resonance:                      # Harmonic Strike: enemies its orb has passed through (the return heals more)
+    duration: 60
+    stacking: stack
+    max_stacks: 6
+    positive: false
+  lw_marked:                         # Beyond Life and Death: the ally in her sights while she chooses (they glow)
+    duration: 4                      # (kept on every 2 ticks while she looks at them)
+    stacking: refresh
+    tags: [state.glowing]
+    positive: true                   # (just a highlight)
+  lw_beyond:                         # Beyond Life and Death: faster; a killing blow gives decaying health instead
+    duration: 120                    # 6s
+    stacking: refresh
+    move_speed: 1.25                 # +25%
+    attack_speed: 1.3                # +30%
+    on_lethal: { status: lw_decaying, health: 0.5 }   # killed: back at 50%, decaying
+    tags: [buff.beyond]
+    cue: lw_beyond                   # green motes around them
+  lw_decaying:                       # Beyond Life and Death: living on borrowed time; a kill revives them at 25% HP
+    duration: 100                    # 5s, then they die...
+    kill_on_end: true                # (the Lifeweaver herself: then her Lingering Soul)
+    tick:
+      every: 10                      # ...draining 5% of their max HP every 0.5s meanwhile
+      effects:
+        - { id: damage, max_hp: 0.05, knockback: false }
+    on_kill:                         # a kill in time: revived, at 25% HP
+      - { id: remove_status, status: lw_decaying }
+      - { id: set_health, share: 0.25 }
+    cue: lw_decaying                 # withering: grey and green
+    positive: false
+  lw_remnant:                        # PASSIVE: Lingering Soul (a Spectral Remnant: 5s, then she dies)
+    duration: 100
+    kill_on_end: true
+    damage_taken: 0
+    tags: [state.remnant, state.untargetable, state.phasing]
+    cue: lw_remnant                  # a ghostly shimmer
+    positive: false
+  lw_apotheosis:                     # ULTIMATE: Apotheosis (a lattice of life)
+    duration: 120                    # 6s
+    move_speed: 1.3                  # +30%
+    tags: [state.untargetable, state.phasing, block.ability]
+    cue: lw_lattice
+    positive: false
+  lw_sanctuary:                      # Apotheosis: inside her aura (kept on every 0.5s)
+    duration: 12
+    stacking: refresh
+    damage_taken: 0.4                # 60% less damage
+    tick:
+      every: 10                      # 3% of their max HP every 0.5s: 6% a second
+      effects:
+        - { id: heal, max_hp: 0.03 }
+    tags: [buff.sanctuary]
+
+abilities:
+
+  # SECONDARY (RMB, hold): Life Drain. While you hold RMB, a beam drains the enemy in your sights (18 blocks) every 0.2s:
+  # 30% base damage, half of it back to you as healing.
+  lw_drain:
+    cooldown: 10
+    blocked_by: [block.ability, state.remnant]
+    display:
+      name: "Life Drain"
+      description:
+        - "Hold RMB: drain the enemy in your sights,"
+        - "30% base damage every 0.2s, half of it"
+        - "healing you. Passive - Lingering Soul:"
+        - "killed, a Spectral Remnant 5s first."
+    nodes:
+      split:
+        type: fork                   # how long it's held, and the drain meanwhile
+        on: { out: hold, also: pulse }
+      hold:
+        type: charge
+        ticks: 100                   # at most 5s at a time
+        release_gap: 6               # RMB repeats while held; 6 ticks without one = let go
+        bar: false
+        on: { out: stop, early: stop }
+      stop:
+        type: end_cast
+      pulse:
+        type: repeat
+        times: 25
+        every: 4
+        on: { each: aim }
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 18, ray_size: 0.6 }
+        on: { hit: sip }
+      sip:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 0.3, knockback: false, lifesteal: 0.5 }
+        next: sip_cue
+      sip_cue:
+        type: play_cue
+        cue: lw_drain
+        at: caster
+        to: target
+
+  # 1: Harmonic Strike (8s). Throw a sphere of life (14 blocks): it passes through enemies, each taking 60% base damage
+  # (half of it heals you), then flies back to you, healing every ally it passes through: 30 HP, +15 for each enemy it
+  # hit on the way out.
+  lw_ab1:
+    cooldown: 160                    # 8s
+    blocked_by: [block.ability, state.remnant]
+    display:
+      name: "Harmonic Strike"
+      icon: HEART_OF_THE_SEA
+      description:
+        - "A sphere of life: out, through enemies"
+        - "(60%, half heals you), then back, through"
+        - "allies: 30 HP, +15 per enemy it hit."
+    nodes:
+      fresh:
+        type: apply_effects          # (a new throw: no enemies yet)
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: lw_resonance }
+        next: out
+      out:
+        type: projectile
+        speed: 1.1
+        size: 0.6
+        lifetime: 13                 # about 14 blocks
+        pierce: 6
+        visual: "block:VERDANT_FROGLIGHT"
+        visual_size: 0.45
+        trail: lw_orb_trail
+        store: orb
+        on: { spawned: out_cue, hit_entity: steal, hit_block: back, expired: back }
+      out_cue:
+        type: play_cue
+        cue: lw_orb_throw
+      steal:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, knockback: false, lifesteal: 0.5 }
+          - { id: status, status: lw_resonance, self: true }   # one more enemy: the return heals more
+        next: steal_cue
+      steal_cue:
+        type: play_cue
+        cue: lw_orb_steal
+        at: hit
+      back:
+        type: projectile             # home again, through allies
+        from: orb
+        toward: caster
+        speed: 1.1
+        size: 0.8
+        lifetime: 20
+        pierce: 10
+        hits_allies: true
+        through_blocks: true
+        visual: "block:VERDANT_FROGLIGHT"
+        visual_size: 0.45
+        trail: lw_orb_trail
+        on: { hit_entity: friend }
+      friend:
+        type: is_ally
+        target: hit
+        on: { ally: mend }
+      mend:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: heal, amount: 30 }
+        next: mend_more
+      mend_more:
+        type: apply_effects          # +15 per enemy it passed through on the way out
+        targets: { type: key, key: hit }
+        affects: allies
+        on_hit: false
+        times: "stacks:lw_resonance"
+        effects:
+          - { id: heal, amount: 15 }
+        next: mend_cue
+      mend_cue:
+        type: play_cue
+        cue: lw_orb_mend
+        at: hit
+
+  # 2: Beyond Life and Death (16s). 5s to choose (the ally in your sights glows): LMB that ally, RMB yourself. For 6s
+  # they're 25% faster and attack 30% faster; a blow that would kill them meanwhile doesn't: they're back at 50% HP but
+  # decaying (5% of their max HP every 0.5s) and die after 5s - unless they get a kill first: then they live, at 25% HP.
+  # On yourself, if the decay runs out, Lingering Soul still saves you after it. Press 2 again: cancel.
+  lw_ab2:
+    cooldown: 320                    # 16s
+    cancel_on_repress: true
+    blocked_by: [block.ability, state.remnant]
+    active_tags: [state.choosing_beyond]   # LMB / RMB pick (see forms below)
+    display:
+      name: "Beyond Life and Death"
+      icon: TOTEM_OF_UNDYING
+      description:
+        - "LMB an ally / RMB yourself: 6s faster, and"
+        - "a killing blow leaves them decaying 5s"
+        - "instead (a kill in time: alive at 25%)."
+    nodes:
+      split:
+        type: fork                   # the time to choose, and the glow on whoever she looks at
+        on: { out: window, also: seek }
+      window:
+        type: delay
+        ticks: 100                   # 5s
+        boss_bar: true
+        next: closed
+      closed:
+        type: end_cast
+      seek:
+        type: repeat                 # every 2 ticks: who's in her sights
+        times: 50
+        every: 2
+        on: { each: look }
+      look:
+        type: acquire_target
+        query: { type: hitscan, range: 30, ray_size: 1.0, targets: allies }
+        store: chosen
+        on: { hit: mark }
+      mark:
+        type: apply_effects
+        targets: { type: key, key: chosen }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: lw_marked }
+
+  # Beyond Life and Death, LMB: the ally in her sights (nobody there: nothing, keep choosing).
+  lw_beyond_ally:
+    blocked_by: [state.remnant]
+    display:
+      name: "Weave an Ally"
+      description:
+        - "LMB: the ally in your sights."
+    nodes:
+      pick:
+        type: acquire_target
+        query: { type: hitscan, range: 30, ray_size: 1.0, targets: allies }
+        on: { hit: weave, miss: ~ }
+      weave:
+        type: apply_effects
+        targets: { type: key, key: target }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: lw_beyond }
+        next: weave_cue
+      weave_cue:
+        type: play_cue
+        cue: lw_weave
+        at: target
+        next: chosen
+      chosen:
+        type: cancel_ability
+        ability: lw_ab2
+
+  # Beyond Life and Death, RMB: herself.
+  lw_beyond_self:
+    blocked_by: [state.remnant]
+    display:
+      name: "Weave Yourself"
+      description:
+        - "RMB: yourself."
+    nodes:
+      weave:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: lw_beyond }
+        next: weave_cue
+      weave_cue:
+        type: play_cue
+        cue: lw_weave
+        next: chosen
+      chosen:
+        type: cancel_ability
+        ability: lw_ab2
+
+  # 3: Lifeline (14s). Tether an ally in your sights (20 blocks): for 3s you heal them 4% of their max HP every 0.5s
+  # (24% in all). Held all the way: you both get a 60 HP shield (5s). It breaks past 15 blocks, out of sight for 1s, or
+  # if you're stunned or silenced. The cooldown starts when you pick someone (a miss is free).
+  lw_ab3:
+    cooldown: 280                    # 14s
+    cooldown_starts: manual
+    blocked_by: [block.ability, state.remnant]
+    display:
+      name: "Lifeline"
+      icon: LEAD
+      description:
+        - "Tether an ally 3s: heal 24% of their max"
+        - "HP. Held all the way: a 60 HP shield for"
+        - "you both."
+    nodes:
+      pick:
+        type: acquire_target
+        query: { type: hitscan, range: 20, ray_size: 1.2, targets: allies }
+        on: { hit: picked, miss: ~ }
+      picked:
+        type: start_cooldown
+        next: split
+      split:
+        type: fork                   # the tether, and the healing while it holds
+        on: { out: hold, also: mend }
+      hold:
+        type: tether
+        target: target
+        duration: 60                 # 3s
+        range: 15
+        sight_grace: 20
+        break_on: [state.stunned, state.silenced]
+        cue: lw_tether               # drawn as lw_tether_1 .. lw_tether_3 as it charges
+        stages: 3
+        on: { complete: bond, broken: snap }
+      mend:
+        type: repeat                 # 6 x 0.5s
+        times: 6
+        every: 10
+        on: { each: heal }
+      heal:
+        type: apply_effects
+        targets: { type: key, key: target }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: heal, max_hp: 0.04 }
+      bond:
+        type: apply_effects          # held all the way: shields for both
+        targets: { type: key, key: target }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: shield, amount: 60, lasts: 100 }
+          - { id: shield, amount: 60, lasts: 100, self: true }
+        next: bond_cue
+      bond_cue:
+        type: play_cue
+        cue: lw_bond
+        at: target
+        next: done
+      snap:
+        type: play_cue
+        cue: lw_tether_snap
+        at: target
+        next: done
+      done:
+        type: end_cast               # (stops the healing too, if it broke)
+
+  # ULTIMATE (F): Apotheosis (see the top of this file). As a Spectral Remnant: revived at 50% HP first.
+  lw_ult1:
+    cooldown: 1200                   # placeholder until ults charge from damage
+    display:
+      name: "Apotheosis"
+      icon: NETHER_STAR
+      description:
+        - "6s a lattice of life: untargetable, 30%"
+        - "faster, no abilities. Allies near you take"
+        - "60% less damage and regenerate. As a"
+        - "Spectral Remnant: revived at 50% HP."
+    nodes:
+      ghost:
+        type: has_status             # a Spectral Remnant: revived first
+        status: lw_remnant
+        on: { has: revive, lacks: ascend }
+      revive:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: lw_remnant }
+          - { id: set_health, share: 0.5 }
+        next: revive_cue
+      revive_cue:
+        type: play_cue
+        cue: lw_revive
+        next: ascend
+      ascend:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: lw_apotheosis }
+        next: ascend_cue
+      ascend_cue:
+        type: play_cue
+        cue: lw_ascend
+        next: aura
+      aura:
+        type: repeat                 # every 0.5s for 6s: allies around her
+        times: 12
+        every: 10
+        on: { each: shelter }
+      shelter:
+        type: apply_effects
+        targets: { type: radius, radius: 7, include_caster: true }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: lw_sanctuary }
+        next: aura_cue
+      aura_cue:
+        type: play_cue
+        cue: lw_aura
+
+characters:
+  lifeweaver:
+    name: "Lifeweaver"
+    weapon: PINK_DYE                 # (a petal of life)
+    stats:                           # see docs/character-stats.md
+      health: 200                    # max HP
+      armor: 5                       # damage taken x 100 / (100 + armor)
+      base_damage: 32                # abilities deal % of this
+      move_speed: 1.05               # x vanilla walking speed
+    on_lethal: { status: lw_remnant, health: 0.05 }   # PASSIVE: Lingering Soul
+    forms:
+      - while: state.choosing_beyond # Beyond Life and Death: choosing
+        slots: { primary: lw_beyond_ally, secondary: lw_beyond_self }
+    slots:
+      secondary: lw_drain            # RMB (hold): Life Drain (no LMB)
+      ability_1: lw_ab1              # 1: Harmonic Strike
+      ability_2: lw_ab2              # 2: Beyond Life and Death
+      ability_3: lw_ab3              # 3: Lifeline
+      ultimate: lw_ult1              # F: Apotheosis

@@ -34,7 +34,12 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     }
 
     public void move(UUID id, Vec3 center) { entities.put(id, center); }
+    @Override
     public void kill(UUID id) { entities.remove(id); }
+
+    /** Health is only a share here (see healthFraction). */
+    @Override
+    public void setHealthShare(UUID id, double share) { healthFraction.put(id, share); }
 
     // ---- riding: a rider sits RIDE_HEIGHT above its vehicle's centre, wherever the vehicle is ----
     public static final double RIDE_HEIGHT = 1.5;

@@ -40,6 +40,12 @@ public interface MovementControl {
     /** Get {@code rider} off whatever it rides. */
     default void dismount(UUID rider) {}
 
+    /** Dies now (the engine has already checked nothing saves them). */
+    default void kill(UUID entity) {}
+
+    /** Their health becomes this share of their max HP (0..1]. */
+    default void setHealthShare(UUID entity, double share) {}
+
     /** What {@code rider} is riding right now, if anything. */
     default java.util.Optional<UUID> vehicleOf(UUID rider) { return java.util.Optional.empty(); }
 }
