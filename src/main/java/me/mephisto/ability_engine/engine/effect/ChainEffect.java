@@ -16,7 +16,8 @@ import java.util.UUID;
 /**
  * Effect id "chain": a chain lightning from whoever was hit to up to {@code max} (3) other enemies within
  * {@code radius} (5) blocks of them, nearest first. Each takes {@code base} (0.3) x the caster's base damage, and the
- * caster's on-hit effects (their statuses' on_hit and basic_on_hit, but no further chains). {@code cue}: a line cue drawn
+ * caster's on-hit effects (their statuses' on_hit and basic_on_hit, but no further chains, and not from a "once" status:
+ * an empowered next hit is for the one hit). {@code cue}: a line cue drawn
  * from the one hit to each.
  */
 public final class ChainEffect implements Effect {
@@ -43,6 +44,7 @@ public final class ChainEffect implements Effect {
             EntityTarget target = new EntityTarget(e.id());
             run(ctx, damage, target);
             for (ActiveStatus s : List.copyOf(engine.statuses().on(caster))) { // its on-hits: not another chain
+                if (s.def().once()) continue; // a one-hit empowerment (your NEXT hit) is for the one hit, not the chain
                 for (EffectConfig c : s.def().onHit()) if (!c.effectId().equals("chain")) run(ctx, c, target);
                 for (EffectConfig c : s.def().extras().basicOnHit()) if (!c.effectId().equals("chain")) run(ctx, c, target);
             }
