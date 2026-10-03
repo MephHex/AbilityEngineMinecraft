@@ -30,10 +30,10 @@ inventory:
   # Slots of the main inventory (the 3 rows above the hotbar) players may use: plain clicks and drags
   # in, out and between them. Numbered 9-35, left to right, top row first (9-17, 18-26, 27-35).
   # Keep 9-13 out of it: the character's stat items sit there.
-  # A 3x3 bag on the right:  [15, 16, 17, 24, 25, 26, 33, 34, 35]
-  free-slots: []
-  # The 2x2 crafting grid (and taking what it makes) as well.
-  free-crafting: false
+  # The 3x3 bag on the right (ItemSystem's items work there; CaptureThePoint's loot goes there). [] = all locked.
+  free-slots: [15, 16, 17, 24, 25, 26, 33, 34, 35]
+  # The 2x2 crafting grid (and taking what it makes) as well: ItemSystem's items are crafted there.
+  free-crafting: true
 
 # ---- Development helpers -------------------------------------------------------------------
 # Both are read again on every /ae reload. Leave them off on a real server.
