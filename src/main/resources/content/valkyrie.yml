@@ -97,7 +97,8 @@ abilities:
         type: leap                   # ~3 blocks forward
         speed: 0.3
         up: 0.42
-        next: slash1
+        stop_at_enemies: true        # running into an enemy: stop and slash right there
+        on: { out: slash1, hit: slash1 }
       slash1:
         type: apply_effects
         targets: { type: cone, range: 4, angle: 180 }   # a half circle in front of her
@@ -136,7 +137,8 @@ abilities:
         type: leap
         speed: 0.3
         up: 0.42
-        next: slash2
+        stop_at_enemies: true        # running into an enemy: stop and slash right there
+        on: { out: slash2, hit: slash2 }
       slash2:
         type: apply_effects
         targets: { type: cone, range: 4, angle: 180 }

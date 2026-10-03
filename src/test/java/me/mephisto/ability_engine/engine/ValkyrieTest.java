@@ -139,6 +139,22 @@ class ValkyrieTest {
     }
 
     @Test
+    void aLeapStopsOnTheEnemyItRunsIntoAndSlashesThem() throws IOException {
+        setup();
+        UUID enemy = foe(2.5, 0); // closer than the leap would carry her: she'd sail past them
+        use(Slots.ABILITY_1);
+        t.time.advance(15);
+        assertTrue(pos(p).x() < 2.5, "stopped on reaching them, not past them: " + pos(p));
+        assertEquals(BASE, t.damage(enemy), 1e-6, "and slashed them");
+        assertEquals(0, cooldown("valkyrie_ab1"), "a hit: the second leap waits");
+
+        t.world.move(enemy, pos(p).add(2.5, 0, 0)); // the second leap too
+        use(Slots.ABILITY_1);
+        t.time.advance(15);
+        assertEquals(2 * BASE, t.damage(enemy), 1e-6);
+    }
+
+    @Test
     void aMissedLeapEndsTheChain() throws IOException {
         setup();
         use(Slots.ABILITY_1);
