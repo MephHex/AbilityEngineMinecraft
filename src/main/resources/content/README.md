@@ -710,3 +710,15 @@ slot, so an ability is only silenced when it's in an ability slot.
 ## Amethyst: Gem Rush
 
 - **Cues:** amethyst_gem_rush (the burst as she dashes), amethyst_gem_trail (looping: gems behind her while she dashes).
+
+## Added for items (the ItemSystem plugin)
+
+- **Statuses:** `max_health: 1.2` - the holder's max HP x1.2 (characters). `ability_damage_taken: 0.8` - damage from
+  abilities only (not vanilla hits) is multiplied by it. `ability_lifesteal: 0.3` - the holder heals 30% of the damage
+  their abilities deal. `basic_on_hit: [effects]` - like `on_hit`, but only on the holder's basic attacks (whatever is in
+  their primary or melee slot); with `once: true` the first basic attack that hits uses it up.
+- **Effects:** `chain { radius: 5, max: 3, base: 0.3, cue }` - a chain lightning from whoever was hit to the nearest
+  `max` other enemies within `radius`: `base` x the caster's base damage each, plus the caster's on-hit effects (not
+  another chain). `cue` is a line cue from the one hit to each.
+- **API (other plugins):** `AbilityEnginePlugin#engine()`, `#registerContent(name, () -> parsedYaml)` (loaded after the
+  content folder on every reload; then `#reloadContent()`), `#cues()` (register cues).

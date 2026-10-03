@@ -98,9 +98,12 @@ public final class ApplyEffectsNode implements GraphNode {
     /** The caster's buffs: every on-hit effect of every status they have, applied to this target. */
     private static void applyOnHit(ExecutionContext ctx, Target target) {
         java.util.List<String> usedUp = new java.util.ArrayList<>();
+        boolean basic = ctx.engine().stats().isBasicAttack(ctx.caster(), ctx.instance().ability().id());
         for (ActiveStatus buff : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
             for (EffectConfig config : buff.def().onHit()) apply(ctx, config, target);
-            if (buff.def().once() && !buff.def().onHit().isEmpty()) usedUp.add(buff.def().id());
+            var basicOnHit = buff.def().extras().basicOnHit();
+            if (basic) for (EffectConfig config : basicOnHit) apply(ctx, config, target); // basic attacks only
+            if (buff.def().once() && (!buff.def().onHit().isEmpty() || (basic && !basicOnHit.isEmpty()))) usedUp.add(buff.def().id());
         }
         usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id)); // "your NEXT hit" buffs
     }

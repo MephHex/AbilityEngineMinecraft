@@ -44,6 +44,10 @@ public final class AbilityFiles {
     private final Plugin plugin;
     private final AbilityEngine engine;
     private final File jar;
+    /** Content other plugins registered (name -> parsed YAML), loaded after ours. */
+    private final Map<String, java.util.function.Supplier<Map<String, Object>>> external = new java.util.LinkedHashMap<>();
+
+    public void addExternal(String name, java.util.function.Supplier<Map<String, Object>> source) { external.put(name, source); }
 
     /** @param jar the plugin's own jar (JavaPlugin#getFile), used to find every content file it ships */
     public AbilityFiles(Plugin plugin, AbilityEngine engine, File jar) {
@@ -88,6 +92,15 @@ public final class AbilityFiles {
                 sources.add(new AbilityLoader.Source(name, root));
             } catch (IOException | RuntimeException e) {
                 return failed(name + ": " + e.getMessage() + " (kept the previously loaded abilities)");
+            }
+        }
+
+        for (var e : external.entrySet()) {
+            try {
+                Map<String, Object> root = e.getValue().get();
+                if (root != null) sources.add(new AbilityLoader.Source(e.getKey(), root));
+            } catch (RuntimeException ex) {
+                return failed(e.getKey() + ": " + ex.getMessage() + " (kept the previously loaded abilities)");
             }
         }
 

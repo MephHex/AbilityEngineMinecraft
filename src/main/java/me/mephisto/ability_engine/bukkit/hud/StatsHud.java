@@ -78,6 +78,7 @@ public final class StatsHud {
                 if (!engine.loadouts().has(p.getUniqueId())) continue;
                 draw(p);
                 syncAttackSpeed(p);
+                syncMaxHealth(p);
             }
         });
         // Statuses that change move speed by stacks (Rustbreaker's rust) build up fast: keep up every 2 ticks.
@@ -99,7 +100,7 @@ public final class StatsHud {
             double maxBefore = health.getValue();
             double share = maxBefore > 0 ? Math.min(1, p.getHealth() / maxBefore) : 1;
             strip(health, healthKey);
-            double wanted = stats.health() / scaleSource.scale();
+            double wanted = engine.stats().maxHealth(p.getUniqueId()) / scaleSource.scale(); // the sheet, x max_health statuses
             health.addModifier(new AttributeModifier(healthKey, wanted - health.getBaseValue(), AttributeModifier.Operation.ADD_NUMBER));
             double max = health.getValue();
             // A new max (another character, or a form with its own stats: growing up): the same share of it as before
@@ -132,6 +133,18 @@ public final class StatsHud {
      * Statuses' {@code move_speed} (per stack, e.g. a slow that builds up), multiplied onto the speed after
      * everything else. Only touched when it changes.
      */
+    /** A max_health status came or went (an item): max HP follows, keeping the same share of it. */
+    private void syncMaxHealth(Player p) {
+        AttributeInstance health = p.getAttribute(Attribute.MAX_HEALTH);
+        if (health == null || p.isDead()) return;
+        double wanted = engine.stats().maxHealth(p.getUniqueId()) / scaleSource.scale();
+        if (Math.abs(health.getValue() - wanted) < 1e-3) return;
+        double share = health.getValue() > 0 ? Math.min(1, p.getHealth() / health.getValue()) : 1;
+        strip(health, healthKey);
+        health.addModifier(new AttributeModifier(healthKey, wanted - health.getBaseValue(), AttributeModifier.Operation.ADD_NUMBER));
+        p.setHealth(Math.max(0.5, Math.min(health.getValue(), share * health.getValue())));
+    }
+
     private void syncStatusSpeed(Player p) {
         AttributeInstance speed = p.getAttribute(Attribute.MOVEMENT_SPEED);
         if (speed == null) return;

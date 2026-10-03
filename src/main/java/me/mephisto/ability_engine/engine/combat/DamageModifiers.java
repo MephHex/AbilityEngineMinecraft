@@ -40,11 +40,23 @@ public final class DamageModifiers {
 
     /** @param pierceShare share of the hit (0..1) that armor doesn't reduce (a max_hp part) */
     public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, double pierceShare) {
+        return apply(engine, attacker, victim, amount, pierceShare, false);
+    }
+
+    /**
+     * @param pierceShare share of the hit (0..1) that armor doesn't reduce (a max_hp part)
+     * @param ability     an ability's damage (not a vanilla hit): the victim's {@code ability_damage_taken} counts too
+     */
+    public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, double pierceShare,
+                               boolean ability) {
         engine.combat().hit(attacker, victim); // both are in combat now (e.g. a ward's out-of-combat timer)
         if (attacker != null && !attacker.equals(victim)) {
             for (ActiveStatus s : engine.statuses().on(attacker)) amount *= s.def().damageDealt();
         }
-        for (ActiveStatus s : engine.statuses().on(victim)) amount *= s.def().damageTaken();
+        for (ActiveStatus s : engine.statuses().on(victim)) {
+            amount *= s.def().damageTaken();
+            if (ability) amount *= s.def().extras().abilityDamageTaken();
+        }
         amount *= farMultiplier(engine, attacker, victim);
         List<Redirect> redirects = new ArrayList<>();
         for (LinkManager.Link link : engine.links().onTarget(victim)) {

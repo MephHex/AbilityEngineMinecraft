@@ -99,7 +99,7 @@ public final class DamageEffect implements Effect {
         double after = living.getHealth();
         if (after < before) ctx.engine().notifyDamageDealt(ctx.caster(), target.id()); // e.g. stealth breaks
 
-        double lifesteal = ctx.params().getDouble("lifesteal", 0);
+        double lifesteal = ctx.params().getDouble("lifesteal", 0) + ctx.engine().stats().abilityLifesteal(ctx.caster());
         if (lifesteal > 0 && after < before && shields != null && damager instanceof LivingEntity self && !self.equals(living)) {
             Params p = ctx.params();
             double healing = ctx.engine().stats().healingMultiplier(ctx.caster()); // a poisoned attacker heals less

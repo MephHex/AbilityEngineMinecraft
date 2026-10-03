@@ -34,7 +34,7 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
                         boolean breakOnDamage, boolean once,
                         boolean positive, double damageDealt, double damageTaken, double attackSpeed,
                         double moveSpeed, int decayEvery, Links links, FarDamage farDamage, int jumpBoost,
-                        double healingTaken, double armor, boolean singleTarget, Life life) {
+                        double healingTaken, double armor, boolean singleTarget, Life life, Extras extras) {
 
     /**
      * A blow that would kill the holder doesn't: they're left at {@code health} (a share of their max HP) and get
@@ -55,6 +55,22 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
 
         public Life {
             onKill = onKill == null ? List.of() : List.copyOf(onKill);
+        }
+    }
+
+    /**
+     * More of what a status can do (items use these).
+     *
+     * @param maxHealth          the holder's max HP is multiplied by this (1.2 = +20%)
+     * @param abilityDamageTaken damage from abilities (not vanilla hits) to the holder is multiplied by this
+     * @param abilityLifesteal   the holder heals this share of the damage their abilities deal
+     * @param basicOnHit         effects on whoever the holder's basic attacks (primary / melee) hit
+     */
+    public record Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit) {
+        public static final Extras NONE = new Extras(1, 1, 0, List.of());
+
+        public Extras {
+            basicOnHit = basicOnHit == null ? List.of() : List.copyOf(basicOnHit);
         }
     }
 
@@ -83,6 +99,7 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     public StatusDef {
         if (links == null) links = Links.NONE;
         if (life == null) life = Life.NONE;
+        if (extras == null) extras = Extras.NONE;
         if (jumpBoost < 0) jumpBoost = 0;
         if (healingTaken < 0) healingTaken = 0;
         if (armor < 0) armor = 0;
@@ -90,6 +107,17 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
         onHit = List.copyOf(onHit);
         tickEffects = List.copyOf(tickEffects);
         if (maxStacks < 1) maxStacks = 1;
+    }
+
+    /** Without extras. */
+    public StatusDef(String id, int defaultDurationTicks, StackPolicy stacking, int maxStacks, Set<String> grantedTags,
+                     List<EffectConfig> onHit, int tickEvery, List<EffectConfig> tickEffects,
+                     boolean breakOnDamage, boolean once, boolean positive, double damageDealt, double damageTaken,
+                     double attackSpeed, double moveSpeed, int decayEvery, Links links, FarDamage farDamage, int jumpBoost,
+                     double healingTaken, double armor, boolean singleTarget, Life life) {
+        this(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects, breakOnDamage, once,
+                positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, links, farDamage, jumpBoost,
+                healingTaken, armor, singleTarget, life, Extras.NONE);
     }
 
     /**
@@ -195,13 +223,13 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
     public StatusDef withDecay(int every) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
                 breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, every, links, farDamage,
-                jumpBoost, healingTaken, armor, singleTarget, life);
+                jumpBoost, healingTaken, armor, singleTarget, life, extras);
     }
 
     /** The same, with these links. */
     public StatusDef withLinks(Links other) {
         return new StatusDef(id, defaultDurationTicks, stacking, maxStacks, grantedTags, onHit, tickEvery, tickEffects,
                 breakOnDamage, once, positive, damageDealt, damageTaken, attackSpeed, moveSpeed, decayEvery, other, farDamage,
-                jumpBoost, healingTaken, armor, singleTarget, life);
+                jumpBoost, healingTaken, armor, singleTarget, life, extras);
     }
 }
