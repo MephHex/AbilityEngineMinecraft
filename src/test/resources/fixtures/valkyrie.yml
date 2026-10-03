@@ -160,8 +160,9 @@ abilities:
         cue: valkyrie_rise
         next: rise
       rise:
-        type: leap                   # up into the sky...
-        direction: up
+        type: leap                   # up into the sky, drifting back a little (away from where she looks)...
+        direction: aim
+        speed: -0.15                 # (backwards: ~2 blocks by the top)
         up: 1.0                      # ~6 blocks
         until: apex
         next: hover

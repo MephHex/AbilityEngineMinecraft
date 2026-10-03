@@ -158,20 +158,29 @@ abilities:
         cue: lw_orb_steal
         at: hit
       back:
-        type: projectile             # home again, through allies
+        type: projectile             # home again, through allies: to where she is NOW (it follows her)
         from: orb
         toward: caster
         speed: 1.1
         size: 0.8
-        lifetime: 20
+        lifetime: 40
         pierce: 10
         hits_allies: true
+        hits_caster: true            # (caught: it's back)
         through_blocks: true
+        motion:
+          - { type: homing, key: caster, turn: 1.0 }
         visual: "block:VERDANT_FROGLIGHT"
         visual_size: 0.45
         trail: lw_orb_trail
         on: { hit_entity: friend }
       friend:
+        type: in_range               # her own catch: no heal for her (it's back)
+        center: caster
+        radius: 0.3
+        target: hit
+        on: { outside: ally_check }
+      ally_check:
         type: is_ally
         target: hit
         on: { ally: mend }

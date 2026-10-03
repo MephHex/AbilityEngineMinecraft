@@ -120,6 +120,19 @@ class LifeweaverTest {
         assertEquals(0, t.healed.getOrDefault(first, 0.0), 1e-9, "enemies aren't healed");
     }
 
+    @Test
+    void theOrbComesBackToWhereSheIsNowNotWhereSheThrewIt() throws IOException {
+        setup();
+        UUID oldSpot = ally(1.5, 0);   // on the straight way back to where she threw it
+        assertTrue(use(Slots.ABILITY_1));
+        t.time.advance(16);            // out and turned back
+        t.world.move(p, new Vec3(3, 1, 10)); // she's moved off to the side
+        t.time.advance(30);
+        assertEquals(0, t.engine.projectiles().activeCount(), "it followed her and she caught it");
+        assertEquals(0, t.healed.getOrDefault(oldSpot, 0.0), 1e-9, "not back to where she was");
+        assertEquals(0, t.healed.getOrDefault(p, 0.0), 1e-9, "catching it doesn't heal her");
+    }
+
     // ---- Beyond Life and Death ----------------------------------------------------------------------------------
 
     @Test
