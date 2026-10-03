@@ -180,6 +180,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         keybinds.load(getConfig(), getLogger());
         damage.setScale(getConfig().getDouble("damage-scale", 10));
         engine.stats().setArmorConstant(getConfig().getDouble("armor-constant", 100));
+        engine.stats().setMobMaxHpCap(getConfig().getDouble("max-hp-damage-cap-for-mobs", 200));
         inventoryLock.load(getConfig(), getLogger());
         LoadReport report = files.reload();
         for (Player p : getServer().getOnlinePlayers()) {

@@ -181,6 +181,15 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     /** Which entities are players, set by tests (the rest are mobs). */
     public final java.util.Set<UUID> players = new java.util.HashSet<>();
 
+    /** Max health (design HP) of entities without a character sheet; missing: the default. */
+    public final Map<UUID, Double> maxHealth = new HashMap<>();
+
+    @Override
+    public java.util.OptionalDouble maxHealth(UUID entity) {
+        Double m = maxHealth.get(entity);
+        return m == null ? java.util.OptionalDouble.empty() : java.util.OptionalDouble.of(m);
+    }
+
     @Override
     public boolean isPlayer(UUID entity) { return players.contains(entity); }
 
