@@ -121,8 +121,8 @@ final class PyroCues {
             loc.getWorld().playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 0.3f, 1.8f);
         });
         // ---- Hot Coals ----
-        c.register("pyro_coal_scorch" + s, loc -> { // she lands: the coals set the ground under her on fire
-            groundFire(plugin, loc, f.block());
+        c.register("pyro_coal_scorch" + s, loc -> { // she lands: the ground under her turns to magma (to look at)
+            groundMagma(plugin, loc);
             loc.getWorld().spawnParticle(f.flame(), loc.clone().add(0, 0.1, 0), 30, 0.9, 0.05, 0.9, 0.03);
             loc.getWorld().spawnParticle(f.ember(), loc, 4, 0.6, 0.1, 0.6, 0);
             loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc, 4, 0.6, 0.1, 0.6, 0.01);
@@ -231,38 +231,39 @@ final class PyroCues {
      * nothing burns, spreads or hurts), one in the middle and a ring around it, each on the ground where it stands
      * (a step up or down at most). They die down at the end.
      */
-    private static void groundFire(Plugin plugin, Location loc, Material block) {
+    /**
+     * The ground under the patch looks like magma for its time (Hot Coals' scorched ground): only to the players around -
+     * the real blocks never change (no magma damage, nothing left behind, nothing to break). Overlapping patches each put
+     * the real blocks back when theirs ends; the other's still shows until it ends too.
+     */
+    private static void groundMagma(Plugin plugin, Location loc) {
         World w = loc.getWorld();
-        var rng = ThreadLocalRandom.current();
-        java.util.List<BlockDisplay> flames = new java.util.ArrayList<>();
-        int ring = 7;
-        for (int i = 0; i <= ring; i++) {
-            double a = Math.PI * 2 * i / ring + rng.nextDouble(-0.3, 0.3);
-            double r = i == ring ? 0 : COAL_FIRE_RADIUS * rng.nextDouble(0.55, 0.75);
-            Location at = ground(loc.clone().add(Math.cos(a) * r, 0, Math.sin(a) * r));
-            if (at == null) continue;
-            float size = (float) rng.nextDouble(0.75, 1.0);
-            flames.add(w.spawn(at, BlockDisplay.class, d -> {
-                d.setBlock(block.createBlockData());
-                d.setPersistent(false);
-                d.setBrightness(new org.bukkit.entity.Display.Brightness(15, 15)); // fire glows, even in the dark
-                d.setTransformation(new Transformation(new Vector3f(-size / 2, 0, -size / 2), new Quaternionf(),
-                        new Vector3f(size, size, size), new Quaternionf()));
-                VisualEntities.mark(d);
-            }));
+        java.util.List<org.bukkit.block.Block> ground = new java.util.ArrayList<>();
+        int r = (int) Math.ceil(COAL_FIRE_RADIUS);
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dz = -r; dz <= r; dz++) {
+                if (dx * dx + dz * dz > COAL_FIRE_RADIUS * COAL_FIRE_RADIUS + 0.5) continue;
+                Location space = ground(loc.clone().add(dx, 0, dz));
+                if (space == null) continue;
+                org.bukkit.block.Block below = space.getBlock().getRelative(org.bukkit.block.BlockFace.DOWN);
+                if (below.getType().isSolid()) ground.add(below);
+            }
         }
-        Bukkit.getScheduler().runTaskLater(plugin, () -> flames.forEach(d -> { // dying down over the last 0.5s
-            if (!d.isValid()) return;
-            Transformation t = d.getTransformation();
-            float size = t.getScale().x();
-            d.setInterpolationDelay(0);
-            d.setInterpolationDuration(10);
-            d.setTransformation(new Transformation(new Vector3f(-size / 2, 0, -size / 2), new Quaternionf(),
-                    new Vector3f(size, 0.05f, size), new Quaternionf()));
-        }), COAL_FIRE_TICKS - 10);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> flames.forEach(d -> {
-            if (d.isValid()) d.remove();
-        }), COAL_FIRE_TICKS);
+        if (ground.isEmpty()) return;
+        var magma = Material.MAGMA_BLOCK.createBlockData();
+        java.util.Map<Location, org.bukkit.block.data.BlockData> fake = new java.util.HashMap<>();
+        for (var b : ground) fake.put(b.getLocation(), magma);
+        java.util.List<org.bukkit.entity.Player> seeing = new java.util.ArrayList<>();
+        for (org.bukkit.entity.Player p : w.getPlayers()) {
+            if (p.getLocation().distanceSquared(loc) > 96 * 96) continue;
+            p.sendMultiBlockChange(fake);
+            seeing.add(p);
+        }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            java.util.Map<Location, org.bukkit.block.data.BlockData> real = new java.util.HashMap<>();
+            for (var b : ground) real.put(b.getLocation(), b.getBlockData()); // what's really there now
+            for (org.bukkit.entity.Player p : seeing) if (p.isOnline() && p.getWorld().equals(w)) p.sendMultiBlockChange(real);
+        }, COAL_FIRE_TICKS);
     }
 
     /** The spot on the ground at {@code at}'s x/z, a block up or down at most: free space with something solid under it. */

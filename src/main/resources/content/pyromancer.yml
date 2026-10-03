@@ -11,7 +11,7 @@
 
 statuses:
   pyro_heat:                         # the gauge (XP bar: filled by its stacks; slot 9: their count)
-    duration: 60                     # 3s without a hit and it's gone, all at once
+    duration: 40                     # 3s without a hit and it's gone, all at once
     stacking: stack
     max_stacks: 8
     at_max: pyro_overheat            # full: she overheats
@@ -21,15 +21,15 @@ statuses:
     requires: pyro_heat              # ends when the gauge runs out
     tags: [state.overheated]         # blue flames (variants below)
     cue: pyro_overheat               # soul flames around her
-    attack_speed: 2.0                # Fire Bolt every 5 ticks instead of 10
+    attack_speed: 1.5                # Fire Bolt every 5 ticks instead of 10
     move_speed: 1.15                 # +15%
     positive: false
   pyro_burn:                         # on fire
-    duration: 60                     # 3s...
+    duration: 40                     # 3s...
     stacking: refresh
     tags: [state.burning]            # looks on fire (no vanilla fire damage)
     tick:
-      every: 10                      # ...2% max HP every 0.5s = 12% (ignores armor)
+      every: 20                      # ...2% max HP every 0.5s = 12% (ignores armor)
       effects:
         - { id: damage, max_hp: 0.02, knockback: false }
   pyro_coals:                        # Hot Coals: jumping higher
@@ -46,7 +46,7 @@ abilities:
 
   # PRIMARY (LMB): Fire Bolt. A bolt of fire (1.6 blocks/tick, 28 blocks): 100% base damage as magic damage.
   pyro_primary:
-    cooldown: 10                     # (the attack_speed stat sets it)
+    cooldown: 15                     # (the attack_speed stat sets it)
     display:
       name: "Fire Bolt"
       description:
@@ -54,7 +54,7 @@ abilities:
     nodes:
       shoot:
         type: projectile
-        speed: 1.6
+        speed: 1.3
         size: 0.45
         range: 28
         lifetime: 40
@@ -103,7 +103,7 @@ abilities:
     nodes:
       throw:
         type: projectile
-        speed: 1.1
+        speed: 0.9
         size: 0.9
         lifetime: 50                 # ~50 blocks
         visual: "block:FIRE"
@@ -119,7 +119,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
-          - { id: damage, base: 1.6 }
+          - { id: damage, base: 1.2 }
           - { id: status, status: pyro_burn }
           - { id: knockback, from: hit, radius: 3.5, center: 0.8, edge: 0.3, lift: 0.3 }
         count: struck
@@ -178,7 +178,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3 }
         effects:
-          - { id: damage, base: 1.4 }
+          - { id: damage, base: 1.2 }
           - { id: status, status: pyro_burn }
         count: struck
         next: heat

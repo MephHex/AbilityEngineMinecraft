@@ -75,6 +75,22 @@ class ItemHooksTest {
     }
 
     @Test
+    void maxHpArmoredPoisonIsReducedByArmor() throws IOException {
+        setup(Map.of());
+        t.load(Map.of("abilities", Map.of(
+                "true_dot", Map.of("nodes", Map.of("bite", Map.of("type", "apply_effects", "targets", Map.of("type", "radius", "radius", 20),
+                        "effects", List.of(Map.of("id", "damage", "max_hp", 0.1, "knockback", false))))),
+                "poison_dot", Map.of("nodes", Map.of("bite", Map.of("type", "apply_effects", "targets", Map.of("type", "radius", "radius", 20),
+                        "effects", List.of(Map.of("id", "damage", "max_hp", 0.1, "max_hp_armored", true, "knockback", false))))))));
+        UUID armored = foe(5, 0);
+        t.engine.loadouts().assign(armored, "dragon_hunter"); // 230 HP, 20 armor
+        assertTrue(t.engine.activator().activate(p, "true_dot").success());
+        assertEquals(23, t.damage(armored), 1e-6, "plain max_hp: 10% of 230, armor ignored");
+        assertTrue(t.engine.activator().activate(p, "poison_dot").success());
+        assertEquals(23 + 23 * 100.0 / 120, t.damage(armored), 1e-6, "max_hp_armored: armor takes its share");
+    }
+
+    @Test
     void maxHealthMultipliesTheirMaxHp() throws IOException {
         setup(Map.of("elixir", Map.of("max_health", 1.2)));
         assertEquals(230, t.engine.stats().maxHealth(p), 1e-9);

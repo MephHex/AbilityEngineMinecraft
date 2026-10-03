@@ -29,9 +29,9 @@ statuses:
     healing_taken: 0.6               # poisoned: 40% less healing
     tags: [state.poisoned, state.poison_hearts, state.nauseous]   # poison_hearts: vanilla's green hearts
     tick:
-      every: 20                      # ...2% max HP a second = 8% (ignores armor)
+      every: 20                      # ...2% max HP a second = 8% (armor reduces it)
       effects:
-        - { id: damage, max_hp: 0.02, knockback: false }
+        - { id: damage, max_hp: 0.02, max_hp_armored: true, knockback: false }
   fae_wings:                         # Wild Hunt: free flight, no height limit
     duration: 160                    # 8s
     stacking: refresh
