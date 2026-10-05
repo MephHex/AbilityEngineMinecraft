@@ -761,7 +761,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Projectiles:** `fan: 60` - several (`count`) spread evenly over that many degrees (side to side). `count_bonus:
   <key>` or `stacks:<status>` - that many more (with no `count`: exactly that many). `heading: flight` - launched
   `from: hit`, they fly on the way the shot that hit was flying (`back`: the other way, e.g. off a wall). Launched out of
-  an entity (`from: hit`), they fly through it (they never hit whoever they burst out of).
+  an entity (`from: hit`), they fly through it (they never hit whoever they burst out of). `level: true` - flown flat (no pitch),
+  whichever way the caster looks; with `fan: 360` they go evenly all the way round (a ring of shards).
 - **Cones:** `from: <key>` (a spot, e.g. where a shot hit) with `heading: flight` (along that shot), `ahead: 0.6` (start
   that much further along), `sight: true` (only those in sight from there: not through a wall).
 - **set:** `value: stacks:<status>` stores the caster's stacks of it right now (a number), e.g. a charge's shards for

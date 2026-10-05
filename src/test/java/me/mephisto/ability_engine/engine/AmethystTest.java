@@ -1,6 +1,7 @@
 package me.mephisto.ability_engine.engine;
 
 import me.mephisto.ability_engine.engine.loadout.Slots;
+import me.mephisto.ability_engine.engine.math.Vec3;
 import me.mephisto.ability_engine.engine.tag.Tags;
 import me.mephisto.ability_engine.engine.testkit.ShippedContent;
 import me.mephisto.ability_engine.engine.testkit.TestEngine;
@@ -61,6 +62,10 @@ class AmethystTest {
         return t.engine.statuses().find(id, status).map(s -> s.stacks()).orElse(0);
     }
 
+    private Vec3 pos(UUID id) {
+        return t.world.positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(id)).orElseThrow().position();
+    }
+
     private int ammo() { return t.engine.resources().get(p, "ammo"); }
 
     // ---- regular and piercing shards -------------------------------------------------------------------------
@@ -78,6 +83,15 @@ class AmethystTest {
         assertEquals(5, ammo(), "a shard of ammo");
         assertTrue(t.engine.activator().isUnavailable(p, t.engine.abilities().find("amethyst_recall").orElseThrow()),
                 "nothing to recall");
+    }
+
+    @Test
+    void theAmmoDoesntRefillByItself() throws IOException {
+        setup();
+        for (int i = 0; i < 3; i++) shoot();
+        assertEquals(3, ammo());
+        t.time.advance(20 * 20);
+        assertEquals(3, ammo(), "20s later: still 3 (only Recall, Shard Rush and the ult's shards bring them back)");
     }
 
     @Test
@@ -123,43 +137,45 @@ class AmethystTest {
         assertEquals(Math.min(6, before + 3), ammo(), "into the ammo");
         assertEquals(BASE * (1 + 0.95 + 0.9), t.damage(enemy), 1e-6, "100%, 95%, 90%");
         assertEquals(3, stacks(enemy, "amethyst_shard_slow"));
-        assertTrue(has(enemy, "amethyst_bleed"));
+        assertTrue(t.engine.statuses().on(enemy).stream().noneMatch(x -> x.def().id().contains("bleed")), "no bleed");
     }
 
     // ---- Crystal Volley --------------------------------------------------------------------------------------
 
     @Test
-    void crystalVolleyRootsGuardsAndGrowsWithEveryHitTakenUpToTen() throws IOException {
+    void crystalVolleyRootsAndGuardsHerHitsTakenDontAddShards() throws IOException {
         setup();
         UUID enemy = foe(5, 3);
         use(Slots.ABILITY_2);
-        assertEquals(6, stacks(p, "amethyst_volley_charging"), "6 shards to start");
+        assertTrue(has(p, "amethyst_volley_charging"));
         assertTrue(t.engine.tags().has(p, Tags.BLOCK_MOVE), "rooted");
         t.engine.activator().activate(enemy, "punch");
-        assertEquals(10 * 0.7 * 100 / 105.0, t.damage(p), 1e-6, "30% less (and her 5 armor)");
-        assertEquals(7, stacks(p, "amethyst_volley_charging"), "a hit: one more");
-        for (int i = 0; i < 5; i++) t.engine.activator().activate(enemy, "punch");
-        assertEquals(10, stacks(p, "amethyst_volley_charging"), "10 at most");
+        t.engine.activator().activate(enemy, "punch");
+        assertEquals(2 * 10 * 0.7 * 100 / 105.0, t.damage(p), 1e-6, "30% less (and her 5 armor)");
+        use(Slots.PRIMARY);                    // LMB: loose it
+        assertEquals(6, t.engine.projectiles().activeCount(), "still 6");
     }
 
     @Test
-    void lmbLoosesEveryShardAtOnceEachShattersOnWhatItHits() throws IOException {
+    void lmbLoosesSixShardsAllAroundHerKnockingEnemiesAwayWithHerOnHits() throws IOException {
         setup();
-        UUID side = foe(5, 6);                 // to hurt her, out of the way
+        t.load(map("statuses", map("spiked", map("duration", 0, "on_hit", list(map("id", "status", "status", "marked"))),
+                "marked", map("duration", 100))));
+        t.engine.statuses().apply(p, "spiked", 0, p);
+        // her aim is +x: the 6 go at 0, 60, 120, 180, 240 and 300 degrees
+        UUID ahead = foe(4, 0), behind = foe(-4, 0), off = foe(2, 3.46), between = foe(0, -4);
         use(Slots.ABILITY_2);
-        t.engine.activator().activate(side, "punch");
-        t.engine.activator().activate(side, "punch"); // 8 shards
-        UUID front = foe(6, 0);
-        UUID behind = foe(9, 1.7);             // where a fragment flies on (30 degrees off)
         use(Slots.PRIMARY);                    // LMB: loose it
         assertFalse(has(p, "amethyst_volley_charging"), "free again");
-        assertEquals(8, t.engine.projectiles().activeCount(), "all 8 shards at once");
-        t.time.advance(20);
-        double each = BASE * 0.3;
-        int landed = (int) Math.round(t.damage(front) / each);
-        assertTrue(landed >= 2, "several of the volley's shards hit the one in front: " + t.damage(front));
-        assertEquals(landed * each, t.damage(front), 1e-6, "30% each; their fragments burst out of them, not into them again");
-        assertTrue(t.damage(behind) >= BASE * 0.2 - 1e-6, "the fragments fly on through whoever's behind");
+        assertEquals(6, t.engine.projectiles().activeCount(), "6 shards");
+        t.time.advance(10);
+        for (UUID hit : java.util.List.of(ahead, behind, off)) {
+            assertEquals(BASE * 0.6, t.damage(hit), 1e-6, "60%");
+            Vec3 away = t.knockbackVec.get(hit);
+            assertTrue(away != null && away.x() * pos(hit).x() + away.z() * pos(hit).z() > 0, "knocked away from her");
+            assertTrue(has(hit, "marked"), "her on-hit effects");
+        }
+        assertEquals(0, t.damage(between), 1e-9, "between two shards (90 degrees): missed");
     }
 
     @Test
@@ -197,6 +213,16 @@ class AmethystTest {
         }
         assertFalse(t.engine.activator().isUnavailable(p, t.engine.abilities().find("amethyst_recall").orElseThrow()),
                 "Recall can bring them back");
+    }
+
+    @Test
+    void prismaticBurstOnAWallSpawnsNoShards() throws IOException {
+        setup();
+        t.world.box(6, 7, -3, 3, 10);          // a wall 6 blocks ahead
+        use(Slots.ULTIMATE);
+        t.time.advance(31 + 25);
+        assertEquals(0, t.engine.constructs().activeCount(), "no shards off a wall");
+        assertEquals(0, t.engine.projectiles().activeCount());
     }
 
     @Test

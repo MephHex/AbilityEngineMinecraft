@@ -32,6 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@code count_bonus: stacks:<status>} (or a key holding a number) fires that many more than {@code count} (with no
  * {@code count} given: exactly that many);
  * {@code heading: flight} (from a hit) flies on the way the shot that hit was flying, {@code back} the other way.
+ * {@code level: true} flies them flat (no pitch); {@code fan: 360} sends them evenly all the way round.
  */
 public final class ProjectileNode implements GraphNode {
 
@@ -61,9 +62,10 @@ public final class ProjectileNode implements GraphNode {
      * @param countBonus "stacks:<status>" (the caster's stacks of it) or a key holding a number: that many more
      * @param heading    which way they fly
      * @param baseCount  with a bonus: how many before it (-1 = the spec's count)
+     * @param level      flown level (no pitch): a ring of shards stays flat, whichever way the caster looks
      */
-    public record Pattern(double fan, String countBonus, Heading heading, int baseCount) {
-        public static final Pattern NONE = new Pattern(0, null, Heading.AIM, -1);
+    public record Pattern(double fan, String countBonus, Heading heading, int baseCount, boolean level) {
+        public static final Pattern NONE = new Pattern(0, null, Heading.AIM, -1, false);
     }
 
     private final ProjectileSpec spec;
@@ -142,6 +144,10 @@ public final class ProjectileNode implements GraphNode {
             Vec3 along = flight(ctx).orElse(aimDir);
             aimDir = pattern.heading() == Heading.BACK ? along.multiply(-1) : along;
         }
+        if (pattern.level()) {
+            Vec3 flat = new Vec3(aimDir.x(), 0, aimDir.z());
+            aimDir = flat.isZero() ? new Vec3(1, 0, 0) : flat.normalize();
+        }
         if (launch.toward() != null) {
             Vec3 from = origin != null ? origin : a.eye();
             aimDir = KeyQuery.read(ctx, launch.toward()).flatMap(ctx.engine().world()::positionOf)
@@ -165,7 +171,7 @@ public final class ProjectileNode implements GraphNode {
             Vec3 way = fan <= 0 || count < 2 ? aimDir
                     : yaw(aimDir, fan >= Math.PI * 2 - 1e-6 ? fan * i / count : -fan / 2 + fan * i / (count - 1));
             Vec3 dir = way.randomInCone(spread, ThreadLocalRandom.current());
-            Vec3 start = origin != null ? origin : a.eye().add(aimDir.multiply(MUZZLE_OFFSET));
+            Vec3 start = origin != null ? origin : a.eye().add(way.multiply(MUZZLE_OFFSET));
             var handle = ctx.engine().projectiles().launch(shown, world, start, dir.multiply(spec.speed()),
                     branch.suspend(), origin != null ? origin : a.eye(), tint);
             // Launched out of an entity (from: hit, the one a shot hit): it doesn't hit them again on its way out

@@ -49,11 +49,11 @@ melee-assist-reach: 1.0
 # Only turn this on when every player has the pack (server.properties resource-pack + require-resource-pack): without
 # it they'd see a missing-model icon.
 resource-pack:
-  hide-ultimate-in-hand: false
+  hide-ultimate-in-hand: true
 
 # Primary-fire projectiles (shots, bolts, shards) are this many blocks wider against players and mobs (not terrain:
 # they don't catch on the ground or wall corners any sooner). 0 = their own size.
-primary-projectile-hitbox: 0.25
+primary-projectile-hitbox: 0.20
 
 # While a player has a character, their inventory is a display (the HUD): nothing can be moved.
 # Free some of it here, e.g. for an item plugin's bag. Read again on every /ae reload.

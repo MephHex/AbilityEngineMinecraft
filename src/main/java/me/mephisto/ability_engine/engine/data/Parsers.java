@@ -144,7 +144,8 @@ public final class Parsers {
         }
         String bonus = p.getString("count_bonus", null);
         int base = bonus != null && !p.has("count") ? 0 : -1; // a bonus alone: exactly that many
-        return new me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Pattern(fan, bonus, h, base);
+        return new me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Pattern(fan, bonus, h, base,
+                p.getBool("level", false));
     }
 
     private static int trailEvery(Params p) {

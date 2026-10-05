@@ -9,8 +9,8 @@
 #   them PIERCING shards: through every enemy (80% to the first, 50% to each behind it), on to where they end (their
 #   range, the ground, a wall), and they hang there, bobbing, for 7s (6 at most). Recall (3) brings piercing shards back
 #   through everyone on the way, into the ammo; one that fades on its own is gone. Their on-hit effects land going out
-#   and coming back. The ammo also refills by itself, a shard every 3s. Out of ammo, her shots are plain and much
-#   slower (about 1.5 a second) until she has some again.
+#   and coming back. The ammo doesn't refill by itself: Recall brings shards back (+1 each) and Shard Rush gives 4.
+#   Out of ammo, her shots are plain and much slower (about 1.5 a second) until she has some again.
 #
 # ULTIMATE (F): Prismatic Burst (charges up from hits, see config.yml ultimate-charge).
 
@@ -20,17 +20,6 @@ statuses:
     stacking: stack
     max_stacks: 6
     move_speed: 0.75                 # x0.75 per shard: 6 shards = x0.18
-
-  amethyst_bleed:                    # Recall: bleeding (less healing, weaker, and it hurts)
-    duration: 60                     # 3s...
-    stacking: refresh
-    healing_taken: 0.6               # 40% less healing
-    damage_dealt: 0.85               # -15% damage dealt
-    tags: [state.bleeding]
-    tick:
-      every: 20                      # ...2.5% of their max HP a second = 7.5% (ignores armor)
-      effects:
-        - { id: damage, max_hp: 0.025, knockback: false }
 
   amethyst_recalled:                 # Recall: how many shards of this Recall hit them already (each does 5% less)
     duration: 40                     # 2s: gone before the next Recall (5s)
@@ -59,16 +48,11 @@ statuses:
     max_stacks: 4
     positive: false
 
-  amethyst_volley_charging:          # Crystal Volley: charging (stacks = shards in the volley: 6, +1 per hit taken, 10 at most)
+  amethyst_volley_charging:          # Crystal Volley: charging (rooted, guarded, its 6 shards circling her)
     duration: 60                     # (taken off when it's loosed: 2s of charge at most)
-    stacking: stack
-    max_stacks: 10
     damage_taken: 0.7                # 30% less damage taken while charging
     tags: [state.volley_charging, block.move]   # rooted in place
-    on_damaged:                      # every hit taken: one more shard
-      - { id: status, status: amethyst_volley_charging }
-    cue: amethyst_volley_ring        # the shards circling her (amethyst_volley_ring_6 ... _10: one per stack)
-    cue_per_stack: true
+    cue: amethyst_volley_ring_6      # the 6 shards circling her
     positive: false
 
   amethyst_prism_charging:           # Prismatic Burst: charging (LMB or F again looses it)
@@ -90,7 +74,7 @@ abilities:
       name: "Amethyst Shard"
       description:
         - "Fast shards: 80% base damage. 6 shards"
-        - "of ammo (+1 every 3s). Piercing shards"
+        - "of ammo (back by Recall). Piercing shards"
         - "(Shard Rush, Prismatic Burst) go through"
         - "everyone (50% behind the first) and hang"
         - "7s where they end: 3 recalls them."
@@ -238,7 +222,6 @@ abilities:
               falloff: { status: amethyst_recalled, per_stack: 0.05, min: 0.1 } }
           - { id: status, status: amethyst_recalled }
           - { id: status, status: amethyst_shard_slow }
-          - { id: status, status: amethyst_bleed }
         next: rend_cue
       rend_cue:
         type: play_cue
@@ -306,33 +289,27 @@ abilities:
         resource: ammo
         amount: 4
 
-  # 2: Crystal Volley (10s). Root yourself and charge a volley of 6 shards (up to 2s), taking 30% less damage meanwhile;
-  # every hit you take adds a shard (10 at most). LMB (or 2 again) looses it early; at 2s it goes by itself. Every shard
-  # flies at once, evenly spread over 20 degrees (1.8 blocks/tick, 24 blocks): 30% base damage to the first enemy each
-  # hits, and there it shatters into 2 fragments that burst on (60 degrees apart; off a wall: back the way it came),
-  # 20% base damage to every enemy each passes through (5 blocks).
+  # 2: Crystal Volley (10s). Root yourself and charge (up to 2s), taking 30% less damage meanwhile, 6 shards circling
+  # you. LMB (or 2 again) looses it early; at 2s it goes by itself. The 6 shards burst out of you all the way round, evenly
+  # and level (1.4 blocks/tick, 9 blocks), through every enemy in their way: 60% base damage, your on-hit effects, and
+  # knocked away from you.
   amethyst_ab2:
     cooldown: 200                    # 10s
     display:
       name: "Crystal Volley"
       icon: BUDDING_AMETHYST
       description:
-        - "Root yourself and charge a volley of 6"
-        - "shards (30% less damage taken; +1 shard"
-        - "per hit taken, 10 at most). LMB or 2"
-        - "looses them: 30% each, and each shatters"
-        - "on what it hits into 2 fragments (20%)."
+        - "Root yourself and charge 6 shards (30%"
+        - "less damage taken). LMB or 2 looses them:"
+        - "they burst out all around you, 60% base"
+        - "damage and on-hits to everyone they pass"
+        - "through, knocking them away."
     nodes:
       gather:
-        type: apply_effects          # 6 shards, circling her; rooted, guarded
+        type: apply_effects          # rooted, guarded, the shards circling her
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: status, status: amethyst_volley_charging }
-          - { id: status, status: amethyst_volley_charging }
-          - { id: status, status: amethyst_volley_charging }
-          - { id: status, status: amethyst_volley_charging }
-          - { id: status, status: amethyst_volley_charging }
           - { id: status, status: amethyst_volley_charging }
         next: gather_cue
       gather_cue:
@@ -342,12 +319,7 @@ abilities:
       charge:
         type: charge                 # up to 2s: LMB or 2 again looses it, or it goes by itself
         ticks: 40
-        on: { out: count, early: count }
-      count:
-        type: set                    # how many it gathered
-        key: shards
-        value: stacks:amethyst_volley_charging
-        next: loose
+        on: { out: loose, early: loose }
       loose:
         type: apply_effects          # free to move again
         targets: { type: self }
@@ -356,67 +328,31 @@ abilities:
           - { id: remove_status, status: amethyst_volley_charging }
         next: volley
       volley:
-        type: projectile             # every shard at once, evenly spread
-        count_bonus: shards
-        fan: 20
-        speed: 1.8
-        size: 0.35
-        range: 24
-        lifetime: 20
+        type: projectile             # 6 shards, all the way round her, level
+        count: 6
+        fan: 360
+        level: true
+        speed: 1.4
+        size: 0.5
+        range: 9
+        lifetime: 10
+        pierce: 10
         visual: AMETHYST_SHARD
         visual_size: 0.7
         face_flight: true
-        on: { spawned: volley_cue, hit_entity: impact, hit_block: shatter_back }
+        on: { spawned: volley_cue, hit_entity: blast }
       volley_cue:
         type: play_cue
         cue: amethyst_volley_shot
-      impact:
-        type: apply_effects          # the one it hits
+      blast:
+        type: apply_effects          # each enemy a shard passes through
         targets: { type: key, key: hit }
+        on_hit: true                 # with your on-hit effects
         effects:
-          - { id: damage, base: 0.3, ignore_iframes: true, knockback: false }
-        next: shatter_on
-      shatter_on:
-        type: projectile             # ...and it shatters: 2 fragments burst on, out of them
-        from: hit
-        heading: flight
-        count: 2
-        fan: 60
-        speed: 1.4
-        size: 0.3
-        range: 5
-        lifetime: 8
-        pierce: 10
-        visual: AMETHYST_SHARD
-        visual_size: 0.4
-        face_flight: true
-        on: { spawned: shatter_cue, hit_entity: splinter }
-      shatter_back:
-        type: projectile             # off a wall: the fragments burst back the way it came
-        from: hit
-        heading: back
-        count: 2
-        fan: 60
-        speed: 1.4
-        size: 0.3
-        range: 5
-        lifetime: 8
-        pierce: 10
-        visual: AMETHYST_SHARD
-        visual_size: 0.4
-        face_flight: true
-        on: { spawned: shatter_cue, hit_entity: splinter }
-      shatter_cue:
-        type: play_cue
-        cue: amethyst_shard_hit
-        at: hit
-      splinter:
-        type: apply_effects
-        targets: { type: key, key: hit }
-        effects:
-          - { id: damage, base: 0.2, ignore_iframes: true, knockback: false }
-        next: splinter_cue
-      splinter_cue:
+          - { id: damage, base: 0.6, ignore_iframes: true, knockback: false }
+          - { id: knockback, from: caster, radius: 9, center: 1.0, edge: 0.5, lift: 0.3 }
+        next: blast_cue
+      blast_cue:
         type: play_cue
         cue: amethyst_shard_hit
         at: hit
@@ -437,7 +373,7 @@ abilities:
   # where they are, and every one (hanging or just stopped, from shots and from Prismatic Burst) flies back to you, each
   # back in your ammo, through enemies on the way: each shard that hits deals 100% base damage, 5% less for each shard of
   # this Recall that hit the same enemy before it (100, 95, 90... down to 10%), with your on-hit effects; it slows them
-  # more (x0.75 a shard, 2s), and they bleed for 3s (40% less healing, -15% damage, 7.5% of their max HP over the 3s).
+  # more (x0.75 a shard, 2s).
   amethyst_recall:
     cooldown: 100                    # 5s
     needs_constructs: [amethyst_primary, amethyst_ult1]   # only with shards out: the icon counts them, grey with none
@@ -449,8 +385,8 @@ abilities:
         - "Every hanging shard flies back to you"
         - "(and your ammo). Each that hits: 100%"
         - "base damage, 5% less per shard that hit"
-        - "them before (to 10%), a stronger slow;"
-        - "they bleed 3s (7.5% max HP)."
+        - "them before (to 10%), and a stronger"
+        - "slow."
     nodes:
       stop:
         type: end_projectiles        # shards still flying stop right where they are (and hang there)...
@@ -482,8 +418,8 @@ abilities:
   # itself) and fire it (1.6 blocks/tick, 30 blocks). On the first enemy it hits: they're rooted 0.75s but take no
   # impact damage; the prism shatters behind them, 180% base damage (with your on-hit effects) to everyone in a 7 block,
   # 70 degree cone onward (60% of it fired at once, all of it fully charged), and 6 piercing shards fly out of it in an
-  # even 60 degree fan (9 blocks, through everyone: 80% to the first, 50% behind) and hang where they end, for Recall
-  # (they go into your ammo). On a wall: the cone doesn't reach through it, the shards still fly.
+  # even, level 60 degree fan (14 blocks, through everyone: 80% to the first, 50% behind) and hang where they end, for
+  # Recall (they go into your ammo). On a wall: the cone doesn't reach through it, and no shards.
   amethyst_ult1:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
     display:
@@ -544,26 +480,31 @@ abilities:
           - { id: damage, base: 1.8, scale_by: power }
         next: burst_cue
       burst_wall:
-        type: apply_effects          # on a wall: not through it
+        type: apply_effects          # on a wall: not through it, and no shards
         targets: { type: cone, from: hit, heading: flight, ahead: -0.4, range: 7, angle: 70, sight: true }
         on_hit: true
         effects:
           - { id: damage, base: 1.8, scale_by: power }
-        next: burst_cue
+        next: wall_cue
+      wall_cue:
+        type: play_cue
+        cue: amethyst_shatter
+        at: hit
       burst_cue:
         type: play_cue
         cue: amethyst_shatter
         at: hit
         next: shoot
       shoot:
-        type: projectile             # 6 piercing shards, an even fan, onward
+        type: projectile             # 6 piercing shards, an even fan, onward and level
         from: hit
         heading: flight
+        level: true
         count: 6
         fan: 60
-        speed: 1.3
+        speed: 1.4
         size: 0.4
-        range: 9
+        range: 14
         lifetime: 14
         pierce: 10
         visual: AMETHYST_SHARD
@@ -650,7 +591,6 @@ abilities:
               falloff: { status: amethyst_recalled, per_stack: 0.05, min: 0.1 } }
           - { id: status, status: amethyst_recalled }
           - { id: status, status: amethyst_shard_slow }
-          - { id: status, status: amethyst_bleed }
         next: rend_cue
       rend_cue:
         type: play_cue
@@ -682,7 +622,7 @@ characters:
     resources:
       ammo:                          # PASSIVE: her shards (the count on her weapon)
         max: 6
-        regen_every: 60              # a shard every 3s (60 ticks), all the time (Recall brings piercing ones back sooner)
+        # no refill by itself: shards come back with Recall (each one +1), Shard Rush (+4) and the ult's shards
         on_weapon: true              # the weapon's stack is the ammo (no hotbar slot of its own)
     forms:
       - while: state.volley_charging    # Crystal Volley: LMB looses it
