@@ -211,9 +211,16 @@ public final class BukkitWorldQuery implements WorldQuery {
     }
 
     /** Null if the entity can be targeted, otherwise the reason (shown in debug traces). */
+    /**
+     * Entities with this scoreboard tag are left alone by abilities (never targeted or hit) and by the inputs (a right
+     * click on one is a plain interaction, e.g. a craftsman to trade with): another plugin's NPCs.
+     */
+    public static final String IGNORE_TAG = "ae_ignore";
+
     private static String whyNotTargetable(Entity e) {
         if (!(e instanceof LivingEntity living)) return "not a living entity";
         if (VisualEntities.isVisual(e)) return "ability visual";
+        if (e.getScoreboardTags().contains(IGNORE_TAG)) return "ignored (" + IGNORE_TAG + " tag)";
         if (living.isDead()) return "dead";
         if (!living.isValid()) return "not valid";
         if (e instanceof Player p && p.getGameMode() == GameMode.SPECTATOR) return "spectator";

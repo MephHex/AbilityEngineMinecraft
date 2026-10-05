@@ -63,8 +63,9 @@ inventory:
   # Keep 9-11 and 18-20 out of it: the character's stat items sit there.
   # The 3x3 bag on the right (ItemSystem's items work there; CaptureThePoint's loot goes there). [] = all locked.
   free-slots: [15, 16, 17, 24, 25, 26, 33, 34, 35]
-  # The 2x2 crafting grid (and taking what it makes) as well: ItemSystem's items are crafted there.
-  free-crafting: true
+  # The 2x2 crafting grid (and taking what it makes) as well. Off: ItemSystem's items are crafted at a craftsman
+  # (CaptureThePoint), not in your inventory (ItemSystem's self-crafting: true and this true to craft anywhere).
+  free-crafting: false
 
 # ---- Development helpers -------------------------------------------------------------------
 # Both are read again on every /ae reload. Leave them off on a real server.

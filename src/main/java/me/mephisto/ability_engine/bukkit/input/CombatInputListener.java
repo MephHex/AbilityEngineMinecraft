@@ -276,6 +276,9 @@ public final class CombatInputListener implements Listener {
             return;
         }
         if (!inCombat(p) && !aiming(p)) return;
+        // Another plugin's NPC (ae_ignore): a plain interaction for it to handle, not a secondary fire
+        if (e.getRightClicked().getScoreboardTags().contains(
+                me.mephisto.ability_engine.bukkit.platform.BukkitWorldQuery.IGNORE_TAG)) return;
         e.setCancelled(true);
         // Crossbows: the client follows up with a plain "use item" (onInteract), which draws.
         if (!aiming(p) && (hud.usesCrossbow(p) || hud.usesScope(p))) return;
