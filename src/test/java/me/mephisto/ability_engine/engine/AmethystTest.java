@@ -143,26 +143,23 @@ class AmethystTest {
     }
 
     @Test
-    void lmbLoosesTheVolleyItShattersOnWhatItHitsIntoItsShards() throws IOException {
+    void lmbLoosesEveryShardAtOnceEachShattersOnWhatItHits() throws IOException {
         setup();
         UUID side = foe(5, 6);                 // to hurt her, out of the way
         use(Slots.ABILITY_2);
         t.engine.activator().activate(side, "punch");
         t.engine.activator().activate(side, "punch"); // 8 shards
         UUID front = foe(6, 0);
-        UUID behind = foe(9, 0);
+        UUID behind = foe(9, 1.7);             // where a fragment flies on (30 degrees off)
         use(Slots.PRIMARY);                    // LMB: loose it
         assertFalse(has(p, "amethyst_volley_charging"), "free again");
-        int flying = 0;
-        for (int i = 0; i < 10 && t.damage(front) == 0; i++) {
-            t.time.advance(1);
-            flying = t.engine.projectiles().activeCount();
-        }
-        assertEquals(BASE * 0.8, t.damage(front), 1e-6, "the impact: 80%");
-        assertEquals(8, flying, "it shattered into its 8 shards");
-        t.time.advance(10);
-        assertEquals(BASE * 0.8, t.damage(front), 1e-6, "the shards burst out of it, not into it again");
-        assertTrue(t.damage(behind) >= BASE * 0.45 - 1e-6, "they fly on through whoever's behind");
+        assertEquals(8, t.engine.projectiles().activeCount(), "all 8 shards at once");
+        t.time.advance(20);
+        double each = BASE * 0.3;
+        int landed = (int) Math.round(t.damage(front) / each);
+        assertTrue(landed >= 2, "several of the volley's shards hit the one in front: " + t.damage(front));
+        assertEquals(landed * each, t.damage(front), 1e-6, "30% each; their fragments burst out of them, not into them again");
+        assertTrue(t.damage(behind) >= BASE * 0.2 - 1e-6, "the fragments fly on through whoever's behind");
     }
 
     @Test
@@ -192,6 +189,12 @@ class AmethystTest {
         assertTrue(t.damage(behind) >= BASE * 1.8 - 1e-6, "the cone behind them: 180% (full charge)");
         t.time.advance(15);
         assertEquals(6, t.engine.constructs().activeCount(), "6 shards hang where they flew");
+        var spots = t.engine.constructs().all().stream().map(c -> c.position()).toList();
+        for (int i = 0; i < spots.size(); i++) {
+            for (int k = i + 1; k < spots.size(); k++) {
+                assertTrue(spots.get(i).distance(spots.get(k)) > 0.8, "each where it flew, spread out: " + spots);
+            }
+        }
         assertFalse(t.engine.activator().isUnavailable(p, t.engine.abilities().find("amethyst_recall").orElseThrow()),
                 "Recall can bring them back");
     }

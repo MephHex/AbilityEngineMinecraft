@@ -103,6 +103,26 @@ public final class HotbarHud {
     /** Per player: the kit last drawn (with any form applied), so a form starting or ending redraws it. */
     private final Map<UUID, CharacterDef> renderedAs = new HashMap<>();
 
+    /** The ultimate's icon (the offhand) is drawn in the inventory / HUD only, not held in the left hand (needs the pack). */
+    private boolean hideOffhandInHand;
+
+    /**
+     * config.yml resource-pack.hide-ultimate-in-hand: the offhand icon uses the resource pack's
+     * {@code ability_engine:hidden/<item>} model (its own look in the GUI, nothing in hand). Only with the pack: without
+     * it, players see a missing-model icon.
+     */
+    public void setHideOffhandInHand(boolean hide) { this.hideOffhandInHand = hide; }
+
+    /** The offhand's item (the ultimate's icon), hidden in hand when the resource pack does that. */
+    private ItemStack offhandIcon(Material look) {
+        ItemStack item = new ItemStack(look);
+        if (!hideOffhandInHand) return item;
+        ItemMeta meta = item.getItemMeta();
+        meta.setItemModel(new NamespacedKey("ability_engine", "hidden/" + look.getKey().getKey()));
+        item.setItemMeta(meta);
+        return item;
+    }
+
     public HotbarHud(Plugin plugin, AbilityEngine engine, Keybinds keybinds) {
         this.engine = engine;
         this.keybinds = keybinds;
@@ -529,6 +549,13 @@ public final class HotbarHud {
                     if (item == null || isHudItem(item)) inv.setItem(pos, gauge(p, def));
                 }
             }
+            weaponCount(id, c).ifPresent(count -> { // on_weapon: the weapon's stack follows the resource
+                ItemStack weapon = inv.getItem(WEAPON_SLOT);
+                if (isHudItem(weapon) && weapon.getAmount() != count && weapon.getType() == weaponMaterial(c)) {
+                    weapon.setAmount(count);
+                    inv.setItem(WEAPON_SLOT, weapon);
+                }
+            });
         });
     }
 
@@ -765,9 +792,25 @@ public final class HotbarHud {
         return weaponMaterial(c);
     }
 
+    /** The amount of the resource shown on the weapon (on_weapon: e.g. ammo), 1-99; empty if none is. */
+    private java.util.OptionalInt weaponCount(UUID id, CharacterDef c) {
+        for (ResourceDef def : c.resources().values()) {
+            if (!def.onWeapon()) continue;
+            int amount = (int) Math.floor(engine.resources().get(id, def.id()) + 1e-9);
+            return java.util.OptionalInt.of(Math.max(1, Math.min(MAX_COUNT, amount))); // (0 shows as 1: no number)
+        }
+        return java.util.OptionalInt.empty();
+    }
+
     private ItemStack weapon(Player p, CharacterDef c) {
         ItemStack item = new ItemStack(weaponMaterial(c));
+        var count = weaponCount(p.getUniqueId(), c);
+        if (count.isPresent()) { // a stack whose size is the ammo (damageable items can't stack: not this one)
+            item.unsetData(io.papermc.paper.datacomponent.DataComponentTypes.MAX_DAMAGE);
+            item.unsetData(io.papermc.paper.datacomponent.DataComponentTypes.DAMAGE);
+        }
         ItemMeta meta = item.getItemMeta();
+        if (count.isPresent()) meta.setMaxStackSize(MAX_COUNT);
         if (weaponGlints(p.getUniqueId(), c)) meta.setEnchantmentGlintOverride(true); // magic rounds loaded
         meta.displayName(plain(c.name(), NamedTextColor.GOLD));
         meta.setUnbreakable(true);
@@ -782,7 +825,9 @@ public final class HotbarHud {
             });
         }
         if (!lore.isEmpty()) meta.lore(lore);
-        return tag(item, meta);
+        tag(item, meta);
+        count.ifPresent(item::setAmount);
+        return item;
     }
 
     /**
@@ -815,7 +860,8 @@ public final class HotbarHud {
      * group keeps its sweep off the weapon. (The offhand's ultimate is never held: a plain item.)
      */
     private ItemStack iconBase(String slot, Material look, CharacterDef c) {
-        if (position(slot) == OFFHAND_SLOT || !iconsPassForWeapon(c)) return new ItemStack(look);
+        if (position(slot) == OFFHAND_SLOT) return offhandIcon(look);
+        if (!iconsPassForWeapon(c)) return new ItemStack(look);
         ItemStack item = new ItemStack(weaponMaterial(c));
         item.unsetData(io.papermc.paper.datacomponent.DataComponentTypes.MAX_DAMAGE); // damageable items can't stack (the
         item.unsetData(io.papermc.paper.datacomponent.DataComponentTypes.DAMAGE);     // count shows seconds left)
@@ -861,7 +907,10 @@ public final class HotbarHud {
 
         List<Component> lore = new ArrayList<>();
         for (String line : a.display().description()) lore.add(plain(line, NamedTextColor.GRAY));
-        if (a.cooldownTicks() > 0) {
+        if (Slots.ULTIMATE.equals(slot) && engine.ultCharge().enabled()) {
+            lore.add(plain("Charges up: abilities and attacks that land,", NamedTextColor.DARK_GRAY));
+            lore.add(plain("and over time.", NamedTextColor.DARK_GRAY));
+        } else if (a.cooldownTicks() > 0) {
             lore.add(plain(a.charges() > 1
                     ? String.format("%d charges, %.1fs each", a.charges(), a.cooldownTicks() / 20.0)
                     : String.format("Cooldown: %.1fs", a.cooldownTicks() / 20.0), NamedTextColor.DARK_GRAY));

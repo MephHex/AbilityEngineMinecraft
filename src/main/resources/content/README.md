@@ -766,5 +766,7 @@ slot, so an ability is only silenced when it's in an ability slot.
   that much further along), `sight: true` (only those in sight from there: not through a wall).
 - **set:** `value: stacks:<status>` stores the caster's stacks of it right now (a number), e.g. a charge's shards for
   when its volley lands.
+- **Resources:** `on_weapon: true` - its amount is the weapon's stack size (e.g. ammo on the gun) instead of an item in
+  a hotbar slot of its own (leave out `hotbar`). 0 shows as a stack of 1.
 - **needs_constructs** takes a list: any of those abilities' constructs count (Recall: shots' shards and the
   ultimate's).

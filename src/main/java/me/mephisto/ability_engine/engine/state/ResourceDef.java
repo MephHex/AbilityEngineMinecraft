@@ -13,9 +13,16 @@ package me.mephisto.ability_engine.engine.state;
  * @param shownWhile     only shown on the hotbar while the owner has this tag (null = always), e.g. the
  *                       ammo of the weapon that's out
  * @param hiddenWhile    not shown while the owner has this tag (null = never hidden)
+ * @param refillSweep    its hotbar item shows the next unit coming back (a cooldown sweep)
+ * @param onWeapon       its amount is the weapon's stack size (e.g. ammo on the gun), instead of an item of its own
  */
 public record ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
-                          int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep) {
+                          int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep, boolean onWeapon) {
+
+    public ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
+                       int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep) {
+        this(id, max, regenPerSecond, delayTicks, hotbarSlot, icon, reloadTicks, shownWhile, hiddenWhile, refillSweep, false);
+    }
 
     /** Without a refill sweep (its hotbar item shows no cooldown sweep for the next unit coming back). */
     public ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,

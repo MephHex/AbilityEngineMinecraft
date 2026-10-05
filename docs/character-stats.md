@@ -352,7 +352,7 @@ Wings (passive): gliding on an elytra, Slow Falling (no fall damage). Fervor (pa
 |---|---|---|---|---|---|---|
 | **180** | **15** (13%) | **35** | **1.00** | **4.5** (rounds to 4 ticks: 5 a second; ~1.5 out of ammo) | 207 | 140 (~40 out of ammo) |
 
-Piercing Shards (passive): 6 shards of ammo (a shard every 3s). Her shots are regular shards (80% to the first enemy
+Piercing Shards (passive): 6 shards of ammo (a shard every 3s; the count on her weapon). Her shots are regular shards (80% to the first enemy
 hit). Piercing shards (Shard Rush, Prismatic Burst) go through everyone (80% to the first, 50% behind), hang where they
 end for 7s (6 at most), and Recall brings them back into the ammo; their on-hit effects land going out and coming back.
 Out of ammo: plain, slower shards.
@@ -361,7 +361,7 @@ Out of ammo: plain, slower shards.
 |---|---|
 | Amethyst Shard (primary) | **80%** to the first enemy (20 blocks). Piercing: **80%** to the first, **50%** to each behind, then it hangs 7s where it ends. Out of ammo: **75%** (18 blocks) |
 | Shard Rush (1, 9s) | 4s of +40% attack speed and +25% movement speed; the next 4 shots (within 10s) are piercing; +4 ammo |
-| Crystal Volley (2, 10s) | rooted, 30% less damage taken, charging a volley of 6 shards (+1 per hit taken, 10 at most; 2s at most, LMB or 2 looses it): it shatters on the first enemy or wall, **80%** to the enemy hit, its shards fan out 100 degrees (off a wall: back), **45%** to everyone each passes through (7 blocks) |
+| Crystal Volley (2, 10s) | rooted, 30% less damage taken, charging a volley of 6 shards (+1 per hit taken, 10 at most; 2s at most, LMB or 2 looses it): every shard at once, spread over 20 degrees, **30%** each to the first enemy it hits; each shatters there into 2 fragments (60 degrees apart, onward; off a wall: back), **20%** to everyone each passes through (5 blocks) |
 | Recall (3, 5s) | every hanging piercing shard flies back (and into the ammo): **100%** per shard that hits, **5% less** for each shard of the Recall that hit the same enemy before (down to 10%), with on-hits; slowed x0.75 per shard 2s, bleeding 3s (7.5% max HP, -40% healing, -15% damage) |
 | Prismatic Burst (ult) | charge up to 1.5s (LMB or F fires early) a prism (30 blocks): the enemy hit is rooted 0.75s, no damage; it shatters behind them, **180%** (60% fired at once) in a 7-block, 70 degree cone with on-hits (not through walls), and 6 piercing shards fan out 60 degrees (9 blocks) and hang for Recall |
 

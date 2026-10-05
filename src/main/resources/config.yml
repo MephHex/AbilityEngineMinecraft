@@ -44,6 +44,13 @@ ultimate-charge:
 # plainly hit. The entity they clicked counts as hit when it's within the swing's range plus this many blocks.
 melee-assist-reach: 1.0
 
+# The resource pack (resourcepack/AbilityEngine-HiddenUlt.zip in the project): with it, the ultimate's icon in the
+# offhand slot shows in the hotbar / inventory as usual but isn't held in the left hand (nobody sees it in your hand).
+# Only turn this on when every player has the pack (server.properties resource-pack + require-resource-pack): without
+# it they'd see a missing-model icon.
+resource-pack:
+  hide-ultimate-in-hand: false
+
 # Primary-fire projectiles (shots, bolts, shards) are this many blocks wider against players and mobs (not terrain:
 # they don't catch on the ground or wall corners any sooner). 0 = their own size.
 primary-projectile-hitbox: 0.25

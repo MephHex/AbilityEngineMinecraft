@@ -337,7 +337,8 @@ public final class AbilityLoader {
             }
             resources.put(name, new ResourceDef(name, r.requireDouble("max"), regen,
                     r.getInt("delay", 0), hotbar, r.getString("icon", null), reload,
-                    r.getString("shown_while", null), r.getString("hidden_while", null), r.getBool("refill_sweep", false)));
+                    r.getString("shown_while", null), r.getString("hidden_while", null), r.getBool("refill_sweep", false),
+                    r.getBool("on_weapon", false)));
         }
         QuiverDef quiver = p.has("quiver") ? Parsers.quiver(p.getParams("quiver"), engine.statusDefs().ids()) : null;
         if (quiver != null && quiver.hotbarSlot() > 0) {

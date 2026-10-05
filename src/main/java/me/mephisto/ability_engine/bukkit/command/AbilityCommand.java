@@ -127,8 +127,11 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
             case "cdclear" -> {
                 if (args.length >= 2) engine.cooldowns().clear(id, args[1]);
                 else engine.cooldowns().clearAll(id);
+                boolean ult = args.length < 2 || engine.stats().isUltimate(id, args[1]);
+                if (ult && engine.ultCharge().enabled()) engine.ultCharge().set(id, 100); // the ultimate: fully charged
                 hud.refresh(player);
-                player.sendMessage(ChatColor.GREEN + "Cooldowns cleared.");
+                player.sendMessage(ChatColor.GREEN + "Cooldowns cleared" + (ult && engine.ultCharge().enabled()
+                        ? ", ultimate charged." : "."));
             }
             case "status" -> {
                 player.sendMessage(ChatColor.GOLD + "Character: " + ChatColor.WHITE

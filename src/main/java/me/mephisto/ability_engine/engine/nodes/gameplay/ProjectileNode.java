@@ -23,7 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * </ul>
  * With {@code store}, the projectile's handle is written to the blackboard of the branch that
  * continues from "spawned", so later nodes (redirect_projectile, await_recast) can reach it.
- * For count > 1 the last projectile is stored.
+ * For count > 1 the last projectile is stored there; each projectile's own exits (hit, expired) see their own.
  * <p>
  * {@link Launch}: instead of the caster's eyes it can start at a key ({@code from}), {@code up} blocks above it
  * and {@code back} blocks back toward the caster (a meteor out of the sky), and fly at another key
@@ -172,7 +172,10 @@ public final class ProjectileNode implements GraphNode {
             if (fromEntity != null) ctx.engine().projectiles().ignore(handle, fromEntity);
             // Primary fire from the eyes: a wider body against entities (config.yml primary-projectile-hitbox)
             if (primaryFire) ctx.engine().projectiles().widenForEntities(handle, ctx.engine().primaryHitbox());
-            if (store != null) ctx.blackboard().putRaw(store, handle);
+            if (store != null) {
+                ctx.blackboard().putRaw(store, handle);
+                branch.blackboard().putRaw(store, handle); // its own exits see its own (a fan of shards: where each ended)
+            }
         }
         return NodeResult.out(Ports.SPAWNED);
     }

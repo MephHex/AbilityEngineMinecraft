@@ -182,6 +182,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         engine.stats().setArmorConstant(getConfig().getDouble("armor-constant", 100));
         engine.stats().setMobMaxHpCap(getConfig().getDouble("max-hp-damage-cap-for-mobs", 200));
         engine.setMeleeAssistReach(getConfig().getDouble("melee-assist-reach", 1.0));
+        hud.setHideOffhandInHand(getConfig().getBoolean("resource-pack.hide-ultimate-in-hand", false));
         engine.setPrimaryHitbox(getConfig().getDouble("primary-projectile-hitbox", 0.25));
         engine.ultCharge().configure(getConfig().getBoolean("ultimate-charge.enabled", true),
                 getConfig().getDouble("ultimate-charge.ability-hit", 5), getConfig().getDouble("ultimate-charge.basic-hit", 2),

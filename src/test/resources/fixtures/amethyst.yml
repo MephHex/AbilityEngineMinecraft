@@ -4,7 +4,7 @@
 # a fan of shards.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Piercing Shards): 6 shards of ammo (hotbar slot 9) and very fast shots (attack speed 4.5: a 4-tick cooldown,
+# PASSIVE (Piercing Shards): 6 shards of ammo (the count on her weapon) and very fast shots (attack speed 4.5: a 4-tick cooldown,
 #   so 5 a second). Her basic attacks are regular shards (80% base damage to the first enemy hit). Some abilities make
 #   them PIERCING shards: through every enemy (80% to the first, 50% to each behind it), on to where they end (their
 #   range, the ground, a wall), and they hang there, bobbing, for 7s (6 at most). Recall (3) brings piercing shards back
@@ -307,10 +307,10 @@ abilities:
         amount: 4
 
   # 2: Crystal Volley (10s). Root yourself and charge a volley of 6 shards (up to 2s), taking 30% less damage meanwhile;
-  # every hit you take adds a shard (10 at most). LMB (or 2 again) looses it early; at 2s it goes by itself. The volley
-  # flies (1.8 blocks/tick, 24 blocks) and shatters on the first enemy or wall it hits: the enemy hit takes 80% base
-  # damage, and its shards burst onward in a 100 degree fan (off a wall: back the way it came), 45% base damage to every
-  # enemy each passes through (7 blocks).
+  # every hit you take adds a shard (10 at most). LMB (or 2 again) looses it early; at 2s it goes by itself. Every shard
+  # flies at once, evenly spread over 20 degrees (1.8 blocks/tick, 24 blocks): 30% base damage to the first enemy each
+  # hits, and there it shatters into 2 fragments that burst on (60 degrees apart; off a wall: back the way it came),
+  # 20% base damage to every enemy each passes through (5 blocks).
   amethyst_ab2:
     cooldown: 200                    # 10s
     display:
@@ -320,8 +320,8 @@ abilities:
         - "Root yourself and charge a volley of 6"
         - "shards (30% less damage taken; +1 shard"
         - "per hit taken, 10 at most). LMB or 2"
-        - "looses it: it shatters on what it hits"
-        - "(80%) into a fan of shards (45% each)."
+        - "looses them: 30% each, and each shatters"
+        - "on what it hits into 2 fragments (20%)."
     nodes:
       gather:
         type: apply_effects          # 6 shards, circling her; rooted, guarded
@@ -344,7 +344,7 @@ abilities:
         ticks: 40
         on: { out: count, early: count }
       count:
-        type: set                    # how many it gathered (they shatter out of it when it lands)
+        type: set                    # how many it gathered
         key: shards
         value: stacks:amethyst_volley_charging
         next: loose
@@ -356,13 +356,15 @@ abilities:
           - { id: remove_status, status: amethyst_volley_charging }
         next: volley
       volley:
-        type: projectile
+        type: projectile             # every shard at once, evenly spread
+        count_bonus: shards
+        fan: 20
         speed: 1.8
-        size: 0.7
+        size: 0.35
         range: 24
         lifetime: 20
-        visual: AMETHYST_CLUSTER
-        visual_size: 0.9
+        visual: AMETHYST_SHARD
+        visual_size: 0.7
         face_flight: true
         on: { spawned: volley_cue, hit_entity: impact, hit_block: shatter_back }
       volley_cue:
@@ -372,47 +374,47 @@ abilities:
         type: apply_effects          # the one it hits
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.8, knockback: false }
+          - { id: damage, base: 0.3, ignore_iframes: true, knockback: false }
         next: shatter_on
       shatter_on:
-        type: projectile             # ...and its shards burst on, through them, fanning out
+        type: projectile             # ...and it shatters: 2 fragments burst on, out of them
         from: hit
         heading: flight
-        count_bonus: shards
-        fan: 100
+        count: 2
+        fan: 60
         speed: 1.4
-        size: 0.35
-        range: 7
-        lifetime: 10
+        size: 0.3
+        range: 5
+        lifetime: 8
         pierce: 10
         visual: AMETHYST_SHARD
-        visual_size: 0.5
+        visual_size: 0.4
         face_flight: true
         on: { spawned: shatter_cue, hit_entity: splinter }
       shatter_back:
-        type: projectile             # off a wall: the shards burst back the way it came
+        type: projectile             # off a wall: the fragments burst back the way it came
         from: hit
         heading: back
-        count_bonus: shards
-        fan: 100
+        count: 2
+        fan: 60
         speed: 1.4
-        size: 0.35
-        range: 7
-        lifetime: 10
+        size: 0.3
+        range: 5
+        lifetime: 8
         pierce: 10
         visual: AMETHYST_SHARD
-        visual_size: 0.5
+        visual_size: 0.4
         face_flight: true
         on: { spawned: shatter_cue, hit_entity: splinter }
       shatter_cue:
         type: play_cue
-        cue: amethyst_burst
+        cue: amethyst_shard_hit
         at: hit
       splinter:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.45, ignore_iframes: true, knockback: false }
+          - { id: damage, base: 0.2, ignore_iframes: true, knockback: false }
         next: splinter_cue
       splinter_cue:
         type: play_cue
@@ -678,15 +680,10 @@ characters:
       move_speed: 1.0                # x vanilla walking speed
       attack_speed: 4.5              # shards per second: 20 / 4.5 rounds to 4 ticks = 5 a second (out of ammo: ~1.5)
     resources:
-      ammo:                          # PASSIVE: her shards (slot 9)
+      ammo:                          # PASSIVE: her shards (the count on her weapon)
         max: 6
         regen_every: 60              # a shard every 3s (60 ticks), all the time (Recall brings piercing ones back sooner)
-        refill_sweep: true           # its item shows the next shard coming back (a grey sweep)
-        hotbar: 9
-        icon: AMETHYST_SHARD
-    status_items:                    # Shard Rush: piercing shots left (slot 6)
-      - { status: amethyst_piercing, hotbar: 6, icon: PRISMARINE_SHARD, name: "Piercing Shards", glint_weapon: true,
-          description: ["Your next shots pierce everyone", "and hang where they end, for Recall."] }
+        on_weapon: true              # the weapon's stack is the ammo (no hotbar slot of its own)
     forms:
       - while: state.volley_charging    # Crystal Volley: LMB looses it
         slots: { primary: amethyst_volley_loose }
