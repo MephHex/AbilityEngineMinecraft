@@ -30,6 +30,8 @@ public final class AbilityActivator {
     public static final String PASSIVE = "passive";
     /** The failure reason for an ability with nothing to use (needs_constructs, none standing): its icon is greyed out. */
     public static final String UNAVAILABLE = "unavailable";
+    /** The failure reason prefix for an ultimate still charging up ("ult_charging:63%"). */
+    public static final String ULT_CHARGING = "ult_charging";
 
     private final AbilityEngine engine;
 
@@ -48,10 +50,13 @@ public final class AbilityActivator {
      */
     public int constructsFor(UUID caster, Ability ability) {
         if (ability.needsConstructs() == null) return -1;
-        int standing = engine.constructs().count(caster, ability.needsConstructs());
-        int flying = ability.alsoFlying() == null ? 0
-                : engine.projectiles().countFlying(caster, ability.needsConstructs(), ability.alsoFlying());
-        return standing + flying;
+        int total = 0;
+        for (String from : ability.needsConstructs().split(",")) { // (a list: any of those abilities' constructs)
+            String id = from.trim();
+            total += engine.constructs().count(caster, id);
+            if (ability.alsoFlying() != null) total += engine.projectiles().countFlying(caster, id, ability.alsoFlying());
+        }
+        return total;
     }
 
     /** Nothing to use right now (needs_constructs, none standing): it can't be cast, and its icon is greyed out. */
@@ -68,6 +73,11 @@ public final class AbilityActivator {
         }
         long cd = engine.cooldowns().remainingTicks(caster, ability.id());
         if (cd > 0) return ActivationResult.fail(String.format("on_cooldown:%.1fs", cd / 20.0));
+        // An ultimate that charges up: not before 100%.
+        if (engine.ultCharge().gates(caster, ability.id()) && !engine.ultCharge().ready(caster)) {
+            return ActivationResult.fail(String.format(java.util.Locale.ROOT, "%s:%.0f%%", ULT_CHARGING,
+                    Math.floor(engine.ultCharge().of(caster))));
+        }
 
         String blocking = engine.tags().firstMatch(caster, ability.blockedBy());
         if (blocking != null) return ActivationResult.fail("blocked:" + blocking);
@@ -158,6 +168,11 @@ public final class AbilityActivator {
                     return ActivationResult.ok();
                 }
                 running.release();
+                if (engine.ultCharge().gates(caster, ability.id())) return ActivationResult.ok(); // (no second ultimate)
+            } else if (running.ability().id().equals(ability.id()) && running.charging()) {
+                // A charge that waits to be let go (no input repeats): pressing its key again lets it go. Held: nothing.
+                if (freshPress) running.release();
+                return ActivationResult.ok();
             }
         }
 
@@ -252,6 +267,7 @@ public final class AbilityActivator {
 
     private ActivationResult start(UUID caster, Ability ability, Map<String, Object> presets) {
         ability.costs().forEach((resource, amount) -> engine.resources().consume(caster, resource, amount));
+        if (engine.ultCharge().gates(caster, ability.id())) engine.ultCharge().spend(caster); // the ultimate: all of it
         AbilityInstance instance = new AbilityInstance(engine, ability, caster, presets);
         if (ability.manualCooldown()) instance.deferCooldownManually();
         else if (ability.cooldownAfterRecast()) instance.deferCooldown();

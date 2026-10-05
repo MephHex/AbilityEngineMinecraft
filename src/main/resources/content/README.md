@@ -209,6 +209,10 @@ Try it: `/ae char archmage`, back to normal: `/ae char none`.
 - **apply_effects:** `count: <key>` stores how many it hit; `times: <key>` applies the effects that
   many times per target (0 if the key is missing), e.g. a shield per enemy hit.
 - **Hitscan:** `targets: allies` aims at allies instead of enemies (with `ray_size` for a generous hitbox).
+  `angle: 40` (degrees, full width, 0-180; default 0 = the ray only): a forgiving aim for basic attacks. The ray comes
+  first; if it hits nobody, the target is whoever is nearest the crosshair within `range` and half the angle either
+  side, with no wall in between (frontal barriers still stop it). E.g.
+  `query: { type: hitscan, range: 3.5, angle: 40 }`.
 - **Dash:** `to: <key>` dashes straight to a stored spot and stops there (or where it touches the ground).
 - **Barrier:** `projectiles_only: true` only stops projectiles (rays, dashes and melee pass).
 - **Statuses:** `damage_dealt: 1.25` (+25% damage dealt), `damage_taken: 0.8` (20% less damage taken).
@@ -718,7 +722,11 @@ slot, so an ability is only silenced when it's in an ability slot.
   abilities is multiplied by it. `ability_lifesteal: 0.3` - the holder heals 30% of the damage their abilities deal.
   `ability_on_hit: [effects]` - on every enemy the holder's abilities hit (any apply_effects without `on_hit: false`). `basic_on_hit: [effects]` -
   only on the holder's basic attacks (whatever is in their primary or melee slot); with `once: true` the first basic
-  attack that hits uses it up.
+  attack that hits uses it up. `cooldown_reduction: 0.95` - the holder's ability cooldowns x0.95 (5% shorter; must be
+  above 0 and below 1). Several multiply (and stacks: two 0.95s = x0.9025, 9.75%); charges come back on the reduced
+  time too. Primary / secondary fire and melee aren't affected (attack speed is theirs). The inventory's stat items
+  show it ("Cooldown reduction"). `ally_healing_dealt: 1.4` - the holder's heals on others (allies; not on themselves,
+  not shields) x1.4. `ult_charge_rate: 1.25` - the holder's ultimate charges 25% faster (hits and over time).
 - **Damage:** `max_hp_armored: true` - the `max_hp` part is reduced by armor like the rest (poison: a share of max HP,
   but not true damage).
 - **Effects:** `chain { radius: 5, max: 3, base: 0.3, cue }` - a chain lightning from whoever was hit to the nearest
@@ -727,3 +735,36 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **API (other plugins):** `AbilityEnginePlugin#engine()`, `#registerContent(name, () -> parsedYaml)` (loaded after the
   content folder on every reload; then `#reloadContent()`), `#cues()` (register cues), `#equipCharacter(player, id)` /
   `#unequipCharacter(player)` (like /ae char, e.g. a champ select).
+
+## Ultimate charge, melee and the Shard rework
+
+- **Ultimates charge up** (config.yml `ultimate-charge`, on by default): 0% for a fresh character, 100% to cast (which
+  spends it all); no cooldown meanwhile (an ultimate's `cooldown:` is only used with it off). The first hit of a cast
+  that lands on an enemy: +5% for an ability (1, 2, 3), +2% for a basic attack (primary / secondary fire, melee); damage
+  over time and the ultimate's own hits don't count. +0.5% a second by itself. Its icon (the offhand) is greyed out while
+  it charges, its stack is the percent, and it glints when it's full; pressing F early says how far it is.
+- **Melee:** a left click the player's game saw land on someone counts on the server too (config.yml
+  `melee-assist-reach`, 1 block): hitscans, cones and lines include the clicked entity when it's within their range +
+  that (never an ally a hitscan passes through).
+- **Primary-fire projectiles** are wider against entities (config.yml `primary-projectile-hitbox`, 0.25 blocks), not
+  against terrain.
+- **Statuses:** `on_damaged: [effects]` - on the holder every time an enemy (or a monster) hurts them (e.g. a charge that
+  gains a shard per hit taken).
+- **Damage:** `falloff: { status: <id>, per_stack: 0.05, min: 0.1 }` - x (1 - per_stack x the TARGET's stacks of that
+  status), never below min. Put the status on after the damage and each hit in a row does less: Recall's 100%, 95%,
+  90%... down to 10%.
+- **Knockback:** `vertical: true` - straight away from the centre, up and down too (Buckshot at your feet throws you up),
+  not only sideways.
+- **Charges:** pressing the ability's key again while its `charge` waits (no `release_gap`) lets it go; a held key does
+  nothing. `release_charge { ability }` (a node) lets another ability's charge go: put it in a form's primary while
+  charging and LMB fires it.
+- **Projectiles:** `fan: 60` - several (`count`) spread evenly over that many degrees (side to side). `count_bonus:
+  <key>` or `stacks:<status>` - that many more (with no `count`: exactly that many). `heading: flight` - launched
+  `from: hit`, they fly on the way the shot that hit was flying (`back`: the other way, e.g. off a wall). Launched out of
+  an entity (`from: hit`), they fly through it (they never hit whoever they burst out of).
+- **Cones:** `from: <key>` (a spot, e.g. where a shot hit) with `heading: flight` (along that shot), `ahead: 0.6` (start
+  that much further along), `sight: true` (only those in sight from there: not through a wall).
+- **set:** `value: stacks:<status>` stores the caster's stacks of it right now (a number), e.g. a charge's shards for
+  when its volley lands.
+- **needs_constructs** takes a list: any of those abilities' constructs count (Recall: shots' shards and the
+  ultimate's).

@@ -125,6 +125,36 @@ final class AmethystCues {
             return (CueHandle) task::cancel;
         });
 
+        // ---- 2: Crystal Volley ----
+        // Charging: the volley's shards circling her, evenly round (one loop per count: a hit taken adds one)
+        for (int n = 1; n <= 10; n++) {
+            int count = n;
+            c.registerLoop("amethyst_volley_ring_" + n, e -> {
+                java.util.List<CueHandle> ring = new java.util.ArrayList<>();
+                for (int i = 0; i < count; i++) {
+                    ring.add(orbiter(plugin, e, i * Math.PI * 2 / count, 1.0, 1.1, 0.5f, 0f, 0.2, false));
+                }
+                return () -> ring.forEach(CueHandle::stop);
+            });
+        }
+
+        // ---- ultimate: Prismatic Burst ----
+        c.registerLoop("amethyst_prism_charge", e -> { // the prism gathering light in front of her
+            e.getWorld().playSound(e.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 0.6f);
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location at = e.getLocation().add(0, e.getHeight() * 0.75, 0);
+                at.add(at.getDirection().multiply(0.9));
+                at.getWorld().spawnParticle(Particle.DUST, at, 4, 0.15, 0.15, 0.15, 0, VIOLET);
+                at.getWorld().spawnParticle(Particle.END_ROD, at, 1, 0.1, 0.1, 0.1, 0.01);
+            }, 0, 2);
+            return (CueHandle) task::cancel;
+        });
+        c.register("amethyst_prism_shot", loc -> {
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1.2f, 0.6f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_BREEZE_SHOOT, 0.8f, 1.2f);
+        });
+
         c.register("amethyst_reflect", loc -> {
             loc.getWorld().spawnParticle(Particle.END_ROD, loc, 8, 0.2, 0.2, 0.2, 0.05);
             loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1.8f);

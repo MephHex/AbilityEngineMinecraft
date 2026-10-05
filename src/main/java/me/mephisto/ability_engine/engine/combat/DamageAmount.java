@@ -49,6 +49,19 @@ public final class DamageAmount {
         return new Parts(armored * mult, pierce * mult);
     }
 
+    /**
+     * A heal: {@link #heal} x the healer's {@code ally_healing_dealt} when it's on someone else, an ally (not on
+     * themselves, and not shields).
+     */
+    public static double healing(EffectContext ctx) {
+        double amount = heal(ctx);
+        if (ctx.target() instanceof EntityTarget t && ctx.caster() != null && !t.id().equals(ctx.caster())
+                && ctx.engine().teams().allies(ctx.caster(), t.id())) {
+            amount *= ctx.engine().stats().allyHealingMultiplier(ctx.caster());
+        }
+        return amount;
+    }
+
     /** Heal or shield: flat {@code amount} plus {@code max_hp} of the target's max HP. */
     public static double heal(EffectContext ctx) {
         return ctx.params().getDouble("amount", 0) + maxHpPart(ctx, false);
@@ -79,6 +92,7 @@ public final class DamageAmount {
         for (String key : new String[]{"amount", "base", "max_hp"}) {
             if (p.has(key) && p.getDouble(key, 0) < 0) throw p.error(key, "must be >= 0");
         }
+        if (damage) DamageScale.validate(p);
     }
 
     private DamageAmount() {}

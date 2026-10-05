@@ -519,7 +519,8 @@ public final class AbilityLoader {
                 .charges(charges(p))
                 .recastMovement(p.getBool("recast_movement", false))
                 .passiveWhile(p.getString("passive_while", null))
-                .needsConstructs(p.getString("needs_constructs", null))
+                .needsConstructs(p.raw("needs_constructs") instanceof java.util.List<?> ids // several: any of theirs
+                        ? String.join(",", p.getStringList("needs_constructs")) : p.getString("needs_constructs", null))
                 .alsoFlying(p.getString("also_flying", null))
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))

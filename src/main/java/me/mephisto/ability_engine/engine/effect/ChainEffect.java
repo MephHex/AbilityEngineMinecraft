@@ -17,7 +17,8 @@ import java.util.UUID;
  * Effect id "chain": a chain lightning from whoever was hit to up to {@code max} (3) other enemies within
  * {@code radius} (5) blocks of them, nearest first. Each takes {@code base} (0.3) x the caster's base damage, and the
  * caster's on-hit effects (their statuses' on_hit and basic_on_hit, but no further chains, and not from a "once" status:
- * an empowered next hit is for the one hit). {@code cue}: a line cue drawn
+ * an empowered next hit is for the one hit), and the statuses the hit itself put on the one hit (its {@code status}
+ * effects and its bolt's infusions: a poisoned arrow poisons them all). {@code cue}: a line cue drawn
  * from the one hit to each.
  */
 public final class ChainEffect implements Effect {
@@ -41,9 +42,13 @@ public final class ChainEffect implements Effect {
                 .toList();
         EffectConfig damage = new EffectConfig("damage", Params.of(Map.of("base", p.getDouble("base", 0.3), "knockback", false,
                 "ignore_iframes", true))); // (the same swing may have just hit them too)
+        List<EffectConfig> riders = ctx.execution() != null
+                && ctx.execution().blackboard().raw(me.mephisto.ability_engine.engine.nodes.gameplay.ApplyEffectsNode.HIT_RIDERS)
+                instanceof List<?> l ? l.stream().filter(EffectConfig.class::isInstance).map(EffectConfig.class::cast).toList() : List.of();
         for (EntitySnapshot e : next) {
             EntityTarget target = new EntityTarget(e.id());
             run(ctx, damage, target);
+            for (EffectConfig c : riders) run(ctx, c, target); // what the hit put on the one hit (an arrow's poison)
             for (ActiveStatus s : List.copyOf(engine.statuses().on(caster))) { // its on-hits: not another chain
                 if (s.def().once()) continue; // a one-hit empowerment (your NEXT hit) is for the one hit, not the chain
                 for (EffectConfig c : s.def().onHit()) if (!c.effectId().equals("chain")) run(ctx, c.asOnHit(), target);

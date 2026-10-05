@@ -187,4 +187,27 @@ class ItemHooksTest {
         assertEquals(0, t.damage(friend), 1e-9, "never an ally");
         assertTrue(has(near1, "wounded") && has(near2, "wounded"), "with the on-hits");
     }
+
+    @Test
+    void theChainCarriesWhatTheHitPutOnTheOneHit() throws IOException {
+        setup(Map.of(
+                "venom", Map.of("duration", 60, "healing_taken", 0.6),
+                "shiv", Map.of("basic_on_hit", List.of(Map.of("id", "chain", "radius", 5, "max", 2, "base", 0.3)))));
+        t.load(Map.of(
+                "abilities", Map.of("venom_shot", Map.of("cooldown", 10, "nodes", me.mephisto.ability_engine.engine.testkit.Yml.map( // (aim first)
+                        "aim", Map.of("type", "acquire_target", "query", Map.of("type", "hitscan", "range", 10), "on", Map.of("hit", "hit")),
+                        "hit", Map.of("type", "apply_effects", "targets", Map.of("type", "key", "key", "target"),
+                                "effects", List.of(Map.of("id", "damage", "base", 1.0),
+                                        Map.of("id", "status", "status", "venom"),               // a poisoned arrow
+                                        Map.of("id", "heal", "amount", 5, "self", true)))))),     // (on the shooter: not passed on)
+                "characters", Map.of("archer", Map.of("slots", Map.of("primary", "venom_shot")))));
+        t.engine.loadouts().assign(p, "archer");
+        UUID main = foe(3, 0);
+        UUID near = foe(5, 1);
+        give("shiv");
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
+        assertTrue(has(main, "venom"));
+        assertTrue(has(near, "venom"), "the chain poisons them too");
+        assertEquals(5, t.healed.getOrDefault(p, 0.0), 1e-9, "the shooter's own heal: once, not per chain target");
+    }
 }

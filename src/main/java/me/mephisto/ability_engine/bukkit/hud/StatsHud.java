@@ -37,14 +37,18 @@ import java.util.UUID;
  *       (added to the base, so slows and haste multiply on top of it), and vanilla attack speed set to the
  *       primary fire's rate, so the attack indicator under the crosshair and the arm swing follow it (it
  *       keeps up with forms and slowed attacks, e.g. Paralysis).</li>
- *   <li>Shown in the inventory's top row: one item per stat. Hovering one shows its value right now
- *       (current health, Strength on base damage, a slow on move speed...). Refreshed twice a second.</li>
+ *   <li>Shown on the left of the inventory, one item per stat: max HP, base damage, armor on the top row; attack
+ *       speed, cooldown reduction, move speed under them. Hovering one shows its value right now (current health,
+ *       Strength on base damage, a slow on move speed...). Refreshed twice a second.</li>
  * </ul>
  */
 public final class StatsHud {
 
-    /** Top row of the main inventory (slots 9-13), clear of the hotbar and its quiver/resource slots. */
-    private static final int FIRST_SLOT = 9;
+    /**
+     * Where the stats go, in the order {@link #stats} makes them: the left of the main inventory, clear of the hotbar
+     * and of the 3x3 bag on the right. Top row HP, damage, armor; under it attack speed, cooldown reduction, move speed.
+     */
+    private static final int[] SLOTS = {9, 10, 11, 18, 19, 20};
     /** Vanilla walking speed (the player's base movement attribute). */
     private static final double VANILLA_SPEED = 0.1;
     /** Every character shows 10 hearts, whatever their max HP. */
@@ -244,7 +248,18 @@ public final class StatsHud {
         List<String> key = stats.stream().map(s -> s.name() + s.lines()).toList();
         if (key.equals(shown.get(id))) return;
         shown.put(id, key);
-        for (int i = 0; i < stats.size(); i++) p.getInventory().setItem(FIRST_SLOT + i, item(stats.get(i)));
+        java.util.Set<Integer> ours = new java.util.HashSet<>();
+        for (int i = 0; i < stats.size() && i < SLOTS.length; i++) {
+            p.getInventory().setItem(SLOTS[i], item(stats.get(i)));
+            ours.add(SLOTS[i]);
+        }
+        for (int slot = 9; slot <= 35; slot++) { // stat items left where an older layout had them
+            ItemStack there = p.getInventory().getItem(slot);
+            if (!ours.contains(slot) && there != null && there.hasItemMeta()
+                    && there.getItemMeta().getPersistentDataContainer().has(hudKey, PersistentDataType.BYTE)) {
+                p.getInventory().setItem(slot, null);
+            }
+        }
     }
 
     private List<Stat> stats(Player p) {
@@ -262,12 +277,6 @@ public final class StatsHud {
         if (shield > 0) health.add(String.format("Shield: %.0f", shield));
         out.add(new Stat(Material.GLISTERING_MELON_SLICE, "Max HP: " + fmt(max), NamedTextColor.RED, health));
 
-        out.add(new Stat(Material.IRON_CHESTPLATE, "Armor: " + fmt(sheet.armor()), NamedTextColor.GRAY, List.of(
-                String.format("Takes %.0f%% less damage", engine.stats().armorReduction(id) * 100),
-                String.format("(armor / (armor + %.0f))", engine.stats().armorConstant()),
-                "Damage over time and % max HP hits",
-                "ignore armor.")));
-
         double dealt = 1;
         List<String> sources = new ArrayList<>();
         for (ActiveStatus s : engine.statuses().on(id)) {
@@ -282,14 +291,35 @@ public final class StatsHud {
         }
         out.add(new Stat(Material.BLAZE_POWDER, "Base damage: " + fmt(sheet.baseDamage()), NamedTextColor.GOLD, damage));
 
+        out.add(new Stat(Material.IRON_CHESTPLATE, "Armor: " + fmt(sheet.armor()), NamedTextColor.GRAY, List.of(
+                String.format("Takes %.0f%% less damage", engine.stats().armorReduction(id) * 100),
+                String.format("(armor / (armor + %.0f))", engine.stats().armorConstant()),
+                "Damage over time and % max HP hits",
+                "ignore armor.")));
+
+        out.add(attackSpeed(p, sheet));
+        out.add(cooldownReduction(id));
+
         AttributeInstance speed = p.getAttribute(Attribute.MOVEMENT_SPEED);
         double current = speed == null ? sheet.moveSpeed() : speed.getValue() / VANILLA_SPEED;
         out.add(new Stat(Material.SUGAR, String.format("Move speed: %.0f%%", sheet.moveSpeed() * 100), NamedTextColor.AQUA,
                 List.of(String.format("Right now: %.0f%%", current * 100), "(100% = vanilla walking; slows and",
                         "haste multiply it, sprinting too)")));
-
-        out.add(attackSpeed(p, sheet));
         return out;
+    }
+
+    /** Cooldown reduction: the statuses' cooldown_reduction (items), multiplied together. */
+    private Stat cooldownReduction(UUID id) {
+        double m = engine.stats().cooldownMultiplier(id);
+        List<String> sources = new ArrayList<>();
+        for (ActiveStatus s : engine.statuses().on(id)) {
+            double cdr = s.def().extras().cooldownReduction();
+            if (cdr != 1) sources.add(String.format("%.0f%% %s", (1 - Math.pow(cdr, Math.max(1, s.stacks()))) * 100, s.def().id()));
+        }
+        List<String> lines = new ArrayList<>(List.of("Your abilities (1, 2, 3, ultimate)",
+                String.format("come back %.0f%% sooner.", (1 - m) * 100), "Not primary / secondary fire or melee."));
+        if (!sources.isEmpty()) lines.add("From: " + String.join(", ", sources));
+        return new Stat(Material.CLOCK, String.format("Cooldown reduction: %.0f%%", (1 - m) * 100), NamedTextColor.LIGHT_PURPLE, lines);
     }
 
     /** Attacks per second; a crossbow shows its draw time instead (Quick Charge from Hunter's Rhythm). */

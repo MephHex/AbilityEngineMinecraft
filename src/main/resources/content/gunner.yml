@@ -1,6 +1,6 @@
 # content: gunner
-# The Gunner: a gunslinger who hunts casters: a shotgun and a revolver, a flask that shuts
-# down spells, and a counterspell that turns a blocked spell into speed and loaded magic rounds.
+# The Gunner: a gunslinger who hunts casters: a shotgun and a revolver, a smoke grenade that
+# blinds, and a counterspell that turns a blocked spell into speed.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
 # PASSIVE 1 (Null Ward): after 6s out of combat (no damage dealt or taken) the next debuff doesn't land.
@@ -12,11 +12,6 @@
 #   A gun that runs dry reloads by itself (shotgun 1.5s, revolver 2s after the last shot).
 #   The revolver fires when you let go of RMB: pressing loads a bullet, holding loads more (1 every 0.25s,
 #   up to 6), taken out of the cylinder as they load (the ammo count drops); letting go fires them all.
-#
-# MAGIC ROUNDS: Volatile Nullifier (caught in it yourself) and Counterspell (a blocked spell) load your
-#   next 3 shots with ONE of these, at random: Blind, Weakness (less damage and slower attacks) or Silence.
-#   Every shot of either gun, and Buckshot, uses one (and puts its effect on whoever it hits). While
-#   loaded, your gun glints and slot 6 shows the rounds left.
 
 statuses:
   revolver_drawn:                    # the revolver is in your hand (see forms below)
@@ -27,12 +22,6 @@ statuses:
     duration: 60                     # 3s
     stacking: refresh
     tags: [state.hasted, buff.null_rush]
-  weakened:                          # Sapping Rounds: they deal less damage and attack slower
-    duration: 60                     # 3s
-    stacking: refresh
-    damage_dealt: 0.75               # -25% damage dealt
-    attack_speed: 0.7                # basic attacks 30% slower
-    tags: [state.weakened]
   keg_burn:                          # Powder Keg: on fire
     duration: 60                     # 3s...
     stacking: refresh
@@ -41,29 +30,6 @@ statuses:
       every: 10                      # ...2% of their max HP every 0.5s = 12% total
       effects:
         - { id: damage, max_hp: 0.02, damage_type: fire }
-
-  # ---- Magic rounds: your next 3 shots (stacks = shots left; each shot takes one off) ----
-  gun_blind:
-    duration: 0                      # until they're shot
-    stacking: stack
-    max_stacks: 3
-    tags: [buff.gun_rounds]
-    on_hit:
-      - { id: status, status: blinded, duration: 30 }   # 1.5s blind
-  gun_weakness:
-    duration: 0
-    stacking: stack
-    max_stacks: 3
-    tags: [buff.gun_rounds]
-    on_hit:
-      - { id: status, status: weakened }                 # 3s: -25% damage, 30% slower attacks
-  gun_silence:
-    duration: 0
-    stacking: stack
-    max_stacks: 3
-    tags: [buff.gun_rounds]
-    on_hit:
-      - { id: status, status: silence, duration: 30 }   # 1.5s silence
 
 abilities:
 
@@ -93,7 +59,7 @@ abilities:
         type: play_cue
         cue: dry_fire
       blast:
-        type: apply_effects          # (plus your magic rounds' on-hit)
+        type: apply_effects
         targets: { type: cone, range: 7, angle: 45 }
         effects:
           - { id: damage, base: 1.3 }             # 130% base damage
@@ -102,15 +68,6 @@ abilities:
         type: strike_constructs      # your Powder Keg in the blast: it goes off
         range: 7
         angle: 45
-        next: use_round
-      use_round:
-        type: apply_effects          # one magic round used
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: gun_blind, stacks: 1 }
-          - { id: remove_status, status: gun_weakness, stacks: 1 }
-          - { id: remove_status, status: gun_silence, stacks: 1 }
         next: bang
       bang:
         type: play_cue
@@ -180,7 +137,7 @@ abilities:
       first_bullet:
         type: apply_effects
         targets: { type: key, key: target }
-        on_hit: true                 # your magic rounds (secondary casts don't carry them by default)
+        on_hit: true                 # your on-hit effects (secondary casts don't carry them by default)
         effects:
           - { id: damage, base: 0.55 }            # 55% base damage
         next: v_keg
@@ -195,15 +152,6 @@ abilities:
         type: strike_constructs      # your Powder Keg in the line of fire: it goes off
         range: 30
         width: 0.6
-        next: v_round
-      v_round:
-        type: apply_effects          # one magic round used
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: gun_blind, stacks: 1 }
-          - { id: remove_status, status: gun_weakness, stacks: 1 }
-          - { id: remove_status, status: gun_silence, stacks: 1 }
         next: v_bang
       v_bang:
         type: play_cue
@@ -212,7 +160,8 @@ abilities:
         to: aim_now
 
   # 1: Buckshot. A heavy shotgun blast in a wider cone (70 degrees, 9 blocks): 160% base damage, a slight
-  # knockback and 1.5s slow. The recoil throws you backwards. Uses a magic round, and fills the shotgun.
+  # knockback and 1.5s slow. The recoil throws you away from where you aimed: backwards, or up if you shot at your
+  # feet (a blast jump). Fills the shotgun.
   gunner_ab1:
     cooldown: 160                    # 8s
     display:
@@ -221,7 +170,8 @@ abilities:
       description:
         - "A heavy blast (9 blocks, wide): 160% base"
         - "damage, knockback and 1.5s slow. The recoil"
-        - "throws you back. Refills the shotgun."
+        - "throws you back (shoot down: up into the"
+        - "air). Refills the shotgun."
     nodes:
       draw:
         type: apply_effects
@@ -233,32 +183,23 @@ abilities:
       blast:
         type: apply_effects
         targets: { type: cone, range: 9, angle: 70 }
-        on_hit: true                 # your magic rounds
+        on_hit: true                 # your on-hit effects
         effects:
           - { id: damage, base: 1.6 }             # 160% base damage
           - { id: status, status: slow, duration: 30 }   # 1.5s
           - { id: knockback, from: caster, radius: 9, center: 0.9, edge: 0.4, lift: 0.2 }
         next: recoil
       recoil:
-        type: apply_effects          # thrown back, away from where you aimed
+        type: apply_effects          # thrown away from where you aimed: back, or up off the ground below you
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: knockback, from: aim, radius: 1, center: 1.3, edge: 1.3, lift: 0.35 }
+          - { id: knockback, from: aim, radius: 1, center: 1.3, edge: 1.3, lift: 0.35, vertical: true }
         next: keg
       keg:
         type: strike_constructs
         range: 9
         angle: 70
-        next: use_round
-      use_round:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: gun_blind, stacks: 1 }
-          - { id: remove_status, status: gun_weakness, stacks: 1 }
-          - { id: remove_status, status: gun_silence, stacks: 1 }
         next: reload
       reload:
         type: refill                 # fresh shells
@@ -270,30 +211,29 @@ abilities:
         at: caster
         to: aim
 
-  # 2: lob a flask that bounces once, then bursts: 90% base damage and 2s silence around it, and it leaves
-  # a 4s pool that silences anyone standing in it. Caught in the burst yourself: faster for 3s, Null Ward is
-  # ready again at once, and your next 3 shots get magic rounds (Blind, Weakness or Silence, at random).
+  # 2: Smoke Grenade (19s). Lob a grenade that bounces up to 3 times, then bursts into smoke: 90% base damage and 2s
+  # blind around it (3.5 blocks), and the smoke hangs there for 4s, blinding anyone standing in it (3 blocks). Caught
+  # in the burst yourself: faster for 3s, and Null Ward is ready again at once.
   gunner_ab2:
-    cooldown: 240                    # 12s
+    cooldown: 380                    # 19s
     display:
-      name: "Volatile Nullifier"
-      icon: LINGERING_POTION
+      name: "Smoke Grenade"
+      icon: FIREWORK_STAR
       description:
-        - "A bouncing flask: 90% base damage and"
-        - "2s silence, then a 4s silencing pool."
+        - "A bouncing grenade: 90% base damage and"
+        - "2s blind, then 4s of blinding smoke."
         - "Caught in it yourself: faster, Null Ward"
-        - "ready, and 3 magic rounds at random:"
-        - "Blind, Weakness or Silence."
+        - "ready."
     nodes:
       throw:
         type: projectile
         speed: 1.2
         size: 0.5
         lifetime: 100
-        bounces: 1
+        bounces: 3
         restitution: 0.45
         friction: 0.3
-        visual: LINGERING_POTION
+        visual: FIREWORK_STAR
         motion:
           - { type: gravity, amount: 0.05 }
         on: { spawned: toss, hit_entity: pin, hit_block: pin }
@@ -301,7 +241,7 @@ abilities:
         type: play_cue
         cue: flask_throw
       pin:
-        type: remember_spot          # where it burst, on the ground: the pool stays HERE (not on whoever it hit)
+        type: remember_spot          # where it burst, on the ground: the smoke stays HERE (not on whoever it hit)
         of: hit
         store: spot
         next: burst
@@ -310,11 +250,11 @@ abilities:
         targets: { type: radius, center: spot, radius: 3.5 }
         effects:
           - { id: damage, base: 0.9 }             # 90% base damage
-          - { id: status, status: silence, duration: 40 }   # 2s
+          - { id: status, status: blinded, duration: 40 }   # 2s
         next: burst_cue
       burst_cue:
         type: play_cue
-        cue: null_burst
+        cue: smoke_burst
         at: spot
         next: caught
       caught:
@@ -327,46 +267,12 @@ abilities:
         targets: { type: self }
         effects:
           - { id: status, status: null_rush }
-          - { id: remove_status, status: gun_blind }        # one kind of rounds at a time
-          - { id: remove_status, status: gun_weakness }
-          - { id: remove_status, status: gun_silence }
         next: refresh
       refresh:
         type: ward_reset             # Null Ward: ready again right now
-        next: roll
-      roll:
-        type: random                 # which rounds (each equally likely)
-        on: { blind: give_blind, weakness: give_weakness, silence: give_silence }
-      give_blind:
-        type: apply_effects
-        targets: { type: self }
-        effects:                     # 3 stacks = 3 shots
-          - { id: status, status: gun_blind }
-          - { id: status, status: gun_blind }
-          - { id: status, status: gun_blind }
-        next: loaded_cue
-      give_weakness:
-        type: apply_effects
-        targets: { type: self }
-        effects:
-          - { id: status, status: gun_weakness }
-          - { id: status, status: gun_weakness }
-          - { id: status, status: gun_weakness }
-        next: loaded_cue
-      give_silence:
-        type: apply_effects
-        targets: { type: self }
-        effects:
-          - { id: status, status: gun_silence }
-          - { id: status, status: gun_silence }
-          - { id: status, status: gun_silence }
-        next: loaded_cue
-      loaded_cue:
-        type: play_cue
-        cue: rounds_loaded
         next: pool
       pool:
-        type: fork                   # the pool's 4s, and its pulses, side by side
+        type: fork                   # the smoke's 4s, and its pulses, side by side
         on: { out: pool_time, also: pulse }
       pool_time:
         type: delay
@@ -375,14 +281,14 @@ abilities:
       pool_end:
         type: end_cast
       pulse:
-        type: apply_effects          # standing in the pool: silenced
+        type: apply_effects          # standing in the smoke: blinded
         targets: { type: radius, center: spot, radius: 3 }
         effects:
-          - { id: status, status: silence, duration: 15 }
+          - { id: status, status: blinded, duration: 15 }
         next: pulse_cue
       pulse_cue:
         type: play_cue
-        cue: null_pool               # (drawn at 3 blocks: keep it in step with the radius above)
+        cue: smoke_pool              # (drawn at 3 blocks: keep it in step with the radius above)
         at: spot
         next: pulse_wait
       pulse_wait:
@@ -391,8 +297,7 @@ abilities:
         next: pulse
 
   # 3: Counterspell. For 2s, the first enemy SPELL that reaches you is blocked: its damage and its debuffs
-  # (basic attacks and damage over time still land). Block one and you're faster for 3s, and your next 3
-  # shots get magic rounds (Blind, Weakness or Silence, at random).
+  # (basic attacks and damage over time still land). Block one and you're faster for 3s.
   gunner_ab3:
     cooldown: 240                    # 12s
     display:
@@ -400,8 +305,8 @@ abilities:
       icon: SHULKER_SHELL
       description:
         - "2s: the first enemy spell is blocked"
-        - "(damage and debuffs). Block one: faster,"
-        - "and 3 magic rounds at random."
+        - "(damage and debuffs). Block one: faster"
+        - "for 3s."
     active_tags: [state.spellshield]
     nodes:
       aura:
@@ -417,46 +322,12 @@ abilities:
         targets: { type: self }
         effects:
           - { id: status, status: null_rush }
-          - { id: remove_status, status: gun_blind }
-          - { id: remove_status, status: gun_weakness }
-          - { id: remove_status, status: gun_silence }
-        next: roll
-      roll:
-        type: random
-        on: { blind: give_blind, weakness: give_weakness, silence: give_silence }
-      give_blind:
-        type: apply_effects
-        targets: { type: self }
-        effects:
-          - { id: status, status: gun_blind }
-          - { id: status, status: gun_blind }
-          - { id: status, status: gun_blind }
-        next: loaded_cue
-      give_weakness:
-        type: apply_effects
-        targets: { type: self }
-        effects:
-          - { id: status, status: gun_weakness }
-          - { id: status, status: gun_weakness }
-          - { id: status, status: gun_weakness }
-        next: loaded_cue
-      give_silence:
-        type: apply_effects
-        targets: { type: self }
-        effects:
-          - { id: status, status: gun_silence }
-          - { id: status, status: gun_silence }
-          - { id: status, status: gun_silence }
-        next: loaded_cue
-      loaded_cue:
-        type: play_cue
-        cue: rounds_loaded
 
   # ULTIMATE (F): Powder Keg. Throw a keg: where it lands it sits for 2.5s, then explodes (5 blocks): 200%
   # base damage, sets them on fire (12% of their max HP over 3s) and blows them away from the centre.
   # Shoot it (either gun, or Buckshot) to set it off early. A direct hit on an enemy explodes at once.
   gunner_ult1:
-    cooldown: 900                    # placeholder until ults charge from damage
+    cooldown: 900                    # (unused while ultimates charge up: config.yml ultimate-charge)
     display:
       name: "Powder Keg"
       icon: TNT
@@ -519,13 +390,6 @@ characters:
     resources:                       # the ammo of the gun in your hand shows in slot 8
       shells: { max: 2, reload: 30, hotbar: 8, icon: FIRE_CHARGE, hidden_while: state.revolver }
       bullets: { max: 6, reload: 40, hotbar: 8, icon: GOLD_NUGGET, shown_while: state.revolver }
-    status_items:                    # magic rounds loaded: slot 6, stack = shots left; the gun glints
-      - { status: gun_blind, hotbar: 6, icon: INK_SAC, name: "Blinding Rounds", glint_weapon: true,
-          description: ["Your next shots blind for 1.5s."] }
-      - { status: gun_weakness, hotbar: 6, icon: FERMENTED_SPIDER_EYE, name: "Sapping Rounds", glint_weapon: true,
-          description: ["Your next shots weaken for 3s:", "-25% damage, 30% slower attacks."] }
-      - { status: gun_silence, hotbar: 6, icon: PRISMARINE_CRYSTALS, name: "Hushing Rounds", glint_weapon: true,
-          description: ["Your next shots silence for 1.5s."] }
     ward:                            # PASSIVE: Null Ward
       name: "Null Ward"
       out_of_combat: 120             # 6s without dealing or taking damage
@@ -538,6 +402,6 @@ characters:
       primary: gunner_shotgun      # LMB: Scattergun
       secondary: gunner_revolver   # RMB: Six-Shooter (hold to load a volley)
       ability_1: gunner_ab1        # 1: Buckshot
-      ability_2: gunner_ab2        # 2: Volatile Nullifier
+      ability_2: gunner_ab2        # 2: Smoke Grenade
       ability_3: gunner_ab3        # 3: Counterspell
       ultimate: gunner_ult1        # F: Powder Keg

@@ -66,18 +66,18 @@ statuses:
 
 abilities:
 
-  # SECONDARY (RMB, hold): Life Drain. While you hold RMB, a beam drains the enemy in your sights (18 blocks) every 0.2s:
-  # 30% base damage, half of it back to you as healing.
+  # SECONDARY (RMB, hold): Life Drain. While you hold RMB, a beam drains the enemy in your sights (8 blocks) every 0.2s:
+  # 30% base damage, 40% of it back to you as healing.
   lw_drain:
     cooldown: 10
     blocked_by: [block.ability, state.remnant]
     display:
       name: "Life Drain"
       description:
-        - "Hold RMB: drain the enemy in your sights,"
-        - "30% base damage every 0.2s, half of it"
-        - "healing you. Passive - Lingering Soul:"
-        - "killed, a Spectral Remnant 5s first."
+        - "Hold RMB: drain the enemy in your sights"
+        - "(8 blocks): 30% base damage every 0.2s,"
+        - "40% of it healing you. Passive - Lingering"
+        - "Soul: killed, a Spectral Remnant 5s first."
     nodes:
       split:
         type: fork                   # how long it's held, and the drain meanwhile
@@ -97,13 +97,13 @@ abilities:
         on: { each: aim }
       aim:
         type: acquire_target
-        query: { type: hitscan, range: 18, ray_size: 0.6 }
+        query: { type: hitscan, range: 8, ray_size: 0.6 }
         on: { hit: sip }
       sip:
         type: apply_effects
         targets: { type: key, key: target }
         effects:
-          - { id: damage, base: 0.3, knockback: false, lifesteal: 0.5 }
+          - { id: damage, base: 0.3, knockback: false, lifesteal: 0.4 }
         next: sip_cue
       sip_cue:
         type: play_cue
@@ -112,8 +112,9 @@ abilities:
         to: target
 
   # 1: Harmonic Strike (8s). Throw a sphere of life (14 blocks): it passes through enemies, each taking 60% base damage
-  # (half of it heals you), then flies back to you, healing every ally it passes through: 30 HP, +15 for each enemy it
-  # hit on the way out.
+  # (half of it heals you), then flies back toward you (straight at where you were as it turned, through walls, 1s at
+  # most: it doesn't follow you or stop at you), healing every ally it passes through: 30 HP, +15 for each enemy it hit
+  # on the way out.
   lw_ab1:
     cooldown: 160                    # 8s
     blocked_by: [block.ability, state.remnant]
@@ -138,7 +139,7 @@ abilities:
         size: 0.6
         lifetime: 13                 # about 14 blocks
         pierce: 6
-        visual: "block:OXIDIZED_COPPER"
+        visual: "block:VERDANT_FROGLIGHT"
         visual_size: 0.45
         trail: lw_orb_trail
         store: orb
@@ -158,29 +159,20 @@ abilities:
         cue: lw_orb_steal
         at: hit
       back:
-        type: projectile             # home again, through allies: to where she is NOW (it follows her)
+        type: projectile             # back toward her (where she was as it turns; no homing), through allies
         from: orb
         toward: caster
         speed: 1.1
         size: 0.8
-        lifetime: 40
+        lifetime: 20
         pierce: 10
         hits_allies: true
-        hits_caster: true            # (caught: it's back)
         through_blocks: true
-        motion:
-          - { type: homing, key: caster, turn: 1.0 }
-        visual: "block:OXIDIZED_COPPER"
+        visual: "block:VERDANT_FROGLIGHT"
         visual_size: 0.45
         trail: lw_orb_trail
         on: { hit_entity: friend }
       friend:
-        type: in_range               # her own catch: no heal for her (it's back)
-        center: caster
-        radius: 0.3
-        target: hit
-        on: { outside: ally_check }
-      ally_check:
         type: is_ally
         target: hit
         on: { ally: mend }

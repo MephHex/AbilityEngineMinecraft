@@ -62,6 +62,7 @@ public final class AbilityEngine {
     private java.util.random.RandomGenerator random = new java.util.Random();
     private final me.mephisto.ability_engine.engine.stats.StatSheets stats;
     private final me.mephisto.ability_engine.engine.combat.CombatTracker combat;
+    private final me.mephisto.ability_engine.engine.stats.UltimateCharge ultCharge;
     private final me.mephisto.ability_engine.engine.ward.WardManager wards;
     private final me.mephisto.ability_engine.engine.ward.HearingManager hearing;
     private final me.mephisto.ability_engine.engine.ward.LowHealthManager lowHealth;
@@ -76,8 +77,9 @@ public final class AbilityEngine {
         teams.setTags(tags);
         this.summons = new me.mephisto.ability_engine.engine.summon.SummonManager(platform.clones(), platform.scheduler());
         this.barriers = new me.mephisto.ability_engine.engine.barrier.BarrierSystem(platform.world(), teams, platform.cues());
-        this.cooldowns = new CooldownManager(platform.clock(), id -> abilities.find(id)
-                .map(a -> new CooldownManager.Charges(a.charges(), a.cooldownTicks()))
+        this.cooldowns = new CooldownManager(platform.clock(), (caster, id) -> abilities.find(id)
+                .map(a -> new CooldownManager.Charges(a.charges(), a.charges() > 1 && stats() != null // (each charge: their cooldown)
+                        ? stats().cooldownTicks(caster, id, a.cooldownTicks()) : a.cooldownTicks()))
                 .orElse(CooldownManager.Charges.SINGLE));
         this.resources = new ResourceManager(platform.clock());
         this.statuses = new StatusManager(platform.clock(), platform.scheduler(), tags, statusDefs, log);
@@ -96,6 +98,7 @@ public final class AbilityEngine {
         this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags, abilities, instances);
         this.targeting = new TargetingManager(this);
         this.stats = new me.mephisto.ability_engine.engine.stats.StatSheets(loadouts, platform.world(), statuses);
+        this.ultCharge = new me.mephisto.ability_engine.engine.stats.UltimateCharge(loadouts, stats, teams, platform.scheduler());
         this.combat = new me.mephisto.ability_engine.engine.combat.CombatTracker(platform.clock());
         this.spellShields = new me.mephisto.ability_engine.engine.combat.SpellShields(platform.world(), platform.cues());
         this.wards = new me.mephisto.ability_engine.engine.ward.WardManager(loadouts, tags, combat, platform.clock(),
@@ -251,6 +254,28 @@ public final class AbilityEngine {
     public me.mephisto.ability_engine.engine.stats.StatSheets stats() { return stats; }
     /** Who was in combat when (dealt or took damage). */
     public me.mephisto.ability_engine.engine.combat.CombatTracker combat() { return combat; }
+
+    private double meleeAssistReach = 1.0;
+    private double primaryHitbox; // 0 until configured (config.yml: 0.25)
+
+    /**
+     * How far past a swing's own range the entity the player's game saw it hit still counts (ClickAssist), in blocks.
+     * config.yml melee-assist-reach.
+     */
+    public double meleeAssistReach() { return meleeAssistReach; }
+
+    public void setMeleeAssistReach(double blocks) { this.meleeAssistReach = Math.max(0, blocks); }
+
+    /**
+     * Extra radius (blocks) primary-fire projectiles have against entities (not terrain): easier to land.
+     * config.yml primary-projectile-hitbox.
+     */
+    public double primaryHitbox() { return primaryHitbox; }
+
+    public void setPrimaryHitbox(double blocks) { this.primaryHitbox = Math.max(0, blocks); }
+
+    /** Ultimates charging up (0-100%) from hits and over time, instead of cooldowns. */
+    public me.mephisto.ability_engine.engine.stats.UltimateCharge ultCharge() { return ultCharge; }
     /** Characters' wards: debuff immunity that recharges out of combat. */
     public me.mephisto.ability_engine.engine.ward.WardManager wards() { return wards; }
     public me.mephisto.ability_engine.engine.ward.HearingManager hearing() { return hearing; }
@@ -313,6 +338,30 @@ public final class AbilityEngine {
      * Someone dealt damage (the platform's damage effect reports it). Ends the attacker's statuses
      * with break_on_damage (stealth).
      */
+    /**
+     * A damage effect's hit landed: everything {@link #notifyDamageDealt(UUID, UUID)} does, and the first hit of a cast
+     * on an enemy charges its caster's ultimate.
+     */
+    public void notifyDamageDealt(me.mephisto.ability_engine.engine.effect.EffectContext ctx, UUID victim) {
+        notifyDamageDealt(ctx.caster(), victim);
+        ultCharge.landed(ctx, victim);
+    }
+
+    /**
+     * {@code victim} was hurt by {@code attacker} (the platform reports every hit: abilities, monsters, arrows). Their
+     * statuses' {@code on_damaged} effects land on them (e.g. a channel that grows with every hit taken). Not for
+     * hits from themselves, an ally, or nobody (a fall).
+     */
+    public void notifyDamaged(UUID victim, UUID attacker) {
+        if (attacker == null || attacker.equals(victim) || teams.allies(victim, attacker)) return;
+        for (var s : java.util.List.copyOf(statuses.on(victim))) {
+            for (var config : s.def().extras().onDamaged()) {
+                effects.require(config.effectId()).apply(new me.mephisto.ability_engine.engine.effect.EffectContext(
+                        this, null, victim, new me.mephisto.ability_engine.engine.target.EntityTarget(victim), config.params()));
+            }
+        }
+    }
+
     public void notifyDamageDealt(UUID attacker, UUID victim) {
         if (attacker == null || attacker.equals(victim)) return;
         for (var s : java.util.List.copyOf(statuses.on(attacker))) {

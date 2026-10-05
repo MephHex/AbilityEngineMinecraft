@@ -13,10 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * The Fae (fixtures/fae.yml): 160 HP, 5 armor, base damage 35. She stands at the origin on a floor, looking
@@ -570,7 +567,7 @@ class FaeTest {
     void cancellingThePreviewSpendsNothing() throws IOException {
         setup();
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting());
-        t.engine.targeting().cancel(p, "test");
+        t.engine.targeting().cancel(p, "src/test");
         assertEquals(3, t.engine.cooldowns().charges(p, "fae_ab3"));
     }
 

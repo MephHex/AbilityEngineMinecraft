@@ -40,7 +40,7 @@ abilities:
         on: { trigger: cleave }
       swing:
         type: apply_effects
-        targets: { type: cone, range: 3, angle: 70 }
+        targets: { type: cone, range: 4, angle: 70 }
         count: swing_hits            # how many it hit
         effects:
           - { id: damage, base: 1.0 }             # 100% base damage

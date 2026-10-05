@@ -20,7 +20,7 @@ public final class CooldownManager {
     }
 
     private final GameClock clock;
-    private final java.util.function.Function<String, Charges> chargesOf;
+    private final java.util.function.BiFunction<UUID, String, Charges> chargesOf;
     private final Map<UUID, Map<String, Long>> readyAt = new HashMap<>();
 
     public CooldownManager(GameClock clock) {
@@ -29,6 +29,14 @@ public final class CooldownManager {
 
     /** @param chargesOf an ability's charges (from its definition) */
     public CooldownManager(GameClock clock, java.util.function.Function<String, Charges> chargesOf) {
+        this(clock, (caster, id) -> chargesOf.apply(id));
+    }
+
+    /**
+     * @param chargesOf an ability's charges for a caster: each one's time is their cooldown (cooldown reduction, attack
+     *                  speed), so the charges come back as fast as each use pushed the timeline out
+     */
+    public CooldownManager(GameClock clock, java.util.function.BiFunction<UUID, String, Charges> chargesOf) {
         this.clock = clock;
         this.chargesOf = chargesOf;
     }
@@ -40,7 +48,7 @@ public final class CooldownManager {
     /** Ticks until it can be used again (with charges: until one is back, 0 while any is left). */
     public long remainingTicks(UUID caster, String abilityId) {
         long left = rechargeTicks(caster, abilityId);
-        Charges c = chargesOf.apply(abilityId);
+        Charges c = chargesOf.apply(caster, abilityId);
         if (c.max() > 1) left -= (long) (c.max() - 1) * c.cooldownTicks();
         return Math.max(0, left);
     }
@@ -56,7 +64,7 @@ public final class CooldownManager {
      * {@link #remainingTicks}. E.g. one of 3 used: the time until it's back, though 2 are still left to use.
      */
     public long nextChargeTicks(UUID caster, String abilityId) {
-        Charges c = chargesOf.apply(abilityId);
+        Charges c = chargesOf.apply(caster, abilityId);
         if (c.max() <= 1 || c.cooldownTicks() <= 0) return remainingTicks(caster, abilityId);
         long left = rechargeTicks(caster, abilityId);
         if (left <= 0) return 0;
@@ -66,7 +74,7 @@ public final class CooldownManager {
 
     /** Charges available right now (1/0 for abilities without charges). */
     public int charges(UUID caster, String abilityId) {
-        Charges c = chargesOf.apply(abilityId);
+        Charges c = chargesOf.apply(caster, abilityId);
         if (c.max() <= 1 || c.cooldownTicks() <= 0) return isReady(caster, abilityId) ? 1 : 0;
         long left = rechargeTicks(caster, abilityId);
         int missing = (int) Math.ceil(left / (double) c.cooldownTicks());
@@ -78,7 +86,7 @@ public final class CooldownManager {
         if (cooldownTicks <= 0) return;
         Map<String, Long> mine = readyAt.computeIfAbsent(caster, k -> new HashMap<>());
         long now = clock.now();
-        if (chargesOf.apply(abilityId).max() > 1) {
+        if (chargesOf.apply(caster, abilityId).max() > 1) {
             mine.put(abilityId, Math.max(now, mine.getOrDefault(abilityId, 0L)) + cooldownTicks);
         } else {
             mine.put(abilityId, now + cooldownTicks);

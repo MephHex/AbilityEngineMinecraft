@@ -11,9 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /** The Archmage's ultimate, Arcane Barrage (fixtures/archmage.yml). He starts at the origin on a floor. */
 class ArcaneBarrageTest {
@@ -208,7 +206,7 @@ class ArcaneBarrageTest {
         setup();
         ult();
         t.engine.notifyKill(p, UUID.randomUUID(), true);
-        t.engine.instances().cancelAll(p, "test"); // ended some other way, a shot left over
+        t.engine.instances().cancelAll(p, "src/test"); // ended some other way, a shot left over
         t.engine.cooldowns().clear(p, "arcanist_ult1");
         ult();
         assertEquals(3, charges());

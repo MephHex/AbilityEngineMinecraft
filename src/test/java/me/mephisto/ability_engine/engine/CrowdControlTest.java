@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * What each crowd control stops, per slot (the HUD shows a barrier on those): silence = everything but
@@ -36,7 +34,7 @@ class CrowdControlTest {
 
     private boolean works(String slot) {
         boolean ok = t.engine.loadouts().activate(p, slot).success();
-        t.engine.instances().cancelAll(p, "test");
+        t.engine.instances().cancelAll(p, "src/test");
         t.engine.cooldowns().clearAll(p);
         return ok;
     }

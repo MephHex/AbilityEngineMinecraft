@@ -200,19 +200,16 @@ damage (30) (see Q5).
 
 Two guns: LMB is a shotgun (2 shells), RMB a revolver (6 bullets; it fires when you let go, holding loads more). The gun you used
 last is in your hand and its ammo shows in slot 8; an empty gun reloads by itself. Null Ward (passive) shrugs
-off one debuff after 6s out of combat; Counterspell blocks a spell and loads magic rounds.
+off one debuff after 6s out of combat; Counterspell blocks a spell.
 
 | Ability | Damage |
 |---|---|
 | Scattergun (LMB) | **130%** to everyone in a 7-block, 45 degree cone; 2 shells, reload 1.5s |
 | Six-Shooter (RMB) | fires on let-go: press loads 1, holding loads up to 6; **55%** for the first, **45%** each after; 6 bullets, reload 2s |
-| Buckshot | **160%** in a 9-block, 70 degree cone, knockback, 1.5s slow; recoil throws you back; refills the shotgun |
-| Volatile Nullifier | **90%** + 2s silence, then a 4s silencing pool; caught in it yourself: speed, Null Ward ready, 3 magic rounds |
-| Counterspell | blocks the first enemy spell for 2s (damage and debuffs); blocked: speed and 3 magic rounds |
+| Buckshot | **160%** in a 9-block, 70 degree cone, knockback, 1.5s slow; recoil throws you away from where you aimed (shoot at your feet: up, a blast jump); refills the shotgun |
+| Smoke Grenade | bounces up to 3 times, then **90%** + 2s blind (3.5 blocks), and 4s of smoke that blinds anyone in it; caught in it yourself: speed, Null Ward ready |
+| Counterspell | blocks the first enemy spell for 2s (damage and debuffs); blocked: speed |
 | Powder Keg (ult) | **200%** in 5 blocks, burn **12% of their max HP** over 3s, knocked away; shoot it to set it off early |
-
-Magic rounds (the next 3 shots of either gun, or Buckshot): Blind 1.5s, Weakness 3s (-25% damage, 30% slower
-attacks) or Silence 1.5s.
 
 ### Copper Golem: Bruiser
 
@@ -235,17 +232,17 @@ enemy basic attacks landing on him take 0.5s off his abilities' cooldowns.
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **200** | **10** (9%) | **50** | **1.05** | **1.67** (12 ticks) | 220 | 83 |
+| **200** | **10** (9%) | **40** | **1.05** | **1.40** (14 ticks) | 220 | 56 |
 
 Hears enemies below 40% HP within 30 blocks (they glow for them only; +15% speed moving toward one within 15).
 
 | Ability | Damage |
 |---|---|
-| Sickle Rake (primary) | **100%** (5 HP), 3 blocks |
-| Dream Step | blink 8 blocks, blinds 1.5s around the exit; press again within 3s to return to the rift |
-| Binding Whisper | 2s tether (7 blocks, breaks past 9 / out of sight 0.5s / stunned or silenced: 40% cd back); held: Darkness + Blindness + 4 HP wither over 4s |
+| Sickle Rake (primary) | **100%** (4 HP), 3 blocks |
+| Dream Step | blink 8 blocks, blinds 0.75s around the exit; press again within 3s to return to the rift |
+| Binding Whisper | 2s tether (8 blocks, breaks past 9 / out of sight 0.5s / stunned or silenced: 40% cd back); held: Darkness + Blindness 4s, 1.5 HP wither over 3s |
 | Chorus Shade | 6 HP flat; executes below 10% HP; flies through terrain, 12 blocks then hovers 3s; homes on heard enemies (any distance) or anyone within 6; enemies can kill it (6 HP) |
-| Into the Veil (ult) | 7s 1v1 in place, both in Darkness: only the two see and can affect each other (their abilities' visuals too; outsiders see a red and a green mote); +20% damage, cooldowns reset; win: heal 8 HP |
+| Into the Veil (ult) | pick an enemy within 5 blocks: a 7s 1v1 in place, both in Darkness: only the two see and can affect each other (their abilities' visuals too; outsiders see a red and a green mote); +20% damage for the first 6s, cooldowns reset; win: heal 8 HP |
 
 ### Fae: Support / Trapper
 
@@ -268,18 +265,18 @@ on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **180** | **0** (0%) | **30** | **1.00** | **2.0** (10 ticks) | 180 | 60 (120 overheated) |
+| **180** | **0** (0%) | **30** | **1.00** | **2.0** (10 ticks) | 180 | 60 (75 overheated) |
 
 Overheat (passive, the XP bar and hotbar slot 9): every enemy her abilities hit is a stack (8 at most; burning and
-her scorched ground don't count); 3s without a hit and it's back to 0 at once. Full: she overheats while she keeps
-hitting: blue flames, Fire Bolts every 5 ticks (x2), +15% speed.
+her scorched ground don't count); 2s without a hit and it's back to 0 at once. Full: she overheats while she keeps
+hitting: blue flames, Fire Bolts every 8 ticks (x1.25), +15% speed.
 
 | Ability | Damage |
 |---|---|
-| Fire Bolt (primary) | **100%** magic damage |
-| Fireball | **160%** within 3.5 blocks, small knockback, burn (12% max HP over 3s) |
-| Hunting Wisp | sent to a spot (25 blocks); waits up to 30s for an enemy within 7, hunts the first one (they glow): **140%** within 3 blocks + burn |
-| Hot Coals | 6s of Jump Boost III; every landing scorches the ground for 4s (1.8 blocks): enemies in it are slowed 35% and burn |
+| Fire Bolt (primary) | **100%** magic damage, 15 blocks |
+| Fireball | **120%** within 3.5 blocks, small knockback, burn (4% max HP over 2s) |
+| Hunting Wisp | sent to a spot (25 blocks); waits up to 30s for an enemy within 7, hunts the first one (they glow): **100%** within 3 blocks (no burn) |
+| Hot Coals | 6s of Jump Boost II; every landing scorches the ground for 4s (1.8 blocks): enemies in it burn |
 | Scorching Judgment (ult) | marked 6-block area (everyone sees its edge): ~2s later a meteor, **300%** + knockback + burn; then 8s of scorched ground, **15%** every 0.5s + burn |
 
 ### Sylvan: Grows from Skirmisher to Siege Tree
@@ -343,28 +340,30 @@ Wings (passive): gliding on an elytra, Slow Falling (no fall damage). Fervor (pa
 
 | Ability | Effect |
 |---|---|
-| Gilded Slash (primary) | **100%** in a 3.2-block arc |
+| Gilded Slash (primary) | **100%** in a 5-block arc |
 | Valkyrie's Leap (1, 8s) | leap + a 4-block half circle: **100%**, attack reset; on a hit again (x2); then soar up and dive onto a spot: **140%** in 4 blocks, knocked up. Not while gliding |
 | Valkyrie's Charge (2, 10s) | on foot: a 6-block dash, **80%**, flung behind her, stunned 1s; gliding: home onto an enemy (25 blocks), **60%**, carry them 8 blocks: into terrain **15% max HP**. A hit: a shield of 15% her max HP (4s) |
 | War Cry (3, 16s) | she and allies within 8 blocks: +25% speed, +20% damage, 4s |
 | Divine Ward (ult) | LMB an ally / RMB herself: no damage for 4s, can't die |
 
-### Amethyst: Mage / Zone Control
+### Amethyst (Shard): Mage / Zone Control
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **180** | **15** (13%) | **45** | **1.00** | **5.0** (4 ticks; 1.5 out of ammo) | 207 | 90 (27 out of ammo) |
+| **180** | **15** (13%) | **35** | **1.00** | **4.5** (rounds to 4 ticks: 5 a second; ~1.5 out of ammo) | 207 | 140 (~40 out of ammo) |
 
-Lingering Shards (passive): 6 shards of ammo; they pierce (half damage to those behind the first) and hang at full
-range for 5s (6 at most); Recall brings them back into the ammo, which also refills a shard every 5s. Out of ammo: plain, slower shards.
+Piercing Shards (passive): 6 shards of ammo (a shard every 3s). Her shots are regular shards (80% to the first enemy
+hit). Piercing shards (Shard Rush, Prismatic Burst) go through everyone (80% to the first, 50% behind), hang where they
+end for 7s (6 at most), and Recall brings them back into the ammo; their on-hit effects land going out and coming back.
+Out of ammo: plain, slower shards.
 
 | Ability | Effect |
 |---|---|
-| Amethyst Shard (primary) | **40%** to the first, **20%** to up to 3 behind; at full range it hangs 5s. Out of ammo: **40%**, no pierce |
-| Recall (3, 10s) | every hanging shard flies back (and into the ammo): **45%** per shard that hits, slowed x0.88 per shard 2s, bleeding 4s (6% max HP, -40% healing, -15% damage) |
-| Shard Volley | a channel: gathers up to 6 (0.45s each, circling her; x0.9 speed per shard, nothing else usable), LMB looses them early, full by itself: each hit slows 30% 1.5s and bursts behind them, **60%** within 2.5 blocks |
-| Gem Rush (2, 8s) | a quick 6-block dash the way she's moving (through enemies): +3 ammo, a 40 HP shield for 3s |
-| Crystal Ward (ult) | 5s shell all around her (4 circling shards), +30% speed; every shot it catches (any side) goes back at the shooter as their own, now hers |
+| Amethyst Shard (primary) | **80%** to the first enemy (20 blocks). Piercing: **80%** to the first, **50%** to each behind, then it hangs 7s where it ends. Out of ammo: **75%** (18 blocks) |
+| Shard Rush (1, 9s) | 4s of +40% attack speed and +25% movement speed; the next 4 shots (within 10s) are piercing; +4 ammo |
+| Crystal Volley (2, 10s) | rooted, 30% less damage taken, charging a volley of 6 shards (+1 per hit taken, 10 at most; 2s at most, LMB or 2 looses it): it shatters on the first enemy or wall, **80%** to the enemy hit, its shards fan out 100 degrees (off a wall: back), **45%** to everyone each passes through (7 blocks) |
+| Recall (3, 5s) | every hanging piercing shard flies back (and into the ammo): **100%** per shard that hits, **5% less** for each shard of the Recall that hit the same enemy before (down to 10%), with on-hits; slowed x0.75 per shard 2s, bleeding 3s (7.5% max HP, -40% healing, -15% damage) |
+| Prismatic Burst (ult) | charge up to 1.5s (LMB or F fires early) a prism (30 blocks): the enemy hit is rooted 0.75s, no damage; it shatters behind them, **180%** (60% fired at once) in a 7-block, 70 degree cone with on-hits (not through walls), and 6 piercing shards fan out 60 degrees (9 blocks) and hang for Recall |
 
 ### Dragon Hunter: Fighter / Debuffer
 
@@ -379,7 +378,7 @@ target resets it.
 |---|---|
 | Zweihander Swing (primary) | **100%** to the first enemy within 2.8 blocks, a little knockback; after Hunter's Lunge it stuns 1s |
 | Hunter's Lunge (1, 7s) | a 4-block dash; the next basic attack is ready at once and stuns |
-| Dragonbone Slam (2, 10s) | wind up to 2s (down to x0.55 speed, nothing else usable), slam a 4.5-block cone: **60%** + up to **120%** by wind-up (LMB early); full: **200%** ignoring armor |
+| Dragonbone Slam (2, 10s) | wind up to 2s (down to x0.55 speed, nothing else usable), slam a 10-block cone: **60%** + up to **120%** by wind-up (LMB early); full: **200%** ignoring armor |
 | Venom Dagger (3, 12s) | **60%** all around (3.5 blocks), poison 12% max HP over 4s (-40% healing); Hunter's Lunge ready |
 | Dragon Harpoon (ult) | a harpoon (**80%**): 5s disarmed, slowed 67% wearing off; below 20% max HP while it's stuck, F again: blink and execute |
 
@@ -390,29 +389,29 @@ target resets it.
 | **320** | **40** (29%) | **34** | **0.95** | **0.7** (28 ticks) | 448 | 24 |
 
 Cold-Blooded (passive): nothing can freeze him. Ice Prison (passive): every 3rd mace hit on the same enemy freezes them
-1.25s (stunned, 3% max HP freeze damage every 0.5s).
+1.25s (stunned, 5% max HP freeze damage every 0.5s: 10%).
 
 | Ability | Effect |
 |---|---|
-| Ice Mace (primary) | **100%** to the first enemy within 3 blocks; builds Ice Prison |
+| Ice Mace (primary) | **100%** to the first enemy within 4 blocks; builds Ice Prison |
 | Glacial Shockwave (1, 10s) | a 7-block, 70-degree cone: **80%**, enemies pulled toward him; a 40 HP shield per enemy hit (5s) |
-| Frostbreath (2, 12s) | 3s channel (nothing else usable, the XP bar fills), a 6-block cone: **12%** every 0.25s and a stacking slow (x0.93 each); 1.5s in it: frozen |
+| Frostbreath (2, 12s) | 3s channel (nothing else usable, the XP bar fills), an 8-block, 70-degree cone: **20%** every 0.25s and a stacking slow (x0.93 each); 1.5s in it: frozen |
 | Ice Wall (3, 13s) | a real ice wall, 7 long and 3 tall, across the aim (16 blocks), 5s |
-| Glacial Tomb (ult) | thrown mace: the enemy hit is entombed 3s (untargetable, no damage, can't act) in a 5-block storm (-30% speed); then it explodes: **100%** and frozen; a miss: the storm where it lands |
+| Glacial Tomb (ult) | thrown mace: the enemy hit takes **100%** and is entombed 3s (untargetable, no damage, can't act) in a 5-block storm (-30% speed); then it explodes: **100%** and frozen; a miss: the storm where it lands |
 
 ### Lifeweaver: Support / Healer
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
-| **200** | **5** (5%) | **32** | **1.05** | (no LMB; RMB drain 5 a second) | 210 | 48 (drain, half back as healing) |
+| **200** | **5** (5%) | **32** | **1.05** | (no LMB; RMB drain 5 a second) | 210 | 48 (drain, 40% back as healing) |
 
 Lingering Soul (passive): a killing blow makes her a Spectral Remnant for 5s (untargetable, no abilities but the ult),
 then she dies; Apotheosis meanwhile revives her at 50% HP.
 
 | Ability | Effect |
 |---|---|
-| Life Drain (RMB, hold) | **30%** every 0.2s to the enemy in her sights (18 blocks), half back as healing |
-| Harmonic Strike (1, 8s) | an orb: **60%** to each enemy it passes (half heals her), then back: allies heal 30 + 15 per enemy hit |
+| Life Drain (RMB, hold) | **30%** every 0.2s to the enemy in her sights (8 blocks), 40% back as healing |
+| Harmonic Strike (1, 8s) | an orb: **60%** to each enemy it passes (half heals her), then back toward where she was (no homing): allies it passes heal 30 + 15 per enemy hit |
 | Beyond Life and Death (2, 16s) | LMB an ally / RMB herself: 6s +25% speed, +30% attack speed; killed meanwhile: back at 50%, decaying 5s (5% max HP every 0.5s), a kill in time revives at 25% |
 | Lifeline (3, 14s) | a 3s tether: heal 4% max HP every 0.5s (24%); held all the way: a 60 HP shield for both |
 | Apotheosis (ult) | 6s: untargetable, through units, +30% speed, no abilities; allies within 7 blocks take 60% less damage, regenerate 6% max HP/s |

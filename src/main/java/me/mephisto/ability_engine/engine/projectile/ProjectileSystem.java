@@ -143,6 +143,19 @@ public final class ProjectileSystem {
 
     public int activeCount() { return active.size(); }
 
+    /** {@code handle} flies through {@code entity} and never hits it (it started inside them: shards out of whoever was hit). */
+    public void ignore(ProjectileHandle handle, UUID entity) {
+        if (handle instanceof Projectile p && entity != null) p.ignored.add(entity);
+    }
+
+    /**
+     * Give {@code handle} {@code extra} blocks more radius against entities, not terrain (primary fire: easier to land
+     * on someone, without catching on the ground or a wall corner sooner).
+     */
+    public void widenForEntities(ProjectileHandle handle, double extra) {
+        if (handle instanceof Projectile p && extra > 0) p.entityBonus = extra;
+    }
+
     /** Whose projectile this entity is the body of (a projectile with health), if it is one. */
     public Optional<UUID> bodyOwner(UUID entity) {
         for (Projectile p : active) {
@@ -250,13 +263,23 @@ public final class ProjectileSystem {
             var allies = flownThrough;
             flownThrough = id -> !id.equals(ctx.caster()) && allies.test(id);
         }
-        var passThrough = flownThrough.or(p.pierced::contains).or(id -> id.equals(body));
+        var passThrough = flownThrough.or(p.pierced::contains).or(p.ignored::contains).or(id -> id.equals(body));
 
         // One pass per thing it touches this tick: a pierced enemy continues the sweep from there.
         while (true) {
             var hit = p.spec.throughBlocks()
                     ? entitySweep(p.world, from, next, p.spec.size() / 2, passThrough) // terrain doesn't stop it
                     : world.sweep(p.world, from, next, p.spec.size() / 2, passThrough);
+            if (p.entityBonus > 0 && !p.spec.throughBlocks()) {
+                // A wider body against entities, up to where terrain (or an entity) stops it anyway. Only an entity counts:
+                // the wider sweep grazing the ground or a wall doesn't stop it (its real size decides that).
+                Vec3 until = hit.map(SweepHit::position).orElse(next);
+                var wide = world.sweep(p.world, from, until, p.spec.size() / 2 + p.entityBonus, passThrough);
+                if (wide.isPresent() && !wide.get().isBlock() && (hit.isEmpty() || hit.get().isBlock()
+                        || wide.get().position().distance(from) < hit.get().position().distance(from))) {
+                    hit = wide;
+                }
+            }
 
             // Constructs and barriers are engine objects the world doesn't know about: check them too, nearest wins.
             double worldDist = hit.map(h -> h.position().distance(p.position)).orElse(Double.MAX_VALUE);

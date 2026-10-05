@@ -191,7 +191,7 @@ class StatsTest {
                 "characters", map(
                         "a", map("stats", map("health", 0), "slots", map("primary", "jab")),
                         "b", map("stats", map("speed", 2), "slots", map("primary", "jab"))),
-                "statuses", map("broken", map("duration", 20, "attack_speed", 0))), "test");
+                "statuses", map("broken", map("duration", 20, "attack_speed", 0))), "src/test");
         String errors = String.join("\n", report.errors());
         assertTrue(errors.contains("health: must be above 0"), errors);
         assertTrue(errors.contains("unknown stat"), errors);

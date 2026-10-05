@@ -7,12 +7,8 @@ import me.mephisto.ability_engine.engine.testkit.ShippedContent;
 import me.mephisto.ability_engine.engine.testkit.TestEngine;
 import me.mephisto.ability_engine.engine.testkit.Yml;
 import org.junit.jupiter.api.Test;
-import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,8 +33,8 @@ class AbilitiesYamlTest {
         TestEngine t = new TestEngine();
         LoadReport report = ShippedContent.loadInto(t.engine);
         assertTrue(report.isClean(), String.join("\n", report.errors()));
-        assertEquals(123, report.abilities());
-        assertEquals(98, report.statuses());
+        assertEquals(124, report.abilities());
+        assertEquals(95, report.statuses());
         assertEquals(19, report.characters());
         assertEquals(5, report.infusions());
     }

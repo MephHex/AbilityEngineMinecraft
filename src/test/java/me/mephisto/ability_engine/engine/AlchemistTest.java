@@ -731,7 +731,7 @@ class AlchemistTest {
         LoadReport report = new me.mephisto.ability_engine.engine.data.AbilityLoader(t.engine).load(map(
                 "infusions", map("bad_color", map("color", "green", "on_hit", list(map("id", "status", "status", "stun")))),
                 "abilities", map("x", map("nodes", map("i", map("type", "infuse", "infusion", "nope")))),
-                "characters", map("c", map("slots", map(), "quiver", map("size", 3, "hotbar", 8)))), "test");
+                "characters", map("c", map("slots", map(), "quiver", map("size", 3, "hotbar", 8)))), "src/test");
         String errors = String.join("\n", report.errors());
         assertTrue(errors.contains("color: expected #RRGGBB"), errors);
         assertTrue(errors.contains("unknown infusion 'nope'"), errors);

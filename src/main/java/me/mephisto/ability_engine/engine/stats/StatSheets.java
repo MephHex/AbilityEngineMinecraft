@@ -130,6 +130,43 @@ public final class StatSheets {
         return m;
     }
 
+    /**
+     * What the holder's ability cooldowns are multiplied by: their statuses' {@code cooldown_reduction}, each to the power
+     * of its stacks, multiplied together (two 0.95s: x0.9025). Always above 0; 1 = none.
+     */
+    public double cooldownMultiplier(UUID entity) {
+        double m = 1;
+        for (ActiveStatus s : statuses.on(entity)) {
+            double cdr = s.def().extras().cooldownReduction();
+            if (cdr != 1) m *= Math.pow(cdr, Math.max(1, s.stacks()));
+        }
+        return m;
+    }
+
+    /** What the healer's heals on others are multiplied by: their statuses' {@code ally_healing_dealt} (1 = none). */
+    public double allyHealingMultiplier(UUID healer) {
+        double m = 1;
+        for (ActiveStatus s : statuses.on(healer)) m *= s.def().extras().allyHealingDealt();
+        return m;
+    }
+
+    /** How much faster the entity's ultimate charges: their statuses' {@code ult_charge_rate} multiplied (1 = normal). */
+    public double ultChargeMultiplier(UUID entity) {
+        double m = 1;
+        for (ActiveStatus s : statuses.on(entity)) m *= s.def().extras().ultChargeRate();
+        return m;
+    }
+
+    /** Ultimates charge up (UltimateCharge) instead of having cooldowns. */
+    private boolean ultimatesCharge;
+
+    public void setUltimatesCharge(boolean charge) { this.ultimatesCharge = charge; }
+
+    /** Is this ability whatever is in the caster's ultimate slot now? */
+    public boolean isUltimate(UUID caster, String abilityId) {
+        return loadouts.characterOf(caster).map(c -> abilityId.equals(c.abilityIn(Slots.ULTIMATE))).orElse(false);
+    }
+
     /** The share of their ability damage the attacker heals (their statuses' {@code ability_lifesteal}, added up). */
     public double abilityLifesteal(UUID attacker) {
         double sum = 0;
@@ -164,15 +201,23 @@ public final class StatSheets {
      * Cooldown of an ability for this caster: the character's primary follows their attack speed
      * ({@code 20 / attack_speed} ticks) when the sheet has one; everything else its own cooldown.
      * Basic attacks (whatever is in the primary / melee slot now) are then divided by
-     * {@link #attackSpeedMultiplier}.
+     * {@link #attackSpeedMultiplier}; abilities (not primary / secondary fire or melee) multiplied by
+     * {@link #cooldownMultiplier} (cooldown reduction). While ultimates charge up, the ultimate has none (0): its
+     * charge is what it waits for.
      */
     public int cooldownTicks(UUID caster, String abilityId, int ownCooldown) {
+        if (ultimatesCharge && isUltimate(caster, abilityId)) return 0;
         int ticks = loadouts.sheetOf(caster)
                 .filter(c -> c.stats().attackSpeed() > 0 && abilityId.equals(c.abilityIn(Slots.PRIMARY)))
                 .map(c -> Math.max(1, (int) Math.round(20 / c.stats().attackSpeed())))
                 .orElse(ownCooldown);
-        boolean basic = isBasicAttack(caster, abilityId);
-        double m = basic ? attackSpeedMultiplier(caster) : 1;
-        return m == 1 || ticks <= 0 ? ticks : Math.max(1, (int) Math.round(ticks / m));
+        if (ticks <= 0) return ticks;
+        if (isBasicAttack(caster, abilityId)) {
+            double m = attackSpeedMultiplier(caster);
+            return m == 1 ? ticks : Math.max(1, (int) Math.round(ticks / m));
+        }
+        if (isFire(caster, abilityId)) return ticks; // (secondary fire: neither)
+        double cdr = cooldownMultiplier(caster);
+        return cdr == 1 ? ticks : Math.max(1, (int) Math.round(ticks * cdr));
     }
 }

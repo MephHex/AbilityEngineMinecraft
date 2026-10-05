@@ -33,7 +33,8 @@ import java.util.Set;
  *                        ({@code block.move}), the window staying open; the first cast isn't affected
  * @param passiveWhile    while the caster has this tag the ability is passive: it's already in effect (e.g. an
  *                        ultimate keeps it up), so pressing its key does nothing and its icon glints (null = never)
- * @param needsConstructs it can only be used while the caster has constructs from this ability standing (e.g. a recall
+ * @param needsConstructs it can only be used while the caster has constructs from this ability (or these, comma-separated:
+ *                        a YAML list) standing (e.g. a recall
  *                        of shards left lying around); its icon counts them, greyed out with none (null = always)
  * @param alsoFlying      with needsConstructs: the projectiles that ability's node of this name has flying count too
  *                        (e.g. shards still on their way, that a recall stops and calls back); null = only constructs

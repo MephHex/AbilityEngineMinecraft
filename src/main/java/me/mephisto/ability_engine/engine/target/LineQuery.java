@@ -55,11 +55,14 @@ public final class LineQuery implements TargetQuery {
         double len = seg.length();
         if (len < 1e-6) return List.of();
         Vec3 mid = start.add(seg.multiply(0.5));
-        List<EntitySnapshot> near = engine.world().livingEntitiesNear(new PointTarget(a.world(), mid), len / 2 + width);
+        List<EntitySnapshot> near = new java.util.ArrayList<>(
+                engine.world().livingEntitiesNear(new PointTarget(a.world(), mid), len / 2 + width));
+        ClickAssist.clicked(ctx, a, range).filter(c -> near.stream().noneMatch(e -> e.id().equals(c.id()))).ifPresent(near::add);
         double reach = width / 2 + BODY;
         return near.stream()
                 .filter(e -> !e.id().equals(ctx.caster()))
                 .filter(e -> {
+                    if (ClickAssist.is(ctx, a, e, range)) return true; // the one the player's swing hit (lag, an edge)
                     double t = e.center().subtract(start).dot(seg) / (len * len);
                     if (t < 0 || t > 1) return false;
                     return start.add(seg.multiply(t)).distance(e.center()) <= reach;

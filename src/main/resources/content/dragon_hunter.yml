@@ -61,7 +61,7 @@ abilities:
   # PRIMARY (LMB): Zweihander Swing. A slow, heavy swing at the first enemy in reach (2.8 blocks): 100% base damage, a
   # little knockback. Blind Obsession: their armor shreds. After Hunter's Lunge, it stuns them 1s.
   dh_primary:
-    cooldown: 25                     # (the attack_speed stat sets it)
+    cooldown: 20                     # (the attack_speed stat sets it)
     display:
       name: "Zweihander Swing"
       description:
@@ -72,7 +72,7 @@ abilities:
     nodes:
       reach:
         type: acquire_target
-        query: { type: hitscan, range: 2.8, ray_size: 0.8 }
+        query: { type: hitscan, range: 2.8, ray_size: 0.8, angle: 30 }   # (missed: the nearest within 15 degrees)
         on: { hit: which, miss: whiff }
       which:
         type: has_tag                # after Hunter's Lunge: this one stuns
@@ -141,9 +141,9 @@ abilities:
           - { id: status, status: dh_empowered }
 
   # 2: Dragonbone Slam (10s). Wind up the zweihander for up to 2s, slower and slower as you do (down to 45% slower; the
-  # XP bar fills), then slam the ground in front of you (4.5 blocks): 60% base damage + up to 120% more the longer you
-  # wound up (LMB slams early). Fully wound up, it slams by itself: 200% base damage that ignores armor. Nothing else is
-  # usable meanwhile; a stun cancels it.
+  # XP bar fills), then slam the ground in front of you (a 10-block, 70-degree cone): 60% base damage + up to 120% more
+  # the longer you wound up (LMB slams early). Fully wound up, it slams by itself: 200% base damage that ignores armor.
+  # Nothing else is usable meanwhile; a stun cancels it.
   dh_ab2:
     cooldown: 200                    # 10s
     active_tags: [block.ability, state.channeling, state.dh_winding]   # a wind-up: nothing else usable (LMB: slam early)
@@ -186,11 +186,11 @@ abilities:
           - { id: status, status: dh_winding }
       slam:
         type: apply_effects
-        targets: { type: cone, range: 4.5, angle: 70 }
+        targets: { type: cone, range: 10, angle: 70, height: 5 }
         effects:
           - { id: damage, base: 0.6, knockback: false }
           - { id: damage, base: 0.03, scale_by: repeat_index, knockback: false, ignore_iframes: true }   # +3% a tick
-          - { id: knockback, from: caster, radius: 4.5, center: 0.5, edge: 0.3, lift: 0.3 }
+          - { id: knockback, from: caster, radius: 10, height: 5, center: 0.5, edge: 0.3, lift: 0.3 }
         next: slam_cue
       slam_cue:
         type: play_cue
@@ -200,10 +200,10 @@ abilities:
         next: done
       full_slam:
         type: apply_effects
-        targets: { type: cone, range: 4.5, angle: 70 }
+        targets: { type: cone, range: 10, angle: 70, height: 5 }
         effects:
           - { id: damage, base: 2.0, ignore_armor: true, knockback: false }
-          - { id: knockback, from: caster, radius: 4.5, center: 0.8, edge: 0.4, lift: 0.4 }
+          - { id: knockback, from: caster, radius: 10, height: 5,center: 0.8, edge: 0.4, lift: 0.4 }
         next: full_cue
       full_cue:
         type: play_cue

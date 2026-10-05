@@ -9,12 +9,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
-import static me.mephisto.ability_engine.engine.testkit.Yml.abilities;
-import static me.mephisto.ability_engine.engine.testkit.Yml.list;
-import static me.mephisto.ability_engine.engine.testkit.Yml.map;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static me.mephisto.ability_engine.engine.testkit.Yml.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class GraphTest {
 
@@ -61,7 +57,7 @@ class GraphTest {
                                 "on", map("hti", "dmg", "miss", "nowhere")),
                         "dmg", map("type", "print", "message", "x"))),
                 "fine", map("nodes", map("p", map("type", "print", "message", "ok")))
-        ), "test");
+        ), "src/test");
 
         assertEquals(1, report.abilities(), "the valid ability still loads");
         assertEquals(1, report.errors().size());
@@ -111,7 +107,7 @@ class GraphTest {
 
         t.engine.activator().activate(caster, "later");
         AbilityInstance instance = t.engine.instances().of(caster).get(0);
-        t.engine.instances().cancelAll(caster, "test");
+        t.engine.instances().cancelAll(caster, "src/test");
         t.time.advance(40);
 
         assertFalse(instance.isActive());

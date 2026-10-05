@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class GunnerTest {
 
-    private static final List<String> ROUNDS = List.of("gun_blind", "gun_weakness", "gun_silence");
 
     private TestEngine t;
     private UUID p;
@@ -310,40 +309,6 @@ class GunnerTest {
         assertEquals(5, ammo("bullets"));
     }
 
-    // ---- Magic rounds ------------------------------------------------------------------------------
-
-    private void loadRounds(String status) {
-        for (int i = 0; i < 3; i++) t.engine.statuses().apply(p, status, p);
-    }
-
-    @Test
-    void magicRoundsApplyOnHitAndEveryShotUsesOne() throws IOException {
-        setup();
-        loadRounds("gun_silence");
-        assertEquals(3, stacks("gun_silence"));
-        shotgun();
-        assertTrue(t.engine.tags().has(enemy, Tags.SILENCED), "the shotgun carries it");
-        assertEquals(2, stacks("gun_silence"));
-        t.engine.statuses().remove(enemy, "silence");
-        t.time.advance(14);
-        revolver();
-        assertTrue(t.engine.tags().has(enemy, Tags.SILENCED), "and the revolver");
-        assertEquals(1, stacks("gun_silence"));
-        t.time.advance(20);
-        t.world.look(p, new Vec3(0, 0, 1));                 // a miss still uses one up
-        revolver();
-        assertFalse(t.engine.statuses().has(p, "gun_silence"), "3 shots: used up");
-    }
-
-    @Test
-    void sappingRoundsWeakenDamageAndAttackSpeed() throws IOException {
-        setup();
-        loadRounds("gun_weakness");
-        shotgun();
-        assertTrue(t.engine.statuses().has(enemy, "weakened"));
-        assertEquals(0.7, t.engine.stats().attackSpeedMultiplier(enemy), 1e-9);
-    }
-
     // ---- Ability 1: Buckshot -----------------------------------------------------------------------
 
     @Test
@@ -364,36 +329,53 @@ class GunnerTest {
     }
 
     @Test
-    void buckshotUsesAMagicRoundAndPutsTheShotgunBackInHand() throws IOException {
+    void buckshotPutsTheShotgunBackInHand() throws IOException {
         setup();
         revolver();
-        loadRounds("gun_blind");
         t.time.advance(20);
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_1).success());
-        assertTrue(t.engine.statuses().has(enemy, "blinded"));
-        assertEquals(2, stacks("gun_blind"));
         assertEquals("NETHERITE_HOE", weapon());
     }
 
-    // ---- Ability 2: Volatile Nullifier ------------------------------------------------------------
+    @Test
+    void buckshotAtYourFeetThrowsYouUp() throws IOException {
+        setup();
+        t.world.move(enemy, new Vec3(30, 1, 30));          // (nobody in the cone)
+        t.world.look(p, new Vec3(0.05, -1, 0));             // straight down: the aim is the floor under her
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_1).success());
+        Vec3 recoil = t.knockbackVec.get(p);
+        assertTrue(recoil.y() > 1.3, "a blast jump: up, " + recoil);
+        assertTrue(Math.abs(recoil.x()) < 0.3, "not sideways");
+    }
+
+    // ---- Ability 2: Smoke Grenade ------------------------------------------------------------
 
     @Test
-    void theFlaskSilencesAndLeavesASilencingPool() throws IOException {
+    void theGrenadeBlindsAndLeavesBlindingSmoke() throws IOException {
         setup();
         t.world.move(enemy, new Vec3(4, 1, 0));             // straight at them: it bursts on contact
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_2).success());
         t.time.advance(10);
         assertEquals(38 * 0.9, t.damage(enemy), 1e-9);
-        assertTrue(t.engine.tags().has(enemy, Tags.SILENCED));
+        assertTrue(t.engine.tags().has(enemy, Tags.BLINDED));
+        assertFalse(t.engine.tags().has(enemy, Tags.SILENCED), "no silence any more");
 
         UUID late = foe(20, 0);
         t.time.advance(45);
-        t.world.move(late, pos(enemy));                   // walks into the pool
+        t.world.move(late, pos(enemy));                   // walks into the smoke
         t.time.advance(11);
-        assertTrue(t.engine.tags().has(late, Tags.SILENCED), "standing in the pool");
+        assertTrue(t.engine.tags().has(late, Tags.BLINDED), "standing in the smoke");
         t.world.move(late, new Vec3(20, 1, 0));
         t.time.advance(40);
-        assertFalse(t.engine.tags().has(late, Tags.SILENCED), "left it");
+        assertFalse(t.engine.tags().has(late, Tags.BLINDED), "left it");
+    }
+
+    @Test
+    void theGrenadeBouncesThreeTimes() throws IOException {
+        setup();
+        var thrown = (me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode)
+                t.engine.abilities().find("gunner_ab2").orElseThrow().graph().node("throw");
+        assertEquals(3, thrown.spec().maxBounces());
     }
 
     @Test
@@ -402,16 +384,16 @@ class GunnerTest {
         t.world.move(enemy, new Vec3(4, 1, 0));             // a direct hit
         t.engine.loadouts().activate(p, Slots.ABILITY_2);
         t.time.advance(10);
-        assertTrue(t.engine.tags().has(enemy, Tags.SILENCED));
+        assertTrue(t.engine.tags().has(enemy, Tags.BLINDED));
         t.world.move(enemy, new Vec3(20, 1, 0));            // they run
         UUID late = foe(4, 0);                              // someone walks onto the spot
-        t.time.advance(50);                                 // past the burst's 2s silence
-        assertFalse(t.engine.tags().has(enemy, Tags.SILENCED), "the pool didn't follow them");
-        assertTrue(t.engine.tags().has(late, Tags.SILENCED), "it's still on the ground where it burst");
+        t.time.advance(50);                                 // past the burst's 2s blind
+        assertFalse(t.engine.tags().has(enemy, Tags.BLINDED), "the smoke didn't follow them");
+        assertTrue(t.engine.tags().has(late, Tags.BLINDED), "it's still where it burst");
     }
 
     @Test
-    void caughtInYourOwnFlaskFasterWardReadyAndThreeMagicRounds() throws IOException {
+    void caughtInYourOwnGrenadeFasterAndWardReady() throws IOException {
         setup();
         t.engine.statuses().apply(p, "slow", 20, enemy); // the ward is used up
         assertFalse(wardReady());
@@ -420,9 +402,7 @@ class GunnerTest {
         t.time.advance(40);                               // a bounce, then the burst
         assertTrue(t.engine.statuses().has(p, "null_rush"), "faster");
         assertTrue(wardReady(), "Null Ward ready again at once");
-        List<String> loaded = ROUNDS.stream().filter(id -> t.engine.statuses().has(p, id)).toList();
-        assertEquals(1, loaded.size(), "one kind");
-        assertEquals(3, stacks(loaded.get(0)), "3 shots");
+        assertFalse(t.engine.tags().has(p, Tags.BLINDED), "her own smoke doesn't blind her");
     }
 
     // ---- Ability 3: Counterspell ------------------------------------------------------------------
@@ -438,9 +418,6 @@ class GunnerTest {
         assertTrue(t.render.cues.contains("spell_blocked"));
         t.time.advance(1);
         assertTrue(t.engine.statuses().has(p, "null_rush"), "faster");
-        List<String> loaded = ROUNDS.stream().filter(id -> t.engine.statuses().has(p, id)).toList();
-        assertEquals(1, loaded.size());
-        assertEquals(3, stacks(loaded.get(0)));
         assertFalse(t.engine.instances().isRunning(p, "gunner_ab3"), "one spell, then it's over");
 
         t.time.advance(11);
@@ -463,7 +440,7 @@ class GunnerTest {
         t.time.advance(11);
         enemyUses("hex", true);
         assertTrue(t.engine.tags().has(p, Tags.SILENCED));
-        assertTrue(ROUNDS.stream().noneMatch(id -> t.engine.statuses().has(p, id)), "nothing blocked, no rounds");
+        assertFalse(t.engine.statuses().has(p, "null_rush"), "nothing blocked, no speed");
     }
 
     // ---- Ultimate: Powder Keg ---------------------------------------------------------------------

@@ -68,14 +68,32 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      * @param abilityLifesteal   the holder heals this share of the damage their abilities deal
      * @param basicOnHit         effects on whoever the holder's basic attacks (primary / melee) hit
      * @param abilityOnHit       effects on whoever the holder's abilities hit
+     * @param cooldownReduction  the holder's ability cooldowns are multiplied by this, below 1 (0.95 = 5% shorter)
+     * @param allyHealingDealt   the holder's heals on others (allies) are multiplied by this (1.4 = 40% more)
+     * @param ultChargeRate      the holder's ultimate charges this much faster (1.25 = 25% faster: hits and over time)
+     * @param onDamaged          effects on the holder whenever an enemy (or a monster) hurts them
      */
     public record Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
-                         List<EffectConfig> abilityOnHit) {
-        public static final Extras NONE = new Extras(1, 1, 0, List.of(), List.of());
+                         List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
+                         double ultChargeRate, List<EffectConfig> onDamaged) {
+        public static final Extras NONE = new Extras(1, 1, 0, List.of(), List.of(), 1, 1, 1, List.of());
+
+        /** No cooldown reduction. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, 1);
+        }
+
+        /** No more healing, ultimate charge or on_damaged. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit, double cooldownReduction) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, cooldownReduction, 1, 1, List.of());
+        }
 
         public Extras {
             basicOnHit = basicOnHit == null ? List.of() : List.copyOf(basicOnHit);
             abilityOnHit = abilityOnHit == null ? List.of() : List.copyOf(abilityOnHit);
+            onDamaged = onDamaged == null ? List.of() : List.copyOf(onDamaged);
         }
     }
 

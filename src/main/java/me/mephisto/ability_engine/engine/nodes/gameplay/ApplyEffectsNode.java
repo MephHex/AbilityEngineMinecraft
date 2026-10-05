@@ -115,6 +115,30 @@ public final class ApplyEffectsNode implements GraphNode {
         usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id)); // "your NEXT hit" buffs
     }
 
+    /**
+     * Blackboard key: while this node's on-hits run, the statuses its hit puts on the target (its own {@code status}
+     * effects and its bolt's infusions', not {@code self: true} ones), for a chain to pass on to the others it jumps to.
+     */
+    public static final String HIT_RIDERS = "hit_riders";
+
+    private List<EffectConfig> riders(ExecutionContext ctx) {
+        List<EffectConfig> out = new java.util.ArrayList<>();
+        for (EffectConfig c : effects) if (isRider(c)) out.add(c);
+        Bolt bolt = infusions ? ctx.get(Keys.BOLT) : null;
+        if (bolt != null) {
+            for (String id : bolt.infusions()) {
+                ctx.engine().infusions().find(id).ifPresent(infusion -> {
+                    for (EffectConfig c : infusion.onHit()) if (isRider(c)) out.add(c);
+                });
+            }
+        }
+        return out;
+    }
+
+    private static boolean isRider(EffectConfig c) {
+        return c.effectId().equals("status") && !c.params().getBool("self", false);
+    }
+
     /** The fired bolt's infusions: each one's on-hit effects, applied to this target. */
     private static void applyInfusions(ExecutionContext ctx, Target target) {
         Bolt bolt = ctx.get(Keys.BOLT);
@@ -172,7 +196,11 @@ public final class ApplyEffectsNode implements GraphNode {
             }
             // On-hits only land on OTHER entities you hit, never on yourself.
             boolean other = target instanceof EntityTarget e && !e.id().equals(ctx.caster());
-            if (onHitHere && other) applyOnHit(ctx, target);
+            if (onHitHere && other) {
+                ctx.blackboard().putRaw(HIT_RIDERS, riders(ctx)); // a chain from this hit carries them on
+                applyOnHit(ctx, target);
+                ctx.blackboard().putRaw(HIT_RIDERS, null);
+            }
             if (abilityOnHitHere && other && ctx.engine().teams().enemies(ctx.caster(), ((EntityTarget) target).id())) {
                 applyAbilityOnHit(ctx, target);
             }

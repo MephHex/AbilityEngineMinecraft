@@ -106,7 +106,7 @@ public final class DamageEffect implements Effect {
         // Magic damage has no knockback in vanilla; if anything pushed them anyway, undo it.
         if (!knockback && !living.getVelocity().equals(velocityBefore)) living.setVelocity(velocityBefore);
         double after = living.getHealth();
-        if (after < before) ctx.engine().notifyDamageDealt(ctx.caster(), target.id()); // e.g. stealth breaks
+        if (after < before) ctx.engine().notifyDamageDealt(ctx, target.id()); // e.g. stealth breaks, the ultimate charges
 
         double lifesteal = ctx.params().getDouble("lifesteal", 0)
                 + (ctx.engine().stats().fromFire(ctx) ? 0 : ctx.engine().stats().abilityLifesteal(ctx.caster())); // abilities only

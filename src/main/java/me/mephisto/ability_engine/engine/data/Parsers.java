@@ -43,15 +43,25 @@ public final class Parsers {
         return switch (type) {
             case "self" -> SelfQuery.INSTANCE;
             case "key" -> new KeyQuery(p.requireString("key"));
-            case "hitscan" -> new HitscanQuery(p.requireDouble("range"), p.getDouble("ray_size", 0.2), p.getBool("blocks", false),
-                    hitscanAllies(p));
+            case "hitscan" -> {
+                double angle = p.getDouble("angle", 0);
+                if (angle < 0 || angle > 180) throw p.error("angle", "degrees, 0-180 (the full width: 30 = 15 either side of the crosshair)");
+                yield new HitscanQuery(p.requireDouble("range"), p.getDouble("ray_size", 0.2), p.getBool("blocks", false),
+                        hitscanAllies(p), angle);
+            }
             case "radius" -> {
                 double inner = p.getDouble("inner", 0);
                 if (inner < 0 || inner >= p.requireDouble("radius")) throw p.error("inner", "must be between 0 and radius");
                 yield new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
                         p.getInt("max", 0), p.getBool("include_caster", false), inner, p.getBool("sight", false));
             }
-            case "cone" -> new ConeQuery(p.requireDouble("range"), p.requireDouble("angle"), p.getInt("max", 0));
+            case "cone" -> {
+                String heading = p.getString("heading", "aim");
+                if (!heading.equals("aim") && !heading.equals("flight")) throw p.error("heading", "expected aim or flight");
+                if (heading.equals("flight") && !p.has("from")) throw p.error("heading", "flight needs from: <key> (where the shot hit)");
+                yield new ConeQuery(p.requireDouble("range"), p.requireDouble("angle"), p.getInt("max", 0), p.getString("from", null),
+                        heading.equals("flight"), p.getDouble("ahead", 0), p.getBool("sight", false));
+            }
             case "cursor" -> new CursorQuery(p.requireDouble("range"));
             case "line" -> new LineQuery(p.requireDouble("range"), p.getDouble("width", 1.0));
             case "path" -> new PathQuery(p.requireString("from"), p.requireString("to"), p.getDouble("width", 1.0));
@@ -116,6 +126,25 @@ public final class Parsers {
                 .trail(p.getString("trail", null))
                 .trailEvery(trailEvery(p))
                 .build();
+    }
+
+    /** {@code fan}, {@code count_bonus} and {@code heading} of a projectile node (several at once, which way). */
+    public static me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Pattern pattern(Params p) {
+        double fan = p.getDouble("fan", 0);
+        if (fan < 0 || fan > 360) throw p.error("fan", "degrees, 0-360 (the full width the projectiles spread evenly over)");
+        String heading = p.getString("heading", "aim").toLowerCase(java.util.Locale.ROOT);
+        var h = switch (heading) {
+            case "aim" -> me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.AIM;
+            case "flight" -> me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.FLIGHT;
+            case "back" -> me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.BACK;
+            default -> throw p.error("heading", "expected aim, flight (on, the way the shot that hit was flying) or back");
+        };
+        if (h != me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.AIM && p.has("toward")) {
+            throw p.error("heading", "either heading or toward, not both");
+        }
+        String bonus = p.getString("count_bonus", null);
+        int base = bonus != null && !p.has("count") ? 0 : -1; // a bonus alone: exactly that many
+        return new me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Pattern(fan, bonus, h, base);
     }
 
     private static int trailEvery(Params p) {
@@ -316,7 +345,8 @@ public final class Parsers {
         boolean looksPositive = base.grantedTags().stream().anyMatch(t -> t.startsWith(BUFF_TAG_PREFIX))
                 || !onHit.isEmpty() || dealt > 1 || taken < 1 || attackSpeed > 1 || moveSpeed > 1 || jumpBoost > 0
                 || healingTaken > 1 || p.getDouble("armor", 1) > 1 || p.getDouble("max_health", 1) > 1
-                || p.getDouble("ability_damage_taken", 1) < 1 || p.getDouble("ability_lifesteal", 0) > 0 || p.has("basic_on_hit") || p.has("ability_on_hit");
+                || p.getDouble("ability_damage_taken", 1) < 1 || p.getDouble("ability_lifesteal", 0) > 0 || p.has("basic_on_hit") || p.has("ability_on_hit")
+                || p.has("cooldown_reduction") || p.getDouble("ally_healing_dealt", 1) > 1 || p.getDouble("ult_charge_rate", 1) > 1;
         boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
@@ -328,7 +358,10 @@ public final class Parsers {
                 optionalEffects(p, "on_kill", registry)), extras(p, registry));
     }
 
-    /** max_health, ability_damage_taken, ability_lifesteal, basic_on_hit (items use these). */
+    /**
+     * max_health, ability_damage_taken, ability_lifesteal, basic_on_hit, ability_on_hit, cooldown_reduction,
+     * ally_healing_dealt, ult_charge_rate (items use these), on_damaged.
+     */
     private static StatusDef.Extras extras(Params p, EffectRegistry registry) {
         double maxHealth = p.getDouble("max_health", 1);
         if (maxHealth <= 0) throw p.error("max_health", "must be above 0 (1.2 = +20% max HP)");
@@ -336,8 +369,17 @@ public final class Parsers {
         if (abilityTaken < 0) throw p.error("ability_damage_taken", "must be >= 0 (0.8 = 20% less damage from abilities)");
         double lifesteal = p.getDouble("ability_lifesteal", 0);
         if (lifesteal < 0) throw p.error("ability_lifesteal", "must be >= 0 (0.3 = heal 30% of your ability damage)");
+        double cdr = p.getDouble("cooldown_reduction", 1);
+        if (p.has("cooldown_reduction") && (cdr <= 0 || cdr >= 1)) {
+            throw p.error("cooldown_reduction", "a multiplier on ability cooldowns, above 0 and below 1 (0.95 = 5% shorter)");
+        }
+        double allyHealing = p.getDouble("ally_healing_dealt", 1);
+        if (allyHealing < 0) throw p.error("ally_healing_dealt", "must be >= 0 (1.4 = your heals on allies 40% stronger)");
+        double ultRate = p.getDouble("ult_charge_rate", 1);
+        if (ultRate < 0) throw p.error("ult_charge_rate", "must be >= 0 (1.25 = your ultimate charges 25% faster)");
         return new StatusDef.Extras(maxHealth, abilityTaken, lifesteal, optionalEffects(p, "basic_on_hit", registry),
-                optionalEffects(p, "ability_on_hit", registry));
+                optionalEffects(p, "ability_on_hit", registry), cdr, allyHealing, ultRate,
+                optionalEffects(p, "on_damaged", registry));
     }
 
     /** {@code on_lethal: { status, health }}: a killing blow leaves them at health (share of max HP) with that status. */

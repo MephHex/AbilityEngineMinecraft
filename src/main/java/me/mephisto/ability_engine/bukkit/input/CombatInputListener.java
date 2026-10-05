@@ -305,7 +305,11 @@ public final class CombatInputListener implements Listener {
             if (r.success()) hud.refresh(p);
             else if (!r.reason().startsWith("on_cooldown")) p.sendActionBar(Component.text(r.reason(), NamedTextColor.RED));
         } else if (!hud.usesCrossbow(p) && !hud.usesScope(p) && !hud.usesBow(p)) { // crossbows and bows shoot with RMB, spyglasses charge with it
-            fire(p, InputAction.LEFT_CLICK, true);
+            // The client says it hit this one: the swing's own (server-side) aim may still miss it - a step out of
+            // a hitscan's range, a ray past its hitbox, where it was a moment ago on the server. It counts anyway
+            // when it's within reach (ClickAssist).
+            fire(p, InputAction.LEFT_CLICK, true, java.util.Map.of(
+                    me.mephisto.ability_engine.engine.target.ClickAssist.KEY, new EntityTarget(e.getAttacked().getUniqueId())));
         }
     }
 
@@ -448,8 +452,13 @@ public final class CombatInputListener implements Listener {
      * @return whether the press did anything (cast, opened a preview, or was buffered for a recast)
      */
     private boolean fire(Player p, InputAction action, boolean freshPress) {
+        return fire(p, action, freshPress, java.util.Map.of());
+    }
+
+    /** @param extra more blackboard values for the cast (e.g. the entity a left click hit: ClickAssist) */
+    private boolean fire(Player p, InputAction action, boolean freshPress, java.util.Map<String, Object> extra) {
         return keybinds.slotFor(action).map(slot -> {
-            ActivationResult result = engine.loadouts().activate(p.getUniqueId(), slot, freshPress);
+            ActivationResult result = engine.loadouts().activate(p.getUniqueId(), slot, freshPress, extra);
             if (result.openedTargeting()) { // the preview's action bar takes over
                 if (swingless(action)) {
                     keyOpenedAt.put(p.getUniqueId(), engine.clock().now());
@@ -465,6 +474,9 @@ public final class CombatInputListener implements Listener {
                 return true; // an early recast press: it lands as the window opens, nothing to report
             } else if (AbilityActivator.PASSIVE.equals(result.reason()) || AbilityActivator.UNAVAILABLE.equals(result.reason())) {
                 return false; // in effect anyway (its icon glints), or nothing to use (greyed out): nothing to report
+            } else if (freshPress && result.reason().startsWith(AbilityActivator.ULT_CHARGING)) {
+                p.sendActionBar(Component.text("Ultimate charging: " + result.reason().substring(AbilityActivator.ULT_CHARGING.length() + 1),
+                        NamedTextColor.GOLD));
             } else if (freshPress && !(Slots.PRIMARY.equals(slot) && result.reason().startsWith("on_cooldown"))) {
                 // Clicking primary fire faster than its fire rate is normal; don't nag about it.
                 p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));

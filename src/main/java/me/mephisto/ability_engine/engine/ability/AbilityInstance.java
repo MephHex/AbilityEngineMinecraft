@@ -39,6 +39,7 @@ public final class AbilityInstance {
     private long recastBufferedUntil = Long.MIN_VALUE;
     private boolean cooldownPending;
     private boolean tagsReleased;
+    private boolean landed; // a hit of this cast has charged the ultimate already (UltimateCharge)
     private Runnable keepAlive;
     private java.util.function.DoubleSupplier gauge;
     private CastProgress progress;
@@ -234,6 +235,13 @@ public final class AbilityInstance {
     }
 
     public boolean charging() { return isActive() && releaseHandler != null; }
+
+    /** The first hit of this cast to land: true once (it charges the ultimate), false for every later one. */
+    public boolean markLanded() {
+        if (landed) return false;
+        landed = true;
+        return true;
+    }
 
     /** A charge that watches its input's repeats (charge's release_gap): told each time the input repeats. */
     private Runnable inputRepeat;

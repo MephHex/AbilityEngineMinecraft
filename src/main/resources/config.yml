@@ -29,12 +29,31 @@ armor-constant: 100
 # are never capped. 0: no cap.
 max-hp-damage-cap-for-mobs: 200
 
+# Ultimates charge up instead of cooling down: 0% (a fresh character) to 100%, when F casts it (and it starts over).
+# A cast that lands on an enemy charges it once, however many it hits: an ability (1, 2, 3) ability-hit percent, a basic
+# attack (primary / secondary fire, melee) basic-hit percent. Damage over time and the ultimate itself don't. Plus
+# per-second by itself. An item's ult_charge_rate makes all of it faster. enabled: false = ultimates use their cooldowns.
+ultimate-charge:
+  enabled: true
+  ability-hit: 5
+  basic-hit: 2
+  per-second: 0.5
+
+# Melee swings that the player's game saw land count on the server too: a swing's own aim (a hitscan, a cone, a line) is
+# worked out on the server, where with ping, a hitbox edge or half a block too far it could miss someone the player
+# plainly hit. The entity they clicked counts as hit when it's within the swing's range plus this many blocks.
+melee-assist-reach: 1.0
+
+# Primary-fire projectiles (shots, bolts, shards) are this many blocks wider against players and mobs (not terrain:
+# they don't catch on the ground or wall corners any sooner). 0 = their own size.
+primary-projectile-hitbox: 0.25
+
 # While a player has a character, their inventory is a display (the HUD): nothing can be moved.
 # Free some of it here, e.g. for an item plugin's bag. Read again on every /ae reload.
 inventory:
   # Slots of the main inventory (the 3 rows above the hotbar) players may use: plain clicks and drags
   # in, out and between them. Numbered 9-35, left to right, top row first (9-17, 18-26, 27-35).
-  # Keep 9-13 out of it: the character's stat items sit there.
+  # Keep 9-11 and 18-20 out of it: the character's stat items sit there.
   # The 3x3 bag on the right (ItemSystem's items work there; CaptureThePoint's loot goes there). [] = all locked.
   free-slots: [15, 16, 17, 24, 25, 26, 33, 34, 35]
   # The 2x2 crafting grid (and taking what it makes) as well: ItemSystem's items are crafted there.

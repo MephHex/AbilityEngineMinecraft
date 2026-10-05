@@ -14,12 +14,7 @@ import me.mephisto.ability_engine.engine.tag.Tags;
 import me.mephisto.ability_engine.engine.target.EntityTarget;
 import me.mephisto.ability_engine.engine.target.Target;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -51,7 +46,7 @@ public final class TestEngine {
     public final Map<UUID, Double> lifesteal = new HashMap<>();
 
     public TestEngine() {
-        Logger logger = Logger.getLogger("test");
+        Logger logger = Logger.getLogger("src/test");
         logger.setLevel(Level.WARNING);
         render.time = time;
         engine = new AbilityEngine(new Platform(time, time, world, world, render, render, render, render, world, logger));
@@ -68,7 +63,8 @@ public final class TestEngine {
                     var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(),
                             parts.total(), parts.pierceShare(), !ctx.engine().stats().fromFire(ctx)); // an ability, or fire
                     double amount = result.amount();
-                    ctx.engine().notifyDamageDealt(ctx.caster(), e.id());
+                    ctx.engine().notifyDamageDealt(ctx, e.id());
+                    if (amount > 0) ctx.engine().notifyDamaged(e.id(), ctx.caster()); // on_damaged, like the real listener
                     damageTaken.merge(e.id(), amount, Double::sum);
                     world.hurt(e.id(), amount); // vulnerable clones (souls) die at 0
                     for (var r : result.redirects()) damageTaken.merge(r.to(), r.amount(), Double::sum);
@@ -98,7 +94,7 @@ public final class TestEngine {
             @Override
             public void apply(EffectContext ctx) {
                 if (ctx.target() instanceof EntityTarget e) {
-                    healed.merge(e.id(), me.mephisto.ability_engine.engine.combat.DamageAmount.heal(ctx)
+                    healed.merge(e.id(), me.mephisto.ability_engine.engine.combat.DamageAmount.healing(ctx)
                             * ctx.engine().stats().healingMultiplier(e.id()), Double::sum);
                 }
             }
@@ -118,7 +114,8 @@ public final class TestEngine {
                 if (center.isEmpty() || pos.isEmpty()) return;
                 Vec3 v = me.mephisto.ability_engine.engine.effect.Knockback.impulse(center.get().position(), pos.get().position(),
                         ctx.params().requireDouble("radius"), ctx.params().getDouble("center", 1.2),
-                        ctx.params().getDouble("edge", 0.3), ctx.params().getDouble("lift", 0.3));
+                        ctx.params().getDouble("edge", 0.3), ctx.params().getDouble("lift", 0.3),
+                        ctx.params().getBool("vertical", false));
                 v = v.multiply(scale);
                 knockback.put(e.id(), new Vec3(v.x(), 0, v.z()).length());
                 knockbackVec.put(e.id(), v);
@@ -165,7 +162,7 @@ public final class TestEngine {
 
     /** Load a single ability from a Map written like the YAML. Fails the test on any load error. */
     public void load(Map<String, Object> root) {
-        LoadReport report = new AbilityLoader(engine).load(root, "test");
+        LoadReport report = new AbilityLoader(engine).load(root, "src/test");
         if (!report.isClean()) throw new AssertionError("load errors: " + report.errors());
     }
 }

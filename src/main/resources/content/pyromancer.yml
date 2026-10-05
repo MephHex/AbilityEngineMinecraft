@@ -5,13 +5,13 @@
 #
 # PASSIVE (Overheat, the XP bar and hotbar slot 9): every enemy any of her abilities hits heats her up a stack (8 at
 #   most; burning and her scorched ground don't count). The XP bar fills from empty to full with them and slot 9 counts
-#   them. 3s without a hit and it's gone at once. Full: she OVERHEATS, and stays overheated as long as she keeps
-#   hitting: blue flames, Fire Bolts every 5 ticks instead of 10, 15% faster. Overheated, the XP bar drains instead:
+#   them. 2s without a hit and it's gone at once. Full: she OVERHEATS, and stays overheated as long as she keeps
+#   hitting: blue flames, Fire Bolts every 8 ticks instead of 10, 15% faster. Overheated, the XP bar drains instead:
 #   the time she has left before it ends (full again with every hit).
 
 statuses:
   pyro_heat:                         # the gauge (XP bar: filled by its stacks; slot 9: their count)
-    duration: 40                     # 3s without a hit and it's gone, all at once
+    duration: 40                     # 2s without a hit and it's gone, all at once
     stacking: stack
     max_stacks: 8
     at_max: pyro_overheat            # full: she overheats
@@ -21,30 +21,29 @@ statuses:
     requires: pyro_heat              # ends when the gauge runs out
     tags: [state.overheated]         # blue flames (variants below)
     cue: pyro_overheat               # soul flames around her
-    attack_speed: 1.5                # Fire Bolt every 5 ticks instead of 10
+    attack_speed: 1.2                # Fire Bolt every 8 ticks instead of 10 (10 / 1.2, rounded)
     move_speed: 1.15                 # +15%
     positive: false
   pyro_burn:                         # on fire
-    duration: 40                     # 3s...
+    duration: 40                     # 2s...
     stacking: refresh
     tags: [state.burning]            # looks on fire (no vanilla fire damage)
     tick:
-      every: 20                      # ...2% max HP every 0.5s = 12% (ignores armor)
+      every: 20                      # ...2% max HP a second = 4% (ignores armor)
       effects:
         - { id: damage, max_hp: 0.02, knockback: false }
   pyro_coals:                        # Hot Coals: jumping higher
     duration: 120                    # 6s
-    jump_boost: 3                    # Jump Boost III (the level: 2 = II, 4 = IV...)
+    jump_boost: 2                    # Jump Boost II (the level: 3 = III, 4 = IV...)
     cue: pyro_coals                  # the coals, tossed from hand to hand
     positive: false                  # (a tether doesn't copy it: the scorch is hers anyway)
-  pyro_scorched:                     # standing in her scorched ground: slowed
+  pyro_scorched:                     # standing in her scorched ground (no slow: only marks them)
     duration: 15                     # (kept on every 0.5s while they stand in it)
     stacking: refresh
-    move_speed: 0.65                 # -35%
 
 abilities:
 
-  # PRIMARY (LMB): Fire Bolt. A bolt of fire (1.6 blocks/tick, 28 blocks): 100% base damage as magic damage.
+  # PRIMARY (LMB): Fire Bolt. A bolt of fire (1.3 blocks/tick, 15 blocks): 100% base damage as magic damage.
   pyro_primary:
     cooldown: 15                     # (the attack_speed stat sets it)
     display:
@@ -56,7 +55,7 @@ abilities:
         type: projectile
         speed: 1.3
         size: 0.45
-        range: 28
+        range: 15
         lifetime: 40
         visual: "block:FIRE"
         visual_size: 0.35
@@ -73,7 +72,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true }   # (overheated: 4 a second)
+          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true }   # (overheated: 2.5 a second)
         count: struck
         next: heat
       heat:
@@ -89,23 +88,23 @@ abilities:
         cue: pyro_bolt_hit
         at: hit
 
-  # 1: Fireball. A large fireball (1.1 blocks/tick, a slight drop) that explodes where it lands or on whoever it
-  # hits: 160% base damage to enemies within 3.5 blocks, knocked back a little and burning (12% max HP over 3s).
+  # 1: Fireball. A large fireball (0.9 blocks/tick, a slight drop) that explodes where it lands or on whoever it
+  # hits: 120% base damage to enemies within 3.5 blocks, knocked back a little and burning (4% max HP over 2s).
   pyro_ab1:
     cooldown: 160                    # 8s
     display:
       name: "Fireball"
       icon: FIRE_CHARGE
       description:
-        - "A fireball that explodes: 160% base"
+        - "A fireball that explodes: 120% base"
         - "damage within 3.5 blocks, and they burn"
-        - "(12% max HP over 3s)."
+        - "(4% max HP over 2s)."
     nodes:
       throw:
         type: projectile
         speed: 0.9
         size: 0.9
-        lifetime: 50                 # ~50 blocks
+        lifetime: 50                 # ~45 blocks
         visual: "block:FIRE"
         visual_size: 0.9
         trail: pyro_fireball_trail
@@ -139,8 +138,8 @@ abilities:
 
   # 2: Hunting Wisp. Send a will-o'-wisp to a spot (aim preview, 25 blocks; quickcast: where you look). It waits
   # there up to 30s for an enemy to come within 7 blocks (the preview's circle; on the way there too), then hunts
-  # the first one it finds (they glow while it does) and explodes on them: 140% base damage within 3 blocks, and
-  # they burn. Nobody comes: it fades away.
+  # the first one it finds (they glow while it does) and explodes on them: 100% base damage within 3 blocks (no
+  # burn). Nobody comes: it fades away.
   pyro_ab2:
     cooldown: 280                    # 14s
     targeting:
@@ -154,8 +153,8 @@ abilities:
       description:
         - "Send a wisp to a spot: up to 30s it"
         - "waits for an enemy (7 blocks), hunts"
-        - "them down (they glow) and explodes: 140%"
-        - "base damage (3 blocks), and they burn."
+        - "them down (they glow) and explodes: 100%"
+        - "base damage (3 blocks)."
     nodes:
       send:
         type: projectile
@@ -178,8 +177,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3 }
         effects:
-          - { id: damage, base: 1.2 }
-          - { id: status, status: pyro_burn }
+          - { id: damage, base: 1 }
         count: struck
         next: heat
       heat:
@@ -199,18 +197,18 @@ abilities:
         cue: pyro_wisp_fade
         at: wisp                     # where it waited
 
-  # 3: Hot Coals. She juggles a handful of hot coals for 6s (a boss bar): Jump Boost III, and every time she lands
-  # (a jump, a fall) the coals scorch the ground under her for 4s (1.8 blocks): enemies who walk in are slowed 35%
-  # and burn while they stay (and 3s after).
+  # 3: Hot Coals. She juggles a handful of hot coals for 6s (a boss bar): Jump Boost II, and every time she lands
+  # (a jump, a fall) the coals scorch the ground under her for 4s (1.8 blocks): enemies who walk in burn while they
+  # stay (and 2s after).
   pyro_ab3:
     cooldown: 300                    # 15s
     display:
       name: "Hot Coals"
       icon: COAL
       description:
-        - "6s: Jump Boost III. Each landing scorches"
+        - "6s: Jump Boost II. Each landing scorches"
         - "the ground under you for 4s: enemies in"
-        - "it are slowed 35% and burn."
+        - "it burn."
     nodes:
       juggle:
         type: apply_effects
@@ -379,9 +377,9 @@ characters:
         description:
           - "Each enemy you hit: a stack. 8 stacks:"
           - "you overheat (faster bolts, +15% speed)."
-          - "3s without a hit: back to 0."
+          - "2s without a hit: back to 0."
     forms:
-      - while: state.overheated      # overheated: the XP bar drains over the 3s she has left without a hit (full again on
+      - while: state.overheated      # overheated: the XP bar drains over the 2s she has left without a hit (full again on
         slots: {}                    # every hit), so she sees when it will end. Nothing else changes.
         status_bar: { status: pyro_heat, level: none }
     variants:

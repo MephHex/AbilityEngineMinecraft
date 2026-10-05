@@ -192,6 +192,8 @@ public final class HotbarHud {
                     long remaining = engine.cooldowns().nextChargeTicks(id, a.id());
                     // Nothing to use (needs_constructs, none standing): the sweep stays full until there is.
                     if (remaining <= 0 && engine.activator().isUnavailable(id, a)) remaining = UNAVAILABLE_SWEEP_TICKS;
+                    // An ultimate still charging: greyed out the same way (its stack counts the percent)
+                    if (remaining <= 0 && ultCharging(id, a)) remaining = UNAVAILABLE_SWEEP_TICKS;
                     syncSweep(p, sent, sweepKey(id, c, slot, a), now, remaining);
                 });
             }
@@ -263,7 +265,8 @@ public final class HotbarHud {
                     int pos = position(slot);
                     ItemStack item = inv.getItem(pos);
                     if (!isHudItem(item)) return;
-                    boolean want = engine.instances().awaitingRecast(id, a.id()) || engine.activator().isPassive(id, a);
+                    boolean want = engine.instances().awaitingRecast(id, a.id()) || engine.activator().isPassive(id, a)
+                            || (engine.ultCharge().gates(id, a.id()) && engine.ultCharge().ready(id)); // a charged ultimate
                     ItemMeta meta = item.getItemMeta();
                     boolean has = meta.hasEnchantmentGlintOverride() && meta.getEnchantmentGlintOverride();
                     if (want == has) return;
@@ -666,6 +669,11 @@ public final class HotbarHud {
         return tag(item, meta);
     }
 
+    /** Is this the player's ultimate, still charging up (not at 100%)? */
+    private boolean ultCharging(UUID id, Ability a) {
+        return engine.ultCharge().gates(id, a.id()) && !engine.ultCharge().ready(id);
+    }
+
     /** Icon stack size = whole seconds of cooldown left (rounded up), 1 when ready (no number shown). */
     private void updateCounters(Player p) {
         UUID id = p.getUniqueId();
@@ -684,6 +692,8 @@ public final class HotbarHud {
                     // needs_constructs: off cooldown, the stack counts what it can use (e.g. shards hanging to recall)
                     int usable = engine.activator().constructsFor(id, a);
                     if (usable > 0 && remaining <= 0) seconds = Math.min(MAX_COUNT, usable);
+                    // An ultimate charging up: the stack is its percent (1 when full: it glints instead)
+                    if (ultCharging(id, a)) seconds = Math.max(1, Math.min(MAX_COUNT, (int) Math.floor(engine.ultCharge().of(id))));
                     if (item.getAmount() != seconds) {
                         item.setAmount(seconds);
                         inv.setItem(pos, item);

@@ -18,7 +18,8 @@ import java.util.Optional;
 /**
  * Effect id "knockback". Params: {@code from} (required) = blackboard key of the centre,
  * {@code radius} (required), {@code center} = push strength at the centre (default 1.2),
- * {@code edge} = strength at the radius (default 0.3), {@code lift} = upward push (default 0.3).
+ * {@code edge} = strength at the radius (default 0.3), {@code lift} = upward push (default 0.3),
+ * {@code vertical: true} = away from the centre up and down too (a blast below throws them up), not only sideways.
  * The math lives in the engine (Knockback.impulse) so it's tested there.
  */
 public final class KnockbackEffect implements Effect {
@@ -37,7 +38,7 @@ public final class KnockbackEffect implements Effect {
 
         Params p = ctx.params();
         Vec3 impulse = Knockback.impulse(center.get().position(), pos.get().position(), p.requireDouble("radius"),
-                p.getDouble("center", 1.2), p.getDouble("edge", 0.3), p.getDouble("lift", 0.3));
+                p.getDouble("center", 1.2), p.getDouble("edge", 0.3), p.getDouble("lift", 0.3), p.getBool("vertical", false));
         if (ctx.engine().tags().has(target.id(), Tags.STURDY)) impulse = impulse.multiply(0.5); // e.g. Bulwark
         entity.setVelocity(entity.getVelocity().add(Convert.bukkit(impulse)));
     }

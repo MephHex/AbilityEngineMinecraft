@@ -57,7 +57,7 @@ abilities:
     nodes:
       slash:
         type: apply_effects
-        targets: { type: cone, range: 3.2, angle: 90 }
+        targets: { type: cone, range: 5, angle: 90 }
         effects:
           - { id: damage, base: 1.0 }
           - { id: status, status: valkyrie_fervor, self: true }   # a stack of Fervor per enemy hit
@@ -95,13 +95,13 @@ abilities:
         next: leap1
       leap1:
         type: leap                   # ~3 blocks forward
-        speed: 0.3
-        up: 0.42
+        speed: 0.4
+        up: 0.5
         stop_at_enemies: true        # running into an enemy: stop and slash right there
         on: { out: slash1, hit: slash1 }
       slash1:
         type: apply_effects
-        targets: { type: cone, range: 4, angle: 180 }   # a half circle in front of her
+        targets: { type: cone, range: 5, angle: 180 }   # a half circle in front of her
         effects:
           - { id: damage, base: 1.0 }
           - { id: status, status: valkyrie_fervor, self: true }
@@ -283,7 +283,7 @@ abilities:
         targets: { type: key, key: hit }
         effects:
           - { id: damage, base: 0.8, knockback: false }
-          - { id: knockback, from: caster, radius: 3, center: -1.3, edge: -1.3, lift: 0.6 }   # toward her, and past
+          - { id: knockback, from: caster, radius: 3, center: -0.3, edge: -1.3, lift: 0.6 }   # toward her, and past
           - { id: status, status: stun, duration: 20 }   # 1s
           - { id: status, status: valkyrie_fervor, self: true }
         next: fling_cue
@@ -401,7 +401,7 @@ abilities:
     active_tags: [state.choosing_ward]   # LMB / RMB pick (see forms below)
     display:
       name: "Divine Ward"
-      icon: TOTEM_OF_UNDYING
+      icon: Stick
       description:
         - "Choose: LMB an ally in your sights, RMB"
         - "yourself. No damage for 4s, can't die."

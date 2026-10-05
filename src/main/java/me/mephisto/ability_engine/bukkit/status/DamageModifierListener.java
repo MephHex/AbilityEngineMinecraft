@@ -62,6 +62,9 @@ public final class DamageModifierListener implements Listener {
                 event.getDamage(), pierce, me.mephisto.ability_engine.bukkit.effect.DamageEffect.isAbilityDamage());
         if (result.amount() != event.getDamage()) event.setDamage(result.amount());
         savedFromDeath(event);
+        if (!event.isCancelled() && event.getFinalDamage() > 0) { // hurt: on_damaged (a hit taken while channeling...)
+            engine.notifyDamaged(victim, attacker != null ? attacker.getUniqueId() : null);
+        }
 
         for (var redirect : result.redirects()) {
             if (!(Bukkit.getEntity(redirect.to()) instanceof LivingEntity owner) || owner.isDead()) continue;

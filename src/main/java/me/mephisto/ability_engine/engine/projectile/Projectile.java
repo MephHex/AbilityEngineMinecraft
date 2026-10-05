@@ -19,6 +19,7 @@ final class Projectile implements ProjectileHandle {
     int guidedUntilTick = -1;   // guided while ticksLived <= this
     double unguidedDistance;
     Vec3 sweepFrom;             // first tick only: check collisions from here (the eye)
+    double entityBonus;         // extra radius against entities only (primary fire: easier to land), 0 = none
     Vec3 lastPosition;          // where it was the tick before (its approach, for hit direction)
     int bouncesLeft;
     boolean done;
@@ -32,6 +33,7 @@ final class Projectile implements ProjectileHandle {
     java.util.UUID marked;      // seek with a "mark": who has it from this one, since markedAt
     int markedAt;
     final java.util.Set<java.util.UUID> pierced = new java.util.HashSet<>(); // already hit: fly through them
+    final java.util.Set<java.util.UUID> ignored = new java.util.HashSet<>(); // never hit (it started inside them)
 
     Projectile(ProjectileSpec spec, String world, Vec3 position, Vec3 velocity, Resumer resumer, ProjectileVisual visual) {
         this.spec = spec;

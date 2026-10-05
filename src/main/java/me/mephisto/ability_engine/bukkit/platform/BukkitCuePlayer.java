@@ -248,6 +248,19 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.DUST_COLOR_TRANSITION, loc.clone().add(0, 0.15, 0), 14, 1.4, 0.05, 1.4, 0, inside);
             loc.getWorld().spawnParticle(Particle.GLOW, loc.clone().add(0, 0.2, 0), 3, 1.4, 0.1, 1.4, 0);
         });
+        c.register("smoke_burst", loc -> { // Smoke Grenade bursting: a thick grey cloud
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc.clone().add(0, 0.5, 0), 40, 1.6, 0.6, 1.6, 0.02);
+            w.spawnParticle(Particle.LARGE_SMOKE, loc.clone().add(0, 0.8, 0), 60, 1.5, 0.8, 1.5, 0.04);
+            w.spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
+            w.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.7f, 1.4f);
+            w.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 1f, 0.6f);
+        });
+        c.register("smoke_pool", loc -> { // the smoke hanging there (3 blocks)
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, loc.clone().add(0, 0.4, 0), 6, 1.4, 0.3, 1.4, 0.01);
+            w.spawnParticle(Particle.LARGE_SMOKE, loc.clone().add(0, 1.0, 0), 18, 1.4, 0.7, 1.4, 0.01);
+        });
         c.register("rounds_loaded", loc -> { // magic rounds loaded into the guns
             loc.getWorld().spawnParticle(Particle.ENCHANT, loc, 40, 0.4, 0.8, 0.4, 0.5);
             loc.getWorld().playSound(loc, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1.4f);
