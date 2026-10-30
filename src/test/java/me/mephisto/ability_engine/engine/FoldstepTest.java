@@ -63,8 +63,8 @@ class FoldstepTest {
     void aimingOffACliffLandsOnTheCliffEdge() throws IOException {
         TestEngine t = shipped();
         t.world.floor(0);
-        t.world.box(-20, 5, -20, 20, 30);          // cliff top at y=30, edge at x=5, 30-block drop beyond
-        UUID caster = t.spawn(0, 31.62, 0);        // standing on it (eye height), looking out level
+        t.world.box(-20, 5, -20, 20, 50);          // cliff top at y=50, edge at x=5, 50-block drop beyond
+        UUID caster = t.spawn(0, 51.62, 0);        // standing on it (eye height), looking out level
         t.engine.activator().activate(caster, "foldstep");
         t.time.advance(1);
         assertEquals(0, t.render.invalidDraws, "preview shows the edge, not red");
@@ -72,8 +72,51 @@ class FoldstepTest {
         t.time.advance(10);
 
         Vec3 landed = t.teleports.get(0);
-        assertEquals(30.0, landed.y(), 1e-6, "stays on top: the bottom is deeper than max_drop");
+        assertEquals(50.0, landed.y(), 1e-6, "stays on top: the bottom is deeper than max_drop (40)");
         assertTrue(landed.x() > 4.5 && landed.x() <= 5.0, "right at the edge: x=" + landed.x());
+    }
+
+    @Test
+    void aDeepDropWithinFortyBlocksIsFine() throws IOException {
+        TestEngine t = shipped();
+        t.world.floor(0);
+        t.world.box(-20, 5, -20, 20, 30);          // a 30-block cliff
+        UUID caster = t.spawn(0, 31.62, 0);
+        t.world.look(caster, new Vec3(1, -0.3, 0).normalize()); // out past the edge (it clears it at x=5)
+        t.engine.activator().activate(caster, "foldstep");
+        assertTrue(t.engine.targeting().confirm(caster).success());
+        t.time.advance(10);
+        assertEquals(0.0, t.teleports.get(0).y(), 1e-6, "down at the bottom");
+    }
+
+    @Test
+    void theCrosshairOnAStepsSidePutsItOnTop() throws IOException {
+        TestEngine t = shipped();
+        t.world.floor(0);
+        t.world.box(5, 8, -5, 5, 1);               // a 1-block step from x=5
+        UUID caster = t.spawn(0, 1.62, 0);
+        t.world.look(caster, new Vec3(1, -0.15, 0).normalize()); // hits its side at y ~0.87
+        t.engine.activator().activate(caster, "foldstep");
+        assertTrue(t.engine.targeting().confirm(caster).success());
+        t.time.advance(10);
+        Vec3 landed = t.teleports.get(0);
+        assertEquals(1.0, landed.y(), 1e-6, "on top of the step, not at its foot");
+        assertTrue(landed.x() > 5, "on it: x=" + landed.x());
+    }
+
+    @Test
+    void theCrosshairLowOnATallWallStaysAtItsFoot() throws IOException {
+        TestEngine t = shipped();
+        t.world.floor(0);
+        t.world.box(5, 8, -5, 5, 4);               // a 4-block wall from x=5
+        UUID caster = t.spawn(0, 1.62, 0);
+        t.world.look(caster, new Vec3(1, -0.15, 0).normalize()); // its side at y ~0.87: the top is 3 blocks higher
+        t.engine.activator().activate(caster, "foldstep");
+        assertTrue(t.engine.targeting().confirm(caster).success());
+        t.time.advance(10);
+        Vec3 landed = t.teleports.get(0);
+        assertEquals(0.0, landed.y(), 1e-6, "at its foot");
+        assertTrue(landed.x() < 5, "in front of it: x=" + landed.x());
     }
 
     @Test

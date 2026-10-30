@@ -47,17 +47,55 @@ public final class BossBarHud implements Listener {
                 hide(p);
                 continue;
             }
-            Component name = Component.text(timer.get().ability().display().name(), NamedTextColor.GOLD);
+            Component name = title(timer.get().ability().display().name(), timer.get().textColors());
+            if (timer.get().ticksLeft().isPresent()) { // a countdown: the seconds left too
+                name = name.append(Component.text(String.format(java.util.Locale.ROOT, "  %.1fs",
+                        timer.get().ticksLeft().get() / 20.0), NamedTextColor.WHITE));
+            }
+            if (timer.get().note() != null) { // e.g. what the ultimate has left
+                name = name.append(Component.text("  ◆ " + timer.get().note(), NamedTextColor.LIGHT_PURPLE));
+            }
             float left = (float) Math.max(0, Math.min(1, timer.get().left()));
+            BossBar.Color color = colorOf(timer.get().color());
             BossBar bar = showing.get(p.getUniqueId());
             if (bar == null) {
-                bar = BossBar.bossBar(name, left, BossBar.Color.YELLOW, BossBar.Overlay.NOTCHED_10);
+                bar = BossBar.bossBar(name, left, color, BossBar.Overlay.NOTCHED_10);
                 showing.put(p.getUniqueId(), bar);
                 p.showBossBar(bar);
             } else {
                 bar.name(name);
                 bar.progress(left);
+                if (bar.color() != color) bar.color(color);
             }
+        }
+    }
+
+    /** The bar's title: gold, or its letters in the timer's colours in turn (spaces don't take a turn), like a room's tiles. */
+    private static Component title(String text, java.util.List<String> colors) {
+        if (colors.isEmpty()) return Component.text(text, NamedTextColor.GOLD);
+        var out = Component.text();
+        int turn = 0;
+        for (int i = 0; i < text.length(); ) {
+            int cp = text.codePointAt(i);
+            String letter = new String(Character.toChars(cp));
+            i += Character.charCount(cp);
+            if (Character.isWhitespace(cp)) {
+                out.append(Component.text(letter));
+                continue;
+            }
+            var color = net.kyori.adventure.text.format.TextColor.fromHexString(colors.get(turn++ % colors.size()));
+            out.append(Component.text(letter, color == null ? NamedTextColor.GOLD : color));
+        }
+        return out.build();
+    }
+
+    /** The timer's colour (timer_color), yellow by default. */
+    private static BossBar.Color colorOf(String color) {
+        if (color == null) return BossBar.Color.YELLOW;
+        try {
+            return BossBar.Color.valueOf(color.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return BossBar.Color.YELLOW;
         }
     }
 

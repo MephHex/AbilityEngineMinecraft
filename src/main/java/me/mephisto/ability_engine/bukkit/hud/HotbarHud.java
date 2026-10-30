@@ -102,6 +102,8 @@ public final class HotbarHud {
     private final Map<UUID, Boolean> weaponGlint = new HashMap<>();
     /** Per player: the kit last drawn (with any form applied), so a form starting or ending redraws it. */
     private final Map<UUID, CharacterDef> renderedAs = new HashMap<>();
+    /** The numbers each player's descriptions were drawn with (Descriptions.numbers): they change, it's drawn again. */
+    private final Map<UUID, String> numbersShown = new HashMap<>();
 
     /** The ultimate's icon (the offhand) is drawn in the inventory / HUD only, not held in the left hand (needs the pack). */
     private boolean hideOffhandInHand;
@@ -172,14 +174,15 @@ public final class HotbarHud {
             return;
         }
         renderedAs.put(p.getUniqueId(), character.get());
+        numbersShown.put(p.getUniqueId(), Descriptions.numbers(engine, p.getUniqueId()));
 
         PlayerInventory inv = p.getInventory();
         inv.setItem(WEAPON_SLOT, weapon(p, character.get()));
         inv.setHeldItemSlot(WEAPON_SLOT);
 
-        for (String slot : HUD_SLOTS) {
-            if (onWeapon(slot)) continue; // primary/secondary are described on the weapon itself
-            ability(character.get(), slot).ifPresent(a -> inv.setItem(position(slot), icon(slot, a, character.get())));
+        for (String slot : HUD_SLOTS) { // (primary/secondary are described on the weapon itself; display.hotbar: an icon too)
+            ability(character.get(), slot).filter(a -> hasIcon(slot, a))
+                    .ifPresent(a -> inv.setItem(position(slot, a), icon(p.getUniqueId(), slot, a, character.get())));
         }
         for (ResourceDef def : visibleGauges(p.getUniqueId(), character.get()).values()) {
             inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
@@ -254,6 +257,8 @@ public final class HotbarHud {
                 if (now.isEmpty()) continue;
                 // A form started or ended (e.g. an ultimate that swaps the weapon and primary): redraw the kit.
                 if (!now.get().equals(renderedAs.get(p.getUniqueId()))) render(p);
+                // Their stats changed (an item, a buff): the exact numbers in the descriptions too
+                else if (!Descriptions.numbers(engine, p.getUniqueId()).equals(numbersShown.get(p.getUniqueId()))) render(p);
                 updateGauges(p);
                 updateStatusItems(p);
                 updateHearing(p);
@@ -269,6 +274,16 @@ public final class HotbarHud {
         return Slots.PRIMARY.equals(slot) || Slots.SECONDARY.equals(slot) || Slots.MELEE.equals(slot);
     }
 
+    /** An icon of its own: abilities 1-3 and the ultimate; a secondary / melee one with display.hotbar. */
+    private static boolean hasIcon(String slot, Ability a) {
+        return !onWeapon(slot) || (!Slots.PRIMARY.equals(slot) && a.display().hotbar() > 0);
+    }
+
+    /** Where its icon goes: a secondary / melee one in its display.hotbar slot, the others in theirs. */
+    private static int position(String slot, Ability a) {
+        return onWeapon(slot) && a.display().hotbar() > 0 ? a.display().hotbar() - 1 : position(slot);
+    }
+
     // ---- recast glint ----------------------------------------------------------------------
 
     /**
@@ -280,13 +295,13 @@ public final class HotbarHud {
         engine.loadouts().characterOf(id).ifPresent(c -> {
             PlayerInventory inv = p.getInventory();
             for (String slot : HUD_SLOTS) {
-                if (onWeapon(slot)) continue;
-                ability(c, slot).ifPresent(a -> {
-                    int pos = position(slot);
+                ability(c, slot).filter(a -> hasIcon(slot, a)).ifPresent(a -> {
+                    int pos = position(slot, a);
                     ItemStack item = inv.getItem(pos);
                     if (!isHudItem(item)) return;
                     boolean want = engine.instances().awaitingRecast(id, a.id()) || engine.activator().isPassive(id, a)
-                            || (engine.ultCharge().gates(id, a.id()) && engine.ultCharge().ready(id)); // a charged ultimate
+                            || (engine.ultCharge().gates(id, a.id()) && engine.ultCharge().ready(id)) // a charged ultimate
+                            || engine.stolen().isFree(id, a.id()); // a stolen one, ready to use
                     ItemMeta meta = item.getItemMeta();
                     boolean has = meta.hasEnchantmentGlintOverride() && meta.getEnchantmentGlintOverride();
                     if (want == has) return;
@@ -437,10 +452,10 @@ public final class HotbarHud {
             String cc = entry.getValue();
             if (cc.equals(before.get(slot))) continue;
             if (Slots.PRIMARY.equals(slot)) {                        // primary fire lives on the weapon
-                inv.setItem(WEAPON_SLOT, cc.isEmpty() ? weapon(p, c) : barrier(new ItemStack(Material.BARRIER), c.name(), cc));
-            } else if (!onWeapon(slot)) {
+                inv.setItem(WEAPON_SLOT, cc.isEmpty() ? weapon(p, c) : barrier(offhandIcon(Material.BARRIER), c.name(), cc)); // (with the pack: not drawn in hand)
+            } else if (hasIcon(slot, ability(c, slot).get())) {
                 Ability a = ability(c, slot).get();
-                inv.setItem(position(slot), cc.isEmpty() ? icon(slot, a, c)
+                inv.setItem(position(slot, a), cc.isEmpty() ? icon(id, slot, a, c)
                         : barrier(iconBase(slot, Material.BARRIER, c), a.display().name(), cc));
             }
         }
@@ -707,9 +722,8 @@ public final class HotbarHud {
         engine.loadouts().characterOf(id).ifPresent(c -> {
             PlayerInventory inv = p.getInventory();
             for (String slot : HUD_SLOTS) {
-                if (onWeapon(slot)) continue;
-                ability(c, slot).ifPresent(a -> {
-                    int pos = position(slot);
+                ability(c, slot).filter(a -> hasIcon(slot, a)).ifPresent(a -> {
+                    int pos = position(slot, a);
                     ItemStack item = inv.getItem(pos);
                     if (!isHudItem(item)) return;
                     long remaining = engine.cooldowns().remainingTicks(id, a.id());
@@ -721,6 +735,10 @@ public final class HotbarHud {
                     if (usable > 0 && remaining <= 0) seconds = Math.min(MAX_COUNT, usable);
                     // An ultimate charging up: the stack is its percent (1 when full: it glints instead)
                     if (ultCharging(id, a)) seconds = Math.max(1, Math.min(MAX_COUNT, (int) Math.floor(engine.ultCharge().of(id))));
+                    // A stolen ultimate: the seconds left to use it
+                    if (engine.stolen().isFree(id, a.id())) {
+                        seconds = Math.max(1, Math.min(MAX_COUNT, (int) Math.ceil(engine.stolen().ticksLeft(id) / 20.0)));
+                    }
                     if (item.getAmount() != seconds) {
                         item.setAmount(seconds);
                         inv.setItem(pos, item);
@@ -821,7 +839,7 @@ public final class HotbarHud {
                 String key = Slots.MELEE.equals(slot) ? "LMB on target"
                         : keybinds.actionFor(slot).map(InputAction::defaultKey).orElse("-");
                 lore.add(plain("[" + key + "] ", NamedTextColor.YELLOW).append(plain(a.display().name(), NamedTextColor.WHITE)));
-                for (String line : a.display().description()) lore.add(plain(line, NamedTextColor.GRAY));
+                for (String line : a.display().description()) lore.add(Descriptions.line(engine, p.getUniqueId(), false, line));
             });
         }
         if (!lore.isEmpty()) meta.lore(lore);
@@ -861,6 +879,7 @@ public final class HotbarHud {
      */
     private ItemStack iconBase(String slot, Material look, CharacterDef c) {
         if (position(slot) == OFFHAND_SLOT) return offhandIcon(look);
+        if (onWeapon(slot)) return new ItemStack(look); // a secondary's own icon (display.hotbar): its sweep is its material's
         if (!iconsPassForWeapon(c)) return new ItemStack(look);
         ItemStack item = new ItemStack(weaponMaterial(c));
         item.unsetData(io.papermc.paper.datacomponent.DataComponentTypes.MAX_DAMAGE); // damageable items can't stack (the
@@ -898,7 +917,7 @@ public final class HotbarHud {
         return iconGroup(slot);
     }
 
-    private ItemStack icon(String slot, Ability a, CharacterDef c) {
+    private ItemStack icon(UUID player, String slot, Ability a, CharacterDef c) {
         ItemStack item = iconBase(slot, iconMaterial(slot, a), c);
         ItemMeta meta = item.getItemMeta();
         meta.setMaxStackSize(MAX_COUNT);
@@ -906,7 +925,8 @@ public final class HotbarHud {
         meta.displayName(plain("[" + key + "] ", NamedTextColor.YELLOW).append(plain(a.display().name(), NamedTextColor.WHITE)));
 
         List<Component> lore = new ArrayList<>();
-        for (String line : a.display().description()) lore.add(plain(line, NamedTextColor.GRAY));
+        boolean ability = !onWeapon(slot); // (1, 2, 3, the ultimate: spell power counts in their numbers)
+        for (String line : a.display().description()) lore.add(Descriptions.line(engine, player, ability, line));
         if (Slots.ULTIMATE.equals(slot) && engine.ultCharge().enabled()) {
             lore.add(plain("Charges up: abilities and attacks that land,", NamedTextColor.DARK_GRAY));
             lore.add(plain("and over time.", NamedTextColor.DARK_GRAY));

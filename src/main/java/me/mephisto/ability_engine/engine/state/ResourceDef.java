@@ -15,9 +15,29 @@ package me.mephisto.ability_engine.engine.state;
  * @param hiddenWhile    not shown while the owner has this tag (null = never hidden)
  * @param refillSweep    its hotbar item shows the next unit coming back (a cooldown sweep)
  * @param onWeapon       its amount is the weapon's stack size (e.g. ammo on the gun), instead of an item of its own
+ * @param start          how much a freshly picked character has (below 0: full)
+ * @param expireTicks    above 0: all of it is lost this long after the last time any was gained (ammo that can't be
+ *                       stockpiled before a fight); every gain starts the time over
+ * @param expireStatus   with expireTicks: a status kept on the owner for that time from every gain (e.g. to show the
+ *                       time left on the XP bar), taken off when it runs out or they spend the last of it (null = none)
  */
 public record ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
-                          int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep, boolean onWeapon) {
+                          int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep, boolean onWeapon,
+                          double start, int expireTicks, String expireStatus) {
+
+    /** Never expiring. */
+    public ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
+                       int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep, boolean onWeapon,
+                       double start) {
+        this(id, max, regenPerSecond, delayTicks, hotbarSlot, icon, reloadTicks, shownWhile, hiddenWhile, refillSweep, onWeapon,
+                start, 0, null);
+    }
+
+    /** Starting full. */
+    public ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
+                       int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep, boolean onWeapon) {
+        this(id, max, regenPerSecond, delayTicks, hotbarSlot, icon, reloadTicks, shownWhile, hiddenWhile, refillSweep, onWeapon, -1);
+    }
 
     public ResourceDef(String id, double max, double regenPerSecond, int delayTicks, int hotbarSlot, String icon,
                        int reloadTicks, String shownWhile, String hiddenWhile, boolean refillSweep) {

@@ -91,7 +91,7 @@ public final class StatusManager {
 
     /** A debuff: not a buff, and put on you by someone else (or by nobody: the world). */
     public static boolean isDebuff(UUID target, StatusDef def, UUID source) {
-        return !def.positive() && !target.equals(source);
+        return !def.positive() && !def.links().neutral() && !target.equals(source);
     }
 
     /** The crowd-control tags (with a slower move or attack speed, a status's crowd-control parts). */
@@ -100,7 +100,9 @@ public final class StatusManager {
             me.mephisto.ability_engine.engine.tag.Tags.DISARMED, me.mephisto.ability_engine.engine.tag.Tags.ROOTED,
             me.mephisto.ability_engine.engine.tag.Tags.SLOWED, me.mephisto.ability_engine.engine.tag.Tags.FROZEN,
             me.mephisto.ability_engine.engine.tag.Tags.PARALYZED, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_ABILITY,
-            me.mephisto.ability_engine.engine.tag.Tags.BLOCK_MOVE, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_WALK);
+            me.mephisto.ability_engine.engine.tag.Tags.BLOCK_MOVE, me.mephisto.ability_engine.engine.tag.Tags.BLOCK_WALK,
+            me.mephisto.ability_engine.engine.tag.Tags.LIFTED, me.mephisto.ability_engine.engine.tag.Tags.INVERTED,
+            me.mephisto.ability_engine.engine.tag.Tags.CONFUSED);
 
     /**
      * Has crowd-control parts: it stops or hinders them (stunned, rooted, silenced, disarmed, frozen, paralyzed, held in
@@ -294,6 +296,15 @@ public final class StatusManager {
         Map<String, ActiveStatus> mine = active.get(target);
         if (mine == null) return;
         for (String id : new ArrayList<>(mine.keySet())) remove(target, id);
+    }
+
+    /** {@code source} died: every ends_with_source status they put on anyone comes off. */
+    public void removeFrom(UUID source) {
+        for (var e : List.copyOf(active.entrySet())) {
+            for (ActiveStatus s : List.copyOf(e.getValue().values())) {
+                if (s.def.links().endsWithSource() && source.equals(s.source)) remove(e.getKey(), s.def.id());
+            }
+        }
     }
 
     public void clearAll() {

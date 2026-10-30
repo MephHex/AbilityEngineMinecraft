@@ -54,6 +54,11 @@ public final class DamageModifierListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (redirecting || !(event.getEntity() instanceof LivingEntity)) return;
+        if (event.getCause() == EntityDamageEvent.DamageCause.SUFFOCATION
+                && engine.tags().has(event.getEntity().getUniqueId(), me.mephisto.ability_engine.engine.tag.Tags.SWAPPING)) {
+            event.setCancelled(true); // flown through a wall on the way (Switcheroo): no harm
+            return;
+        }
         Entity attacker = event.getDamageSource().getCausingEntity();
         UUID victim = event.getEntity().getUniqueId();
         // Armor applies to everything (vanilla hits and falls too) except a hit's % max HP part (damage over time).

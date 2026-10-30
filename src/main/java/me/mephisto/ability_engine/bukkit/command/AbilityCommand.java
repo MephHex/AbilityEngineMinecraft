@@ -30,7 +30,12 @@ import java.util.stream.Stream;
  */
 public final class AbilityCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBS = List.of("char", "quickcast", "cast", "castas", "bind", "unbind", "cdclear", "list", "status", "apply", "setres", "reload", "debug");
+    private static final List<String> SUBS = List.of("char", "dummy", "mob", "quickcast", "cast", "castas", "bind", "unbind", "cdclear", "list", "status", "apply", "setres", "reload", "debug");
+
+    /** Design HP per Minecraft health point (config damage-scale), for a dummy's health. */
+    private java.util.function.DoubleSupplier damageScale = () -> 10;
+
+    public void setDamageScale(java.util.function.DoubleSupplier damageScale) { this.damageScale = damageScale; }
 
     private final AbilityEngine engine;
     private final ItemBindings bindings;
@@ -75,6 +80,31 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 equip(player, args[1], sender);
+                return true;
+            }
+            case "dummy" -> {
+                if (args.length < 2) {
+                    sender.sendMessage(ChatColor.RED + "/ae dummy <character> [team]");
+                    return true;
+                }
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("Only a player can place a dummy (it goes in front of you).");
+                    return true;
+                }
+                dummy(player, args[1], args.length >= 3 ? args[2] : null);
+                return true;
+            }
+            case "mob" -> {
+                if (args.length < 2) {
+                    sender.sendMessage(ChatColor.RED + "/ae mob <character> [entity type] [team]");
+                    return true;
+                }
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("Only a player can place a mob (it goes in front of you).");
+                    return true;
+                }
+                String type = args.length >= 3 ? args[2] : "mannequin";
+                spawn(player, args[1], type, args.length >= 4 ? args[3] : null, false);
                 return true;
             }
             case "debug" -> {
@@ -198,10 +228,30 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
             return;
         }
         List<Player> players = targets.stream().filter(e -> e instanceof Player).map(e -> (Player) e).toList();
-        if (players.isEmpty()) {
-            sender.sendMessage(ChatColor.RED + "No players matched " + who);
+        // Anything else that lives (a mannequin, a mob): the character without a HUD, e.g. a dummy to test against
+        List<LivingEntity> others = targets.stream().filter(e -> e instanceof LivingEntity && !(e instanceof Player))
+                .map(e -> (LivingEntity) e).toList();
+        if (players.isEmpty() && others.isEmpty()) {
+            sender.sendMessage(ChatColor.RED + "Nobody matched " + who);
             return;
         }
+        if (!character.equalsIgnoreCase("none") && engine.characters().find(character).isEmpty()) {
+            sender.sendMessage(ChatColor.RED + "Unknown character " + character);
+            return;
+        }
+        for (LivingEntity e : others) {
+            if (character.equalsIgnoreCase("none")) {
+                engine.resetEntity(e.getUniqueId(), "character_removed");
+                engine.loadouts().clear(e.getUniqueId());
+            } else {
+                engine.loadouts().assign(e.getUniqueId(), character);
+            }
+        }
+        if (!others.isEmpty()) {
+            sender.sendMessage(ChatColor.GREEN + (character.equalsIgnoreCase("none") ? "Removed the character from " : "Gave " + character + " to ")
+                    + others.size() + " non-player" + (others.size() == 1 ? "" : "s") + ".");
+        }
+        if (players.isEmpty()) return;
         int ok = 0;
         for (Player p : players) if (equip(p, character, null)) ok++;
         if (ok == 0) sender.sendMessage(ChatColor.RED + "Unknown character " + character);
@@ -209,6 +259,70 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.GREEN + (character.equalsIgnoreCase("none") ? "Removed the character from " : "Gave " + character + " to ")
                     + ok + " player" + (ok == 1 ? "" : "s") + ".");
         }
+    }
+
+    /**
+     * /ae dummy <character> [team]: a mannequin 3 blocks in front of the player, facing them, playing that character (its
+     * max HP too), on no team (everyone's enemy) or the given scoreboard team. Something to test against: hit it, steal its
+     * ultimate, or make it cast with /ae castas. Killed, it's gone.
+     */
+    private void dummy(Player player, String character, String teamName) {
+        spawn(player, character, "mannequin", teamName, true);
+    }
+
+    /**
+     * Spawn a {@code typeName} (any living type) 3 blocks in front of the player, facing them, playing {@code character}
+     * with its max HP and size, on no team (everyone's enemy) or {@code teamName}. A character with a brain drives it
+     * (/ae mob: a PvE enemy); without one it stands there ({@code dummy}: also its ultimate charged, to steal).
+     */
+    private void spawn(Player player, String character, String typeName, String teamName, boolean dummy) {
+        if (engine.characters().find(character).isEmpty()) {
+            player.sendMessage(ChatColor.RED + "Unknown character " + character);
+            return;
+        }
+        org.bukkit.entity.EntityType type;
+        try {
+            type = org.bukkit.entity.EntityType.valueOf(typeName.toUpperCase(java.util.Locale.ROOT).replace("MINECRAFT:", ""));
+        } catch (IllegalArgumentException e) {
+            player.sendMessage(ChatColor.RED + "Unknown entity type " + typeName);
+            return;
+        }
+        if (type.getEntityClass() == null || !LivingEntity.class.isAssignableFrom(type.getEntityClass()) || type == org.bukkit.entity.EntityType.PLAYER) {
+            player.sendMessage(ChatColor.RED + typeName + " isn't a living mob");
+            return;
+        }
+        var board = Bukkit.getScoreboardManager().getMainScoreboard();
+        org.bukkit.scoreboard.Team team = teamName == null ? null : board.getTeam(teamName);
+        if (teamName != null && team == null) {
+            player.sendMessage(ChatColor.RED + "No scoreboard team " + teamName);
+            return;
+        }
+        org.bukkit.Location eye = player.getLocation();
+        org.bukkit.util.Vector ahead = eye.getDirection().setY(0);
+        if (ahead.lengthSquared() < 1e-6) ahead = new org.bukkit.util.Vector(1, 0, 0);
+        org.bukkit.Location at = eye.clone().add(ahead.normalize().multiply(3));
+        at.setDirection(ahead.clone().multiply(-1)); // facing the player
+        var def = engine.characters().find(character).get();
+        String name = def.name();
+        LivingEntity m = (LivingEntity) player.getWorld().spawn(at, type.getEntityClass(), e -> {
+            e.customName(net.kyori.adventure.text.Component.text(name + (dummy ? " (dummy)" : "")));
+            e.setCustomNameVisible(true);
+            e.setPersistent(false);
+        });
+        if (m instanceof org.bukkit.entity.Mob mob) mob.setRemoveWhenFarAway(false);
+        engine.loadouts().assign(m.getUniqueId(), character);
+        var max = m.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        double health = Math.max(1, engine.stats().maxHealth(m.getUniqueId()) / damageScale.getAsDouble());
+        if (max != null) max.setBaseValue(health);
+        m.setHealth(health);
+        var size = m.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (size != null && def.stats().scale() != 1) size.setBaseValue(def.stats().scale());
+        if (team != null) team.addEntity(m);
+        if (dummy && engine.ultCharge().enabled()) engine.ultCharge().set(m.getUniqueId(), 100); // its ultimate ready (to steal)
+        String who = (dummy ? "A " + name + " dummy" : name) + (team != null ? " on team " + team.getName() : " (everyone's enemy)");
+        if (engine.brains().drives(m.getUniqueId())) player.sendMessage(ChatColor.GREEN + who + ", driven by its brain.");
+        else player.sendMessage(ChatColor.GREEN + who + ". Make it cast: /ae castas @e[type=minecraft:"
+                + type.getKey().getKey() + ",limit=1,sort=nearest] <ability>");
     }
 
     /** Equip (or with "none", unequip) a character, telling the player. Errors go to {@code errorsTo} when set. */
@@ -351,7 +465,27 @@ public final class AbilityCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("char")) {
             String prefix = args[2].toLowerCase();
-            return Stream.concat(Stream.of("@p", "@a", "@s"), Bukkit.getOnlinePlayers().stream().map(Player::getName))
+            return Stream.concat(Stream.of("@p", "@a", "@s", "@e[type=minecraft:mannequin,limit=1,sort=nearest]"),
+                            Bukkit.getOnlinePlayers().stream().map(Player::getName))
+                    .filter(o -> o.toLowerCase().startsWith(prefix)).toList();
+        }
+        if (args.length == 2 && (args[0].equalsIgnoreCase("dummy") || args[0].equalsIgnoreCase("mob"))) {
+            return filter(engine.characters().ids().stream().sorted(), args[1]);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("mob")) {
+            return filter(java.util.Arrays.stream(org.bukkit.entity.EntityType.values())
+                    .filter(t -> t.getEntityClass() != null && LivingEntity.class.isAssignableFrom(t.getEntityClass())
+                            && t != org.bukkit.entity.EntityType.PLAYER)
+                    .map(t -> t.getKey().getKey()).sorted(), args[2]);
+        }
+        if (args.length == 4 && args[0].equalsIgnoreCase("mob")) {
+            String prefix = args[3].toLowerCase();
+            return Bukkit.getScoreboardManager().getMainScoreboard().getTeams().stream().map(org.bukkit.scoreboard.Team::getName)
+                    .filter(o -> o.toLowerCase().startsWith(prefix)).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("dummy")) {
+            String prefix = args[2].toLowerCase();
+            return Bukkit.getScoreboardManager().getMainScoreboard().getTeams().stream().map(org.bukkit.scoreboard.Team::getName)
                     .filter(o -> o.toLowerCase().startsWith(prefix)).toList();
         }
         return List.of();

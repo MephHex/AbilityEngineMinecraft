@@ -23,12 +23,16 @@ import java.util.Set;
  * </ul>
  * The line is drawn every 2 ticks as {@code <cue>_<stage>}, stage 1..{@code stages} growing with the
  * charge (so the platform can make it tighten and brighten), and the charge fills the cast bar.
+ * <p>
+ * With {@code pulse_every}, "pulse" runs as its own branch every that many ticks while it holds (e.g. draining them).
+ * Several tethers of one cast (one per enemy, see for_each) share the cast bar: it stays up while any of them holds.
  */
 public final class TetherNode implements GraphNode {
 
     public static final String COMPLETE = "complete";
     public static final String BROKEN = "broken";
-    private static final Set<String> OUTPUTS = Set.of(COMPLETE, BROKEN);
+    public static final String PULSE = "pulse";
+    private static final Set<String> OUTPUTS = Set.of(COMPLETE, BROKEN, PULSE);
 
     private final String targetKey;
     private final int duration;
@@ -37,8 +41,14 @@ public final class TetherNode implements GraphNode {
     private final Set<String> breakOn;
     private final String cue;
     private final int stages;
+    private final int pulseEvery; // 0 = no pulses
 
     public TetherNode(String targetKey, int duration, double range, int sightGrace, Set<String> breakOn, String cue, int stages) {
+        this(targetKey, duration, range, sightGrace, breakOn, cue, stages, 0);
+    }
+
+    public TetherNode(String targetKey, int duration, double range, int sightGrace, Set<String> breakOn, String cue, int stages,
+                      int pulseEvery) {
         this.targetKey = targetKey;
         this.duration = Math.max(1, duration);
         this.range = range;
@@ -46,6 +56,7 @@ public final class TetherNode implements GraphNode {
         this.breakOn = Set.copyOf(breakOn);
         this.cue = cue;
         this.stages = Math.max(1, stages);
+        this.pulseEvery = Math.max(0, pulseEvery);
     }
 
     @Override
@@ -66,6 +77,7 @@ public final class TetherNode implements GraphNode {
         private final EntityTarget target;
         private final AbilityInstance instance;
         private AbilityInstance.CastProgress bar;
+        private long startTick;
         private TaskHandle task;
         private int ticks;
         private int blindTicks; // in a row with a wall in between
@@ -79,7 +91,8 @@ public final class TetherNode implements GraphNode {
         }
 
         void start() {
-            bar = instance.showProgress(duration);
+            startTick = ctx.engine().clock().now();
+            bar = instance.showProgress(startTick, duration);
             instance.onEnd(() -> {
                 done = true;
                 if (task != null) task.cancel();
@@ -115,6 +128,8 @@ public final class TetherNode implements GraphNode {
                 finish(COMPLETE);
                 return;
             }
+            if (instance.progressFraction().isEmpty()) bar = instance.showProgress(startTick, duration); // another one's broke
+            if (pulseEvery > 0 && ticks % pulseEvery == 0) ctx.fork().suspend().resume(PULSE);
             if (ticks % 2 == 0) draw();
         }
 

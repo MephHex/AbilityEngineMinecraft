@@ -21,6 +21,7 @@ import me.mephisto.ability_engine.engine.status.StatusDef;
 import me.mephisto.ability_engine.engine.target.ConeQuery;
 import me.mephisto.ability_engine.engine.target.CursorQuery;
 import me.mephisto.ability_engine.engine.target.HitscanQuery;
+import me.mephisto.ability_engine.engine.target.EntityTarget;
 import me.mephisto.ability_engine.engine.target.KeyQuery;
 import me.mephisto.ability_engine.engine.target.LineQuery;
 import me.mephisto.ability_engine.engine.target.PathQuery;
@@ -39,6 +40,46 @@ import java.util.Set;
 public final class Parsers {
 
     public static TargetQuery query(Params p) {
+        TargetQuery q = lookingAt(p, baseQuery(p));
+        String status = p.getString("with_status", null);
+        if (status == null) return q;
+        // Only those who have that status right now (e.g. the ones still lifted up)
+        return ctx -> q.find(ctx).stream()
+                .filter(t -> t instanceof EntityTarget e && ctx.engine().statuses().has(e.id(), status))
+                .toList();
+    }
+
+    /**
+     * {@code looking_at: 70} (degrees, full width) on a radius query: only those looking at its centre right now - the
+     * way it lies from their eyes is within half that of where they look (e.g. a flash that blinds whoever watched it go
+     * off; add {@code sight: true} so a wall in between counts).
+     */
+    private static TargetQuery lookingAt(Params p, TargetQuery q) {
+        if (!p.has("looking_at")) return q;
+        if (!"radius".equals(p.getString("type", ""))) throw p.error("looking_at", "only on a radius query (looking at its centre)");
+        double angle = p.requireDouble("looking_at");
+        if (angle <= 0 || angle > 360) throw p.error("looking_at", "degrees, full width: 70 = 35 either side of where they look");
+        double cos = Math.cos(Math.toRadians(angle / 2));
+        String centerKey = p.getString("center", null);
+        return ctx -> {
+            var world = ctx.engine().world();
+            var center = (centerKey == null
+                    ? java.util.Optional.<me.mephisto.ability_engine.engine.target.Target>of(new EntityTarget(ctx.caster()))
+                    : me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, centerKey)).flatMap(world::positionOf);
+            if (center.isEmpty()) return List.of();
+            var at = center.get().position();
+            return q.find(ctx).stream().filter(t -> {
+                if (!(t instanceof EntityTarget e)) return false;
+                var aim = world.aimOf(e.id());
+                if (aim.isEmpty()) return false;
+                var toward = at.subtract(aim.get().eye());
+                if (toward.isZero()) return true; // it went off in their face
+                return aim.get().direction().normalize().dot(toward.normalize()) >= cos;
+            }).toList();
+        };
+    }
+
+    private static TargetQuery baseQuery(Params p) {
         String type = p.requireString("type");
         return switch (type) {
             case "self" -> SelfQuery.INSTANCE;
@@ -52,8 +93,10 @@ public final class Parsers {
             case "radius" -> {
                 double inner = p.getDouble("inner", 0);
                 if (inner < 0 || inner >= p.requireDouble("radius")) throw p.error("inner", "must be between 0 and radius");
+                double height = p.getDouble("height", 0);
+                if (height < 0) throw p.error("height", "a column this tall above the centre (blocks), or leave it out for a sphere");
                 yield new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
-                        p.getInt("max", 0), p.getBool("include_caster", false), inner, p.getBool("sight", false));
+                        p.getInt("max", 0), p.getBool("include_caster", false), inner, p.getBool("sight", false)).column(height);
             }
             case "cone" -> {
                 String heading = p.getString("heading", "aim");
@@ -63,9 +106,15 @@ public final class Parsers {
                         heading.equals("flight"), p.getDouble("ahead", 0), p.getBool("sight", false));
             }
             case "cursor" -> new CursorQuery(p.requireDouble("range"));
+            case "on_floor" -> new me.mephisto.ability_engine.engine.target.FloorQuery(p.requireString("floor"));
             case "line" -> new LineQuery(p.requireDouble("range"), p.getDouble("width", 1.0));
-            case "path" -> new PathQuery(p.requireString("from"), p.requireString("to"), p.getDouble("width", 1.0));
-            default -> throw p.error("type", "unknown query type '" + type + "' (self, key, hitscan, radius, cone, cursor, line, path)");
+            case "path" -> {
+                double extend = p.getDouble("extend", 0), height = p.getDouble("height", 0);
+                if (extend < 0) throw p.error("extend", "blocks past 'to' it reaches, at least 0");
+                if (height < 0) throw p.error("height", "blocks tall (a box with flat ends), at least 0 (0 = a capsule)");
+                yield new PathQuery(p.requireString("from"), p.requireString("to"), p.getDouble("width", 1.0), extend, height);
+            }
+            default -> throw p.error("type", "unknown query type '" + type + "' (self, key, hitscan, radius, cone, cursor, line, path, on_floor)");
         };
     }
 
@@ -125,7 +174,31 @@ public final class Parsers {
                 .bounceWalls(p.getBool("bounce_walls", false))
                 .trail(p.getString("trail", null))
                 .trailEvery(trailEvery(p))
+                .wallBounces(wallBounces(p))
+                .wallDamping(wallDamping(p))
+                .ignoreEntities(p.getBool("ignore_entities", false))
+                .catchAtFeet(catchAtFeet(p))
                 .build();
+    }
+
+    private static boolean catchAtFeet(Params p) {
+        boolean on = p.getBool("catch_at_feet", false);
+        if (on && !p.getBool("hits_caster", false)) throw p.error("catch_at_feet", "needs hits_caster: true");
+        return on;
+    }
+
+    private static int wallBounces(Params p) {
+        int n = p.getInt("wall_bounces", 0);
+        if (n < 0) throw p.error("wall_bounces", "how many wall bounces (bounce_walls), at least 0 (0 = every time)");
+        if (n > 0 && !p.getBool("bounce_walls", false)) throw p.error("wall_bounces", "needs bounce_walls: true");
+        return n;
+    }
+
+    private static double wallDamping(Params p) {
+        double d = p.getDouble("wall_damping", 0);
+        if (d < 0 || d > 1) throw p.error("wall_damping", "the share of its speed a wall bounce keeps, 0-1 (0.7)");
+        if (d > 0 && !p.getBool("bounce_walls", false)) throw p.error("wall_damping", "needs bounce_walls: true");
+        return d;
     }
 
     /** {@code fan}, {@code count_bonus} and {@code heading} of a projectile node (several at once, which way). */
@@ -137,9 +210,11 @@ public final class Parsers {
             case "aim" -> me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.AIM;
             case "flight" -> me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.FLIGHT;
             case "back" -> me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.BACK;
-            default -> throw p.error("heading", "expected aim, flight (on, the way the shot that hit was flying) or back");
+            case "random" -> me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.RANDOM;
+            default -> throw p.error("heading", "expected aim, flight (on, the way the shot that hit was flying), back or random");
         };
-        if (h != me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.AIM && p.has("toward")) {
+        if (h != me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.AIM
+                && h != me.mephisto.ability_engine.engine.nodes.gameplay.ProjectileNode.Heading.RANDOM && p.has("toward")) {
             throw p.error("heading", "either heading or toward, not both");
         }
         String bonus = p.getString("count_bonus", null);
@@ -174,7 +249,10 @@ public final class Parsers {
             out.add(switch (type) {
                 case "gravity" -> new Gravity(m.requireDouble("amount"));
                 case "drag" -> new Drag(m.requireDouble("amount"));
-                case "homing" -> new Homing(m.requireString("key"), m.getDouble("turn", 0.15));
+                case "homing" -> m.has("status") // toward enemies the caster marked with it (else: a stored target)
+                        ? new me.mephisto.ability_engine.engine.projectile.MarkHoming(m.requireString("status"),
+                                m.getDouble("range", 8), m.getDouble("turn", 0.1), m.getDouble("angle", 90))
+                        : new Homing(m.requireString("key"), m.getDouble("turn", 0.15));
                 case "accelerate" -> new Accelerate(m.requireDouble("amount"), m.requireDouble("max"));
                 case "seek" -> new me.mephisto.ability_engine.engine.projectile.Seek(m.getDouble("range", 6),
                         m.requireDouble("speed"), m.requireDouble("base"), m.getDouble("turn", 0.3),
@@ -257,7 +335,7 @@ public final class Parsers {
     }
 
     /** Default for every ground-targeted ability: at most this far below your feet, else the cliff edge. */
-    public static final double DEFAULT_MAX_DROP = 6.0;
+    public static final double DEFAULT_MAX_DROP = 40.0;
 
     /** {@code affects: enemies} (default), {@code allies} or {@code all}. The caster always passes. */
     public static ApplyEffectsNode.Affects affects(Params p) {
@@ -281,7 +359,7 @@ public final class Parsers {
         try {
             shape = Targeting.Shape.valueOf(p.getString("shape", "circle").toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw p.error("shape", "expected circle, line, cone, point or wall");
+            throw p.error("shape", "expected circle, line, cone, point, wall, rect or screen");
         }
         ProjectileSpec arc = null;
         if (p.has("arc")) {
@@ -294,7 +372,8 @@ public final class Parsers {
         double range = arc != null ? p.getDouble("range", 60) : p.requireDouble("range");
         return new Targeting(shape, range, p.getDouble("radius", 1.0),
                 p.getDouble("width", 1.0), p.getDouble("angle", 60), p.getInt("timeout", 0),
-                p.getBool("ground", false), p.getDouble("max_drop", DEFAULT_MAX_DROP), arc);
+                p.getBool("ground", false), p.getDouble("max_drop", DEFAULT_MAX_DROP), arc,
+                shape == Targeting.Shape.SCREEN ? p.getDouble("height", 2) : p.getDouble("length", 1)); // (a screen: its height)
     }
 
     /** Tags starting with this mark a status as a buff (positive: copied by tethers). */
@@ -347,14 +426,21 @@ public final class Parsers {
                 || !onHit.isEmpty() || dealt > 1 || taken < 1 || attackSpeed > 1 || moveSpeed > 1 || jumpBoost > 0
                 || healingTaken > 1 || p.getDouble("armor", 1) > 1 || p.getDouble("max_health", 1) > 1
                 || p.getDouble("ability_damage_taken", 1) < 1 || p.getDouble("ability_lifesteal", 0) > 0 || p.has("basic_on_hit") || p.has("ability_on_hit")
-                || p.has("cooldown_reduction") || p.getDouble("ally_healing_dealt", 1) > 1 || p.getDouble("ult_charge_rate", 1) > 1;
+                || p.has("cooldown_reduction") || p.getDouble("ally_healing_dealt", 1) > 1 || p.getDouble("ult_charge_rate", 1) > 1
+                || p.getDouble("spell_power", 0) > 0 || p.getDouble("crit_chance", 0) > 0 || p.getDouble("spell_resistance", 0) > 0
+                || p.getDouble("crit_damage", 0) > 0 || p.getBool("ability_crits", false) || p.has("on_crit");
         boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
+        if (p.getBool("neutral", false)) {
+            if (p.getBool("positive", false)) throw p.error("neutral", "a neutral status is neither a buff nor a debuff: leave out positive");
+            positive = false;
+        }
         return new StatusDef(base.id(), base.defaultDurationTicks(), base.stacking(), base.maxStacks(),
                 base.grantedTags(), onHit, every, tickEffects,
                 p.getBool("break_on_damage", false), p.getBool("once", false),
                 positive, dealt, taken, attackSpeed, moveSpeed, base.decayEvery(),
                 new StatusDef.Links(p.getString("at_max", null), p.getString("requires", null), p.getString("cue", null),
-                        p.getString("then", null), p.getBool("cue_per_stack", false)), farDamage(p), jumpBoost, healingTaken, armor,
+                        p.getString("then", null), p.getBool("cue_per_stack", false), p.getBool("ends_with_source", false),
+                        p.getBool("neutral", false)), farDamage(p), jumpBoost, healingTaken, armor,
                 p.getBool("single_target", false), new StatusDef.Life(onLethal(p), p.getBool("kill_on_end", false),
                 optionalEffects(p, "on_kill", registry)), extras(p, registry));
     }
@@ -378,9 +464,42 @@ public final class Parsers {
         if (allyHealing < 0) throw p.error("ally_healing_dealt", "must be >= 0 (1.4 = your heals on allies 40% stronger)");
         double ultRate = p.getDouble("ult_charge_rate", 1);
         if (ultRate < 0) throw p.error("ult_charge_rate", "must be >= 0 (1.25 = your ultimate charges 25% faster)");
+        double slowCap = p.getDouble("slow_cap", 0);
+        if (slowCap < 0 || slowCap >= 1) throw p.error("slow_cap", "the most these slows add up to, 0-1 (0.4 = 40% slower at most)");
         return new StatusDef.Extras(maxHealth, abilityTaken, lifesteal, optionalEffects(p, "basic_on_hit", registry),
                 optionalEffects(p, "ability_on_hit", registry), cdr, allyHealing, ultRate,
-                optionalEffects(p, "on_damaged", registry));
+                optionalEffects(p, "on_damaged", registry), p.getBool("additive", false), combat(p, registry), slowCap,
+                p.getString("move_speed_unless", null), slotDamage(p));
+    }
+
+    /** {@code slot_damage_dealt: { primary: 0.5, ability_1: 0.5 }}: the holder's abilities in those slots deal that much. */
+    private static java.util.Map<String, Double> slotDamage(Params p) {
+        if (!p.has("slot_damage_dealt")) return java.util.Map.of();
+        Params slots = p.getParams("slot_damage_dealt");
+        java.util.Map<String, Double> out = new java.util.HashMap<>();
+        for (String slot : slots.keys()) {
+            if (!me.mephisto.ability_engine.engine.loadout.Slots.ALL.contains(slot)) {
+                throw slots.error(slot, "not a slot (" + me.mephisto.ability_engine.engine.loadout.Slots.ALL + ")");
+            }
+            double m = slots.requireDouble(slot);
+            if (m < 0) throw slots.error(slot, "a multiplier, >= 0 (0.5 = half damage)");
+            out.put(slot, m);
+        }
+        return out;
+    }
+
+    /** spell_power, crit_chance, spell_resistance (stats), crit_damage, ability_crits, on_crit (effects). */
+    private static StatusDef.Combat combat(Params p, EffectRegistry registry) {
+        double spellPower = p.getDouble("spell_power", 0);
+        if (spellPower < 0) throw p.error("spell_power", "points, >= 0 (30 = 30 spell power: what abilities' sp: parts scale with)");
+        double critChance = p.getDouble("crit_chance", 0);
+        if (critChance < 0 || critChance > 1) throw p.error("crit_chance", "a chance, 0 to 1 (0.2 = +20% critical strike chance)");
+        double resistance = p.getDouble("spell_resistance", 0);
+        if (resistance < 0) throw p.error("spell_resistance", "points, >= 0 (20 = 17% less damage from abilities)");
+        double critDamage = p.getDouble("crit_damage", 0);
+        if (critDamage < 0) throw p.error("crit_damage", "must be >= 0 (0.35 = critical strikes deal 35% more)");
+        return new StatusDef.Combat(spellPower, critChance, resistance, critDamage, p.getBool("ability_crits", false),
+                optionalEffects(p, "on_crit", registry));
     }
 
     /** {@code on_lethal: { status, health }}: a killing blow leaves them at health (share of max HP) with that status. */

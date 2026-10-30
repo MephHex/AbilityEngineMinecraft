@@ -30,6 +30,11 @@ public final class StatSheets {
         this.statuses = statuses;
     }
 
+    /** Who has which tags (move_speed_unless); null = nobody's looked at. */
+    private me.mephisto.ability_engine.engine.tag.TagManager tags;
+
+    public void setTags(me.mephisto.ability_engine.engine.tag.TagManager tags) { this.tags = tags; }
+
     public void setArmorConstant(double constant) { this.armorConstant = constant > 0 ? constant : DEFAULT_ARMOR_CONSTANT; }
 
     /** For % max HP damage, a mob's (non-player's) max HP counts as at most this (design HP). */
@@ -54,14 +59,113 @@ public final class StatSheets {
         return world.maxHealth(entity).orElse(CharacterDef.Stats.DEFAULT.health());
     }
 
+    /** An additive total never takes a stat below this share (e.g. lots of cooldown reduction: 90% at most). */
+    private static final double ADDITIVE_FLOOR = 0.1;
+
+    /**
+     * The holder's statuses' multipliers for one STAT, combined. Ordinary statuses multiply (with {@code perStack}, each
+     * to the power of its stacks: a slow that builds up). Additive ones (items) add their bonuses up instead, one per
+     * stack (two +20% = +40%; two 5% cooldown reductions = 10%), into one multiplier that then multiplies with the rest.
+     *
+     * @param skip statuses left out (e.g. a slow while unstoppable)
+     */
+    public static double combine(Iterable<ActiveStatus> on, java.util.function.ToDoubleFunction<ActiveStatus> stat, boolean perStack,
+                                 java.util.function.Predicate<ActiveStatus> skip) {
+        return combine(on, stat, perStack, true, skip);
+    }
+
+    /**
+     * @param additiveStacks an additive status counts once per stack (a stat: two copies of an item, both bonuses);
+     *                       false: once however many stacks (an effect: two copies of an item, the effect once)
+     */
+    private static double combine(Iterable<ActiveStatus> on, java.util.function.ToDoubleFunction<ActiveStatus> stat, boolean perStack,
+                                  boolean additiveStacks, java.util.function.Predicate<ActiveStatus> skip) {
+        double product = 1, bonus = 0;
+        for (ActiveStatus s : on) {
+            double v = stat.applyAsDouble(s);
+            if (v == 1 || skip.test(s)) continue;
+            int n = Math.max(1, s.stacks());
+            if (s.def().extras().additive()) bonus += (v - 1) * (additiveStacks ? n : 1);
+            else product *= perStack ? Math.pow(v, n) : v;
+        }
+        return product * Math.max(ADDITIVE_FLOOR, 1 + bonus);
+    }
+
+    /** A stat (armor, damage, move and attack speed, max HP, cooldown reduction, spell power): items add up per copy. */
+    private double combine(UUID entity, java.util.function.ToDoubleFunction<ActiveStatus> stat, boolean perStack) {
+        return combine(statuses.on(entity), stat, perStack, true, s -> false);
+    }
+
+    /** An effect (anything that isn't a stat): an item's counts once, however many copies of it are in the bag. */
+    private double combineEffect(UUID entity, java.util.function.ToDoubleFunction<ActiveStatus> effect) {
+        return combine(statuses.on(entity), effect, false, false, s -> false);
+    }
+
+    /** How many times a status's stat counts: its stacks (a stat builds up per stack, an item per copy). */
+    private static int statStacks(ActiveStatus s) { return Math.max(1, s.stacks()); }
+
     /** The sheet's armor, x the holder's statuses' {@code armor} (each to the power of its stacks: a shred). */
     public double armor(UUID entity) {
         if (!hasSheet(entity)) return 0;
-        double armor = of(entity).armor();
-        for (ActiveStatus s : statuses.on(entity)) {
-            if (s.def().armor() != 1) armor *= Math.pow(s.def().armor(), Math.max(1, s.stacks()));
-        }
-        return armor;
+        return of(entity).armor() * combine(entity, s -> s.def().armor(), true);
+    }
+
+    /** What the holder's damage is multiplied by: their statuses' {@code damage_dealt} (Strength, items...). */
+    public double damageDealtMultiplier(UUID entity) { return combine(entity, s -> s.def().damageDealt(), false); }
+
+    /** What damage to the holder is multiplied by: their statuses' {@code damage_taken} (and ability_damage_taken). */
+    public double damageTakenMultiplier(UUID entity, boolean ability) {
+        double m = combineEffect(entity, s -> s.def().damageTaken());
+        return ability ? m * combineEffect(entity, s -> s.def().extras().abilityDamageTaken()) : m;
+    }
+
+    /**
+     * Spell power, in points: their statuses' {@code spell_power} added up (items per copy). 0 = none. Only abilities' {@code sp:}
+     * damage parts scale with it (90% spell power = 0.9 x this).
+     */
+    public double spellPower(UUID entity) {
+        double sum = 0;
+        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().spellPower() * statStacks(s);
+        return Math.max(0, sum);
+    }
+
+    /** The holder's chance (0..1) to critically strike: their statuses' {@code crit_chance}, added up (per stack). */
+    public double critChance(UUID entity) {
+        double sum = 0;
+        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().critChance() * statStacks(s);
+        return Math.max(0, Math.min(1, sum));
+    }
+
+    /** Extra damage on the holder's critical strikes: their statuses' {@code crit_damage}, added up (an effect: once). */
+    public double critDamageBonus(UUID entity) {
+        double sum = 0;
+        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().critDamage();
+        return sum;
+    }
+
+    /** Can the holder's abilities (not only basic attacks) critically strike? (a status's {@code ability_crits}) */
+    public boolean abilitiesCrit(UUID entity) {
+        for (ActiveStatus s : statuses.on(entity)) if (s.def().extras().combat().abilityCrits()) return true;
+        return false;
+    }
+
+    /** Spell resistance points: their statuses' {@code spell_resistance}, added up (per stack). */
+    public double spellResistance(UUID entity) {
+        double sum = 0;
+        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().spellResistance() * statStacks(s);
+        return sum;
+    }
+
+    /** What's left of an ability's hit after spell resistance: x constant / (constant + points), like armor. */
+    public double afterSpellResistance(UUID victim, double amount) {
+        double points = spellResistance(victim);
+        return points <= 0 ? amount : amount * armorConstant / (armorConstant + points);
+    }
+
+    /** Share of ability damage spell resistance takes off (0..1), for display. */
+    public double spellResistanceReduction(UUID entity) {
+        double points = spellResistance(entity);
+        return points / (armorConstant + points);
     }
 
     public double baseDamage(UUID entity) { return of(entity).baseDamage(); }
@@ -84,26 +188,27 @@ public final class StatSheets {
      * Unstoppable, debuffs don't slow them.
      */
     public double attackSpeedMultiplier(UUID entity) {
-        double m = 1;
-        for (ActiveStatus s : statuses.on(entity)) {
-            if (s.def().attackSpeed() < 1 && statuses.crowdControlSuppressed(entity, s)) continue;
-            if (s.def().attackSpeed() != 1) m *= Math.pow(s.def().attackSpeed(), Math.max(1, s.stacks()));
-        }
-        return m;
+        return combine(statuses.on(entity), s -> s.def().attackSpeed(), true,
+                s -> s.def().attackSpeed() < 1 && statuses.crowdControlSuppressed(entity, s));
     }
 
     /**
      * The entity's statuses' {@code move_speed}, each to the power of its stacks, multiplied together
      * (a slow that builds up). 1 = normal. The platform applies it on top of the sheet's move speed. Unstoppable,
-     * debuffs don't slow them (a slowing poison still poisons).
+     * debuffs don't slow them (a slowing poison still poisons). A status with {@code move_speed_unless} doesn't count
+     * while they have that tag. Statuses with a {@code slow_cap} count together first, and that part never slows them
+     * more than the largest of their caps (Recall's slow and a crystal floor's: 40% at most).
      */
     public double moveSpeedMultiplier(UUID entity) {
-        double m = 1;
-        for (ActiveStatus s : statuses.on(entity)) {
-            if (s.def().moveSpeed() < 1 && statuses.crowdControlSuppressed(entity, s)) continue;
-            if (s.def().moveSpeed() != 1) m *= Math.pow(s.def().moveSpeed(), Math.max(1, s.stacks()));
-        }
-        return m;
+        var on = statuses.on(entity);
+        java.util.function.Predicate<ActiveStatus> off = s -> (s.def().moveSpeed() < 1 && statuses.crowdControlSuppressed(entity, s))
+                || (s.def().extras().moveSpeedUnless() != null && tags != null && tags.has(entity, s.def().extras().moveSpeedUnless()));
+        double rest = combine(on, s -> s.def().extras().slowCap() > 0 ? 1 : s.def().moveSpeed(), true, off);
+        double cap = 0;
+        for (ActiveStatus s : on) if (!off.test(s) && s.def().moveSpeed() < 1) cap = Math.max(cap, s.def().extras().slowCap());
+        if (cap <= 0) return rest;
+        double capped = combine(on, s -> s.def().extras().slowCap() > 0 ? s.def().moveSpeed() : 1, true, off);
+        return Math.max(capped, 1 - cap) * rest;
     }
 
     /**
@@ -111,9 +216,7 @@ public final class StatSheets {
      * (a poison's 0.6: 40% less). 1 = all of it. Every heal counts: heal effects, lifesteal, vanilla regeneration.
      */
     public double healingMultiplier(UUID entity) {
-        double m = 1;
-        for (ActiveStatus s : statuses.on(entity)) m *= s.def().healingTaken();
-        return m;
+        return combineEffect(entity, s -> s.def().healingTaken());
     }
 
     /** The Jump Boost level the entity's statuses give it right now ({@code jump_boost}: the highest one); 0 = none. */
@@ -125,9 +228,7 @@ public final class StatSheets {
 
     /** The holder's statuses' {@code max_health}, multiplied together (1 = none). Characters only. */
     public double maxHealthMultiplier(UUID entity) {
-        double m = 1;
-        for (ActiveStatus s : statuses.on(entity)) m *= s.def().extras().maxHealth();
-        return m;
+        return combine(entity, s -> s.def().extras().maxHealth(), false);
     }
 
     /**
@@ -135,26 +236,17 @@ public final class StatSheets {
      * of its stacks, multiplied together (two 0.95s: x0.9025). Always above 0; 1 = none.
      */
     public double cooldownMultiplier(UUID entity) {
-        double m = 1;
-        for (ActiveStatus s : statuses.on(entity)) {
-            double cdr = s.def().extras().cooldownReduction();
-            if (cdr != 1) m *= Math.pow(cdr, Math.max(1, s.stacks()));
-        }
-        return m;
+        return combine(entity, s -> s.def().extras().cooldownReduction(), true);
     }
 
     /** What the healer's heals on others are multiplied by: their statuses' {@code ally_healing_dealt} (1 = none). */
     public double allyHealingMultiplier(UUID healer) {
-        double m = 1;
-        for (ActiveStatus s : statuses.on(healer)) m *= s.def().extras().allyHealingDealt();
-        return m;
+        return combineEffect(healer, s -> s.def().extras().allyHealingDealt());
     }
 
     /** How much faster the entity's ultimate charges: their statuses' {@code ult_charge_rate} multiplied (1 = normal). */
     public double ultChargeMultiplier(UUID entity) {
-        double m = 1;
-        for (ActiveStatus s : statuses.on(entity)) m *= s.def().extras().ultChargeRate();
-        return m;
+        return combineEffect(entity, s -> s.def().extras().ultChargeRate());
     }
 
     /** Ultimates charge up (UltimateCharge) instead of having cooldowns. */
@@ -170,7 +262,7 @@ public final class StatSheets {
     /** The share of their ability damage the attacker heals (their statuses' {@code ability_lifesteal}, added up). */
     public double abilityLifesteal(UUID attacker) {
         double sum = 0;
-        for (ActiveStatus s : statuses.on(attacker)) sum += s.def().extras().abilityLifesteal();
+        for (ActiveStatus s : statuses.on(attacker)) sum += s.def().extras().abilityLifesteal(); // (an effect: once)
         return sum;
     }
 

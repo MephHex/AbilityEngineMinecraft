@@ -195,6 +195,7 @@ abilities:
   #     (excess becomes Overflow).
   # A swing that misses keeps the rend ready.
   essence_reaver_ult2:
+    stealable: false                 # Stolen Fable can't take it: the rend is the Reaver's own primary while it's ready (a form)
     cooldown: 900                    # placeholder until ults charge from damage
     display:
       name: "Soul Rend"

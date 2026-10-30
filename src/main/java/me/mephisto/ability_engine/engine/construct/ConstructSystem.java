@@ -59,8 +59,11 @@ public final class ConstructSystem {
 
     public record Hit(ConstructHandle construct, Vec3 position, double distance) {}
 
-    /** Who can set a trap off. The owner can't, except with EVERYONE (friend, foe and the owner). */
-    public enum TriggeredBy { ENEMIES, ALLIES, ALL, EVERYONE }
+    /**
+     * Who can set a trap off. The owner can't, except with EVERYONE (friend, foe and the owner) and OWNER_AND_ENEMIES
+     * (e.g. something only she picks up, that enemies can trample).
+     */
+    public enum TriggeredBy { ENEMIES, ALLIES, ALL, EVERYONE, OWNER_AND_ENEMIES }
 
     /**
      * @param solid         projectiles and punches hit it (false: they pass through)
@@ -251,7 +254,8 @@ public final class ConstructSystem {
         UUID best = null;
         double bestDist = Double.MAX_VALUE;
         for (EntitySnapshot e : world.livingEntitiesNear(new PointTarget(c.world, c.position), Math.max(r, allyR) + TRIGGER_HEIGHT)) {
-            boolean owner = e.id().equals(c.owner) && c.options.triggeredBy() != TriggeredBy.EVERYONE;
+            boolean owner = e.id().equals(c.owner) && c.options.triggeredBy() != TriggeredBy.EVERYONE
+                    && c.options.triggeredBy() != TriggeredBy.OWNER_AND_ENEMIES;
             if (owner || !world.isAlive(e.id()) || !setsOff(c, e.id())) continue;
             Vec3 d = e.center().subtract(c.position);
             double flat = Math.sqrt(d.x() * d.x() + d.z() * d.z());
@@ -269,6 +273,7 @@ public final class ConstructSystem {
             case ENEMIES -> !ally;
             case ALLIES -> ally;
             case ALL, EVERYONE -> true;
+            case OWNER_AND_ENEMIES -> who.equals(c.owner) || !ally;
         };
     }
 

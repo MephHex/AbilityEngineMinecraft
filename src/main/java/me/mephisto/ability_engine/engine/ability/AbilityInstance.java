@@ -307,13 +307,51 @@ public final class AbilityInstance {
         if (timer == token) timer = null;
     }
 
+    private java.util.function.DoubleSupplier timerGauge;
+
+    /** Show a boss bar for the rest of the cast whose fill (1..0) is whatever {@code gauge} says (e.g. bounces left). */
+    public void showTimerGauge(java.util.function.DoubleSupplier gauge) { this.timerGauge = gauge; }
+
     /** 1..0: how much of the timer is left, while one is showing and the cast is running. */
     public Optional<Double> timerLeft() {
+        if (!isActive()) return Optional.empty();
+        if (timerGauge != null) return Optional.of(Math.max(0, Math.min(1, timerGauge.getAsDouble())));
         CastProgress t = timer;
-        if (!isActive() || t == null) return Optional.empty();
+        if (t == null) return Optional.empty();
         double f = 1 - (engine.clock().now() - t.startTick()) / (double) t.durationTicks();
         return Optional.of(Math.max(0, Math.min(1, f)));
     }
+
+    /** Ticks left on the timer (not for a gauge: empty), while one is showing and the cast is running. */
+    public Optional<Long> timerTicksLeft() {
+        CastProgress t = timer;
+        if (!isActive() || timerGauge != null || t == null) return Optional.empty();
+        return Optional.of(Math.max(0, t.startTick() + t.durationTicks() - engine.clock().now()));
+    }
+
+    private String timerColor; // null = the platform's default
+
+    /** The timer's colour (a boss bar's: pink, blue, red, green, yellow, purple, white), e.g. a room's state. */
+    public void setTimerColor(String color) { this.timerColor = color; }
+
+    public String timerColor() { return timerColor; }
+
+    private java.util.List<String> timerTextColors = java.util.List.of(); // empty = the platform's default
+
+    /** The timer's title, its letters in these colours in turn ("#RRGGBB"), e.g. a room's tiles. Empty: the default. */
+    public void setTimerTextColors(java.util.List<String> colors) {
+        this.timerTextColors = colors == null ? java.util.List.of() : java.util.List.copyOf(colors);
+    }
+
+    public java.util.List<String> timerTextColors() { return timerTextColors; }
+
+    private java.util.function.Supplier<String> timerNote; // null = none
+
+    /** Shown after the timer's seconds (e.g. "2 geometries", what an ultimate has left), asked every time it's drawn. */
+    public void setTimerNote(java.util.function.Supplier<String> note) { this.timerNote = note; }
+
+    /** The note after the timer's seconds right now, or null. */
+    public String timerNote() { return timerNote == null ? null : timerNote.get(); }
 
     /** Run when the instance ends for any reason. Hooks must be safe to run more than once. */
     public void onEnd(Runnable hook) {

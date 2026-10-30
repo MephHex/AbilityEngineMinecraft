@@ -12,8 +12,8 @@ import java.util.UUID;
  * What a hit really deals, after statuses, tethers and armor. Every damage effect (the platform's, the tests')
  * runs its amount through here:
  * <ol>
- *   <li>x the attacker's {@code damage_dealt} statuses (Strength)</li>
- *   <li>x the victim's {@code damage_taken} statuses</li>
+ *   <li>x the attacker's {@code damage_dealt} statuses (Strength), and an ability's x their spell power</li>
+ *   <li>x the victim's {@code damage_taken} statuses; an ability's: x their spell resistance (like armor)</li>
  *   <li>each tether on the victim takes off its share ({@code damage_taken}), and {@code redirect} of what
  *       it took off goes to the tether's owner instead; {@code mirror} of what's left ALSO hits the owner
  *       (a soul: hurting it hurts its owner)</li>
@@ -51,11 +51,11 @@ public final class DamageModifiers {
                                boolean ability) {
         engine.combat().hit(attacker, victim); // both are in combat now (e.g. a ward's out-of-combat timer)
         if (attacker != null && !attacker.equals(victim)) {
-            for (ActiveStatus s : engine.statuses().on(attacker)) amount *= s.def().damageDealt();
+            amount *= engine.stats().damageDealtMultiplier(attacker);
         }
-        for (ActiveStatus s : engine.statuses().on(victim)) {
-            amount *= s.def().damageTaken();
-            if (ability) amount *= s.def().extras().abilityDamageTaken();
+        amount *= engine.stats().damageTakenMultiplier(victim, ability);
+        if (ability && attacker != null && !attacker.equals(victim)) {
+            amount = engine.stats().afterSpellResistance(victim, amount); // all of an ability's hit, % max HP parts too
         }
         amount *= farMultiplier(engine, attacker, victim);
         List<Redirect> redirects = new ArrayList<>();

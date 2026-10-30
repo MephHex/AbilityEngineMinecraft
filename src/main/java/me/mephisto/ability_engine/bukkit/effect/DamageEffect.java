@@ -95,7 +95,14 @@ public final class DamageEffect implements Effect {
         double previousShare = pierceShare;
         pierceShare = parts.pierceShare();
         try {
-            if (!knockback) living.damage(amount, typed(type != null ? type : DamageType.MAGIC, damager, living));
+            if (betrayal(damager, living)) { // teammates hitting each other under friendly fire: vanilla would refuse it
+                living.damage(amount, typed(type != null ? type : DamageType.GENERIC, null, living));
+                living.setKiller((org.bukkit.entity.Player) damager); // (still their kill)
+                if (knockback) {
+                    Vector away = living.getLocation().toVector().subtract(damager.getLocation().toVector()).setY(0);
+                    if (away.lengthSquared() > 1e-6) living.setVelocity(living.getVelocity().add(away.normalize().multiply(0.4).setY(0.35)));
+                }
+            } else if (!knockback) living.damage(amount, typed(type != null ? type : DamageType.MAGIC, damager, living));
             else if (damager != null && !damager.equals(living)) living.damage(amount, damager);
             else living.damage(amount);
         } finally {
@@ -120,6 +127,20 @@ public final class DamageEffect implements Effect {
         log.debug(() -> String.format("damage: %s %.0f design HP = %.1f health, health %.1f -> %.1f%s",
                 living.getType(), design, amount, before, after,
                 after < before ? "" : "   <-- NOT APPLIED (cancelled event / invulnerable / armor stand)"));
+    }
+
+    /**
+     * A player hitting a teammate whose scoreboard team doesn't allow friendly fire: the engine said they're enemies
+     * right now (state.friendly_fire), but vanilla would cancel a hit from them, so it's dealt without a source.
+     */
+    private static boolean betrayal(Entity damager, LivingEntity target) {
+        if (!(damager instanceof org.bukkit.entity.Player attacker) || !(target instanceof org.bukkit.entity.Player victim)
+                || attacker.equals(victim)) {
+            return false;
+        }
+        var board = Bukkit.getScoreboardManager().getMainScoreboard();
+        var team = board.getEntryTeam(attacker.getName());
+        return team != null && team.equals(board.getEntryTeam(victim.getName())) && !team.allowFriendlyFire();
     }
 
     /** damage_type: null (normal) or a vanilla type. */

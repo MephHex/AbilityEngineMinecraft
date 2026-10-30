@@ -55,6 +55,7 @@ public final class BukkitCloneSpawner implements CloneSpawner {
             }
             m.setPersistent(false);
             m.setCollidable(false);
+            if (options.disguise()) disguise(m, owner);
             if (!options.vulnerable()) {
                 m.setInvulnerable(true);
                 m.setSilent(true);
@@ -75,6 +76,29 @@ public final class BukkitCloneSpawner implements CloneSpawner {
             }
         });
         return Optional.of(clone.getUniqueId());
+    }
+
+    /**
+     * Passes for {@code owner}: their name over its head (and no "NPC" label under it), everything they wear and hold, and
+     * a body the game moves (it falls and bumps into walls) so a mirror can walk it around.
+     */
+    private static void disguise(Mannequin m, Entity owner) {
+        m.setDescription(null);
+        m.setImmovable(false);
+        m.setGravity(true);
+        if (owner instanceof Player player) {
+            m.customName(net.kyori.adventure.text.Component.text(player.getName()));
+            m.setCustomNameVisible(true);
+        }
+        if (owner instanceof LivingEntity living && living.getEquipment() != null && m.getEquipment() != null) {
+            var from = living.getEquipment();
+            var to = m.getEquipment();
+            to.setItemInOffHand(from.getItemInOffHand().clone());
+            to.setHelmet(from.getHelmet() == null ? null : from.getHelmet().clone());
+            to.setChestplate(from.getChestplate() == null ? null : from.getChestplate().clone());
+            to.setLeggings(from.getLeggings() == null ? null : from.getLeggings().clone());
+            to.setBoots(from.getBoots() == null ? null : from.getBoots().clone());
+        }
     }
 
     @Override

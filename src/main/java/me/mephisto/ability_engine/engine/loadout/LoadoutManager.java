@@ -26,6 +26,8 @@ public final class LoadoutManager {
     private final me.mephisto.ability_engine.engine.ability.AbilityRegistry abilities;
     private final me.mephisto.ability_engine.engine.ability.AbilityInstanceRegistry instances;
     private final Map<UUID, String> assigned = new HashMap<>();
+    /** Slots a player has filled with something else for now (a stolen ultimate), over their kit and its forms. */
+    private final Map<UUID, Map<String, String>> overrides = new HashMap<>();
     private final java.util.List<java.util.function.Consumer<UUID>> assignListeners = new java.util.ArrayList<>();
 
     /** Told after a player is given a character. */
@@ -49,6 +51,7 @@ public final class LoadoutManager {
             throw new IllegalArgumentException("Unknown character '" + characterId + "', known: " + characters.ids());
         }
         assigned.put(player, characterId);
+        overrides.remove(player); // a fresh kit: nothing borrowed
         characters.find(characterId).get().resources().values().forEach(def -> resources.define(player, def));
         quivers.reset(player); // a fresh quiver: plain bolts, nothing loaded
         assignListeners.forEach(l -> l.accept(player));
@@ -56,6 +59,7 @@ public final class LoadoutManager {
 
     public void clear(UUID player) {
         assigned.remove(player);
+        overrides.remove(player);
         quivers.clear(player);
     }
 
@@ -65,6 +69,14 @@ public final class LoadoutManager {
      * after a reload.
      */
     public Optional<CharacterDef> characterOf(UUID player) {
+        Map<String, String> over = overrides.get(player);
+        Optional<CharacterDef> kit = kitOf(player);
+        if (over == null || over.isEmpty()) return kit;
+        return kit.map(c -> c.in(new CharacterDef.Form(null, null, over, null, null)));
+    }
+
+    /** Their character with its form applied, without any slot overrides (what's really theirs right now). */
+    public Optional<CharacterDef> kitOf(UUID player) {
         String id = assigned.get(player);
         if (id == null) return Optional.empty();
         return characters.find(id).map(c -> {
@@ -73,6 +85,28 @@ public final class LoadoutManager {
             }
             return c;
         });
+    }
+
+    /**
+     * For now, {@code slot} holds {@code abilityId} instead of whatever their kit has there (forms too), e.g. a stolen
+     * ultimate, until {@link #clearOverride}. Only with a character.
+     */
+    public void override(UUID player, String slot, String abilityId) {
+        if (!assigned.containsKey(player)) return;
+        overrides.computeIfAbsent(player, k -> new java.util.LinkedHashMap<>()).put(slot, abilityId);
+    }
+
+    /** The slot holds what their kit has there again. */
+    public void clearOverride(UUID player, String slot) {
+        Map<String, String> over = overrides.get(player);
+        if (over == null) return;
+        over.remove(slot);
+        if (over.isEmpty()) overrides.remove(player);
+    }
+
+    /** What {@code slot} holds for now instead of their kit's (empty = their kit's own). */
+    public Optional<String> overrideOf(UUID player, String slot) {
+        return Optional.ofNullable(overrides.getOrDefault(player, Map.of()).get(slot));
     }
 
     /**
@@ -116,6 +150,8 @@ public final class LoadoutManager {
      *   <li>silenced: everything but basic attacks</li>
      *   <li>rooted (block.move): movement abilities (dashes, blinks), and recasts that move you while
      *       their window is open (recast_movement)</li>
+     *   <li>anything else in the ability's blocked_by (e.g. block.ability while an ultimate runs), unless it's a
+     *       running cast its own key can stop (cancel_on_repress)</li>
      * </ul>
      * A passive isn't a slot, so it's never blocked. Empty = free.
      */
@@ -131,6 +167,14 @@ public final class LoadoutManager {
                     .map(a -> a.movement() || (a.recastMovement() && instances.awaitingRecast(player, a.id())))
                     .orElse(false);
             if (movement) return Optional.of(me.mephisto.ability_engine.engine.tag.Tags.ROOTED);
+        }
+        // Anything else it can't be used with right now (its blocked_by: e.g. an ultimate's block.ability meanwhile).
+        // A running cast its key can end (cancel_on_repress) is still usable: that press stops it.
+        var ability = abilityIn(player, slot).flatMap(abilities::find);
+        if (ability.isPresent()) {
+            String blocking = tags.firstMatch(player, ability.get().blockedBy());
+            boolean stoppable = ability.get().cancelOnRepress() && instances.isRunning(player, ability.get().id());
+            if (blocking != null && !stoppable) return Optional.of(blocking);
         }
         return Optional.empty();
     }

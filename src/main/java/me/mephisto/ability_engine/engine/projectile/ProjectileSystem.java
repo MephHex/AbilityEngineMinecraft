@@ -66,6 +66,21 @@ public final class ProjectileSystem {
         this.log = log;
     }
 
+    private me.mephisto.ability_engine.engine.barrier.SlowFields slowFields;
+
+    /** Enemy fields that slow projectiles down (null = none). */
+    public void setSlowFields(me.mephisto.ability_engine.engine.barrier.SlowFields fields) { this.slowFields = fields; }
+
+    private me.mephisto.ability_engine.engine.barrier.Screens screens;
+
+    /** Screens projectiles fly through (null = none). */
+    public void setScreens(me.mephisto.ability_engine.engine.barrier.Screens screens) { this.screens = screens; }
+
+    /** How fast time runs for {@code p} where it is: below 1 inside an enemy's slow field. */
+    private double timeScale(Projectile p, java.util.UUID shooter) {
+        return slowFields == null ? 1 : slowFields.factorAt(p.world, p.position, shooter);
+    }
+
     /** Launch a projectile. {@code resumer} is resumed with hit_entity / hit_block / expired. */
     public ProjectileHandle launch(ProjectileSpec spec, String worldName, Vec3 position, Vec3 velocity, Resumer resumer) {
         return launch(spec, worldName, position, velocity, resumer, null);
@@ -208,7 +223,18 @@ public final class ProjectileSystem {
             finish(p, Ports.DESTROYED, null);
             return;
         }
-        if (++p.ticksLived > p.spec.lifetimeTicks()
+        if (p.heldTicks > 0) { // caught in an enemy's screen: it waits there (not ageing), then flies on as it was
+            p.ticksLived++;
+            boolean release = --p.heldTicks == 0;
+            if (p.visual instanceof FlyingVisual f) f.setVelocity(release ? p.velocity : Vec3.ZERO);
+            else p.visual.moveTo(p.position, p.velocity);
+            return;
+        }
+        // In an enemy's slow field time runs slower for it: it moves, turns, falls and ages at that share of a tick.
+        double dt = timeScale(p, ctx.caster());
+        p.ticksLived++;
+        p.age += dt;
+        if (p.age > p.spec.lifetimeTicks()
                 || (p.spec.range() > 0 && p.unguidedDistance >= p.spec.range())) {
             finish(p, Ports.EXPIRED, null);
             return;
@@ -225,6 +251,10 @@ public final class ProjectileSystem {
             }
             if (p.redirected) flying.setVelocity(p.velocity);
             p.position = at.get();
+            if (dt != p.flyingScale) { // it flies itself: slow it on the way in, give its speed back on the way out
+                flying.setVelocity(flying.velocity().multiply(dt / p.flyingScale));
+                p.flyingScale = dt;
+            }
             if (flying.landed()) {
                 finish(p, Ports.HIT_BLOCK, new PointTarget(p.world, p.position));
                 return;
@@ -240,11 +270,22 @@ public final class ProjectileSystem {
                     }
                     continue;
                 }
-                p.velocity = m.apply(p.position, p.velocity, ctx);
+                Vec3 v = m.apply(p.position, p.velocity, ctx);
+                p.velocity = dt >= 1 ? v : p.velocity.add(v.subtract(p.velocity).multiply(dt)); // (that share of the change)
             }
-            next = p.position.add(p.velocity);
+            next = p.position.add(p.velocity.multiply(dt));
         }
         p.redirected = false;
+
+        // Through a screen this tick: it only gets as far as the screen (then the screen changes it, see passScreen).
+        me.mephisto.ability_engine.engine.barrier.Screens.Crossing screen = null;
+        if (screens != null) {
+            var crossing = screens.cross(p.world, p.position, next, ctx.caster(), p.screensPassed);
+            if (crossing.isPresent()) {
+                screen = crossing.get();
+                next = p.position.add(next.subtract(p.position).multiply(screen.t()));
+            }
+        }
 
         if (!world.isLoaded(p.world, next)) {
             finish(p, Ports.EXPIRED, null);
@@ -263,7 +304,9 @@ public final class ProjectileSystem {
             var allies = flownThrough;
             flownThrough = id -> !id.equals(ctx.caster()) && allies.test(id);
         }
-        var passThrough = flownThrough.or(p.pierced::contains).or(p.ignored::contains).or(id -> id.equals(body));
+        java.util.function.Predicate<java.util.UUID> passThrough = p.spec.ignoreEntities()
+                ? id -> true // only terrain stops it
+                : flownThrough.or(p.pierced::contains).or(p.ignored::contains).or(id -> id.equals(body));
 
         // One pass per thing it touches this tick: a pierced enemy continues the sweep from there.
         while (true) {
@@ -313,6 +356,7 @@ public final class ProjectileSystem {
 
             if (hit.isEmpty()) {
                 moveTo(p, next);
+                if (screen != null) passScreen(p, screen, flying);
                 return;
             }
 
@@ -330,11 +374,25 @@ public final class ProjectileSystem {
                     continue;
                 }
                 finish(p, Ports.HIT_ENTITY, h.target());
+            } else if (p.spec.catchAtFeet() && !p.clearOfCaster && h.normal() != null && h.normal().y() >= GROUND_NORMAL_Y) {
+                // catch_at_feet: thrown at their own feet, it lands before it's clear of them: caught right away
+                moveTo(p, h.position());
+                finish(p, Ports.HIT_ENTITY, new EntityTarget(ctx.caster()));
             } else if (flying == null && p.spec.bounceWalls() && h.normal() != null && h.normal().y() < GROUND_NORMAL_Y) {
+                if (p.spec.wallBounces() > 0 && p.wallBounces >= p.spec.wallBounces()) {
+                    // out of wall bounces: it drops straight down from here
+                    p.velocity = new Vec3(0, Math.min(0, p.velocity.y()), 0);
+                    moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
+                    return;
+                }
                 // bounce_walls: off a wall or ceiling, never stuck to it (too slow to bounce: it slides off)
-                Vec3 off = p.spec.bounce(p.velocity, h.normal());
+                Vec3 off = p.spec.wallDamping() > 0
+                        ? p.velocity.subtract(h.normal().multiply(2 * p.velocity.dot(h.normal()))).multiply(p.spec.wallDamping())
+                        : p.spec.bounce(p.velocity, h.normal());
                 p.velocity = off != null ? off : p.velocity.subtract(h.normal().multiply(p.velocity.dot(h.normal())));
                 moveTo(p, h.position().add(h.normal().multiply(BOUNCE_NUDGE)));
+                p.wallBounces++;
+                bounced(p, h.position());
             } else if (flying == null && p.bouncesLeft > 0 && h.normal() != null && p.spec.bounce(p.velocity, h.normal()) != null) {
                 p.bouncesLeft--;
                 p.velocity = p.spec.bounce(p.velocity, h.normal());
@@ -348,6 +406,35 @@ public final class ProjectileSystem {
                 finish(p, Ports.HIT_BLOCK, h.target());
             }
             return;
+        }
+    }
+
+    /**
+     * It flew through a screen (it's on it now): a friendly one speeds it up and makes its hit count for more (see
+     * {@link #boostedHits}); an enemy one holds it where it is for a while.
+     */
+    private void passScreen(Projectile p, me.mephisto.ability_engine.engine.barrier.Screens.Crossing c, FlyingVisual flying) {
+        var s = c.screen();
+        p.screensPassed.add(s);
+        var engine = p.resumer.context().engine();
+        if (c.friendly()) {
+            p.velocity = p.velocity.multiply(s.accelerate());
+            if (flying != null) flying.setVelocity(p.velocity);
+            p.boostedBy.add(s);
+            if (s.boostCue() != null) engine.cuesFor(s.owner()).play(s.boostCue(), p.world, p.position);
+        } else if (s.holdTicks() > 0) {
+            p.heldTicks = s.holdTicks();
+            if (flying != null) flying.setVelocity(Vec3.ZERO);
+            if (s.catchCue() != null) engine.cuesFor(s.owner()).play(s.catchCue(), p.world, p.position);
+        }
+        log.debug(() -> "projectile -> " + (c.friendly() ? "boosted" : "caught") + " by a screen of " + s.owner());
+    }
+
+    /** It hit someone after flying through friendly screens: each screen's bonus, on them if they're its owner's enemy. */
+    private void boostedHits(Projectile p, Target hit) {
+        if (p.boostedBy.isEmpty() || !(hit instanceof EntityTarget e)) return;
+        for (var s : p.boostedBy) {
+            if (s.onBoostedHit() != null && teams.enemies(s.owner(), e.id())) s.onBoostedHit().accept(hit);
         }
     }
 
@@ -447,6 +534,18 @@ public final class ProjectileSystem {
         branch.blackboard().putRaw(Keys.HIT_FROM.name(), new PointTarget(p.world, p.lastPosition));
         log.debug(() -> "projectile -> pierced " + target);
         resumer.resume(Ports.HIT_ENTITY);
+        boostedHits(p, target);
+    }
+
+    /** The port a projectile's wall bounces run from (bounce_walls), each as a branch of its own. */
+    public static final String BOUNCED = "bounced";
+
+    /** Bounced off a wall or ceiling: "bounced" runs in a branch of its own (hit = where), while it flies on. */
+    private void bounced(Projectile p, Vec3 at) {
+        ExecutionContext branch = p.resumer.context().fork();
+        Resumer resumer = branch.suspend();
+        branch.put(Keys.HIT, new PointTarget(p.world, at));
+        resumer.resume(BOUNCED);
     }
 
     private void moveTo(Projectile p, Vec3 pos) {
@@ -468,5 +567,6 @@ public final class ProjectileSystem {
         }
         log.debug(() -> "projectile -> " + port + (hit != null ? " " + hit : ""));
         p.resumer.resume(port);
+        if (Ports.HIT_ENTITY.equals(port)) boostedHits(p, hit);
     }
 }

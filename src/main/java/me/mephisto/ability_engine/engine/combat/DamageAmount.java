@@ -39,14 +39,66 @@ public final class DamageAmount {
         var stats = ctx.engine().stats();
         double armored = p.getDouble("amount", 0);
         if (p.has("base")) armored += stats.baseDamage(ctx.caster()) * p.getDouble("base", 0);
+        if (p.has("sp")) armored += spellPowerPart(ctx) * p.getDouble("sp", 0);
         double pierce = maxHpPart(ctx, true);
         if (p.getBool("max_hp_armored", false)) { // the max_hp part is reduced by armor like the rest (e.g. poison)
             armored += pierce;
             pierce = 0;
         }
-        double mult = Backstab.multiplier(ctx) * DamageScale.multiplier(ctx);
+        double mult = Backstab.multiplier(ctx) * DamageScale.multiplier(ctx) * crit(ctx) * slotMultiplier(ctx);
         if (p.getBool("ignore_armor", false)) return new Parts(0, (armored + pierce) * mult); // all of it goes through
         return new Parts(armored * mult, pierce * mult);
+    }
+
+    /**
+     * The caster's statuses' {@code slot_damage_dealt} for the slot this hit's ability is in (e.g. confused: basic attacks
+     * and 1 at half damage). Not for a status's ticks (no ability).
+     */
+    private static double slotMultiplier(EffectContext ctx) {
+        if (ctx.execution() == null || ctx.caster() == null) return 1;
+        var engine = ctx.engine();
+        String ability = ctx.execution().instance().ability().id();
+        double m = 1;
+        for (var s : engine.statuses().on(ctx.caster())) {
+            for (var e : s.def().extras().slotDamage().entrySet()) {
+                if (engine.loadouts().abilityIn(ctx.caster(), e.getKey()).map(ability::equals).orElse(false)) m *= e.getValue();
+            }
+        }
+        return m;
+    }
+
+    /**
+     * 100% spell power, for an {@code sp} part: the caster's spell power points, NOT boosted by their damage dealt (Strength,
+     * +damage items). Damage dealt multiplies the whole hit later (DamageModifiers), so it's taken back out of this part here.
+     */
+    private static double spellPowerPart(EffectContext ctx) {
+        if (ctx.caster() == null) return 0;
+        var stats = ctx.engine().stats();
+        double dealt = stats.damageDealtMultiplier(ctx.caster());
+        return stats.spellPower(ctx.caster()) / (dealt > 0 ? dealt : 1);
+    }
+
+    /**
+     * A critical strike's multiplier, or 1. Basic attacks (primary / melee) can crit, and abilities too with a status's
+     * {@code ability_crits}; status ticks never do. The cast rolls once (Crits), so everyone it hits gets the same.
+     */
+    private static double crit(EffectContext ctx) {
+        if (ctx.execution() == null || ctx.caster() == null || !(ctx.target() instanceof EntityTarget t)
+                || t.id().equals(ctx.caster()) || !critsHere(ctx)) return 1;
+        var stats = ctx.engine().stats();
+        if (!ctx.engine().crits().roll(ctx.caster(), ctx.execution().instance().id(), stats.critChance(ctx.caster()))) return 1;
+        ctx.engine().world().positionOf(t)
+                .ifPresent(at -> ctx.engine().cuesFor(ctx.caster()).play(Backstab.CRIT_CUE, at.world(), at.position()));
+        return ctx.engine().crits().damage() + stats.critDamageBonus(ctx.caster());
+    }
+
+    /** Can this hit crit: a basic attack, or any ability of someone whose abilities crit. */
+    public static boolean critsHere(EffectContext ctx) {
+        if (ctx.execution() == null) return false;
+        var stats = ctx.engine().stats();
+        String ability = ctx.execution().instance().ability().id();
+        return stats.isBasicAttack(ctx.caster(), ability)
+                || (stats.abilitiesCrit(ctx.caster()) && !stats.isFire(ctx.caster(), ability));
     }
 
     /**
@@ -62,7 +114,9 @@ public final class DamageAmount {
         return amount;
     }
 
-    /** Heal or shield: flat {@code amount} plus {@code max_hp} of the target's max HP. */
+    /**
+     * Heal or shield: flat {@code amount} plus {@code max_hp} of the target's max HP.
+     */
     public static double heal(EffectContext ctx) {
         return ctx.params().getDouble("amount", 0) + maxHpPart(ctx, false);
     }
@@ -84,12 +138,13 @@ public final class DamageAmount {
 
     /** Load-time check: at least one part, none negative. */
     public static void validate(Params p, boolean damage) {
-        boolean any = p.has("amount") || p.has("max_hp") || (damage && p.has("base"));
-        String ways = damage ? "amount: <flat>, base: <x base damage> and/or max_hp: <x target's max HP>"
+        boolean any = p.has("amount") || p.has("max_hp") || (damage && (p.has("base") || p.has("sp")));
+        String ways = damage ? "amount: <flat>, base: <x base damage>, sp: <x spell power> and/or max_hp: <x target's max HP>"
                 : "amount: <flat> and/or max_hp: <x target's max HP>";
         if (!any) throw p.error("amount", "give " + ways);
         if (!damage && p.has("base")) throw p.error("base", "base damage is for damage; heals and shields use amount or max_hp");
-        for (String key : new String[]{"amount", "base", "max_hp"}) {
+        if (!damage && p.has("sp")) throw p.error("sp", "spell power is for damage; heals and shields use amount or max_hp");
+        for (String key : new String[]{"amount", "base", "sp", "max_hp"}) {
             if (p.has(key) && p.getDouble(key, 0) < 0) throw p.error(key, "must be >= 0");
         }
         if (damage) DamageScale.validate(p);

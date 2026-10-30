@@ -33,9 +33,9 @@ class AbilitiesYamlTest {
         TestEngine t = new TestEngine();
         LoadReport report = ShippedContent.loadInto(t.engine);
         assertTrue(report.isClean(), String.join("\n", report.errors()));
-        assertEquals(124, report.abilities());
-        assertEquals(94, report.statuses());
-        assertEquals(19, report.characters());
+        assertEquals(164, report.abilities());   // (5 of them the test-only changeling_kit's)
+        assertEquals(141, report.statuses());
+        assertEquals(27, report.characters());   // (changeling_kit: test-only)
         assertEquals(5, report.infusions());
     }
 
@@ -97,6 +97,6 @@ class AbilitiesYamlTest {
                 "abilities.yml");
         assertEquals(1, report.errors().size());
         assertEquals("abilities.yml.abilities.bad.nodes.n.effects[0].amount: give amount: <flat>, "
-                + "base: <x base damage> and/or max_hp: <x target's max HP>", report.errors().get(0));
+                + "base: <x base damage>, sp: <x spell power> and/or max_hp: <x target's max HP>", report.errors().get(0));
     }
 }

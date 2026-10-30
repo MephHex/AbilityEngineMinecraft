@@ -9,8 +9,9 @@ from here.
 - **Players see their stats:** the top row of the inventory holds one item per stat. Hovering one shows
   its value right now: current health, Strength on base damage, a slow on move speed, the Alchemist's draw.
 - **Armor applies to everything** (abilities, basic attacks, vanilla hits, falls) **except damage over
-  time and % max HP hits.** Damage over time is % max HP now: poison, frost and flame are 5% / 5% / 3%
-  of the target's max HP a tick, the shared burn 2.5%. Tether redirect and soul mirror damage stay
+  time and % max HP hits.** Damage over time is % max HP now: poison, frost and flame are 15% of
+  the target's max HP each in all (3.75% a tick); poison and flame are reduced by armor like flat damage, frost is true
+  damage (ignores armor). The shared burn is 2.5% a tick. Tether redirect and soul mirror damage stay
   final: not reduced again.
 - **Heals and shields are flat**, unless an effect says `max_hp:`.
 - **Alchemist has no attack speed stat:** his crossbow draw (and Hunter's Rhythm) is his fire rate, and the
@@ -166,12 +167,13 @@ only for comparison.
 |---|---|---|
 | Infused Bolt (primary) | 45 | **100%** |
 | Snare mark bonus | +40 | **90%** |
-| Volatile Flask | 50 | **110%** |
-| Poison (per second, 4 ticks) | 10 (40 total) | **22%** per tick (90% total) |
-| Frost (per second, 3 ticks) | 10 (30 total) | **22%** per tick (67% total) |
-| Flame (per 0.5s, 6 ticks) | 6 (36 total) | **13%** per tick (80% total) |
-| Vitality (heal on hit) | 30 | flat, or % max HP (see Q3) |
-| Flask tonic (self heal) | 6 x 6 | flat (see Q3) |
+| Volatile Flask | 9 + spell power x 1.1 | **20%** + **110% spell power** |
+| Poison (per second, 4 ticks) | 3.75% max HP (15% total, -40% healing), armor reduces it | % max HP |
+| Frost (every 0.75s, 4 ticks) | 3.75% max HP (15% total), true damage, slowed | % max HP |
+| Flame (every 0.75s, 4 ticks) | 3.75% max HP (15% total), armor reduces it | % max HP |
+| Flask tonic (self heal) | 10 x 6 | flat (see Q3) |
+
+The flask's random infusions are Frost, Flame and Paralysis (no Vitality any more).
 
 ### Arcanist: Mage
 
@@ -179,18 +181,17 @@ only for comparison.
 |---|---|---|---|---|---|---|
 | **175** | **5** (5%) | **30** | **1.00** | **1.25** (16 ticks) | 184 | 37 (at 100%) |
 
-The least armor: control (Missile stun, Binding) and burst (Barrage) from range. **Arcane Bolt deals 4
-damage today** (its burst only), which looks like a leftover. The sheet assumes it becomes 100% base
-damage (30) (see Q5).
+The least armor: control (Missile stun, Screen) and burst (Ascension) from range. (The kit file has base damage 28
+and 10 armor now; the numbers below are shares of base damage, so they hold either way.)
 
-| Ability | Now | As % of base (30) |
-|---|---|---|
-| Arcane Bolt (primary) | **4** (!) | **100%** proposed (13% today) |
-| Arcane Missile: plain hit | 25 | **85%** |
-| Arcane Missile: empowered explosion | 50 | **165%** |
-| Unstable Binding: shatter | 30 | **100%** |
-| Arcane Barrage: direct hit | 220 x charge (40-100%) | **730%** x charge |
-| Arcane Barrage: terrain blast | 90 x charge | **300%** x charge |
+| Ability | Damage |
+|---|---|
+| Arcane Bolt (primary) | **50% + 50% spell power** to everyone within 1 block of where it bursts (an enemy or terrain); curves slightly toward marked enemies |
+| Passive: Arcane Barrage | bolt hit +1 charge, missile hit +2; at 6: 5s of bigger bolts bursting in **2.5 blocks** (same damage) |
+| Arcane Missile: plain hit | **100%**, marks 4s (glowing; bolts curve to them) |
+| Arcane Missile: empowered (recast in flight, or out of a wall) | stun 0.6s + mark, explosion **165% + 10% of their max HP** in 3 blocks |
+| Arcane Screen | enemy shots through it held 2s; allied shots +60% speed and **60% spell power** on their hit (no base part) |
+| Arcane Ascension (ult) | 12s of slow, level flight, 3 geometries (a kill: +1): each channeled 1s (no abilities or basic attacks meanwhile), then **220%** in 4 blocks, knocked back |
 
 ### Gunner: Gunslinger Anti-Caster
 
@@ -346,25 +347,31 @@ Wings (passive): gliding on an elytra, Slow Falling (no fall damage). Fervor (pa
 | War Cry (3, 16s) | she and allies within 8 blocks: +25% speed, +20% damage, 4s |
 | Divine Ward (ult) | LMB an ally / RMB herself: no damage for 4s, can't die |
 
-### Amethyst (Shard): Mage / Zone Control
+### Amethyst: Mage / Zone Control
 
 | Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
 |---|---|---|---|---|---|---|
 | **180** | **15** (13%) | **35** | **1.00** | **4.5** (rounds to 4 ticks: 5 a second; ~1.5 out of ammo) | 207 | 140 (~40 out of ammo) |
 
-Piercing Shards (passive): 6 shards of ammo (the count on her weapon); they don't refill by themselves: Recall
-brings shards back (+1 each), Shard Rush gives 4. Her shots are regular shards (80% to the first enemy
-hit). Piercing shards (Shard Rush, Prismatic Burst) go through everyone (80% to the first, 50% behind), hang where they
-end for 7s (6 at most), and Recall brings them back into the ammo; their on-hit effects land going out and coming back.
-Out of ammo: plain, slower shards.
+Piercing Shards (passive): her ammo (the count on her weapon, 6 at most, none to start with) is her piercing shards;
+it doesn't refill by itself: Allegro gives 4, Arpeggio 2, Geode Bloom 2, Geode Heart 6. It expires: all of it is lost
+8s after the last gain (every gain starts it over; the XP bar shows the time). With ammo, each shot is a piercing shard
+(80% to the first, 50% behind), hanging where it ends for 7s (6 at most), for Recall (recalled shards come back to her,
+not into the ammo); their on-hit effects land going out and coming back. Without ammo: regular shards (80% to the first
+enemy), much slower.
+
+Crystal floor (Geode Bloom, Geode Heart): enemies on it are 20% slower, she's 20% faster, and SHIFT + a movement key
+glides her 3 blocks that way (every 0.5s, never off the floor). Her only movement. Recall's slow and the floor's together
+are capped at 40%.
 
 | Ability | Effect |
 |---|---|
-| Amethyst Shard (primary) | **80%** to the first enemy (20 blocks). Piercing: **80%** to the first, **50%** to each behind, then it hangs 7s where it ends. Out of ammo: **75%** (18 blocks) |
-| Shard Rush (1, 9s) | 4s of +40% attack speed and +25% movement speed; the next 4 shots (within 10s) are piercing; +4 ammo |
-| Crystal Volley (2, 10s) | rooted, 30% less damage taken, charging (2s at most; LMB or 2 looses it): 6 shards burst out of her all the way round, level (9 blocks), **60%** with on-hits to everyone they pass through, knocked away from her |
-| Recall (3, 5s) | every hanging piercing shard flies back (and into the ammo): **100%** per shard that hits, **5% less** for each shard of the Recall that hit the same enemy before (down to 10%), with on-hits; slowed x0.75 per shard 2s |
-| Prismatic Burst (ult) | charge up to 1.5s (LMB or F fires early) a prism (30 blocks): the enemy hit is rooted 0.75s, no damage; it shatters behind them, **180%** (60% fired at once) in a 7-block, 70 degree cone with on-hits (not through walls), and 6 piercing shards fan out level, 60 degrees, 14 blocks, and hang for Recall. On a wall: the cone, no shards |
+| Amethyst Shard (primary) | with ammo, a piercing shard (20 blocks): **80%** to the first, **50%** to each behind, then it hangs 7s where it ends. Without: a regular shard, **80%** to the first enemy, ~1.5 a second |
+| Allegro (1, 9s) | +4 ammo; +40% attack speed at the cast, fading evenly to nothing over 4s (Arpeggio too). No movement speed |
+| Geode Bloom (2, 12s from when its floor ends) | a geode thrown in an arc, through everyone, banking off walls (mirrored, 70% speed kept, 3 at most, then it drops): it bursts where it lands, **60%** and rooted 1s within 2.5 blocks, and leaves a crystal floor 4 blocks round for 6s; +2 ammo. One at a time |
+| Recall (RMB, 10s; 5s if a shard hits a player) | its icon in slot 9 counts the shards out; every hanging piercing shard flies back (not into the ammo): **100%** per shard that hits, **10% less** for each shard of the Recall that hit the same enemy before (down to 10%), with on-hits; slowed x0.75 per shard 2s (40% at most with the floor's) |
+| Arpeggio (3, 10s) | +2 ammo, a 0.5s charge, then 6 real basic attacks in a run (one every 0.2s, faster with attack speed), piercing while she has ammo. Can't be stopped; nothing else meanwhile; off her floor 40% slower. After Allegro: 6 piercing shards |
+| Geode Heart (ult) | 2s encased: untargetable, no damage, heals **25%** of max HP (F from 0.5s breaks out early). Shatters: **100%** and rooted 1s within 3 blocks, a crystal floor 7 blocks round for 6s, a ring of 6 shards hanging at its edge, +6 ammo |
 
 ### Dragon Hunter: Fighter / Debuffer
 
@@ -417,7 +424,92 @@ then she dies; Apotheosis meanwhile revives her at 50% HP.
 | Lifeline (3, 14s) | a 3s tether: heal 4% max HP every 0.5s (24%); held all the way: a 60 HP shield for both |
 | Apotheosis (ult) | 6s: untargetable, through units, +30% speed, no abilities; allies within 7 blocks take 60% less damage, regenerate 6% max HP/s |
 
+### Graviton: Tank / Control
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **250** | **25** (20%) | **30** | **0.95** | **0.87** (23 ticks: an orb every 1.15s) | 313 | 16 (to everyone in the burst) |
+
+Event Horizon (passive): after 4s out of combat a shield builds up, +10 every 0.5s up to 75; it stays until broken.
+
+| Ability | Effect |
+|---|---|
+| Graviton Orb (primary) | a short-range orb (~0.6s, no gravity) that bounces once off the ground or a wall, then bursts on an enemy, terrain or when it fades: **60%** to everyone within 2.5 blocks |
+| Gravity Grasp (1, 12s from when it's over) | a knot (18 blocks): **50%** and -70% speed 2.5s; press again to drag them 10 blocks toward the crosshair; slammed into another enemy: **120%** and a 1.5s stun to both |
+| Kinetic Sink (2, 10s) | channel 2.5s (no basic attacks): a well in front swallows enemy projectiles, +25 shield each (up to 200) |
+| Stasis Field (3, 15s) | a 10x6 field (4 tall) on a spot 20 blocks away for 5s: enemy projectiles in it move at 10% speed |
+| Gravitic Collapse (ult) | a circle (14 blocks away, radius 6): he rises and hangs; enemies over it float up for 2.5s (they can drift out, slowly: -65% speed); then those still over it are smashed down: **300%** and a 2s stun |
+
+### Vampire: Mage / Sustain
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **210** | **10** (9%) | **36** | **1.05** | **1.5** (13 ticks) | 231 | 54 |
+
+Blood Feast (passive): every kill heals her 15% of her max HP (31) and makes her 30% faster for 3s.
+
+| Ability | Effect |
+|---|---|
+| Blood Missile (primary) | a missile (1.5 blocks/tick, 20 blocks): **100%** |
+| Sanguine Tether (1, 14s) | channel 2.5s (no basic attacks; 1 again stops): tethers up to 3 enemies within 8 blocks; every 0.5s each takes **15%** and a drop of blood heals her 10 (up to 120 from 3); whoever stays within 10 blocks (and in sight) bleeds 2% max HP every 0.5s for 4s (16%). Nobody near: free |
+| Bat Form (2, 8s) | 1s of free flight as a bat (she's hidden, the bat is seen); no fall damage after |
+| Charm (3, 14s) | a charm (16 blocks): **40%**, then 1.75s charmed: no spells, no basic attacks, walked to her at ~1.6 blocks/s |
+| Crimson Rain (ult) | rises ~4 blocks and hangs 4s (F again stops): a missile where she looks every 0.25s, **35%** within 1.8 blocks each (16 missiles: up to 560%) |
+
+### Slime: Brawler / Tank
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **300** | **30** (23%) | **38** | **0.95** (up to 1.25 when low) | **1.2** (17 ticks) | 390 | 46 |
+
+Gelatinous (passive): every 20% of max HP lost drops a slime a couple of blocks away (20s, 6 at most); she eats it by
+stepping on it (+15% max HP = 45), enemies squash it. Size and speed by health: 80-100% x1.2 / 0.95, 60-80% x1.1 / 1.0,
+40-60% x1.0 / 1.05, 20-40% x0.9 / 1.12, below 20% x0.75 / 1.25.
+
+| Ability | Effect |
+|---|---|
+| Slime Slap (primary) | a slap in front (3.2 blocks, 80 degrees): **100%** |
+| Ooze Burst (1, 10s) | costs 10% of her max HP (not below 15%: free, nothing happens): drops a slime; enemies within 4.5 blocks take 8% of their max HP, -40% speed 2s |
+| Slime Ball (2, 12s) | 0.6s wind-up, a big slime ball (20 blocks): **90%**, flung 8 blocks along the throw; into a wall (mid-air too): stuck, rooted 1.5s |
+| Belly Flop (3, 12s) | a circle (16 blocks, radius 3.5): up ~6 blocks, then down onto it: **100%**, knocked up, stunned 0.6s |
+| Bounce Storm (ult) | 5 bounces (up ~5 blocks the way she looks, then straight down): **80%** within 4 blocks of each landing, knocked up and back; no abilities or basic attacks meanwhile, no fall damage |
+
+### Firecracker: Marksman
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **190** | **5** (5%) | **40** | **1.05** | **1.6** (12 ticks; two bullets each) | 200 | 64 |
+
+Double Tap (passive): every basic attack is two bullets 0.15s apart, 50% each, both applying on-hit effects; a kill gives
++50% attack speed for 3s.
+
+| Ability | Effect |
+|---|---|
+| Firecracker (primary) | two small bullets (1.8 blocks/tick, 25 blocks): **50%** each, crackling into sparks |
+| Rocket (1, 9s) | a rocket (30 blocks): **90%** within 3 blocks and burn; any enemy within 14 blocks looking at the blast (70 degrees, in sight) is blinded 2s |
+| Scatter Fire (2, 10s) | 3 fast rockets close together (10 degrees), ricocheting off terrain for 1.5s, through enemies: **45%** each per rocket |
+| Firework Bomb (3, 14s) | a spot (18 blocks): 0.4s wind-up, a bomb that goes off 1.5s later (or when 3 is pressed again): **60%** within 4 blocks, knocked back and up, -40% speed 2s; on herself only the push (and no fall damage) |
+| Grand Finale (ult) | 6s (a boss bar): basic attacks become big fireworks, still two a shot: **100%** each and knockback |
+
 ---
+
+### Fae Trickster: Diver
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **210** | **15** (13%) | **34** | **1.05** | **1.3** (15 ticks) | 242 | 44 |
+
+A melee diver between the Umbrella and the Valkyrie: in with Trick Room's dash, around with its teleports (and the room
+moved with 2 again), a cone with Play Rough, and Topsy-Turvy to turn enemies' controls and team against them. Its first
+swipe on each enemy silences them 1s (Sucker Punch), and swipes on players take 1s off Play Rough. The role is assumed
+(diver). Its swipe used to be 85% of 40; now the stat is 34 and the swipe 100%, the same 34 a hit.
+
+| Ability | Now | As % of base (34) |
+|---|---|---|
+| Swipe (primary) | 34 | **100%** |
+| Play Rough (two slashes 0.2s apart, 3-block 90-degree cone, 5s cooldown) | 25.5 + 25.5 | **75% + 75%** |
+| Topsy-Turvy (the orb; cast inside Trick Room: no damage) | 6.8 + spell power x 0.9 | **20%** + **90% spell power** |
+| Trick Room, Switcheroo | no damage | |
 
 ## 3. Sanity check: time to kill with basic attacks only
 

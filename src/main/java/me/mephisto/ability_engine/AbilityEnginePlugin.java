@@ -44,6 +44,10 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     private DamageEffect damage;
     private InventoryLock inventoryLock;
     private me.mephisto.ability_engine.bukkit.status.HoverFlight hover;
+    private me.mephisto.ability_engine.bukkit.input.GlideInput glide;
+    private me.mephisto.ability_engine.bukkit.status.MarkDisplays marks;
+    private me.mephisto.ability_engine.bukkit.platform.ScreenRenderer screens;
+    private me.mephisto.ability_engine.bukkit.status.CcLabels ccLabels;
 
     @Override
     public void onEnable() {
@@ -76,6 +80,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         worldQuery.setDamageScale(() -> damage.scale());   // mobs' max HP, for % max HP damage
         TagBindings tagBindings = TagBindings.withDefaults();
         engine.tags().addListener(tagBindings);
+        var liftedDrift = new me.mephisto.ability_engine.bukkit.status.LiftedDrift(engine); // slows reach the lifted's drift
+        engine.tags().addListener(liftedDrift);
+        liftedDrift.start();
 
         saveDefaultConfig();
         keybinds = new Keybinds();
@@ -107,6 +114,26 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.WitherGuard(engine), this);
         pm.registerEvents(projectileRenderer, this); // bodies drop nothing
         new me.mephisto.ability_engine.bukkit.status.HearingGlow(engine, this).start(); // the hearing passive's private glow
+        new me.mephisto.ability_engine.bukkit.platform.SlowFieldRenderer(engine, this).start(); // stasis fields
+        screens = new me.mephisto.ability_engine.bukkit.platform.ScreenRenderer(engine, this); // arcane screens
+        screens.start();
+        new me.mephisto.ability_engine.bukkit.platform.FloorRenderer(engine, this).start(); // crystal floors
+        glide = new me.mephisto.ability_engine.bukkit.input.GlideInput(engine, this); // SHIFT + a move key on your floor
+        glide.start();
+        pm.registerEvents(glide, this);
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.input.SwingMirror(engine), this); // clones swing along
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.PuppetHold(), this); // a puppeteer's decoy swings
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.ConfusionCredit(engine), this); // a confused kill: the confuser's
+        marks = new me.mephisto.ability_engine.bukkit.status.MarkDisplays(engine, this); // marks passives (Sucker Punch)
+        marks.start();
+        ccLabels = new me.mephisto.ability_engine.bukkit.status.CcLabels(engine, this); // "STUNNED 1.2s" over heads
+        ccLabels.start();
+        new me.mephisto.ability_engine.bukkit.status.InvertedControls(engine, this).start(); // Topsy-Turvy's WASD
+        engine.setNotifier((id, text) -> { // short messages from abilities: the action bar
+            Player target = getServer().getPlayer(id);
+            if (target != null) target.sendActionBar(net.kyori.adventure.text.Component.text(text,
+                    net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE));
+        });
         var veilVisibility = new me.mephisto.ability_engine.bukkit.status.VeilVisibility(engine, this); // Into the Veil
         pm.registerEvents(veilVisibility, this);
         veilVisibility.start();
@@ -133,6 +160,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         var cmd = getCommand("ae");
         if (cmd != null) {
             AbilityCommand executor = new AbilityCommand(engine, bindings, hud, this::reloadAll);
+            executor.setDamageScale(() -> damage.scale()); // a dummy's health, in design HP like the stats
             cmd.setExecutor(executor);
             cmd.setTabCompleter(executor);
         } else {
@@ -180,6 +208,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         keybinds.load(getConfig(), getLogger());
         damage.setScale(getConfig().getDouble("damage-scale", 10));
         engine.stats().setArmorConstant(getConfig().getDouble("armor-constant", 100));
+        engine.crits().setDamage(getConfig().getDouble("crit-damage", 1.75));
         engine.stats().setMobMaxHpCap(getConfig().getDouble("max-hp-damage-cap-for-mobs", 200));
         engine.setMeleeAssistReach(getConfig().getDouble("melee-assist-reach", 1.0));
         hud.setHideOffhandInHand(getConfig().getBoolean("resource-pack.hide-ultimate-in-hand", false));
@@ -203,6 +232,12 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         if (bossBar != null) bossBar.stop();
         if (castBar != null) castBar.stop();                        // give players their real XP back
         if (hover != null) hover.stop();
+        if (glide != null) glide.shutdown();                        // vanilla sneak speed back
+        if (marks != null) marks.shutdown();
+        if (screens != null) screens.shutdown();
+        if (ccLabels != null) ccLabels.shutdown();
+        me.mephisto.ability_engine.bukkit.status.InvertedControls.shutdown(); // everyone walks normally again
+        me.mephisto.ability_engine.bukkit.status.PuppetHold.shutdown(); // decoys gone, everyone walks
         engine.shutdown(); // cancels casts, removes projectiles, undoes stuns
         me.mephisto.ability_engine.bukkit.effect.PlaceBlocksEffect.restoreAll(); // ice walls: the terrain as it was
         engine = null;

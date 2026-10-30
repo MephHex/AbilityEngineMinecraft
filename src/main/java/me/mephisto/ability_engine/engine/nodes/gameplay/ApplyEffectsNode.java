@@ -48,6 +48,14 @@ public final class ApplyEffectsNode implements GraphNode {
     private String countKey;
     /** Where to store how many of them were players (null = don't). */
     private String countPlayersKey;
+    /** Where to store how many of them it killed (null = don't). */
+    private String countKillsKey;
+
+    /** {@code count_kills: <key>}: store how many of the targets were alive before it and aren't after (e.g. a kill refund). */
+    public ApplyEffectsNode countingKills(String key) {
+        this.countKillsKey = key;
+        return this;
+    }
     /** {@code times: "stacks:<status>"}: as many times as the caster has stacks of that status. */
     static final String STACKS_OF = "stacks:";
 
@@ -97,8 +105,28 @@ public final class ApplyEffectsNode implements GraphNode {
 
     /** The caster's statuses' ability_on_hit effects, on an enemy one of their abilities hit. */
     private static void applyAbilityOnHit(ExecutionContext ctx, Target target) {
+        java.util.List<String> usedUp = new java.util.ArrayList<>();
         for (ActiveStatus s : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
-            for (EffectConfig config : s.def().extras().abilityOnHit()) apply(ctx, config.asOnHit(), target);
+            var abilityOnHit = s.def().extras().abilityOnHit();
+            for (EffectConfig config : abilityOnHit) apply(ctx, config.asOnHit(), target);
+            if (s.def().once() && !abilityOnHit.isEmpty()) usedUp.add(s.def().id()); // "your NEXT ability hit"
+        }
+        usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id));
+    }
+
+    /**
+     * The caster's statuses' on_crit effects, on whoever this cast hit, when the cast critically struck (its damage has
+     * rolled by now): once per enemy hit, like the other on-hits; {@code self: true} ones once per cast (a heal on a
+     * crit doesn't grow with the enemies the swing hit).
+     */
+    private static void applyOnCrit(ExecutionContext ctx, Target target) {
+        var crits = ctx.engine().crits();
+        if (!crits.critted(ctx.caster(), ctx.instance().id())) return;
+        boolean self = crits.firstForSelf(ctx.caster(), ctx.instance().id());
+        for (ActiveStatus s : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
+            for (EffectConfig config : s.def().extras().combat().onCrit()) {
+                if (self || !config.params().getBool("self", false)) apply(ctx, config.asOnHit(), target);
+            }
         }
     }
 
@@ -190,6 +218,9 @@ public final class ApplyEffectsNode implements GraphNode {
                 : timesKey.startsWith(STACKS_OF) // the caster's stacks of a status (e.g. enemies hit so far)
                 ? ctx.engine().statuses().find(ctx.caster(), timesKey.substring(STACKS_OF.length())).map(s -> s.stacks()).orElse(0)
                 : ctx.blackboard().raw(timesKey) instanceof Number n ? n.intValue() : 0;
+        java.util.List<java.util.UUID> wereAlive = countKillsKey == null ? java.util.List.of() : found.stream()
+                .filter(t -> t instanceof EntityTarget e && !e.id().equals(ctx.caster()) && ctx.engine().world().isAlive(e.id()))
+                .map(t -> ((EntityTarget) t).id()).toList();
         for (Target target : found) {
             for (int i = 0; i < times; i++) {
                 for (EffectConfig config : effects) apply(ctx, config, target);
@@ -204,7 +235,11 @@ public final class ApplyEffectsNode implements GraphNode {
             if (abilityOnHitHere && other && ctx.engine().teams().enemies(ctx.caster(), ((EntityTarget) target).id())) {
                 applyAbilityOnHit(ctx, target);
             }
+            if (other && ctx.engine().teams().enemies(ctx.caster(), ((EntityTarget) target).id())) applyOnCrit(ctx, target);
             if (infusions && other) applyInfusions(ctx, target); // a bolt's magic is for whoever it hits
+        }
+        if (countKillsKey != null) {
+            ctx.blackboard().putRaw(countKillsKey, (int) wereAlive.stream().filter(id -> !ctx.engine().world().isAlive(id)).count());
         }
         return NodeResult.NEXT;
     }

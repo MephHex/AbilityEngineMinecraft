@@ -17,6 +17,15 @@ public final class DelayNode implements GraphNode {
     private final int ticks;
     private final boolean castBar;
     private final boolean bossBar;
+    private String countOf;
+    private String countLabel = "";
+
+    /** With boss_bar: also show the caster's stacks of {@code status} on it, then {@code label} (e.g. "geometries"). */
+    public DelayNode counting(String status, String label) {
+        this.countOf = status;
+        this.countLabel = label == null ? "" : label;
+        return this;
+    }
 
     public DelayNode(int ticks) {
         this(ticks, false);
@@ -37,6 +46,14 @@ public final class DelayNode implements GraphNode {
         Resumer resumer = ctx.suspend();
         var bar = castBar ? ctx.instance().showProgress(ticks) : null;
         var timer = bossBar ? ctx.instance().showTimer(ticks) : null;
+        if (timer != null && countOf != null) {
+            var statuses = ctx.engine().statuses();
+            java.util.UUID caster = ctx.caster();
+            ctx.instance().setTimerNote(() -> {
+                int n = statuses.find(caster, countOf).map(st -> st.stacks()).orElse(0);
+                return n + " " + countLabel;
+            });
+        }
         TaskHandle task = ctx.engine().scheduler().after(ticks, () -> {
             if (bar != null) ctx.instance().clearProgress(bar);
             if (timer != null) ctx.instance().clearTimer(timer);

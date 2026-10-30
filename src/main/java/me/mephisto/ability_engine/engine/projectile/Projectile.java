@@ -16,12 +16,15 @@ final class Projectile implements ProjectileHandle {
     Vec3 velocity;
     List<MotionModifier> motion;
     int ticksLived;
+    double age;                 // ticks of its lifetime used up (slower inside an enemy's slow field)
+    double flyingScale = 1;     // a self-flying one: the share of its speed it's been slowed to
     int guidedUntilTick = -1;   // guided while ticksLived <= this
     double unguidedDistance;
     Vec3 sweepFrom;             // first tick only: check collisions from here (the eye)
     double entityBonus;         // extra radius against entities only (primary fire: easier to land), 0 = none
     Vec3 lastPosition;          // where it was the tick before (its approach, for hit direction)
     int bouncesLeft;
+    int wallBounces;            // bounce_walls: walls and ceilings bounced off so far
     boolean done;
     boolean redirected;         // velocity was set from outside: a self-flying visual must be told
     int piercesLeft;
@@ -34,6 +37,11 @@ final class Projectile implements ProjectileHandle {
     int markedAt;
     final java.util.Set<java.util.UUID> pierced = new java.util.HashSet<>(); // already hit: fly through them
     final java.util.Set<java.util.UUID> ignored = new java.util.HashSet<>(); // never hit (it started inside them)
+    // Screens (Arcane Screen): the ones it has flown through, the friendly ones of those (bonus on its hit), and how long
+    // an enemy one still holds it in place.
+    final java.util.Set<me.mephisto.ability_engine.engine.barrier.Screens.Screen> screensPassed = new java.util.HashSet<>();
+    final java.util.List<me.mephisto.ability_engine.engine.barrier.Screens.Screen> boostedBy = new java.util.ArrayList<>();
+    int heldTicks;
 
     Projectile(ProjectileSpec spec, String world, Vec3 position, Vec3 velocity, Resumer resumer, ProjectileVisual visual) {
         this.spec = spec;

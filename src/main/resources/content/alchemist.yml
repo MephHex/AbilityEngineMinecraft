@@ -27,9 +27,9 @@ statuses:
     tags: [state.poisoned]
     healing_taken: 0.6               # poisoned: 40% less healing
     tick:
-      every: 20                      # ...5% of their max HP per second = 20% total (armor reduces it)
+      every: 20                      # ...3.75% of their max HP per second = 15% total (armor reduces it)
       effects:
-        - { id: damage, max_hp: 0.05, max_hp_armored: true, knockback: false }   # 5% of their max HP a tick; no knockback
+        - { id: damage, max_hp: 0.0375, max_hp_armored: true, knockback: false }   # like flat damage: armor reduces it
 
   flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
     duration: 60                     # 3s
@@ -38,7 +38,7 @@ statuses:
     tick:
       every: 10
       effects:
-        - { id: heal, amount: 10 }    # 6 x 6 = 36 over 3s
+        - { id: heal, amount: 10 }    # 6 x 10 = 60 over 3s
 
   alchemists_mark:                   # sprung Hunter's Snare: your next bolt on them hits harder
     duration: 100                    # 5s, or until a bolt uses it up
@@ -56,17 +56,17 @@ statuses:
     stacking: refresh
     tags: [state.frozen]
     tick:
-      every: 20                      # ...5% of their max HP per second = 15% total
+      every: 15                      # ...3.75% of their max HP 4 times = 15% total
       effects:
-        - { id: damage, max_hp: 0.05, damage_type: freeze }   # 5% of their max HP, ignores armor
-  scorched:                          # Flame: on fire, no knockback
+        - { id: damage, max_hp: 0.0375, damage_type: freeze }   # true damage: % max HP that ignores armor
+  scorched:                          # Flame: on fire, no knockback (armor reduces it, like poison)
     duration: 60                     # 3s...
     stacking: refresh
     tags: [state.burning]            # looks on fire (no vanilla fire damage)
     tick:
-      every: 10                      # ...3% of their max HP every 0.5s = 18% total
+      every: 15                      # ...3.75% of their max HP 4 times = 15% total
       effects:
-        - { id: damage, max_hp: 0.03, damage_type: fire }    # 3% of their max HP, ignores armor
+        - { id: damage, max_hp: 0.0375, max_hp_armored: true, damage_type: fire }   # like flat damage: armor reduces it
   paralyzed:                         # Paralysis: slowed, and basic attacks 40% slower
     duration: 40                     # 2s
     stacking: refresh
@@ -79,20 +79,20 @@ infusions:
   poison:
     name: "Poison"
     color: "#4E9331"
-    description: ["Poisons: 20% of their max HP over 4s."]
+    description: ["Poisons: 15% of their max HP over 4s", "(armor reduces it), 40% less healing."]
     on_hit:
       - { id: status, status: poisoned }
   # Volatile Flask: each of your 3 queued bolts gets ONE of these, at random.
   frost:
     name: "Frost"
     color: "#8FD8FF"
-    description: ["Freezes: 15% of their max HP over 3s, slowed."]
+    description: ["Freezes: 15% of their max HP over 3s,", "ignoring armor, and slowed."]
     on_hit:
       - { id: status, status: frozen }
   flame:
     name: "Flame"
     color: "#F0672B"
-    description: ["Burns: 18% of their max HP over 3s."]
+    description: ["Burns: 15% of their max HP over 3s", "(armor reduces it)."]
     on_hit:
       - { id: status, status: scorched }
   paralysis:
@@ -101,12 +101,6 @@ infusions:
     description: ["Paralyzes: slowed and 40% slower", "basic attacks for 2s."]
     on_hit:
       - { id: status, status: paralyzed }
-  vitality:
-    name: "Vitality"
-    color: "#FF6FAE"
-    description: ["Heals you for 30 when it hits."]
-    on_hit:
-      - { id: heal, amount: 30, self: true }   # self: on you, not on whoever it hit
 
 abilities:
 
@@ -117,11 +111,13 @@ abilities:
       name: "Infused Bolt"
       description:
         - "Hold RMB to draw, RMB again to shoot the"
-        - "loaded bolt: 45 damage + its infusions."
+        - "loaded bolt: {base:1.0} + its infusions."
         - "Each hit: Venom Step's cooldown -1s."
-        - "Marked enemies take +40 (uses the mark)."
-        - "Passive - Hunter's Rhythm: hits raise your"
-        - "Quick Charge to 2, 3, then 4 (5s)."
+        - "On a Snare-marked enemy: {base:0.9} more"
+        - "(the mark is used up)."
+        - "Passive - Hunter's Rhythm: each hit raises"
+        - "your Quick Charge to 2, 3, then 4 (draws"
+        - "0.75s / 0.5s / 0.25s). Lasts 5s per hit."
     nodes:
       take:
         type: take_bolt              # the loaded bolt leaves the crossbow (stored as "bolt")
@@ -215,8 +211,10 @@ abilities:
       name: "Venom Step"
       icon: FERMENTED_SPIDER_EYE
       description:
-        - "Dash the way you're moving. Infuses your"
-        - "next 3 bolts with Poison, then reloads."
+        - "Dash 6 blocks the way you're moving."
+        - "Your next 3 bolts get Poison: {max_hp:0.15}"
+        - "over 4s (armor reduces it) and 40% less"
+        - "healing. Then the crossbow reloads."
         - "During Overdrive: invisible for 2.5s."
     active_tags: [state.dashing, block.ability]
     interrupted_by: [state.stunned]
@@ -257,8 +255,9 @@ abilities:
 
   # 2: lob an experimental flask. It bounces once, then bursts (or bursts on the first enemy it hits, or
   # on you: catch it, e.g. throw it up and stand under it):
-  # damage and a slow to enemies around it. Caught in your own burst: speed, a little healing, and
-  # each of your 3 queued bolts gets a random infusion: Frost, Flame, Paralysis or Vitality. Bursting
+  # damage (20% base damage + 110% spell power) and a slow to enemies around it.
+  # Caught in your own burst: speed, a little healing, and each of your 3 queued bolts gets a random infusion: Frost,
+  # Flame or Paralysis. Bursting
   # it again rerolls them (a bolt keeps one of these at most), so they can't be stacked up.
   alchemist_ab2:
     cooldown: 240                    # 12s
@@ -266,12 +265,15 @@ abilities:
       name: "Volatile Flask"
       icon: DRAGON_BREATH
       description:
-        - "Lob a flask. It bounces once, then bursts"
-        - "(or on an enemy, or on you): 50 damage"
-        - "and a 3s slow around it."
-        - "Caught in it yourself: speed, healing, and"
-        - "your 3 queued bolts get random infusions:"
-        - "Frost, Flame, Paralysis or Vitality."
+        - "Lob a flask: it bounces once, then bursts"
+        - "(or on the first enemy it hits):"
+        - "{base:0.2} + {sp:1.1}"
+        - "and a 3s slow to enemies within 3.5 blocks."
+        - "Caught in it yourself (throw it at your"
+        - "feet, or up and stand under it): +30% speed"
+        - "and 60 healing over 3s, and each of your 3"
+        - "queued bolts gets a random infusion: Frost,"
+        - "Flame or Paralysis."
     nodes:
       throw:
         type: projectile
@@ -280,6 +282,7 @@ abilities:
         lifetime: 100
         bounces: 1
         hits_caster: true            # it bursts on you too (once it's left your hands)
+        catch_at_feet: true          # thrown at your own feet: it bursts on you as it lands, no bounce first
         restitution: 0.45
         friction: 0.3
         visual: SPLASH_POTION
@@ -293,7 +296,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
-          - { id: damage, base: 1.1 }             # 110% base damage
+          - { id: damage, base: 0.2, sp: 1.1 }    # 20% base damage + 110% spell power
           - { id: status, status: slow, duration: 60 }
         next: burst_cue
       burst_cue:
@@ -314,14 +317,15 @@ abilities:
         next: alchemy
       alchemy:
         type: infuse
-        random: [frost, flame, paralysis, vitality]   # each bolt rolls its own
+        random: [frost, flame, paralysis]   # each bolt rolls its own
         count: 3
         reroll: true                 # a bolt that already has one gets a new roll instead (no stacking up)
 
   # 3: toss a trap a short way. It hops once, slides a little, and arms where it stops. The first enemy
   # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
   # A direct hit on an enemy mid-throw snaps shut on them at once. Traps stay armed when you die (not
-  # when you log out); at most 5 at a time, a 6th removes your oldest. Your bolts pass through them.
+  # when you log out); at most 5 at a time, a 6th removes your oldest. Your bolts pass through them. Your armed traps glow
+  # for you (nobody else sees the glow), so you know where they are.
   alchemist_ab3:
     cooldown: 300                    # 15s
     survives_death: true             # thrown traps stay out when you die
@@ -329,10 +333,12 @@ abilities:
       name: "Hunter's Snare"
       icon: TRIPWIRE_HOOK
       description:
-        - "Toss a trap: it hops, slides and arms."
-        - "The first enemy to step on it is rooted"
-        - "for 2s, glows, and is marked: your next"
-        - "bolt on them deals +40. Max 5 traps."
+        - "Toss a trap: it hops, slides and arms where"
+        - "it stops. The first enemy to step on it is"
+        - "rooted 2s, glows 5s and is marked: your"
+        - "next bolt on them deals +90% base damage."
+        - "Up to 5 traps, each lasts 30s. Yours glow"
+        - "for you (only you see it)."
     nodes:
       toss:
         type: projectile
@@ -361,13 +367,14 @@ abilities:
         trigger: 1.5                 # an enemy this close (blocks) springs it
         arm: 0                       # armed the moment it stops
         limit: 5                     # a 6th trap removes your oldest
-        visual: "block:EXPOSED_COPPER_TRAPDOOR"
+        visual: "glow:block:EXPOSED_COPPER_TRAPDOOR"   # glow: it glows for you only (you know where your traps are)
         on: { triggered: spring, fuse: expire }
       spring:
         type: apply_effects
         targets: { type: key, key: hit }   # whoever stepped on it (or was hit by the throw)
         effects:
-          - { id: status, status: root, duration: 40 }
+          - { id: status, status: root, duration: 60
+          }
           - { id: status, status: glowing, duration: 100 }
           - { id: status, status: alchemists_mark }
         next: spring_cue
@@ -384,14 +391,16 @@ abilities:
   # movement, RAPID FIRE: no drawing, RMB (or holding it) shoots straight from the quiver, 2.5 bolts
   # a second, your bolts pierce 3 enemies, and Venom Step makes you invisible.
   alchemist_ult1:
+    stealable: false                 # (steal tech) it can't be stolen: its rapid fire, piercing bolts and Venom Step are the quiver and kit of its owner
     cooldown: 900                    # placeholder until ults charge from damage
     display:
       name: "Overdrive"
       icon: GLOWSTONE_DUST
       description:
-        - "8s: +30% speed, rapid fire: shoot without"
-        - "reloading (hold RMB), bolts pierce 3"
-        - "enemies, Venom Step makes you invisible."
+        - "8s: +30% speed and rapid fire: shoot"
+        - "straight from the quiver without drawing"
+        - "(hold RMB), your bolts pierce 3 enemies,"
+        - "and Venom Step makes you invisible."
     active_tags: [state.overdrive, state.hasted]   # held for the whole cast (the delay below)
     aura: overdrive                  # sparks around you while it lasts
     nodes:

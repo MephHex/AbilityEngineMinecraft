@@ -19,11 +19,20 @@ package me.mephisto.ability_engine.engine.targeting;
  * @param arc          a thrown projectile (the ability's own projectile node): the preview shows where it would
  *                     come down if thrown now, instead of where the crosshair is (null = the crosshair). See
  *                     {@link Trajectory}.
+ * @param length       shape RECT: a rectangle on the ground centred on the spot, this long along the aim (and
+ *                     {@code width} across it). Shape SCREEN: a screen standing in the air facing the caster's look
+ *                     (see Screens), {@code width} across and this tall (written {@code height:} in YAML)
  */
 public record Targeting(Shape shape, double range, double radius, double width, double angle, int timeoutTicks,
-                        boolean ground, double maxDrop, me.mephisto.ability_engine.engine.projectile.ProjectileSpec arc) {
+                        boolean ground, double maxDrop, me.mephisto.ability_engine.engine.projectile.ProjectileSpec arc,
+                        double length) {
 
-    public enum Shape { CIRCLE, LINE, CONE, POINT, WALL }
+    public enum Shape { CIRCLE, LINE, CONE, POINT, WALL, RECT, SCREEN }
+
+    public Targeting(Shape shape, double range, double radius, double width, double angle, int timeoutTicks,
+                     boolean ground, double maxDrop, me.mephisto.ability_engine.engine.projectile.ProjectileSpec arc) {
+        this(shape, range, radius, width, angle, timeoutTicks, ground, maxDrop, arc, 1);
+    }
 
     public Targeting(Shape shape, double range, double radius, double width, double angle, int timeoutTicks,
                      boolean ground, double maxDrop) {

@@ -80,7 +80,15 @@ public final class AbilityInstanceRegistry implements TagListener {
     }
 
     /** A timer (boss bar) of one of the caster's casts: which ability, and how much is left (1..0). */
-    public record Timer(Ability ability, double left) {}
+    /**
+     * @param left      1..0 of it left
+     * @param ticksLeft ticks left (empty: a gauge, not a countdown)
+     * @param color     its colour (null: the default)
+     * @param textColors its title's letters in these colours in turn ("#RRGGBB"; empty: the default)
+     * @param note       shown after the seconds (e.g. "2 geometries"), or null
+     */
+    public record Timer(Ability ability, double left, java.util.Optional<Long> ticksLeft, String color,
+                        List<String> textColors, String note) {}
 
     /** The most recently started cast showing a timer. */
     public java.util.Optional<Timer> timer(UUID caster) {
@@ -88,7 +96,8 @@ public final class AbilityInstanceRegistry implements TagListener {
         for (int i = mine.size() - 1; i >= 0; i--) {
             AbilityInstance instance = mine.get(i);
             var left = instance.timerLeft();
-            if (left.isPresent()) return java.util.Optional.of(new Timer(instance.ability(), left.get()));
+            if (left.isPresent()) return java.util.Optional.of(new Timer(instance.ability(), left.get(),
+                    instance.timerTicksLeft(), instance.timerColor(), instance.timerTextColors(), instance.timerNote()));
         }
         return java.util.Optional.empty();
     }

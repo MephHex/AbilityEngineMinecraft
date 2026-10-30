@@ -68,10 +68,14 @@ public final class AbilityActivator {
     public ActivationResult check(UUID caster, Ability ability) {
         if (isPassive(caster, ability)) return ActivationResult.fail(PASSIVE);
         if (isUnavailable(caster, ability)) return ActivationResult.fail(UNAVAILABLE);
-        if (ability.mode().exclusive() && engine.instances().isRunning(caster, ability.id())) {
-            return ActivationResult.fail("already_active");
+        if ((ability.mode().exclusive() || ability.cooldownAtEnd()) && engine.instances().isRunning(caster, ability.id())) {
+            return ActivationResult.fail("already_active"); // (cooldown_starts: end: one cast at a time)
         }
-        long cd = engine.cooldowns().remainingTicks(caster, ability.id());
+        // A stolen ultimate: one cast, free (no cooldown, charge or costs of its owner's); cast, it's spent.
+        var stolen = engine.stolen();
+        if (stolen.isSpent(caster, ability.id())) return ActivationResult.fail("already_active");
+        boolean borrowed = stolen.isFree(caster, ability.id());
+        long cd = borrowed ? 0 : engine.cooldowns().remainingTicks(caster, ability.id());
         if (cd > 0) return ActivationResult.fail(String.format("on_cooldown:%.1fs", cd / 20.0));
         // An ultimate that charges up: not before 100%.
         if (engine.ultCharge().gates(caster, ability.id()) && !engine.ultCharge().ready(caster)) {
@@ -83,7 +87,7 @@ public final class AbilityActivator {
         if (blocking != null) return ActivationResult.fail("blocked:" + blocking);
 
         for (Map.Entry<String, Integer> cost : ability.costs().entrySet()) {
-            if (!engine.resources().has(caster, cost.getKey(), cost.getValue())) {
+            if (!borrowed && !engine.resources().has(caster, cost.getKey(), cost.getValue())) {
                 return ActivationResult.fail("insufficient:" + cost.getKey());
             }
         }
@@ -133,12 +137,12 @@ public final class AbilityActivator {
         // Passive right now (an ultimate keeps it up): the key does nothing at all, not even switching an aim.
         if (isPassive(caster, ability)) return ActivationResult.fail(PASSIVE);
         // Aiming something already? Its own key does nothing (only LMB confirms, via TargetingManager.confirm).
-        // Others switch.
+        // Another ability with a preview of its own switches to it (opening it replaces this one); one without fires
+        // right away and the preview stays up. One that can't be cast right now leaves the preview alone.
         Optional<Ability> aiming = engine.targeting().current(caster);
         if (aiming.isPresent()) {
             if (aiming.get().id().equals(ability.id())) return ActivationResult.targeting();
             if (!freshPress) return ActivationResult.fail("held");
-            engine.targeting().cancel(caster, "switched");
         }
 
         // Toggle-off abilities (meditation): pressing the key again ends the running one early.
@@ -265,15 +269,43 @@ public final class AbilityActivator {
         return start(caster, ability, presets);
     }
 
+    /**
+     * Cast it right now without any of its checks, costs or cooldown (a cast node with {@code free: true}): from whichever
+     * slot of the caster's it sits in, at their crosshair.
+     */
+    public ActivationResult castFree(UUID caster, String abilityId) {
+        Optional<Ability> found = engine.abilities().find(abilityId);
+        if (found.isEmpty()) return ActivationResult.fail("unknown_ability:" + abilityId);
+        Ability ability = found.get();
+        Map<String, Object> presets = new java.util.HashMap<>();
+        engine.loadouts().characterOf(caster).flatMap(c -> c.slots().entrySet().stream()
+                        .filter(e -> abilityId.equals(e.getValue())).map(Map.Entry::getKey).findFirst())
+                .ifPresent(slot -> presets.put(Keys.SLOT.name(), slot));
+        AimPoint.resolve(engine, caster, null).ifPresent(aim -> presets.put(Keys.AIM.name(), aim));
+        AbilityInstance instance = new AbilityInstance(engine, ability, caster, presets);
+        engine.instances().add(instance);
+        instance.start();
+        return ActivationResult.ok();
+    }
+
     private ActivationResult start(UUID caster, Ability ability, Map<String, Object> presets) {
-        ability.costs().forEach((resource, amount) -> engine.resources().consume(caster, resource, amount));
+        boolean borrowed = engine.stolen().isFree(caster, ability.id()); // a stolen ultimate's one cast: free
+        if (!borrowed) ability.costs().forEach((resource, amount) -> engine.resources().consume(caster, resource, amount));
         if (engine.ultCharge().gates(caster, ability.id())) engine.ultCharge().spend(caster); // the ultimate: all of it
         AbilityInstance instance = new AbilityInstance(engine, ability, caster, presets);
-        if (ability.manualCooldown()) instance.deferCooldownManually();
-        else if (ability.cooldownAfterRecast()) instance.deferCooldown();
+        if (borrowed) {
+            instance.deferCooldownManually(); // no cooldown of its own (its start_cooldown nodes still run)
+            engine.stolen().cast(caster, instance);
+        } else if (ability.manualCooldown()) instance.deferCooldownManually();
+        else if (ability.cooldownAfterRecast() || ability.cooldownAtEnd()) instance.deferCooldown();
         else engine.cooldowns().start(caster, ability.id(), engine.stats().cooldownTicks(caster, ability.id(), ability.cooldownTicks()));
         engine.instances().add(instance);
         instance.start();
+        // A basic attack: the caster's mirroring clones swing with them (as well as on the client's arm swing)
+        if (presets.get(Keys.SLOT.name()) instanceof String slot
+                && me.mephisto.ability_engine.engine.loadout.LoadoutManager.isBasicAttack(slot)) {
+            engine.mirrors().swung(caster);
+        }
         return ActivationResult.ok();
     }
 }

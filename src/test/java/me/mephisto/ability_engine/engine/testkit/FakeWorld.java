@@ -157,6 +157,12 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
     @Override
     public void face(UUID id, Vec3 direction) { facing.put(id, direction.normalize()); }
 
+    /** Every arm swing asked for (MovementControl.swing), in order. */
+    public final java.util.List<UUID> swings = new java.util.ArrayList<>();
+
+    @Override
+    public void swing(UUID id) { swings.add(id); }
+
     @Override
     public void despawn(UUID clone) {
         entities.remove(clone);
@@ -174,6 +180,30 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
 
     @Override
     public Optional<Vec3> movementOf(UUID entity) { return Optional.ofNullable(moving.get(entity)); }
+
+    private final Map<UUID, me.mephisto.ability_engine.engine.platform.MoveInput> inputs = new HashMap<>();
+
+    /** The keys a player holds: the walk they ask for (blocks a tick) and a jump. Players without any: nothing held. */
+    public void input(UUID id, Vec3 move, boolean jump) { input(id, move, jump, false); }
+
+    public void input(UUID id, Vec3 move, boolean jump, boolean sneak) {
+        inputs.put(id, new me.mephisto.ability_engine.engine.platform.MoveInput(move, jump, sneak));
+    }
+
+    /** Who's crouching (MovementControl.crouch). */
+    public final java.util.Set<UUID> crouching = new java.util.HashSet<>();
+
+    @Override
+    public void crouch(UUID id, boolean crouched) {
+        if (crouched) crouching.add(id);
+        else crouching.remove(id);
+    }
+
+    @Override
+    public Optional<me.mephisto.ability_engine.engine.platform.MoveInput> inputOf(UUID entity) {
+        if (!players.contains(entity)) return Optional.empty();
+        return Optional.of(inputs.getOrDefault(entity, me.mephisto.ability_engine.engine.platform.MoveInput.NONE));
+    }
     public void floor(double y) { floorY = y; }
 
     /** Health as a share of max (0..1), set by tests (unset = unknown). */

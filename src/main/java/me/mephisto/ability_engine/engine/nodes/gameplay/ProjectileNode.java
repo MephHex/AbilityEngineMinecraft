@@ -37,7 +37,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class ProjectileNode implements GraphNode {
 
     private static final Set<String> OUTPUTS = Set.of(Ports.SPAWNED, Ports.HIT_ENTITY, Ports.HIT_BLOCK, Ports.EXPIRED,
-            Ports.DESTROYED);
+            Ports.DESTROYED, me.mephisto.ability_engine.engine.projectile.ProjectileSystem.BOUNCED);
     private static final double MUZZLE_OFFSET = 0.5;
 
     /**
@@ -52,8 +52,14 @@ public final class ProjectileNode implements GraphNode {
         public static final Launch EYES = new Launch(null, 0, 0, null);
     }
 
-    /** Which way it flies: along the caster's aim, or (launched from a hit) on along the hit shot's flight, or back. */
-    public enum Heading { AIM, FLIGHT, BACK }
+    /**
+     * Which way it flies: along the caster's aim, or (launched from a hit) on along the hit shot's flight, or back; or
+     * RANDOM: any way round, tossed a little up (e.g. a blob popping out of the caster).
+     */
+    public enum Heading { AIM, FLIGHT, BACK, RANDOM }
+
+    /** A RANDOM heading is tossed up this much (radians above level). */
+    private static final double RANDOM_TOSS = Math.toRadians(35);
 
     /**
      * Several at once.
@@ -140,7 +146,10 @@ public final class ProjectileNode implements GraphNode {
             origin = at.get().position().add(0, launch.up(), 0).subtract(heading.multiply(launch.back()));
         }
         Vec3 aimDir = a.direction();
-        if (pattern.heading() != Heading.AIM) {
+        if (pattern.heading() == Heading.RANDOM) {
+            double yaw = ThreadLocalRandom.current().nextDouble(Math.PI * 2);
+            aimDir = new Vec3(Math.cos(yaw) * Math.cos(RANDOM_TOSS), Math.sin(RANDOM_TOSS), Math.sin(yaw) * Math.cos(RANDOM_TOSS));
+        } else if (pattern.heading() != Heading.AIM) {
             Vec3 along = flight(ctx).orElse(aimDir);
             aimDir = pattern.heading() == Heading.BACK ? along.multiply(-1) : along;
         }

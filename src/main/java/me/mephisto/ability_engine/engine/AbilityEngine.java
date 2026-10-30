@@ -56,6 +56,8 @@ public final class AbilityEngine {
     private final TargetingManager targeting;
     private final Teams teams;
     private final me.mephisto.ability_engine.engine.barrier.BarrierSystem barriers;
+    private final me.mephisto.ability_engine.engine.barrier.SlowFields slowFields;
+    private final me.mephisto.ability_engine.engine.barrier.Screens screens;
     private final InfusionRegistry infusions = new InfusionRegistry();
     private final QuiverManager quivers;
     private final me.mephisto.ability_engine.engine.link.LinkManager links;
@@ -66,8 +68,20 @@ public final class AbilityEngine {
     private final me.mephisto.ability_engine.engine.ward.WardManager wards;
     private final me.mephisto.ability_engine.engine.ward.HearingManager hearing;
     private final me.mephisto.ability_engine.engine.ward.LowHealthManager lowHealth;
+    private final me.mephisto.ability_engine.engine.ward.OutOfCombatManager outOfCombat;
+    private final me.mephisto.ability_engine.engine.ward.HealthBandsManager healthBands;
     private final me.mephisto.ability_engine.engine.combat.SpellShields spellShields;
+    private final me.mephisto.ability_engine.engine.combat.Crits crits = new me.mephisto.ability_engine.engine.combat.Crits();
     private final me.mephisto.ability_engine.engine.ride.RideManager rides;
+    private final me.mephisto.ability_engine.engine.floor.Floors floors;
+    private final me.mephisto.ability_engine.engine.stats.StolenUltimates stolen;
+    private final me.mephisto.ability_engine.engine.summon.Mirrors mirrors;
+    private final me.mephisto.ability_engine.engine.ward.PassiveStatusManager passiveStatuses;
+    private final me.mephisto.ability_engine.engine.ward.MarkManager marks;
+    private final me.mephisto.ability_engine.engine.brain.BrainManager brains;
+    private final me.mephisto.ability_engine.engine.brain.Confusion confusion;
+    /** Short messages to a player (on Bukkit: their action bar). Default: nowhere. */
+    private java.util.function.BiConsumer<UUID, String> notifier = (player, text) -> {};
 
     public AbilityEngine(Platform platform) {
         this.platform = platform;
@@ -77,6 +91,8 @@ public final class AbilityEngine {
         teams.setTags(tags);
         this.summons = new me.mephisto.ability_engine.engine.summon.SummonManager(platform.clones(), platform.scheduler());
         this.barriers = new me.mephisto.ability_engine.engine.barrier.BarrierSystem(platform.world(), teams, platform.cues());
+        this.slowFields = new me.mephisto.ability_engine.engine.barrier.SlowFields(teams);
+        this.screens = new me.mephisto.ability_engine.engine.barrier.Screens(teams);
         this.cooldowns = new CooldownManager(platform.clock(), (caster, id) -> abilities.find(id)
                 .map(a -> new CooldownManager.Charges(a.charges(), a.charges() > 1 && stats() != null // (each charge: their cooldown)
                         ? stats().cooldownTicks(caster, id, a.cooldownTicks()) : a.cooldownTicks()))
@@ -93,12 +109,46 @@ public final class AbilityEngine {
         this.constructs = new ConstructSystem(platform.constructRenderer(), platform.scheduler(), teams, platform.world(), log);
         constructs.setCues(this::cuesFor);
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
+        projectiles.setSlowFields(slowFields);
+        projectiles.setScreens(screens);
         this.quivers = new QuiverManager(tags, statuses,
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
         this.loadouts = new LoadoutManager(characters, activator, resources, quivers, tags, abilities, instances);
         this.targeting = new TargetingManager(this);
         this.stats = new me.mephisto.ability_engine.engine.stats.StatSheets(loadouts, platform.world(), statuses);
+        stats.setTags(tags);
+        this.floors = new me.mephisto.ability_engine.engine.floor.Floors(this);
+        this.mirrors = new me.mephisto.ability_engine.engine.summon.Mirrors(this);
+        floors.addBlinkListener(mirrors); // a clone blinks with its owner
+        // A summon with an end cue: it plays where the summon is, as it goes (expired, broken, replaced...).
+        summons.addRemovalListener((owner, entity, cue) -> {
+            if (cue == null) return;
+            platform.world().positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(entity))
+                    .ifPresent(p -> cuesFor(owner).play(cue, p.world(), p.position()));
+        });
+        this.stolen = new me.mephisto.ability_engine.engine.stats.StolenUltimates(loadouts, platform.scheduler(), platform.clock());
+        this.passiveStatuses = new me.mephisto.ability_engine.engine.ward.PassiveStatusManager(loadouts, platform.world(),
+                statuses, platform.scheduler());
+        this.marks = new me.mephisto.ability_engine.engine.ward.MarkManager(this);
+        this.brains = new me.mephisto.ability_engine.engine.brain.BrainManager(this); // what drives PvE enemies
+        this.confusion = new me.mephisto.ability_engine.engine.brain.Confusion(this); // Confuse Ray: at their own teammates
+        // expire_after: every gain keeps its status (the time left, e.g. on the XP bar) on for that long; none left, it goes.
+        resources.setExpiryListener(new ResourceManager.ExpiryListener() {
+            @Override
+            public void gained(UUID owner, me.mephisto.ability_engine.engine.state.ResourceDef def) {
+                if (def.expireStatus() != null) statuses.apply(owner, def.expireStatus(), def.expireTicks(), owner);
+            }
+
+            @Override
+            public void emptied(UUID owner, me.mephisto.ability_engine.engine.state.ResourceDef def) {
+                if (def.expireStatus() != null) statuses.remove(owner, def.expireStatus());
+            }
+        });
         this.ultCharge = new me.mephisto.ability_engine.engine.stats.UltimateCharge(loadouts, stats, teams, platform.scheduler());
+        ultCharge.setStolen(stolen);
+        // A stolen ultimate that's gone can't still be aimed (its preview would cast it for free).
+        stolen.setOnRelease((thief, ability) -> targeting.current(thief).filter(a -> a.id().equals(ability))
+                .ifPresent(a -> targeting.cancel(thief, "stolen_lost")));
         this.combat = new me.mephisto.ability_engine.engine.combat.CombatTracker(platform.clock());
         this.spellShields = new me.mephisto.ability_engine.engine.combat.SpellShields(platform.world(), platform.cues());
         this.wards = new me.mephisto.ability_engine.engine.ward.WardManager(loadouts, tags, combat, platform.clock(),
@@ -107,6 +157,12 @@ public final class AbilityEngine {
                 summons, platform.scheduler());
         this.lowHealth = new me.mephisto.ability_engine.engine.ward.LowHealthManager(loadouts, platform.world(), statuses,
                 platform.scheduler());
+        this.outOfCombat = new me.mephisto.ability_engine.engine.ward.OutOfCombatManager(loadouts, platform.world(), statuses,
+                combat, platform.clock(), platform.scheduler());
+        this.healthBands = new me.mephisto.ability_engine.engine.ward.HealthBandsManager(loadouts, platform.world(), statuses,
+                platform.scheduler());
+        healthBands.setCaster((holder, ability) -> activator.activateOnId(holder, ability, // a band lost: e.g. a slime drops
+                new me.mephisto.ability_engine.engine.target.EntityTarget(holder), java.util.Map.of()));
         // A reflex (a ward with cast:) casts its ability at whoever hit its holder, wherever they're aiming.
         wards.setReflexes((holder, attacker, ability) -> activator.activateOnId(holder, ability,
                 new me.mephisto.ability_engine.engine.target.EntityTarget(attacker), java.util.Map.of()));
@@ -128,6 +184,7 @@ public final class AbilityEngine {
                         me.mephisto.ability_engine.engine.loadout.CharacterDef.FREEZE_IMMUNE)).orElse(false));
 
         tags.addListener(instances); // interrupts
+        tags.addListener(confusion);
         tags.addListener(new me.mephisto.ability_engine.engine.tag.TagListener() {
             @Override
             public void onTagAdded(UUID entity, String tag) { // crowd control on them lets go
@@ -154,6 +211,8 @@ public final class AbilityEngine {
         effects.register("cleanse", new me.mephisto.ability_engine.engine.effect.CleanseEffect());
         effects.register("set_health", new me.mephisto.ability_engine.engine.effect.SetHealthEffect());
         effects.register("chain", new me.mephisto.ability_engine.engine.effect.ChainEffect());
+        effects.register("launch", new me.mephisto.ability_engine.engine.effect.LaunchEffect());
+        effects.register("reduce_cooldowns", new me.mephisto.ability_engine.engine.effect.ReduceCooldownsEffect());
         statuses.setKiller(this::kill);
     }
 
@@ -247,6 +306,11 @@ public final class AbilityEngine {
     public Teams teams() { return teams; }
     public me.mephisto.ability_engine.engine.team.Veils veils() { return teams.veils(); }
     public me.mephisto.ability_engine.engine.barrier.BarrierSystem barriers() { return barriers; }
+    /** Fields slowing enemy projectiles (a stasis field). */
+    public me.mephisto.ability_engine.engine.barrier.SlowFields slowFields() { return slowFields; }
+
+    /** Screens projectiles fly through (Arcane Screen). */
+    public me.mephisto.ability_engine.engine.barrier.Screens screens() { return screens; }
     public InfusionRegistry infusions() { return infusions; }
     public QuiverManager quivers() { return quivers; }
     public me.mephisto.ability_engine.engine.link.LinkManager links() { return links; }
@@ -281,10 +345,37 @@ public final class AbilityEngine {
     public me.mephisto.ability_engine.engine.ward.HearingManager hearing() { return hearing; }
     /** Characters' low-health passives (a status kept on them while they're low). */
     public me.mephisto.ability_engine.engine.ward.LowHealthManager lowHealth() { return lowHealth; }
+    public me.mephisto.ability_engine.engine.ward.OutOfCombatManager outOfCombat() { return outOfCombat; }
+    public me.mephisto.ability_engine.engine.ward.HealthBandsManager healthBands() { return healthBands; }
     /** Who rides whom (a fae perched on an ally). */
     public me.mephisto.ability_engine.engine.ride.RideManager rides() { return rides; }
+    /** Floors of ground that belong to someone (the Amethyst's crystal floor), and gliding on them. */
+    public me.mephisto.ability_engine.engine.floor.Floors floors() { return floors; }
+    /** Stolen ultimates (Stolen Fable): a copy of someone's ultimate in the thief's slot for one use. */
+    public me.mephisto.ability_engine.engine.stats.StolenUltimates stolen() { return stolen; }
+    /** Clones that copy their owner's moves (Changeling). */
+    public me.mephisto.ability_engine.engine.summon.Mirrors mirrors() { return mirrors; }
+    /** Characters' passive_statuses: always on them. */
+    public me.mephisto.ability_engine.engine.ward.PassiveStatusManager passiveStatuses() { return passiveStatuses; }
+    /** Brains: what drives non-players playing a character with a brain (PvE enemies). */
+    public me.mephisto.ability_engine.engine.brain.BrainManager brains() { return brains; }
+
+    public me.mephisto.ability_engine.engine.brain.Confusion confusion() { return confusion; }
+    /** Characters' marks: enemies near them marked for them only. */
+    public me.mephisto.ability_engine.engine.ward.MarkManager marks() { return marks; }
+
+    /** Tell {@code player} something short (e.g. "their ultimate can't be stolen"); on Bukkit their action bar. */
+    public void notify(UUID player, String text) { notifier.accept(player, text); }
+
+    public void setNotifier(java.util.function.BiConsumer<UUID, String> notifier) {
+        this.notifier = notifier == null ? (p, t) -> {} : notifier;
+    }
+
     /** Spell shields: spell damage absorbed as charge. */
     public me.mephisto.ability_engine.engine.combat.SpellShields spellShields() { return spellShields; }
+
+    /** Critical strikes: everyone's streak (see Crits). */
+    public me.mephisto.ability_engine.engine.combat.Crits crits() { return crits; }
     /** Randomness for gameplay rolls (random infusions...). Tests swap in a seeded one. */
     public java.util.random.RandomGenerator random() { return random; }
     public void setRandom(java.util.random.RandomGenerator random) { this.random = random; }
@@ -292,6 +383,9 @@ public final class AbilityEngine {
     /** Cancel casts, clear statuses and tags. For death, logout, or mobs despawning. Keeps cooldowns, resources and character. */
     public void resetEntity(UUID entity, String reason) {
         summons.dismissAll(entity);
+        mirrors.forget(entity);
+        stolen.release(entity);
+        statuses.removeFrom(entity); // marks about the two of them (ends_with_source)
         links.breakAll(entity);
         targeting.cancel(entity, reason);
         instances.cancelAll(entity, reason);
@@ -302,6 +396,10 @@ public final class AbilityEngine {
     /** Like {@link #resetEntity}, for a death: casts of abilities that survive death keep running (traps). */
     public void resetOnDeath(UUID entity) {
         summons.dismissAll(entity); // echoes go with you
+        mirrors.forget(entity);     // (not held in place as a puppeteer any more)
+        brains.reset(entity);       // a PvE enemy: its rules start over (an enrage can happen again)
+        stolen.release(entity);     // a stolen ultimate is lost
+        statuses.removeFrom(entity); // marks about the two of them (ends_with_source): a fresh start for both
         links.breakAll(entity);     // and tethers break
         targeting.cancel(entity, "death");
         for (var instance : instances.of(entity)) {
@@ -318,6 +416,8 @@ public final class AbilityEngine {
     public void resetOnRespawn(UUID entity) {
         statuses.clear(entity);
         tags.clear(entity);
+        statuses.removeFrom(entity);
+        passiveStatuses.refresh(entity); // their passives are back at once
     }
 
     /** Stop everything. Statuses are cleared so their tag listeners undo any Bukkit side effects. */
@@ -329,6 +429,10 @@ public final class AbilityEngine {
         summons.shutdown();
         links.shutdown();
         rides.shutdown();
+        floors.shutdown();
+        mirrors.shutdown();
+        brains.shutdown();
+        confusion.shutdown();
         statuses.clearAll();
     }
 
@@ -345,20 +449,35 @@ public final class AbilityEngine {
     public void notifyDamageDealt(me.mephisto.ability_engine.engine.effect.EffectContext ctx, UUID victim) {
         notifyDamageDealt(ctx.caster(), victim);
         ultCharge.landed(ctx, victim);
+        // A summon that breaks after a number of hits (a Changeling): a basic attack is one, an ability all of them.
+        if (ctx.execution() != null && summons.isSummon(victim)) {
+            String status = summons.breakStatusOf(victim);
+            UUID owner = summons.ownerOf(victim).orElse(null);
+            boolean broke = summons.hit(victim, stats.fromFire(ctx));
+            // whoever broke it pays for it (on_break: e.g. friendly fire), from its owner
+            if (broke && status != null && ctx.caster() != null && !ctx.caster().equals(owner)) {
+                statuses.apply(ctx.caster(), status, owner);
+            }
+        }
     }
 
     /**
      * {@code victim} was hurt by {@code attacker} (the platform reports every hit: abilities, monsters, arrows). Their
-     * statuses' {@code on_damaged} effects land on them (e.g. a channel that grows with every hit taken). Not for
-     * hits from themselves, an ally, or nobody (a fall).
+     * statuses' {@code on_damaged} effects land on them (e.g. a channel that grows with every hit taken), or with
+     * {@code attacker: true} on whoever hurt them (thorns). A {@code once} status is used up by it. Not for hits from
+     * themselves, an ally, or nobody (a fall).
      */
     public void notifyDamaged(UUID victim, UUID attacker) {
         if (attacker == null || attacker.equals(victim) || teams.allies(victim, attacker)) return;
         for (var s : java.util.List.copyOf(statuses.on(victim))) {
-            for (var config : s.def().extras().onDamaged()) {
+            var onDamaged = s.def().extras().onDamaged();
+            for (var config : onDamaged) {
+                UUID to = config.params().getBool("attacker", false) ? attacker : victim;
+                if (!to.equals(victim) && !platform.world().isAlive(to)) continue;
                 effects.require(config.effectId()).apply(new me.mephisto.ability_engine.engine.effect.EffectContext(
-                        this, null, victim, new me.mephisto.ability_engine.engine.target.EntityTarget(victim), config.params()));
+                        this, null, victim, new me.mephisto.ability_engine.engine.target.EntityTarget(to), config.params()));
             }
+            if (s.def().once() && !onDamaged.isEmpty()) statuses.remove(victim, s.def().id()); // "the next hit you take"
         }
     }
 
@@ -403,11 +522,23 @@ public final class AbilityEngine {
     }
 
     /**
-     * Someone got a kill: wakes the killer's await_kill nodes and resets their abilities that refresh on
-     * kills (refresh_on_kill).
+     * Someone got a kill: wakes the killer's await_kill nodes, runs their character's on_kill passive and resets their
+     * abilities that refresh on kills (refresh_on_kill).
      */
     public void notifyKill(UUID killer, UUID victim, boolean victimIsPlayer) {
         for (var instance : instances.of(killer)) instance.kill(victim, victimIsPlayer); // await_kill nodes
+        loadouts.characterOf(killer).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::onKill).ifPresent(passive -> {
+            for (var config : passive.effects()) { // e.g. feeding on the kill: healed, faster
+                effects.require(config.effectId()).apply(new me.mephisto.ability_engine.engine.effect.EffectContext(
+                        this, null, killer, new me.mephisto.ability_engine.engine.target.EntityTarget(killer), config.params()));
+            }
+            if (passive.cue() == null) return;
+            var from = platform.world().positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(victim));
+            var to = platform.world().positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(killer));
+            if (from.isPresent() && to.isPresent() && from.get().world().equals(to.get().world())) {
+                cuesFor(killer).playLine(passive.cue(), to.get().world(), from.get().position(), to.get().position());
+            }
+        });
         for (var s : java.util.List.copyOf(statuses.on(killer))) { // on_kill: e.g. decaying health, revived by a kill
             for (var config : s.def().life().onKill()) {
                 effects.require(config.effectId()).apply(new me.mephisto.ability_engine.engine.effect.EffectContext(

@@ -22,13 +22,181 @@ import java.util.Map;
  * @param whenHit   a passive reaction to enemy basic attacks landing on them (null = none)
  * @param hover     a passive flight, at most so high above the ground (null = none)
  * @param lowHealth a passive status kept on them while they're low on health (null = none)
+ * @param onKill    a passive reaction to their kills (null = none)
+ * @param healthBands a passive that follows their health in bands (null = none)
+ * @param passiveStatuses statuses always kept on them while they play this character and are alive (e.g. a passive's
+ *                  on_damaged), put on again soon after they respawn
+ * @param marks     a passive marker only they see over nearby enemies (null = none)
+ * @param brain     what drives a non-player playing it (a PvE enemy; null = nothing: it only casts when told to)
+ * @param playable  players can pick it (champ select); false for enemies-only kits (a boss)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
                            java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
                            java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
                            java.util.List<Variant> variants, LowHealth lowHealth,
-                           me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal) {
+                           me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
+                           OnKill onKill, HealthBands healthBands, Glide glide, java.util.List<String> passiveStatuses,
+                           Marks marks, Brain brain, boolean playable) {
+
+    /**
+     * What drives a non-player playing this character (a PvE enemy, a test dummy): see BrainManager.
+     *
+     * @param thinkEvery ticks between decisions (picking a target, trying the rules)
+     * @param range      how far it looks for an enemy (blocks)
+     * @param sight      only enemies it can see (no wall in between)
+     * @param chase      walking after its target (null = it doesn't move by itself: its own AI, or nothing)
+     * @param rules      what it casts: tried in order at every decision, the first one that casts wins
+     */
+    public record Brain(int thinkEvery, double range, boolean sight, Chase chase, java.util.List<Rule> rules) {
+        public Brain {
+            rules = java.util.List.copyOf(rules);
+        }
+
+        /** Walk after the target at {@code speed} blocks a tick, until within {@code stopAt} blocks of it. */
+        public record Chase(double speed, double stopAt) {}
+
+        /**
+         * Cast {@code cast} (a slot, e.g. ability_1, or an ability id) when every condition holds, at most once every
+         * {@code every} ticks ({@code once}: only ever once), pressing it again {@code recast} ticks later (0 = no).
+         */
+        public record Rule(String cast, java.util.List<Condition> when, int every, boolean once, int recast) {
+            public Rule {
+                when = java.util.List.copyOf(when);
+            }
+        }
+
+        /**
+         * One condition: {@code kind} is target_within / target_beyond (blocks), health_below / health_above (a share of
+         * its max HP), target_health_below (theirs), chance (0..1, rolled each time), has_tag / lacks_tag ({@code tag}).
+         */
+        public record Condition(String kind, double value, String tag) {
+            public static final java.util.Set<String> KINDS = java.util.Set.of("target_within", "target_beyond",
+                    "health_below", "health_above", "target_health_below", "chance", "has_tag", "lacks_tag");
+        }
+    }
+
+    /** Without brain (playable). */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
+                        OnKill onKill, HealthBands healthBands, Glide glide, java.util.List<String> passiveStatuses,
+                        Marks marks) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands, glide, passiveStatuses, marks,
+                null, true);
+    }
+
+    /**
+     * A passive marker over enemies near them that only they see (e.g. "this one can be silenced"): every enemy within
+     * {@code range} blocks that doesn't have {@code unlessStatus} from them right now (null = every enemy). The platform
+     * shows {@code glyph} (a short text, e.g. a symbol) over their heads.
+     */
+    public record Marks(double range, String unlessStatus, String glyph) {}
+
+    /** Without passive_statuses or marks. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
+                        OnKill onKill, HealthBands healthBands, Glide glide) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands, glide, java.util.List.of(), null,
+                null, true);
+    }
+
+    /**
+     * Gliding on their own floors (Floors): standing on one, SHIFT + a movement key dashes them {@code distance} blocks
+     * that way at {@code speed} blocks a tick, never off the floor, at most once every {@code gap} ticks. {@code cue}
+     * plays where each glide starts and {@code trail} where they are every tick of it (null = none). With
+     * {@code teleport} it's a blink instead: they're there at once (still never off the floor, never inside a block), and
+     * {@code cue} plays where they left and where they arrive.
+     */
+    public record Glide(double distance, double speed, int gap, String cue, String trail, boolean teleport) {
+        public Glide(double distance, double speed, int gap, String cue, String trail) {
+            this(distance, speed, gap, cue, trail, false);
+        }
+    }
+
+    /** Without glide. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
+                        OnKill onKill, HealthBands healthBands) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands, null);
+    }
+
+    /**
+     * Their health in bands of {@code size} (a share of max HP): every band they drop out of casts {@code cast} (null =
+     * nothing), and {@code statuses} (lowest band first; empty = none) keeps the one for their band on them.
+     */
+    public record HealthBands(double size, String cast, java.util.List<String> statuses) {
+        public HealthBands {
+            statuses = statuses == null ? java.util.List.of() : java.util.List.copyOf(statuses);
+        }
+
+        /** How many bands: one per status, or as many as fit. */
+        public int count() { return statuses.isEmpty() ? (int) Math.round(1 / size) : statuses.size(); }
+    }
+
+    /** Without health_bands. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
+                        OnKill onKill) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, null);
+    }
+
+    /**
+     * Every time they kill someone, {@code effects} land on them (e.g. a heal and a burst of speed), and {@code cue} (a
+     * line cue, or null) is drawn from the victim to them.
+     */
+    public record OnKill(java.util.List<me.mephisto.ability_engine.engine.effect.EffectConfig> effects, String cue) {
+        public OnKill {
+            effects = java.util.List.copyOf(effects);
+        }
+    }
+
+    /** Without on_kill. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, outOfCombat, null, null);
+    }
+
+    /**
+     * Once they've gone {@code after} ticks without dealing or taking damage, {@code status} is kept on them until they
+     * fight again (e.g. one whose tick builds a shield up).
+     */
+    public record OutOfCombat(int after, String status) {}
+
+    /** Without out_of_combat. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, null);
+    }
 
     /** While their health is below {@code below} (a share of max HP), {@code status} is kept on them (e.g. a frenzy). */
     public record LowHealth(double below, String status) {}
@@ -321,6 +489,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         traits = java.util.Set.copyOf(traits);
         if (stats == null) stats = Stats.DEFAULT;
         statusItems = statusItems == null ? java.util.List.of() : java.util.List.copyOf(statusItems);
+        passiveStatuses = passiveStatuses == null ? java.util.List.of() : java.util.List.copyOf(passiveStatuses);
     }
 
     public boolean has(String trait) { return traits.contains(trait); }
@@ -334,7 +503,8 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         });
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
                 form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, form.stats() != null ? form.stats() : stats,
-                ward, statusItems, whenHit, hearing, hover, variants, lowHealth);
+                ward, statusItems, whenHit, hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands,
+                glide, passiveStatuses, marks, brain, playable);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

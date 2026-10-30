@@ -34,6 +34,9 @@ public final class TagBindings implements TagListener {
         TagBindings b = new TagBindings();
         b.bind(Tags.BLOCK_MOVE, MovementLock::apply, MovementLock::remove);
         b.bind(Tags.BLOCK_WALK, WalkLock::hold, WalkLock::release);   // held in place, the camera not zoomed in
+        b.bind(Tags.PUPPETEER, PuppetHold::hold, PuppetHold::release); // working a puppet: can't walk at all
+        b.bind(Tags.INVERTED, InvertedControls::hold, InvertedControls::release); // Topsy-Turvy: WASD the other way
+        b.bind(Tags.CONFUSED, InvertedControls::hold, InvertedControls::release); // Confuse Ray: their keys do nothing
         b.bind(Tags.SLOWED, MovementLock::applySlow, MovementLock::removeSlow);
         b.bind(Tags.BLOCK_KNOCKBACK, MovementLock::applySteadfast, MovementLock::removeSteadfast);
         b.bind(Tags.HASTED, MovementLock::applyHaste, MovementLock::removeHaste);
@@ -47,6 +50,13 @@ public final class TagBindings implements TagListener {
                 e -> {
                     e.removePotionEffect(PotionEffectType.LEVITATION);
                     e.setFallDistance(0); // hovering high up doesn't turn into fall damage
+                });
+        // Lifted: levitation II rises about 2 blocks a second; let go, the fall so far doesn't count.
+        b.bind(Tags.LIFTED,
+                e -> e.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, PotionEffect.INFINITE_DURATION, 1, false, false)),
+                e -> {
+                    e.removePotionEffect(PotionEffectType.LEVITATION);
+                    e.setFallDistance(0);
                 });
         b.bind(Tags.GLOWING, e -> e.setGlowing(true), e -> e.setGlowing(false));
         b.bind(Tags.PHASING, e -> e.setCollidable(false), e -> e.setCollidable(true));   // through units
@@ -85,7 +95,13 @@ public final class TagBindings implements TagListener {
         return b;
     }
 
+    /** A tag bound twice runs both (e.g. the stun's nausea and its particles). */
     public void bind(String tag, Consumer<LivingEntity> onAdded, Consumer<LivingEntity> onRemoved) {
+        Binding old = bindings.get(tag);
+        if (old != null) {
+            onAdded = old.onAdded().andThen(onAdded);
+            onRemoved = old.onRemoved().andThen(onRemoved);
+        }
         bindings.put(tag, new Binding(onAdded, onRemoved));
     }
 
@@ -112,5 +128,7 @@ public final class TagBindings implements TagListener {
         MovementLock.removeHaste(living);
         MovementLock.removeSturdy(living);
         WalkLock.release(living);
+        PuppetHold.release(living);
+        InvertedControls.release(living);
     }
 }

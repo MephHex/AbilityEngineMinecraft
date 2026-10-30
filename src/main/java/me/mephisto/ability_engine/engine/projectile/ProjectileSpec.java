@@ -36,6 +36,13 @@ import java.util.List;
  *                       sticking to one; only the ground (a face pointing up) is where it lands (exits hit_block)
  * @param trail          a cue played where it is every {@code trailEvery} ticks while it flies (null = none)
  * @param trailEvery     ticks between trail cues
+ * @param wallBounces    with bounceWalls: how many times it bounces off walls and ceilings (0 = every time); the next
+ *                       one after that, it drops straight down from there instead
+ * @param wallDamping    with bounceWalls, above 0: a wall bounce mirrors its velocity off the wall (v - 2(v.n)n) and keeps
+ *                       this share of its speed (0.7), instead of the restitution / friction rebound
+ * @param ignoreEntities it flies through everyone (only terrain stops it), e.g. a throw whose landing spot is predictable
+ * @param catchAtFeet    with hitsCaster: landing on the ground before it has flown clear of the caster (thrown at their own
+ *                       feet) counts as hitting them, instead of bouncing away first
  */
 public record ProjectileSpec(
         double speed,
@@ -61,8 +68,23 @@ public record ProjectileSpec(
         boolean bouncesOffOwn,
         boolean bounceWalls,
         String trail,
-        int trailEvery
+        int trailEvery,
+        int wallBounces,
+        double wallDamping,
+        boolean ignoreEntities,
+        boolean catchAtFeet
 ) {
+    /** Without wall bounce limits or ignore_entities. */
+    public ProjectileSpec(double speed, double size, int lifetimeTicks, int maxBounces, double restitution, double friction,
+                          double minBounceSpeed, List<MotionModifier> motion, String visual, int count, double spreadDegrees,
+                          double range, int pierce, double slide, double visualSize, boolean faceFlight, double health,
+                          boolean throughBlocks, boolean hitsCaster, boolean hitsAllies, boolean bouncesOffOwn,
+                          boolean bounceWalls, String trail, int trailEvery) {
+        this(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed, motion, visual, count, spreadDegrees,
+                range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster, hitsAllies, bouncesOffOwn,
+                bounceWalls, trail, trailEvery, 0, 0, false, false);
+    }
+
     public ProjectileSpec {
         motion = List.copyOf(motion);
         if (count < 1) count = 1;
@@ -73,7 +95,7 @@ public record ProjectileSpec(
     public ProjectileSpec withVisual(String other) {
         return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed, motion, other,
                 count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster, hitsAllies,
-                bouncesOffOwn, bounceWalls, trail, trailEvery);
+                bouncesOffOwn, bounceWalls, trail, trailEvery, wallBounces, wallDamping, ignoreEntities, catchAtFeet);
     }
 
     public static Builder builder() { return new Builder(); }
@@ -125,6 +147,10 @@ public record ProjectileSpec(
         private boolean bounceWalls = false;
         private String trail = null;
         private int trailEvery = 1;
+        private int wallBounces = 0;
+        private double wallDamping = 0;
+        private boolean ignoreEntities = false;
+        private boolean catchAtFeet = false;
 
         public Builder speed(double v) { speed = v; return this; }
         public Builder size(double v) { size = v; return this; }
@@ -150,11 +176,15 @@ public record ProjectileSpec(
         public Builder bounceWalls(boolean v) { bounceWalls = v; return this; }
         public Builder trail(String v) { trail = v; return this; }
         public Builder trailEvery(int v) { trailEvery = v; return this; }
+        public Builder wallBounces(int v) { wallBounces = v; return this; }
+        public Builder wallDamping(double v) { wallDamping = v; return this; }
+        public Builder ignoreEntities(boolean v) { ignoreEntities = v; return this; }
+        public Builder catchAtFeet(boolean v) { catchAtFeet = v; return this; }
 
         public ProjectileSpec build() {
             return new ProjectileSpec(speed, size, lifetimeTicks, maxBounces, restitution, friction, minBounceSpeed,
                     motion, visual, count, spreadDegrees, range, pierce, slide, visualSize, faceFlight, health, throughBlocks, hitsCaster,
-                    hitsAllies, bouncesOffOwn, bounceWalls, trail, trailEvery);
+                    hitsAllies, bouncesOffOwn, bounceWalls, trail, trailEvery, wallBounces, wallDamping, ignoreEntities, catchAtFeet);
         }
     }
 }

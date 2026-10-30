@@ -23,6 +23,12 @@ damage-scale: 10
 # Armor: damage taken x armor-constant / (armor-constant + armor). With 100, every armor point is +1%
 # effective HP: 25 armor = 20% less damage, 100 armor = 50% less. (Characters' armor: stats: in the kits.)
 armor-constant: 100
+# Spell resistance (items) works the same way on damage from abilities, with the same constant: 20 = 17% less.
+
+# Critical strikes (items' crit chance: basic attacks): how much a crit deals, 1.75 = 175%. Crit chance isn't a flat roll:
+# each basic attack that doesn't crit makes the next one likelier, and a crit starts it over (Dota 2 / League style), so
+# 25% still crits a quarter of the time, but never streaks or droughts for long.
+crit-damage: 1.75
 
 # "% of max HP" damage (poison, burns, freezes, executes) against mobs - camp monsters, bosses - counts their max HP as at
 # most this (design HP; a player has 200): a 1200 HP monster takes what a 200 HP player would, not 6x as much. Players

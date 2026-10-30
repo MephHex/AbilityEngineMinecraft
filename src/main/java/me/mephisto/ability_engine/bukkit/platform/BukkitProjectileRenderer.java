@@ -18,7 +18,7 @@ import java.util.logging.Logger;
 
 /**
  * Draws projectiles. {@code visual:} in YAML is an item Material or {@code "entity:<EntityType>"}
- * (see VisualSpawner). Arrow-like entities ({@code entity:ARROW}, SPECTRAL_ARROW, TRIDENT) are real arrows
+ * (see VisualSpawner), or {@code "wire_star"} (see WireStarVisual). Arrow-like entities ({@code entity:ARROW}, SPECTRAL_ARROW, TRIDENT) are real arrows
  * flown by the game itself (see ArrowVisual), tinted when the bolt is infused. Collision is always the
  * engine's ray sweep.
  */
@@ -158,6 +158,7 @@ public final class BukkitProjectileRenderer implements ProjectileRenderer, org.b
         Location loc = Convert.location(world, position);
         if (loc == null) return NONE;
         float scale = (float) spec.shownSize();
+        if (WireStarVisual.matches(spec.visual())) return WireStarVisual.spawn(loc, spec.visual(), scale); // a 3D star
         VisualSpawner.Spawned s = VisualSpawner.spawn(loc, spec.visual(), scale, log);
         Entity entity = s.entity();
         double yOffset = s.yOffset();

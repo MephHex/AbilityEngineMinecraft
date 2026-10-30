@@ -274,6 +274,7 @@ abilities:
         lifetime: 100
         bounces: 1
         hits_caster: true            # it bursts on you too (once it's left your hands)
+        catch_at_feet: true          # thrown at your own feet: it bursts on you as it lands, no bounce first
         restitution: 0.45
         friction: 0.3
         visual: SPLASH_POTION

@@ -1,87 +1,133 @@
 # content: amethyst
-# The Amethyst (Shard): a crystal fighter of preparation, positioning and geometry. Her shards fly, hang in the air
-# where they end, and come back through everyone in the way; she charges volleys that shatter, and bursts a prism into
-# a fan of shards.
+# The Amethyst: a crystal geomancer whose crystals sing (Mage / Zone Control). Her shards fly, hang in the air where they
+# end, and come back through everyone in the way; she throws a geode that crystallizes the floor into her stage, glides
+# across it, and plays her shards like an arpeggio.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Piercing Shards): 6 shards of ammo (the count on her weapon) and very fast shots (attack speed 4.5: a 4-tick cooldown,
-#   so 5 a second). Her basic attacks are regular shards (80% base damage to the first enemy hit). Some abilities make
-#   them PIERCING shards: through every enemy (80% to the first, 50% to each behind it), on to where they end (their
-#   range, the ground, a wall), and they hang there, bobbing, for 7s (6 at most). Recall (3) brings piercing shards back
-#   through everyone on the way, into the ammo; one that fades on its own is gone. Their on-hit effects land going out
-#   and coming back. The ammo doesn't refill by itself: Recall brings shards back (+1 each) and Shard Rush gives 4.
-#   Out of ammo, her shots are plain and much slower (about 1.5 a second) until she has some again.
+# Core loop: get ammo (Allegro +4, Arpeggio +2, Geode Heart +6) -> fire piercing shards that hang where they stop ->
+#   Recall them back through enemies -> repeat. Allegro (4) + Arpeggio (2) fills the 6 exactly, and Allegro's attack
+#   speed speeds Arpeggio up too.
+# Identity: her only movement is on her own crystal floor (Geode Bloom's). Off it she has none.
 #
-# ULTIMATE (F): Prismatic Burst (charges up from hits, see config.yml ultimate-charge).
+# PASSIVE (Piercing Shards): her ammo (the count on her weapon, 6 at most, none to start with) IS her piercing shards.
+#   With ammo, each basic attack fires one, fast (attack speed 4.5: a 4-tick cooldown, 5 a second): through every enemy
+#   (80% to the first, 50% to each behind it), on to where it ends (its range, the ground, a wall), and it hangs there,
+#   bobbing, for 7s (6 at most). Recall (RMB) brings them back through everyone on the way; one that fades on its own is
+#   gone. Their on-hit effects land going out and coming back. Without ammo, her basic attacks are regular shards (80%
+#   to the first enemy hit, nothing hangs), much slower (about 1.5 a second). The ammo doesn't refill by itself, and it
+#   EXPIRES: all of it is lost 8s after the last time she gained any (every gain starts the 8s over; the XP bar shows it),
+#   so she can't stockpile before a fight.
+#
+# CRYSTAL FLOOR (Geode Bloom's): the ground turned to amethyst (real blocks, put back after). Enemies on it
+#   are 20% slower; she's 20% faster on it, and can GLIDE: SHIFT + a movement key dashes her 3 blocks that way (relative
+#   to where she faces), again every 0.5s, never off the floor (it stops at the edge), also while she shoots or plays
+#   Arpeggio. Several floors at once (touching or not) all count as hers.
+# SLOW CAP: Recall's slow and the floor's together never slow anyone more than 40% (slow_cap below).
+#
+# ULTIMATE (F): Geode Heart (charges up from hits, see config.yml ultimate-charge).
 
 statuses:
   amethyst_shard_slow:               # Recall: slowed, more with every shard that hit them
     duration: 40                     # 2s
     stacking: stack
     max_stacks: 6
-    move_speed: 0.75                 # x0.75 per shard: 6 shards = x0.18
+    move_speed: 0.75                 # x0.75 per shard...
+    slow_cap: 0.4                    # ...but with her floor's slow, 40% slower at most
 
-  amethyst_recalled:                 # Recall: how many shards of this Recall hit them already (each does 5% less)
+  amethyst_recalled:                 # Recall: how many shards of this Recall hit them already (each does 10% less)
     duration: 40                     # 2s: gone before the next Recall (5s)
     stacking: stack
     max_stacks: 20
     positive: false
 
-  amethyst_drained:                  # out of ammo: much slower shots
+  amethyst_recall_quick:             # Recall: a shard already hit a player this Recall (it came back sooner once)
+    duration: 60
+    positive: false
+
+  amethyst_drained:                  # out of ammo (no piercing shards): much slower regular shots
     duration: 30                     # (kept on by every shot without ammo; a shot with ammo ends it)
     stacking: refresh
     attack_speed: 0.3                # 5 a second -> ~1.5 (4 ticks -> 13)
     positive: false
 
-  amethyst_rush:                     # Shard Rush: faster shots and feet
-    duration: 80                     # 4s
-    stacking: refresh
-    attack_speed: 1.4                # +40% attack speed
-    move_speed: 1.25                 # +25% movement speed
-    tags: [buff.shard_rush]
-    cue: amethyst_gem_trail          # gems glinting behind her
+  amethyst_ammo_timer:               # PASSIVE: the 8s until her ammo expires (resources: ammo: expire_after), on the XP bar
+    duration: 160                    # (the resource puts it on for its expire_after on every gain)
+    positive: false
+
+  amethyst_allegro:                  # Allegro: +40% attack speed at the cast, falling evenly to nothing over 4s
+    duration: 4                      # 20 stacks of +2% (additive: 20 = +40%)...
+    stacking: stack
+    max_stacks: 20
+    attack_speed: 1.02
+    additive: true
+    decay: 4                         # ...one lost every 4 ticks: 80 ticks = 4s in all
+    cue: amethyst_allegro_aura       # notes glinting around her hands
     positive: false                  # (hers: a tether doesn't copy it)
 
-  amethyst_piercing:                 # Shard Rush: the next basic attacks are piercing shards (stacks = shots left)
-    duration: 200                    # 10s to use them
-    stacking: stack
-    max_stacks: 4
+  amethyst_on_floor:                 # CRYSTAL FLOOR: she's standing on one of hers (Floors keeps it on her meanwhile)
+    duration: 6
+    move_speed: 1.2                  # +20% speed
+    tags: [state.on_floor]           # (glide, and Arpeggio's slow doesn't hold here)
     positive: false
 
-  amethyst_volley_charging:          # Crystal Volley: charging (rooted, guarded, its 6 shards circling her)
-    duration: 60                     # (taken off when it's loosed: 2s of charge at most)
-    damage_taken: 0.7                # 30% less damage taken while charging
-    tags: [state.volley_charging, block.move]   # rooted in place
-    cue: amethyst_volley_ring_6      # the 6 shards circling her
+  amethyst_floor_slow:               # CRYSTAL FLOOR: an enemy standing on hers (Floors keeps it on them meanwhile)
+    duration: 6
+    move_speed: 0.8                  # 20% slower...
+    slow_cap: 0.4                    # ...and with Recall's slow, 40% at most
+
+  amethyst_bloom_up:                 # Geode Bloom: a geode or its floor is out (its icon glints, its key does nothing)
+    duration: 300                    # (taken off when its floor ends; this is just a safety net)
+    tags: [state.bloom_up]
     positive: false
 
-  amethyst_prism_charging:           # Prismatic Burst: charging (LMB or F again looses it)
-    duration: 30
-    tags: [state.prism_charging]
-    cue: amethyst_prism_charge
+  amethyst_geode_root:               # Geode Bloom's burst: rooted, their feet stuck in an amethyst geode
+    duration: 20                     # 1s
+    stacking: refresh
+    tags: [state.rooted, block.move]
+    cue: amethyst_feet_geode
+
+  amethyst_arpeggio:                 # Arpeggio: charging and firing. Off her floor, 40% slower; on it, free to glide
+    duration: 20                     # (put on again by every shot; the last one takes it off)
+    move_speed: 0.6
+    move_speed_unless: state.on_floor
+    positive: false
+
+  amethyst_arpeggio_charging:        # Arpeggio: the 0.5s charge (a glow)
+    duration: 10
+    cue: amethyst_arpeggio_charge
+    positive: false
+
+  amethyst_geode_heart:              # Geode Heart: encased in a geode. Untouchable, can't move or act, healing
+    duration: 40                     # 2s (F again from 0.5s: shattered early)
+    tags: [state.untargetable, block.walk, block.ability, block.knockback, block.displace]
+    damage_taken: 0                  # nothing hurts her in there
+    tick:
+      every: 5                       # 8 ticks in 2s...
+      effects:
+        - { id: heal, max_hp: 0.03125 }   # ...25% of her max HP in all (shattered early: only what's healed so far)
+    cue: amethyst_crystal            # the geode around her
     positive: false
 
 abilities:
 
-  # PRIMARY (LMB): Amethyst Shard. A quick shard (1.6 blocks/tick, 20 blocks) that costs a shard of ammo: 80% base
-  # damage to the first enemy it hits. With piercing shards ready (Shard Rush), it goes through every enemy (80% to the
-  # first, 50% to each behind it) and hangs where it ends (its full range, the ground, a wall) for 7s (6 at most: one
-  # more ends the oldest), to be recalled.
-  # Out of ammo: a plain shard (18 blocks, 75% base damage) at about 1.5 a second.
+  # PRIMARY (LMB): Amethyst Shard. With ammo: a piercing shard (1.6 blocks/tick, 20 blocks) that costs one: through
+  # every enemy (80% to the first, 50% to each behind it), and it hangs where it ends (its full range, the ground, a
+  # wall) for 7s (6 at most: one more ends the oldest), to be recalled. Without ammo: a regular shard, 80% base damage to
+  # the first enemy it hits (nothing hangs), at about 1.5 a second. Arpeggio fires this too (cast free).
   amethyst_primary:
     cooldown: 4                      # (the attack_speed stat sets it)
     display:
       name: "Amethyst Shard"
       description:
-        - "Fast shards: 80% base damage. 6 shards"
-        - "of ammo (back by Recall). Piercing shards"
-        - "(Shard Rush, Prismatic Burst) go through"
-        - "everyone (50% behind the first) and hang"
-        - "7s where they end: 3 recalls them."
-        - "Out of ammo: plain, slower shards (75%)."
+        - "Ammo = piercing shards: fast, through"
+        - "everyone (80%, 50% behind the first), they"
+        - "hang 7s where they end: RMB recalls. No"
+        - "ammo: slower regular shards (80%, first"
+        - "enemy). Ammo is lost 8s after you last got"
+        - "some (Allegro +4, Arpeggio +2, Geode Heart +6)."
     nodes:
       load:
-        type: spend                  # a shard of ammo...
+        type: spend                  # a piercing shard of ammo...
         resource: ammo
         on: { out: steady, empty: dry }
       steady:
@@ -90,28 +136,17 @@ abilities:
         on_hit: false
         effects:
           - { id: remove_status, status: amethyst_drained }
-        next: kind
-      kind:
-        type: has_status             # a piercing shard ready (Shard Rush)?
-        status: amethyst_piercing
-        on: { has: pierce_use, lacks: regular }
-      pierce_use:
-        type: apply_effects          # one of them used
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: amethyst_piercing, stacks: 1 }
         next: shoot
       regular:
-        type: projectile             # a regular shard: the first enemy it hits
-        speed: 1.6
+        type: projectile             # no ammo: a regular shard, the first enemy it hits
+        speed: 1.5
         size: 0.4
         range: 20
         lifetime: 20
         visual: AMETHYST_SHARD
         visual_size: 0.6
         face_flight: true
-        on: { spawned: shoot_cue, hit_entity: first, hit_block: shatter }
+        on: { spawned: shoot_cue_dry, hit_entity: first, hit_block: shatter }
       shoot:
         type: projectile             # a piercing shard: through everyone, then it hangs where it ends
         speed: 1.6
@@ -123,7 +158,7 @@ abilities:
         visual_size: 0.75
         face_flight: true
         store: shard
-        on: { spawned: shoot_cue, hit_entity: which, hit_block: linger, expired: linger }   # the ground or a wall: it stays there
+        on: { spawned: shoot_cue, hit_entity: which, hit_block: lodge, expired: lodge }   # the ground or a wall: it stays there
       shoot_cue:
         type: play_cue
         cue: amethyst_shard_shot
@@ -163,6 +198,11 @@ abilities:
         type: play_cue
         cue: amethyst_shard_hit
         at: hit
+      lodge:
+        type: play_cue               # it lodges where it ended (a crystal knock)
+        cue: amethyst_shard_lodge
+        at: shard
+        next: linger
       linger:
         type: construct              # it hangs where it ended (its range, the ground, a wall), until Recall (or 7s)
         at: shard
@@ -193,218 +233,241 @@ abilities:
         visual: AMETHYST_SHARD
         visual_size: 0.6
         face_flight: true
-        on: { hit_entity: back, hit_block: restock, expired: restock }
+        on: { hit_entity: back }
       back:
         type: is_ally                # her (it's back), or an enemy on the way
         target: hit
         on: { ally: caught, enemy: rend }
       caught:
-        type: play_cue
+        type: play_cue               # back with her (not in the ammo)
         cue: amethyst_shard_caught
-        next: restock
-      restock:
-        type: refill                 # back in the ammo
-        resource: ammo
-        amount: 1
-        next: restocked
-      restocked:
-        type: apply_effects          # (some ammo again: full speed)
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: amethyst_drained }
       rend:
-        type: apply_effects          # per shard: 5% less for every shard of this Recall that hit them already (10% at least)
+        type: apply_effects          # per shard: 10% less for every shard of this Recall that hit them already (10% at least)
         targets: { type: key, key: hit }
         on_hit: true                 # on-hit effects coming back too
         effects:
           - { id: damage, base: 1, ignore_iframes: true, knockback: false,
-              falloff: { status: amethyst_recalled, per_stack: 0.05, min: 0.1 } }
+              falloff: { status: amethyst_recalled, per_stack: 0.1, min: 0.1 } }
           - { id: status, status: amethyst_recalled }
           - { id: status, status: amethyst_shard_slow }
+        count_players: rend_players
+        next: note
+      note:
+        type: set                    # which shard of this Recall on them it was (1, 2...): one note higher each
+        key: note
+        value: stacks:amethyst_recalled
+        of: hit
         next: rend_cue
       rend_cue:
         type: play_cue
         cue: amethyst_recall_hit
+        numbered_by: note            # amethyst_recall_hit_1..6: up the scale
         at: hit
+        next: on_player
+      on_player:
+        type: switch                 # it hit a player: Recall comes back 5s sooner (once a Recall)
+        key: rend_players
+        on: { "0": ~, default: once }
+      once:
+        type: has_status
+        status: amethyst_recall_quick
+        on: { has: ~, lacks: quicken }
+      quicken:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: amethyst_recall_quick }
+        next: quicken_cd
+      quicken_cd:
+        type: reduce_cooldown
+        slot: secondary
+        ticks: 100                   # 5s
       dry:
         type: apply_effects          # out of ammo: slow from now on...
         targets: { type: self }
         on_hit: false
         effects:
           - { id: status, status: amethyst_drained }
-        next: plain
-      plain:
-        type: projectile             # ...and a plain shard
-        speed: 1.6
-        size: 0.35
-        range: 18
-        lifetime: 14
-        visual: AMETHYST_SHARD
-        visual_size: 0.45
-        face_flight: true
-        on: { spawned: shoot_cue_dry, hit_entity: plain_hit, hit_block: shatter }
+        next: regular                # ...and a regular shard
       shoot_cue_dry:
         type: play_cue
         cue: amethyst_shard_shot
-      plain_hit:
-        type: apply_effects
-        targets: { type: key, key: hit }
-        effects:
-          - { id: damage, base: 0.75, knockback: false }
-        next: hit_cue
 
-  # 1: Shard Rush (9s). 4s of +40% attack speed and +25% movement speed, and your next 4 basic attacks (within 10s) are
-  # piercing shards. +4 shards of ammo to fire them with.
+  # 1: Allegro (9s). +4 piercing shards of ammo, and a burst of attack speed that fades: +40% at the cast, falling evenly
+  # to nothing over 4s (it speeds Arpeggio up too). No movement speed.
   amethyst_ab1:
     cooldown: 180                    # 9s
     display:
-      name: "Shard Rush"
+      name: "Allegro"
       icon: AMETHYST_CLUSTER
       description:
-        - "4s: +40% attack speed, +25% speed."
-        - "Your next 4 shots are piercing shards"
-        - "(through everyone; they hang where they"
-        - "end, for Recall). +4 ammo."
+        - "+4 ammo (piercing shards), and +40%"
+        - "attack speed fading to nothing over 4s"
+        - "(Arpeggio too)."
     nodes:
-      rush_cue:
+      allegro_cue:
         type: play_cue
-        cue: amethyst_gem_rush
-        next: rush
-      rush:
+        cue: amethyst_allegro
+        next: allegro
+      allegro:
         type: apply_effects
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: status, status: amethyst_rush }
-          - { id: remove_status, status: amethyst_piercing }   # (a fresh 4)
-          - { id: status, status: amethyst_piercing }
-          - { id: status, status: amethyst_piercing }
-          - { id: status, status: amethyst_piercing }
-          - { id: status, status: amethyst_piercing }
+          - { id: status, status: amethyst_allegro, stacks: 20 }   # +40%, one stack (2%) lost every 4 ticks
           - { id: remove_status, status: amethyst_drained }
         next: gems
       gems:
-        type: refill                 # 4 shards to fire them with
+        type: refill                 # 4 piercing shards (the ammo's 8s start over)
         resource: ammo
         amount: 4
 
-  # 2: Crystal Volley (10s). Root yourself and charge (up to 2s), taking 30% less damage meanwhile, 6 shards circling
-  # you. LMB (or 2 again) looses it early; at 2s it goes by itself. The 6 shards burst out of you all the way round, evenly
-  # and level (1.4 blocks/tick, 9 blocks), through every enemy in their way: 60% base damage, your on-hit effects, and
-  # knocked away from you.
+  # 2: Geode Bloom (12s, from when its floor ends). Throw a geode in an arc: it flies through everyone (only terrain
+  # stops it, so where it lands is predictable), bounces off walls and ceilings (mirrored, 70% of its speed kept, 3 times
+  # at most; the next wall it drops straight down from) and bursts where it lands on the ground: enemies within 2.5
+  # blocks are rooted 1s, their feet stuck in a geode (no damage). Then the ground crystallizes there: the real blocks,
+  # 5 blocks round, turn to amethyst for 6s (then the terrain exactly as it was), spreading along the surface a block up
+  # at most per step and only where the burst can see (not behind walls): her CRYSTAL FLOOR (see the top). One at a time:
+  # while one is out its icon glints and its key does nothing.
   amethyst_ab2:
-    cooldown: 200                    # 10s
+    cooldown: 240                    # 12s...
+    cooldown_starts: manual          # ...from when the floor ends
+    passive_while: state.bloom_up    # while a geode or its floor is out: glinting, the key does nothing
     display:
-      name: "Crystal Volley"
+      name: "Geode Bloom"
       icon: BUDDING_AMETHYST
       description:
-        - "Root yourself and charge 6 shards (30%"
-        - "less damage taken). LMB or 2 looses them:"
-        - "they burst out all around you, 60% base"
-        - "damage and on-hits to everyone they pass"
-        - "through, knocking them away."
+        - "Throw a geode: it banks off walls (3x),"
+        - "bursts on the ground: rooted 1s (2.5"
+        - "blocks). The ground turns to amethyst (5"
+        - "blocks, 6s): enemies 20% slower, you 20%"
+        - "faster. On it: SHIFT + a move key glides"
+        - "you 3 blocks."
     nodes:
-      gather:
-        type: apply_effects          # rooted, guarded, the shards circling her
+      up:
+        type: apply_effects
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: status, status: amethyst_volley_charging }
-        next: gather_cue
-      gather_cue:
-        type: play_cue
-        cue: amethyst_gather
-        next: charge
-      charge:
-        type: charge                 # up to 2s: LMB or 2 again looses it, or it goes by itself
-        ticks: 40
-        on: { out: loose, early: loose }
-      loose:
-        type: apply_effects          # free to move again
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: amethyst_volley_charging }
-        next: volley
-      volley:
-        type: projectile             # 6 shards, all the way round her, level
-        count: 6
-        fan: 360
-        level: true
-        speed: 1.4
+          - { id: status, status: amethyst_bloom_up }
+        next: throw
+      throw:
+        type: projectile             # an arc, through everyone, off walls
+        speed: 1.1
         size: 0.5
-        range: 9
-        lifetime: 10
-        pierce: 10
-        visual: AMETHYST_SHARD
-        visual_size: 0.7
-        face_flight: true
-        on: { spawned: volley_cue, hit_entity: blast }
-      volley_cue:
+        lifetime: 100
+        bounce_walls: true
+        wall_bounces: 3              # 3 wall bounces at most...
+        wall_damping: 0.7            # ...each mirrored, keeping 70% of its speed
+        ignore_entities: true        # (only terrain: a predictable landing spot)
+        visual: BUDDING_AMETHYST
+        visual_size: 0.6
+        motion:
+          - { type: gravity, amount: 0.05 }
+        on: { spawned: throw_cue, bounced: bounce_cue, hit_block: burst, expired: lost }
+      throw_cue:
         type: play_cue
-        cue: amethyst_volley_shot
-      blast:
-        type: apply_effects          # each enemy a shard passes through
-        targets: { type: key, key: hit }
-        on_hit: true                 # with your on-hit effects
-        effects:
-          - { id: damage, base: 0.6, ignore_iframes: true, knockback: false }
-          - { id: knockback, from: caster, radius: 9, center: 1.0, edge: 0.5, lift: 0.3 }
-        next: blast_cue
-      blast_cue:
+        cue: amethyst_geode_throw
+      bounce_cue:
         type: play_cue
-        cue: amethyst_shard_hit
+        cue: amethyst_geode_bounce
         at: hit
+      lost:
+        type: apply_effects          # it never landed (off the world, out of time): no floor
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: amethyst_bloom_up }
+        next: lost_cd
+      lost_cd:
+        type: start_cooldown
+      burst:
+        type: apply_effects          # it bursts where it lands (no damage)
+        targets: { type: radius, center: hit, radius: 2.5 }
+        effects:
+          - { id: status, status: amethyst_geode_root }   # rooted 1s, feet in a geode
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: amethyst_geode_burst
+        at: hit
+        next: blocks
+      blocks:
+        type: apply_effects          # the ground itself turns to amethyst (real blocks, put back after 6s)
+        targets: { type: key, key: hit }
+        on_hit: false
+        effects:
+          - { id: place_blocks, shape: floor, radius: 5, duration: 120, block: AMETHYST_BLOCK, sight: true,
+              step_up: 1 }           # (a block up at most per step; only what the burst can see)
+        next: floor
+      floor:
+        type: floor                  # her crystal floor there: the same 5 blocks, 6s (the blocks show it)
+        at: hit
+        radius: 5
+        duration: 120
+        name: bloom                  # (one Geode Bloom floor at a time)
+        enemy_status: amethyst_floor_slow
+        owner_status: amethyst_on_floor
+        drawn: false
+        sight: true                  # (not behind walls either, like the blocks)
+        next: floor_cue
+      floor_cue:
+        type: play_cue
+        cue: amethyst_floor_form
+        at: hit
+        next: hold
+      hold:
+        type: delay                  # while the floor lasts
+        ticks: 120
+        next: down
+      down:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: amethyst_bloom_up }
+        next: cd
+      cd:
+        type: start_cooldown         # 12s from now
 
-  # LMB while charging Crystal Volley: loose it.
-  amethyst_volley_loose:
-    blocked_by: []
-    display:
-      name: "Loose the Volley"
-      description:
-        - "LMB: loose the volley now."
-    nodes:
-      go:
-        type: release_charge
-        ability: amethyst_ab2
-
-  # 3: Recall (5s). Only with piercing shards out (its icon counts them; greyed out with none). Shards still flying stop
-  # where they are, and every one (hanging or just stopped, from shots and from Prismatic Burst) flies back to you, each
-  # back in your ammo, through enemies on the way: each shard that hits deals 100% base damage, 5% less for each shard of
-  # this Recall that hit the same enemy before it (100, 95, 90... down to 10%), with your on-hit effects; it slows them
-  # more (x0.75 a shard, 2s).
+  # RMB: Recall (10s; 5s if a shard hits a player). Only with piercing shards out (its icon in slot 9 counts them; greyed
+  # out with none). Shards still flying stop where they are, and every one (hanging or just stopped, from shots, Arpeggio
+  # and Geode Heart) flies back to you through enemies on the way (not into the ammo): each shard that hits deals 100%
+  # base damage, 10% less for each shard of this Recall that hit the same enemy before it (100, 90, 80... down to 10%),
+  # with your on-hit effects, and slows them more (x0.75 a shard, 2s; with the floor's, 40% at most).
   amethyst_recall:
-    cooldown: 100                    # 5s
+    cooldown: 200                    # 10s (5s once a recalled shard hits a player)
     needs_constructs: [amethyst_primary, amethyst_ult1]   # only with shards out: the icon counts them, grey with none
     also_flying: shoot               # (shards still flying count too: Recall stops them mid-flight)
     display:
       name: "Recall"
       icon: SMALL_AMETHYST_BUD
+      hotbar: 9                      # its icon in slot 9: how many shards it can recall, its cooldown
       description:
-        - "Every hanging shard flies back to you"
-        - "(and your ammo). Each that hits: 100%"
-        - "base damage, 5% less per shard that hit"
-        - "them before (to 10%), and a stronger"
-        - "slow."
+        - "Every hanging shard flies back to you."
+        - "Each that hits: 100% base damage, 10% less"
+        - "per shard that hit them before (to 10%),"
+        - "and a stronger slow (40% at most). 10s;"
+        - "5s if a shard hits a player."
     nodes:
       stop:
         type: end_projectiles        # shards still flying stop right where they are (and hang there)...
         ability: amethyst_primary
-        node: shoot                  # (not the regular or plain ones)
-        next: stop_burst
-      stop_burst:
-        type: end_projectiles        # (Prismatic Burst's shards too)
+        node: shoot                  # (not the regular ones)
+        next: stop_ring
+      stop_ring:
+        type: end_projectiles        # (Geode Heart's ring too)
         ability: amethyst_ult1
-        node: shoot
+        node: ring
         next: call
       call:
         type: set_off_constructs     # ...and every hanging shard comes back
         ability: amethyst_primary
         center: caster
         radius: 60
-        next: call_burst
-      call_burst:
+        next: call_ring
+      call_ring:
         type: set_off_constructs
         ability: amethyst_ult1
         center: caster
@@ -414,126 +477,167 @@ abilities:
         type: play_cue
         cue: amethyst_recall
 
-  # ULTIMATE (F): Prismatic Burst. Charge a crystal prism (up to 1.5s; LMB or F again fires it early, at full it goes by
-  # itself) and fire it (1.6 blocks/tick, 30 blocks). On the first enemy it hits: they're rooted 0.75s but take no
-  # impact damage; the prism shatters behind them, 180% base damage (with your on-hit effects) to everyone in a 7 block,
-  # 70 degree cone onward (60% of it fired at once, all of it fully charged), and 6 piercing shards fly out of it in an
-  # even, level 60 degree fan (14 blocks, through everyone: 80% to the first, 50% behind) and hang where they end, for
-  # Recall (they go into your ammo). On a wall: the cone doesn't reach through it, and no shards.
+  # 3: Arpeggio (10s). +2 piercing shards of ammo, then a 0.5s charge and 6 basic attacks in a quick run where she aims
+  # (each a real LMB shot: piercing while she has ammo, hanging for Recall; regular without). Base: one every 0.2s, faster
+  # with attack speed (Allegro's +40%: one every ~0.14s). It can't be stopped once started, and nothing else meanwhile
+  # (LMB, Recall, abilities: until the last shot). Off her floor she's 40% slower meanwhile; on it she glides as usual.
+  # Each shot one note higher: an arpeggio. After Allegro, all 6 are piercing.
+  amethyst_ab3:
+    cooldown: 200                    # 10s
+    active_tags: [block.ability]     # nothing else until the last shot (the shots themselves are cast free)
+    interrupted_by: [state.stunned]  # (only a stun stops it: she can't stop it herself)
+    display:
+      name: "Arpeggio"
+      icon: LARGE_AMETHYST_BUD
+      description:
+        - "+2 ammo, charge 0.5s, then 6 shots in a"
+        - "quick run (faster with attack speed):"
+        - "piercing while you have ammo. Can't be"
+        - "stopped. Off your floor: 40% slower."
+    nodes:
+      gems:
+        type: refill                 # 2 piercing shards (the ammo's 8s start over)
+        resource: ammo
+        amount: 2
+        next: steady
+      steady:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: amethyst_drained }
+          - { id: status, status: amethyst_arpeggio }
+          - { id: status, status: amethyst_arpeggio_charging }
+        next: charge
+      charge:
+        type: delay                  # the 0.5s charge
+        ticks: 10
+        cast_bar: true
+        next: barrage
+      barrage:
+        type: repeat                 # 6 shots, one every 0.2s at her base attack speed (faster with more)
+        times: 6
+        every: 4
+        attack_speed: true
+        on: { each: shot, out: finish }
+      shot:
+        type: cast                   # a real basic attack (ammo, piercing, hanging, on-hits), without its cooldown
+        ability: amethyst_primary
+        free: true
+        next: keep_slow
+      keep_slow:
+        type: apply_effects          # (still playing: still slowed off the floor)
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: amethyst_arpeggio }
+        next: note
+      note:
+        type: play_cue
+        cue: amethyst_arpeggio_note
+        numbered_by: repeat_index    # amethyst_arpeggio_note_1..6: up the scale
+        next: last
+      last:
+        type: switch                 # the 6th: it's over the moment it fires (Recall is free again)
+        key: repeat_index
+        on: { "6": finish, default: ~ }
+      finish:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: amethyst_arpeggio }
+        next: over
+      over:
+        type: end_cast
+
+  # ULTIMATE (F): Geode Heart. Encased in a crystal geode for 2s: untargetable, takes no damage, can't move, attack or
+  # cast, and heals 25% of her max HP over it. F again (from 0.5s in) shatters it early, keeping only what's healed so
+  # far. Shattering, it deals 100% base damage to enemies within 3 blocks and roots them 1s, sends 6 shards out in an
+  # even ring to hang ~7 blocks out (7s, recallable), and gives her 6 ammo.
   amethyst_ult1:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
     display:
-      name: "Prismatic Burst"
+      name: "Geode Heart"
       icon: AMETHYST_BLOCK
       description:
-        - "Charge and fire a prism. The enemy hit"
-        - "is rooted (no damage); it shatters"
-        - "behind them: 180% base damage in a cone"
-        - "(on-hits), and 6 piercing shards fan out"
-        - "and hang, for Recall."
+        - "2s in a geode: untargetable, no damage,"
+        - "heal 25% max HP (F again from 0.5s: break"
+        - "out early). It shatters: 100% base damage,"
+        - "rooted 1s (3 blocks), a ring of 6 shards,"
+        - "6 ammo."
     nodes:
-      begin:
+      encase:
         type: apply_effects
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: status, status: amethyst_prism_charging }
-        next: charge
-      charge:
-        type: charge                 # up to 1.5s (the power: 0.6 at once, 1 full)
-        ticks: 30
-        from: 0.6
-        store: power
-        on: { out: release, early: release }
-      release:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: amethyst_prism_charging }
-        next: fire
-      fire:
-        type: projectile
-        speed: 1.6
-        size: 0.7
-        range: 30
-        lifetime: 30
-        visual: AMETHYST_BLOCK
-        visual_size: 0.8
-        face_flight: true
-        on: { spawned: fire_cue, hit_entity: snare, hit_block: burst_wall }
-      fire_cue:
+          - { id: status, status: amethyst_geode_heart }
+        next: encase_cue
+      encase_cue:
         type: play_cue
-        cue: amethyst_prism_shot
-      snare:
-        type: apply_effects          # briefly held, no impact damage
-        targets: { type: key, key: hit }
+        cue: amethyst_heart_encase
+        next: settle
+      settle:
+        type: delay                  # at least 0.5s in there...
+        ticks: 10
+        next: hold
+      hold:
+        type: charge                 # ...then F again breaks out early; at 2s it shatters by itself
+        ticks: 30
+        on: { out: shatter, early: shatter }
+      shatter:
+        type: apply_effects
+        targets: { type: self }
         on_hit: false
         effects:
-          - { id: status, status: root, duration: 15 }
+          - { id: remove_status, status: amethyst_geode_heart }
+        next: shatter_cue
+      shatter_cue:
+        type: play_cue
+        cue: amethyst_heart_shatter
         next: burst
       burst:
-        type: apply_effects          # shattering behind them, onward
-        targets: { type: cone, from: hit, heading: flight, ahead: 0.6, range: 7, angle: 70, sight: true }
-        on_hit: true
+        type: apply_effects          # 3 blocks round: hit and rooted
+        targets: { type: radius, center: caster, radius: 3 }
         effects:
-          - { id: damage, base: 1.8, scale_by: power }
-        next: burst_cue
-      burst_wall:
-        type: apply_effects          # on a wall: not through it, and no shards
-        targets: { type: cone, from: hit, heading: flight, ahead: -0.4, range: 7, angle: 70, sight: true }
-        on_hit: true
+          - { id: damage, base: 1.0 }
+          - { id: status, status: root, duration: 20 }   # rooted 1s
+        next: gems
+      gems:
+        type: refill                 # 6 piercing shards (the ammo's 8s start over)
+        resource: ammo
+        amount: 6
+        next: steady
+      steady:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
         effects:
-          - { id: damage, base: 1.8, scale_by: power }
-        next: wall_cue
-      wall_cue:
-        type: play_cue
-        cue: amethyst_shatter
-        at: hit
-      burst_cue:
-        type: play_cue
-        cue: amethyst_shatter
-        at: hit
-        next: shoot
-      shoot:
-        type: projectile             # 6 piercing shards, an even fan, onward and level
-        from: hit
-        heading: flight
-        level: true
+          - { id: remove_status, status: amethyst_drained }
+        next: ring
+      ring:
+        type: projectile             # 6 shards, an even level ring, ~7 blocks out, where they hang
         count: 6
-        fan: 60
-        speed: 1.4
+        fan: 360
+        level: true
+        speed: 0.7
         size: 0.4
-        range: 14
-        lifetime: 14
-        pierce: 10
+        range: 6.2                   # (from half a block out, in 0.7 steps: they stop ~6.8 out)
+        lifetime: 20
+        pierce: 99                   # (they hurt no one on the way out)
         visual: AMETHYST_SHARD
         visual_size: 0.75
         face_flight: true
         store: shard
-        on: { hit_entity: which, hit_block: linger, expired: linger }
-      which:
-        type: switch
-        key: hit_index
-        on: { "0": first, default: behind }
-      first:
-        type: apply_effects
-        targets: { type: key, key: hit }
-        effects:
-          - { id: damage, base: 0.8, ignore_iframes: true, knockback: false }
-        next: hit_cue
-      behind:
-        type: apply_effects
-        targets: { type: key, key: hit }
-        effects:
-          - { id: damage, base: 0.5, ignore_iframes: true, knockback: false }
-        next: hit_cue
-      hit_cue:
+        on: { hit_block: lodge, expired: lodge }
+      lodge:
         type: play_cue
-        cue: amethyst_shard_hit
-        at: hit
+        cue: amethyst_shard_lodge
+        at: shard
+        next: linger
       linger:
-        type: construct              # it hangs where it ended, like a piercing shard, until Recall (or 7s)
+        type: construct              # it hangs where it stopped (or where a wall stopped it), until Recall (or 7s)
         at: shard
         height: 0
         size: 0.4
@@ -562,7 +666,7 @@ abilities:
         visual: AMETHYST_SHARD
         visual_size: 0.6
         face_flight: true
-        on: { hit_entity: back, hit_block: restock, expired: restock }
+        on: { hit_entity: back }
       back:
         type: is_ally
         target: hit
@@ -570,44 +674,48 @@ abilities:
       caught:
         type: play_cue
         cue: amethyst_shard_caught
-        next: restock
-      restock:
-        type: refill                 # into the ammo
-        resource: ammo
-        amount: 1
-        next: restocked
-      restocked:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: amethyst_drained }
       rend:
         type: apply_effects          # the same as a recalled piercing shard
         targets: { type: key, key: hit }
         on_hit: true
         effects:
           - { id: damage, base: 1, ignore_iframes: true, knockback: false,
-              falloff: { status: amethyst_recalled, per_stack: 0.05, min: 0.1 } }
+              falloff: { status: amethyst_recalled, per_stack: 0.1, min: 0.1 } }
           - { id: status, status: amethyst_recalled }
           - { id: status, status: amethyst_shard_slow }
+        count_players: rend_players
+        next: note
+      note:
+        type: set
+        key: note
+        value: stacks:amethyst_recalled
+        of: hit
         next: rend_cue
       rend_cue:
         type: play_cue
         cue: amethyst_recall_hit
+        numbered_by: note
         at: hit
-
-  # LMB while charging Prismatic Burst: fire it.
-  amethyst_prism_loose:
-    blocked_by: []
-    display:
-      name: "Fire the Prism"
-      description:
-        - "LMB: fire the prism now."
-    nodes:
-      go:
-        type: release_charge
-        ability: amethyst_ult1
+        next: on_player
+      on_player:
+        type: switch                 # it hit a player: Recall comes back 5s sooner (once a Recall)
+        key: rend_players
+        on: { "0": ~, default: once }
+      once:
+        type: has_status
+        status: amethyst_recall_quick
+        on: { has: ~, lacks: quicken }
+      quicken:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: amethyst_recall_quick }
+        next: quicken_cd
+      quicken_cd:
+        type: reduce_cooldown
+        slot: secondary
+        ticks: 100                   # 5s
 
 characters:
   amethyst:
@@ -615,23 +723,30 @@ characters:
     weapon: AMETHYST_SHARD
     stats:                           # see docs/character-stats.md
       health: 180                    # max HP
-      armor: 5                       # damage taken x 100 / (100 + armor)
-      base_damage: 32                # abilities deal % of this
+      armor: 15                      # damage taken x 100 / (100 + armor)
+      base_damage: 35                # abilities deal % of this
       move_speed: 1.0                # x vanilla walking speed
       attack_speed: 4.5              # shards per second: 20 / 4.5 rounds to 4 ticks = 5 a second (out of ammo: ~1.5)
     resources:
-      ammo:                          # PASSIVE: her shards (the count on her weapon)
+      ammo:                          # PASSIVE: her piercing shards (the count on her weapon)
         max: 6
-        # no refill by itself: shards come back with Recall (each one +1), Shard Rush (+4) and the ult's shards
+        start: 0                     # none to start with
+        # no refill by itself: Allegro (+4), Arpeggio (+2) and Geode Heart (+6) only (recalled shards
+        # come back to her, not to the ammo)
+        expire_after: 160            # all of it lost 8s after the last gain (every gain starts it over)
+        expire_status: amethyst_ammo_timer   # (that time left, on the XP bar)
         on_weapon: true              # the weapon's stack is the ammo (no hotbar slot of its own)
-    forms:
-      - while: state.volley_charging    # Crystal Volley: LMB looses it
-        slots: { primary: amethyst_volley_loose }
-      - while: state.prism_charging     # Prismatic Burst: LMB fires it
-        slots: { primary: amethyst_prism_loose }
+    status_bar: { status: amethyst_ammo_timer, level: none }   # XP bar: the time until her ammo expires
+    glide:                           # CRYSTAL FLOOR: SHIFT + a movement key on her own floor
+      distance: 3                    # blocks a glide (never off the floor: it stops at the edge)
+      speed: 0.75                    # blocks a tick (3 blocks in 4 ticks)
+      gap: 10                        # 0.5s between glides
+      cue: amethyst_glide            # a chime
+      trail: amethyst_glide_trail
     slots:
-      primary: amethyst_primary      # LMB: Amethyst Shard (regular; piercing after Shard Rush)
-      ability_1: amethyst_ab1        # 1: Shard Rush
-      ability_2: amethyst_ab2        # 2: Crystal Volley
-      ability_3: amethyst_recall     # 3: Recall
-      ultimate: amethyst_ult1        # F: Prismatic Burst
+      primary: amethyst_primary      # LMB: Amethyst Shard (piercing with ammo, regular without)
+      secondary: amethyst_recall     # RMB: Recall (its icon: slot 9)
+      ability_1: amethyst_ab1        # 1: Allegro
+      ability_2: amethyst_ab2        # 2: Geode Bloom
+      ability_3: amethyst_ab3        # 3: Arpeggio
+      ultimate: amethyst_ult1        # F: Geode Heart

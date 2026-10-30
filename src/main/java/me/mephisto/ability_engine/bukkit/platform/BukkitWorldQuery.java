@@ -45,6 +45,41 @@ public final class BukkitWorldQuery implements WorldQuery {
     @Override
     public Optional<Vec3> movementOf(UUID entity) { return movement.directionOf(entity); }
 
+    /** Blocks a tick a player walks per point of the movement speed attribute (0.1 = 4.317 blocks/s). */
+    private static final double WALK_PER_SPEED = 4.317 / 20 / 0.1;
+
+    /**
+     * The keys they hold (Paper 1.21.3+): WASD relative to where they face, at their walking speed right now (the
+     * movement speed attribute, so slows, haste and sprinting count: the game puts sprinting's +30% on it), sneaking at the
+     * sneaking speed attribute, and a jump the moment they jump (Paper's jump event: the key alone can't tell, since by
+     * the time it's read they've usually left the ground already). Not while flying, gliding, riding or in water: none of that is walking.
+     */
+    @Override
+    public Optional<me.mephisto.ability_engine.engine.platform.MoveInput> inputOf(UUID entity) {
+        if (!(Bukkit.getEntity(entity) instanceof Player p) || !p.isValid()) return Optional.empty();
+        org.bukkit.Input in = p.getCurrentInput();
+        if (p.isFlying() || p.isGliding() || p.isInsideVehicle() || p.isInWater() || p.isSwimming()) {
+            return Optional.of(new me.mephisto.ability_engine.engine.platform.MoveInput(Vec3.ZERO, false, false));
+        }
+        double ahead = (in.isForward() ? 1 : 0) - (in.isBackward() ? 1 : 0);
+        double side = (in.isLeft() ? 1 : 0) - (in.isRight() ? 1 : 0);
+        Vec3 move = Vec3.ZERO;
+        if (ahead != 0 || side != 0) {
+            double yaw = Math.toRadians(p.getLocation().getYaw());
+            Vec3 forward = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+            Vec3 left = new Vec3(Math.cos(yaw), 0, Math.sin(yaw));
+            // (working a puppet they can't walk: how fast they would, is how fast it does)
+            double speed = me.mephisto.ability_engine.bukkit.status.PuppetHold.speedOf(p) * WALK_PER_SPEED;
+            if (p.isSneaking()) {
+                var sneak = p.getAttribute(org.bukkit.attribute.Attribute.SNEAKING_SPEED);
+                speed *= sneak == null ? 0.3 : sneak.getValue();
+            }
+            move = forward.multiply(ahead).add(left.multiply(side)).normalize().multiply(speed);
+        }
+        return Optional.of(new me.mephisto.ability_engine.engine.platform.MoveInput(move, movement.justJumped(entity),
+                in.isSneak(), in.isJump()));
+    }
+
     @Override
     public Optional<Aim> aimOf(UUID entity) {
         if (!(Bukkit.getEntity(entity) instanceof LivingEntity living)) return Optional.empty();

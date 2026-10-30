@@ -130,13 +130,21 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
 
     private ConstructVisual trap(ConstructHandle construct, Location center, String visual, float size) {
         if (visual != null && visual.startsWith(HOVER)) return hovering(construct, center, visual.substring(HOVER.length()), size);
+        // "glow:<visual>": it glows for its owner only, so they know where their traps are (nobody else sees the glow)
+        boolean ownerGlow = visual != null && visual.startsWith(OWNER_GLOW);
+        if (ownerGlow) visual = visual.substring(OWNER_GLOW.length());
         VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
         Entity look = spawned.entity();
-        if (look instanceof ItemDisplay d) {
-            float s = size * 1.5f;
-            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateX((float) (Math.PI / 2)),
-                    new Vector3f(s, s, s), new Quaternionf()));
+        org.bukkit.entity.Player owner = ownerGlow ? org.bukkit.Bukkit.getPlayer(construct.owner()) : null;
+        Entity twin = owner == null ? null : VisualSpawner.spawn(center, visual, size * 1.5f, log).entity();
+        for (Entity e : twin == null ? java.util.List.of(look) : java.util.List.of(look, twin)) {
+            if (e instanceof ItemDisplay d) {
+                float s = size * 1.5f;
+                d.setTransformation(new Transformation(new Vector3f(), new Quaternionf().rotateX((float) (Math.PI / 2)),
+                        new Vector3f(s, s, s), new Quaternionf()));
+            }
         }
+        if (twin != null) showGlowingTwin(owner, look, twin);
         if (construct.hidden()) showOnlyToAllies(construct, look);
         return new ConstructVisual() {
             boolean armedShown;
@@ -156,8 +164,22 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
             @Override
             public void remove() {
                 if (look.isValid()) look.remove();
+                if (twin != null && twin.isValid()) twin.remove();
             }
         };
+    }
+
+    /**
+     * Glowing for its owner only: Minecraft has no per-viewer glow, so the owner sees {@code twin}, a glowing copy, instead
+     * of {@code look}; everyone else sees only {@code look}.
+     */
+    private static void showGlowingTwin(org.bukkit.entity.Player owner, Entity look, Entity twin) {
+        var plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(BukkitConstructRenderer.class);
+        twin.setGlowing(true);
+        if (twin instanceof org.bukkit.entity.Display d) d.setGlowColorOverride(OWNER_GLOW_COLOR);
+        twin.setVisibleByDefault(false);
+        owner.showEntity(plugin, twin);
+        owner.hideEntity(plugin, look);
     }
 
     /**
@@ -193,14 +215,7 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
             d.setInterpolationDelay(0);
             d.setInterpolationDuration(2);
         }
-        if (twin != null) {
-            var plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(BukkitConstructRenderer.class);
-            twin.setGlowing(true);
-            if (twin instanceof org.bukkit.entity.Display d) d.setGlowColorOverride(OWNER_GLOW_COLOR);
-            twin.setVisibleByDefault(false);
-            owner.showEntity(plugin, twin);
-            owner.hideEntity(plugin, look);
-        }
+        if (twin != null) showGlowingTwin(owner, look, twin);
         if (construct.hidden()) showOnlyToAllies(construct, look);
         return new ConstructVisual() {
             int ticks;

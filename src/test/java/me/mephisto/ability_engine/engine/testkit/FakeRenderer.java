@@ -23,10 +23,13 @@ public final class FakeRenderer implements ProjectileRenderer, CuePlayer, Indica
     public final List<String> cues = new ArrayList<>();
     /** Looping cues currently running, by id. */
     public final List<String> loops = new ArrayList<>();
+    /** Every looping cue ever started: id, on whom. */
+    public final List<Object[]> started = new ArrayList<>();
 
     @Override
     public me.mephisto.ability_engine.engine.platform.CueHandle start(String cueId, java.util.UUID entity) {
         loops.add(cueId);
+        started.add(new Object[]{cueId, entity});
         boolean[] stopped = {false};
         return () -> {
             if (!stopped[0]) loops.remove(cueId);

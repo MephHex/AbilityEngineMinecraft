@@ -36,7 +36,7 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   reload -> out / full, take_bolt -> out / empty, infuse `{ infusion, count }` (see Quivers),
   reduce_cooldown `{ ability | slot, ticks }` (take time off one of the caster's cooldowns, e.g.
   `slot: ability_1` on every hit)
-- **Query types:** self, key, hitscan, radius, cone, cursor,
+- **Query types:** self, key, hitscan, radius, cone, cursor, on_floor (see the Trickster rework),
   line `{ range, width }` (a beam: everyone within width/2 of the line, stops at the first block
   and at enemy barriers; writes beam_start / beam_end for the visual),
   path `{ from, to, width }` (everyone along the segment between two keys, e.g. a dash's path)
@@ -97,9 +97,11 @@ character, casting /ae bind items, confirm with LMB). No time limit unless you a
 `/ae quickcast` skips the preview.
 
 - The preview ray ignores entities (you can place things under someone).
-- `ground: true` projects the aim straight down onto the ground, at most `max_drop` (default 6)
-  below your feet; deeper ground (off a cliff) falls back to the cliff edge.
-- Out of line of sight, a glowing marker only you can see shows the spot.
+- `ground: true` projects the aim straight down onto the ground, at most `max_drop` (default 40)
+  below your feet; deeper ground (off a cliff) falls back to the cliff edge. The crosshair on the side of a block
+  whose top is at most 1 block above it (a step, a low wall): the spot goes on top of it, not at its foot.
+- The preview is also drawn as a GLOWING outline only you can see (thin glowing bars along its edges: a ring for a circle,
+  the same size), blue while valid, red when not. Glow shows through blocks, so it stays visible out of line of sight.
 
 ### Barriers
 
@@ -450,7 +452,8 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **Projectile:** `health: 60` gives it a body enemies can hit and kill (an `"entity:..."` visual, on your
   team); killed, the projectile exits `destroyed`. `through_blocks: true` - terrain doesn't stop it.
   `hits_caster: true` - it can hit you too (exits `hit_entity` with you as `hit`) once it has flown clear
-  of you, e.g. a flask you throw up and catch.
+  of you, e.g. a flask you throw up and catch. `catch_at_feet: true` (with hits_caster) - thrown at your own
+  feet, it lands before it's clear of you: that counts as hitting you at once, instead of bouncing away first.
 - **veil** `{ target, duration }` -> won / out: a duel. The caster and the target are pulled into a veil
   for `duration` ticks (a boss bar): they can only affect each other (shots, rays, dashes and effects skip
   anyone across it), and on Bukkit they only see each other (everyone else is hidden from them and them
@@ -726,7 +729,27 @@ slot, so an ability is only silenced when it's in an ability slot.
   above 0 and below 1). Several multiply (and stacks: two 0.95s = x0.9025, 9.75%); charges come back on the reduced
   time too. Primary / secondary fire and melee aren't affected (attack speed is theirs). The inventory's stat items
   show it ("Cooldown reduction"). `ally_healing_dealt: 1.4` - the holder's heals on others (allies; not on themselves,
-  not shields) x1.4. `ult_charge_rate: 1.25` - the holder's ultimate charges 25% faster (hits and over time).
+  not shields) x1.4. `ult_charge_rate: 1.25` - the holder's ultimate charges 25% faster (hits and over time). `additive: true` - its STATS ADD UP with other additive statuses' (one per stack:
+  two +20% = +40%, two 5% cooldown reductions = 10%; 90% off at most) instead of multiplying; plain statuses still
+  multiply with that total. Its EFFECTS count once however many stacks (two copies of an item: both stats, one effect).
+  ItemSystem's items use it (a copy in the bag = a stack). Stats: `armor`, `move_speed`, `damage_dealt`, `max_health`,
+  `attack_speed`, `cooldown_reduction`, `spell_power`, `crit_chance`, `spell_resistance`. Effects: everything else
+  (`ability_damage_taken`, `damage_taken`, `healing_taken`, `ability_lifesteal`, `ally_healing_dealt`, `ult_charge_rate`,
+  `crit_damage`, the on-hits...).
+- **Spell power, crits, spell resistance:** `spell_power: 30` - 30 points of spell power (copies add up). Only
+  abilities' `sp:` damage parts scale with it (90% spell power with 30 = 27 damage); it doesn't raise anything else
+  (base damage parts, heals, shields, damage over time). `crit_chance: 0.2` - +20% chance for
+  the holder's basic attacks to critically strike (config.yml `crit-damage`, 175%). It isn't a flat roll: the N-th basic
+  attack since the last crit crits with C x N, C picked so the long-run share is the chance (Dota 2's pseudo-random
+  distribution: 25% is C = 8.5%, and a crit is never more than 12 attacks away). A cast rolls once for everyone it hits.
+  `crit_damage: 0.35` - crits deal 35% more (210%). `ability_crits: true` - the holder's abilities can crit too.
+  `on_crit: [effects]` - on whoever a crit of theirs hits (`self: true`: on the holder, once per cast).
+  `spell_resistance: 20` - points, like armor against enemies' abilities (and their damage over time, % max HP parts
+  too): x 100 / (100 + points), 20 = 17% less. The inventory's stat items show all three.
+- **on_damaged:** `attacker: true` on an effect - on whoever hurt the holder instead (thorns). A `once: true` status is
+  used up by its on_damaged (and by its `ability_on_hit`, like `basic_on_hit`): "the next hit you take / ability hit".
+- **Effects:** `reduce_cooldowns { ticks }` - takes that much off the target's running ability cooldowns (1, 2, 3, the
+  ultimate when it has a cooldown); `self: true` in an on-hit for "your crits take 1s off your abilities".
 - **Damage:** `max_hp_armored: true` - the `max_hp` part is reduced by armor like the rest (poison: a share of max HP,
   but not true damage).
 - **Effects:** `chain { radius: 5, max: 3, base: 0.3, cue }` - a chain lightning from whoever was hit to the nearest
@@ -768,6 +791,368 @@ slot, so an ability is only silenced when it's in an ability slot.
 - **set:** `value: stacks:<status>` stores the caster's stacks of it right now (a number), e.g. a charge's shards for
   when its volley lands.
 - **Resources:** `on_weapon: true` - its amount is the weapon's stack size (e.g. ammo on the gun) instead of an item in
-  a hotbar slot of its own (leave out `hotbar`). 0 shows as a stack of 1.
+  a hotbar slot of its own (leave out `hotbar`). 0 shows as a stack of 1. `start: 0` - how much a freshly picked character has (default:
+  full).
+- **display:** `hotbar: 9` - a secondary (RMB) or melee ability, described on the weapon, also gets an icon of its own
+  in that hotbar slot: its cooldown sweep and seconds, and with `needs_constructs` how many it can use (greyed out with
+  none).
 - **needs_constructs** takes a list: any of those abilities' constructs count (Recall: shots' shards and the
   ultimate's).
+
+## Added for the Graviton
+
+- **Characters:** `out_of_combat: { after: 80, status: <status> }` - a passive: once they've gone that many ticks without
+  dealing or taking damage, the status is kept on them until they fight again (e.g. one whose `tick` gives a `shield`
+  with a `max`: a shield that builds up out of combat).
+- **slow_field** `{ at: aim, length, width, height: 3, slow: 0.15 }` - a box on the ground at `at`, `length` along the
+  way the caster faces it and `width` across: ENEMY projectiles inside it move, fall and age at `slow` of their speed
+  (their side's shots and the caster's pass at full speed). It stays until the cast ends: keep the cast alive with a
+  `delay` after it. Drawn as a violet box for everyone.
+- **Aim previews:** `shape: rect` with `length` (along the aim) and `width` (across it) - a rectangle on the ground,
+  centred on the spot.
+- **Targets:** `with_status: <status>` on any target query - only those who have that status right now (e.g. the ones
+  still lifted). Radius queries: `height: 12` - a column instead of a sphere: within `radius` on the ground of the
+  centre, from a block below it to that high above (someone lifted over a circle on the ground is still in it).
+- **Effects:** `launch { up: -2.5 }` - straight up (above 0) or down (below 0) at that speed, blocks per tick (a slam
+  into the ground). Not on the unmovable (block.knockback, block.displace).
+- **Tags:** `state.lifted` - rises about 2 blocks a second (levitation), still drifting sideways; counts as crowd
+  control. `state.safe_fall` - no fall damage while it lasts.
+- **Lifted and slowed:** in the air the game ignores movement speed, so while someone has `state.lifted` their statuses'
+  `move_speed` caps how fast they drift sideways instead (`move_speed: 0.35` on Gravitic Collapse's lift: about a third
+  of a normal drift). Without a slow, nothing changes.
+
+## Added for the Vampire
+
+- **Characters:** `on_kill: { effects: [...], cue }` - a passive: every time they kill someone, the effects land on them
+  (e.g. a heal and a burst of speed), and `cue` (a line cue) is drawn from the victim to them.
+- **Nodes:**
+  - for_each `{ query, max, store }` -> each / out / none: for each ENEMY the query finds (nearest first, at most `max`;
+    allies, the untargetable and anyone across a veil skipped) "each" runs as its own branch with that enemy stored as
+    `store` (default target); then "out", or "none" if there was nobody. E.g. a tether to each of up to 3 enemies, each
+    able to break free on their own.
+  - grant_tags `{ tags }`: those tags on the caster from now until the cast ends, however it ends (cancelled too): active
+    tags that start partway through, e.g. hanging in the air (`state.anchored`) only once a leap up has
+    reached its top (on from the start, they'd stop the leap).
+- **tether:** `pulse_every: 10` - while it holds, "pulse" runs as its own branch every that many ticks (e.g. a drain).
+  Several tethers in one cast share the cast bar: it stays up while any of them holds.
+- **Cues:** vampire_missile_shot, vampire_missile_trail, vampire_missile_hit, vampire_missile_fizzle, vampire_essence (line:
+  the victim's essence to her), vampire_feast (looping), vampire_tether_cast (an 8-block ring: keep it in step with
+  Sanguine Tether's radius), vampire_tether_none, vampire_tether_1..3 (lines), vampire_siphon (line: a drop of blood flying
+  to her in 6 ticks: keep it in step with the heal's delay), vampire_siphon_heal, vampire_bleed, vampire_bleeding
+  (looping), vampire_tether_snap, vampire_bat_burst, vampire_bat (looping: a bat in her place, unseen by her),
+  vampire_charm_shot, vampire_charm_trail, vampire_charm_hit, vampire_charmed (looping), vampire_charm_line (line),
+  vampire_rain_rise, vampire_rain_shot, vampire_rain_burst.
+
+## Added for the Slime
+
+- **Characters:** `health_bands: { size: 0.2, cast: <ability>, statuses: [...] }` - a passive that follows their health in
+  bands of `size` (0.2: 0-20%, 20-40% ... 80-100%). Every band they drop out of casts `cast` once (a big hit through two
+  bands: twice; healing back up casts nothing, losing it again casts again). `statuses` (one per band, lowest first) keeps
+  the one for the band they're in on them, and only that one: e.g. a tag for a form with its own `scale` and
+  `move_speed` (smaller and faster the lower they are). Dying or a new character starts over from where their health is.
+- **Traps (construct):** `triggered_by: owner_and_enemies` - the owner and their enemies set it off, allies don't (e.g. a
+  slime only she eats, that enemies squash).
+- **Dash:** a `wall` port - wired, being stopped by terrain (or an enemy barrier) exits `wall` instead of `miss`, which is
+  then only running out of range. E.g. an enemy flung (`mover: hit`) into a wall sticks to it.
+- **Projectile:** `heading: random` - any way round, tossed a little up (e.g. a blob popping out of the caster).
+- **boss_bar** `{ stacks_of, max }`: a boss bar (the ability's name) for the rest of the cast, emptying as the caster gains
+  stacks of that status (full with none, empty at `max`): for an ultimate that lasts a number of things, not a time (e.g.
+  bounces left). A delay's `boss_bar: true` counts time down instead.
+- **Hotbar:** an icon also shows a barrier while anything in its ability's `blocked_by` is on them (e.g. an ultimate's own
+  `block.ability`: every other icon is barred while it runs). A running cast its key can stop (`cancel_on_repress`) keeps
+  its icon: pressing it is still allowed.
+- **Cues:** slime_drop, slime_blob_idle, slime_eat, slime_squash, slime_dry, slime_slap, slime_too_weak, slime_burst (4.5
+  blocks), slime_slimed (looping), slime_windup (looping), slime_throw, slime_ball_trail, slime_splat, slime_stick,
+  slime_stuck (looping: a slime block around their torso), slime_launch, slime_flop (3.5 blocks), slime_slam (4 blocks):
+  keep the radii in step with slime.yml.
+
+## Added for the Firecracker
+
+- **Radius query:** `looking_at: 70` (degrees, full width) - only those looking at its centre right now: the way it lies
+  from their eyes is within half that of where they look. With `sight: true` a wall in between counts too. E.g. a rocket
+  that blinds whoever watched it go off: `{ type: radius, center: rocket, radius: 14, sight: true, looking_at: 70 }`.
+- **Cues:** firecracker_shot, firecracker_spark, firecracker_hit (a bullet: sparks), firecracker_pop (a tiny firework), firecracker_finale_shot,
+  firecracker_trail, firecracker_finale_burst, firecracker_finale_start, firecracker_finale_aura (looping), firecracker_kill
+  (line: from the victim), firecracker_launch, firecracker_rocket_blast, firecracker_flashed (looping: a white flash only
+  they see), firecracker_scatter, firecracker_windup (looping), firecracker_throw, firecracker_fuse, firecracker_bomb_blast
+  (a 4-block ring: keep it in step with the bomb), firecracker_dazed (looping).
+
+## Added for the Amethyst rework
+
+- **Floors:** `floor { at, radius, duration, name, enemy_status, owner_status, drop }` - a disc of ground of the caster's
+  (only a look: no real blocks) on the ground below `at` (at most `drop` blocks down, default 4), for `duration` ticks or
+  until the cast ends. While the caster's enemies stand on it (their middle up to about a block above it) `enemy_status`
+  is kept on them, while the caster does `owner_status`, each put on again every 2 ticks for a little longer. Several at
+  once count as one floor (touching or apart); a new one with the same `name` replaces the caster's old one. Drawn as a
+  flat amethyst disc with a shimmer (FloorRenderer).
+- **Characters:** `glide: { distance, speed, gap, cue, trail }` - standing on a floor of their own, SHIFT + a movement key
+  (WASD, diagonals too, relative to where they face) dashes them `distance` blocks that way at `speed` blocks a tick, at
+  most once every `gap` ticks, never off their floors (it stops at the edge). Not while rooted or stunned. On their floor,
+  sneaking doesn't slow them (vanilla's sneak speed is lifted there). Needs the owner_status to give `state.on_floor`.
+- **Resources:** `expire_after: <ticks>` - all of it is lost that long after the last gain (every gain starts it over),
+  e.g. ammo that can't be stockpiled. `expire_status: <status>` keeps that status on them for the same time from every
+  gain (e.g. for `status_bar`), and takes it off when they spend the last of it.
+- **Statuses:** `slow_cap: 0.4` - its slow counts together with every other status that has one, and that combined slow
+  is at most the largest of their caps (Recall's and the floor's: 40%). `move_speed_unless: <tag>` - its move_speed
+  doesn't count while the holder has that tag (Arpeggio's slow, off her floor only).
+- **Effects:** `status { stacks: N }` - put on N stacks at once (with `decay`: a burst that fades a stack at a time).
+- **Effects:** `place_blocks { shape: floor, radius, step_up, step_down, sight }` - the ground itself turned into `block`
+  for `duration`, then as it was. It spreads out from the spot along the surface (each column's top block), each step at
+  most `step_up` blocks up (default 1) and `step_down` down (default 2): a wall or a high ledge stops it. Never blocks
+  holding something (chests, signs). `sight: true`: only blocks the spot can see at head height (1.5 above it, to 1.5
+  above each block): a wall has to be 2 blocks tall to hide what's behind it. Floors: `drawn: false` - not drawn (e.g. those blocks
+  show it); `sight: true` - it doesn't reach behind walls 2 or more blocks tall (sight at head height from its centre).
+- **Projectile:** with `bounce_walls`, `wall_bounces: 3` bounces off walls and ceilings at most that many times (the next
+  wall it drops straight down from) and `wall_damping: 0.7` mirrors it off the wall keeping that share of its speed; a
+  `bounced` port runs as its own branch at every wall bounce (hit = where). `ignore_entities: true` - only terrain stops
+  it (a predictable landing spot).
+- **repeat:** `attack_speed: true` - `every` is divided by the caster's attack speed multiplier (as it is when the repeat
+  starts; fractions of a tick carry over).
+- **cast:** `free: true` - none of its checks, costs or cooldown, from whichever slot it sits in (a basic attack stays one:
+  on-hits, ultimate charge), e.g. a barrage of LMB shots while the caster can't use them by themselves.
+- **play_cue:** `numbered_by: <key>` - plays `<cue>_<n>` (n the number stored there), or the plain cue if there's none.
+  **set:** `of: <key>` with `value: stacks:<status>` counts the stacks on whoever is stored there (e.g. `hit`).
+- **Cues:** amethyst_shard_lodge, amethyst_recall_hit_1..6 (up a pentatonic scale), amethyst_allegro,
+  amethyst_allegro_aura (looping), amethyst_geode_throw, amethyst_geode_bounce, amethyst_geode_burst (2.5 blocks),
+  amethyst_floor_form, amethyst_feet_geode (looping: a geode round their feet while rooted), amethyst_glide, amethyst_glide_trail, amethyst_arpeggio_charge (looping),
+  amethyst_arpeggio_note_1..6, amethyst_heart_encase (a rising chord), amethyst_heart_shatter (3 blocks); the geode around
+  her is amethyst_crystal. Keep the radii in step with amethyst.yml.
+
+## Added for the Fae Trickster
+
+(Its first kit. Changeling's clone and Stolen Fable no longer ship in a kit since the rework below, but the engine keeps
+all of it: the test-only `fixtures/changeling_kit.yml` still uses it, and CloneTechTest keeps it tested.)
+
+- **Characters:** `passive_statuses: [<status>, ...]` - statuses always on them while they play the character and are alive
+  (back right after a respawn), e.g. a passive that reacts to being hit through its `on_damaged`.
+  `marks: { range, unless, glyph }` - a small `glyph` over every enemy within `range` that only they see, except the ones
+  that have the `unless` status from them (and nobody hidden, invisible or untargetable), e.g. "who Sucker Punch would
+  silence".
+- **Glide:** `teleport: true` - instead of gliding it's a blink: there at once, `distance` that way, never off their floors
+  and never into a block (it stops in front of the first wall); their look and momentum stay. `cue` plays where they left
+  and where they arrived.
+- **Floors:** `shape: square` - a square instead of a disc, `radius` from its centre to each side (9x9 = 4.5), on the
+  block grid: an odd size centred on the middle of the block below `at`, an even one (10x10) on the nearest block corner.
+  `up: 2` / `down: 2` - someone whose feet are up to that many blocks above / below it still counts as on it (default:
+  about a block up, a hair down). Drawn as a glowing pink outline (Trick Room).
+- **Statuses:** `neutral: true` - bookkeeping, neither a buff nor a debuff: wards, cleanses, purges, spell blocks and
+  tethers all leave it alone. `ends_with_source: true` - it comes off everyone who has it from someone when that someone
+  dies (a mark about the two of them).
+- **Effects:** status `{ only_refresh: true }` - it only starts its time over where it's already on them from the caster;
+  it never lands fresh.
+- **Abilities:** `cooldown_starts: end` - the cooldown starts when the cast ends, however it ends (its time is up, its
+  summon is gone, the caster died), and a second cast can't start while one runs. `stealable: false` - Stolen Fable can't
+  take it (it reads its owner's own kit: forms, ammo...); `steal_as: <ability>` - stolen, the thief gets that ability
+  instead (a version that works for anyone).
+- **summon_clone:** `beside: 1.5` - that many blocks to the caster's left or right, at random (a wall that side: the
+  other side; walls both sides: where they stand), on the ground there (Changeling, like Shaco's Hallucinate).
+  `at: cursor` (with `range`, default 12) - where the crosshair meets a block (or that far), dropped onto
+  the ground; `face: owner` - looking the way the caster looks; `disguise: true` - their name tag, all their gear, and a
+  body that falls and bumps into walls; `mirror: true` - it copies the caster's moves (below); `hits: 2` - it breaks after
+  that many basic attacks, or any one ability hit (give it plenty of `health`); `end_cue` - played where it is when it goes
+  (expired, broken, replaced, its owner died).
+- **Mirroring clones:** every tick the owner's change of position is the clone's walk, as a mirror image: reflected
+  across the upright plane between them where it was placed (walk toward it and it walks toward you, so you cross; a step
+  sideways is the same step sideways; up and down as they are), with the game's physics (walls stop it, it falls off
+  edges, a step up on the ground is a jump). It looks where they look, mirrored, and swings when they swing. A teleport of
+  theirs isn't copied as a walk, but their Trick Room blinks are: mirrored, the same distance from where it stands, on
+  their floors only (it stops at the edge; off them, it doesn't blink). Its own dash along the caster's aim
+  (`dash { mover: <clone> }`, a ghost of theirs) goes the mirrored way too, and meanwhile it isn't moved. Placed right on
+  its owner (no `at` / `beside`), it's a half-turned copy instead of a mirror image: it appears facing the other way and
+  everything is turned round 180 degrees (they walk ahead, it walks ahead its way), so any move splits them. Only what the
+  owner puts in is copied (their keys, jumps and sneaking), never knockback or being moved by others.
+- **play_cue:** `audience: caster` - only the caster sees and hears it (e.g. a failed steal's fizzle). `ahead: 5` (instead
+  of `to`) - a line cue from `at` to that many blocks ahead of it, level, the way it faces (the caster's aim, a mirroring
+  clone's mirrored aim, anyone else's look), e.g. a cone slash drawn from each of them.
+- **path query:** `extend: 2` reaches that far on past `to` along the path; `height: 2.5` makes it a box with flat ends (a
+  rectangle on the ground, `width` wide) instead of a capsule: e.g. a slash 2 blocks past where a dash stopped, and no more.
+- **summon_clone:** `on_break: <status>` - whoever breaks it by hitting it (its `hits`) gets that status, from the caster.
+- **Tags:** `state.friendly_fire` - while they have it they're on nobody's side: their abilities hit their own allies and
+  their allies' hit them (on Bukkit too when their scoreboard team turns friendly fire off: those hits are dealt without
+  a source, still credited to them for kills). Allies' heals and buffs skip them meanwhile.
+- **clone_mode** `{ messages: [copy, still, puppet] }`: the caster's mirroring clones go to their next mode, and the caster is
+  told which: copy (as above) -> still (no movement or turning copied, it stays put; swings and fake abilities still copied)
+  -> puppet (the caster can't walk or jump, tag `state.puppeteer`: on Bukkit walk speed 0, so no rubber-banding and no
+  camera zoom; their keys, jumps, sneaking and floor blinks move only the clone; they're `state.hidden` meanwhile and on
+  Bukkit a frozen decoy of them stands in their place, so they turn to steer unseen) -> copy. The clone going (or the caster dying) puts it back to copy. Put it behind an `await_recast` (3 again).
+  An ability with `cooldown_starts: end` keeps waiting for the cast to end through its recasts.
+- **steal_ultimate** `{ target, window, message }` -> stolen / unstealable / none: a copy of the target enemy's selected
+  ultimate goes in the caster's ultimate slot for one use within `window` ticks (they keep theirs). Until cast it's free (no
+  charge, no cooldown); cast, it stays there while that cast runs (its recasts work) and then the slot is the caster's own
+  again. Unused in time, lost; dying loses it too. From another thief you get their own ultimate (Stolen Fable), not what
+  they hold. `unstealable` (their ultimate has `stealable: false`, or none) tells the caster `message`; `unstealable` and
+  `none` (nobody valid in `target`) give the caster's charge back (or this ability's cooldown, with ultimates on
+  cooldowns). Its icon glints and counts the seconds left.
+- **Cues:** trickster_swipe, trickster_hush (over a silenced head), trickster_play_rough (looping, on the swinger: a
+  slash sweeping out over 4 ticks, moving with them; a 3-block, 90-degree cone: keep TricksterCues in step),
+  trickster_room_dash, trickster_room, trickster_clone_mode, trickster_betrayed (looping),
+  trickster_blink, trickster_clone_place, trickster_clone_poof, trickster_snatch (line: from the one robbed to the Fae),
+  trickster_steal_fail.
+
+## Added for the Trickster rework
+
+`trickster.yml` (was `fae_trickster.yml`; the character is `trickster`): Play Rough (no lunge), Trick Room moved with 2
+again, Topsy-Turvy instead of Changeling, Switcheroo instead of Stolen Fable, no nausea on Sucker Punch.
+
+- **swap:** `speed: 0.35` (blocks a tick) - a flight instead of an instant swap: both float up `lift` blocks and fly to the
+  other's spot, taking distance / speed ticks (at least `min_ticks`, default 10; at most `max_ticks`, default 60), each
+  curving `side` blocks to its own side on the way so they pass each other, then land exactly on the other's spot (through
+  anything in the way). `status: <status>` is on both meanwhile (what they can't do: Switcheroo's can't act, walk or be
+  targeted) and comes off when they land; the cast goes on ("next") once they have. A flight exits `none` when it can't
+  swap: nobody in `with`, another world, or they have `block.displace`. The cast ending early drops both where they are.
+- **refund** `{ message }`: the cast costs nothing after all: an ultimate's charge back to full (or, with ultimates on
+  cooldowns, its cooldown cleared), any other ability's cooldown cleared. `message` tells the caster why (e.g. an ultimate
+  aimed at nobody).
+- **Query types:** `on_floor { floor: <name> }` - everyone standing on the caster's own floor of that name right now, as the
+  floor counts it (square or disc, its reach up and down): e.g. every enemy in their Trick Room.
+- **Floors:** a second `floor` node with the same `name` (and no `duration`) moves the caster's floor: the old one goes,
+  the new one lasts as long as the cast does (Trick Room's recast: dash, then the room where they landed).
+- **Tags:** `state.inverted` - their movement keys go the other way (W walks back, A walks right). On Bukkit their own
+  walking is held like a puppeteer's (no rubber-banding, no camera zoom) and on the ground they're moved the opposite way
+  of their keys at their walking speed. In the air (jumping, falling) their keys steer them the opposite way too, as
+  little as keys steer anyone in the air: their sideways speed is set each tick to what it would be with the keys turned
+  round, and their up/down speed carried on from their last move (ahead by their ping), so a jump keeps its arc; a
+  knockback in the air is followed, not undone. Not pressing anything, they're left alone. A brain-driven enemy walks away from its target instead. It's crowd control (the unstoppable keep their controls), and it
+  shows as TOPSY-TURVY over their head. `state.swapping` - being flown through walls (a swap): no suffocation damage.
+- **Brains:** held in place (`block.walk`, e.g. mid-swap) a brain doesn't walk after its target.
+- **Damage:** `sp: 0.9` - a part that's that much of the caster's SPELL POWER (points, 0 without any: items give it),
+  not boosted by their damage dealt (Strength, +damage items). Topsy-Turvy's orb is `base: 0.2, sp: 0.9`, the Volatile
+  Flask `base: 0.2, sp: 1.1`. `base:` parts get damage dealt, never spell power.
+- **Floors:** `over: <floor name>` - laid exactly over the caster's own floor of that name (its spot, size, shape and
+  reach; leave `at`, `radius`, `shape`, `up`, `down`, `drop` out); they have none: nothing. `lit: true` - drawn lit up,
+  the whole of it a glowing pane, for as long as it's there. With `enemy_status` it's "while they stand in it": Topsy-
+  Turvy cast in Trick Room lays a lit floor over the room for 3s that keeps `topsy_turvy_room` on every enemy in it.
+- **Constructs:** a trap's visual `"glow:<visual>"` (e.g. `"glow:block:EXPOSED_COPPER_TRAPDOOR"`) - it glows for its
+  owner only (nobody else sees the glow), so they know where their traps are. Like `"hover:glow:<item>"`.
+- **Labels:** the overhead crowd-control text lists several one above the other, and shows no countdown for a status
+  10 ticks long or less (one a floor keeps on whoever stands on it: it lasts while they're inside).
+- **Floors:** a floor laid `over` another moves with it when that one is replaced (Trick Room moved with 2 again takes
+  its lit room along), keeping its own time. A room (a square floor) is drawn with a floor of its own (a magenta and purple checkerboard of glass) on
+  the ground in every block column, the first solid top going down through its reach (put down a step above the ground
+  around it, it shows on that ground). A lit floor laid over a drawn room turns that floor light blue and glowing instead
+  of drawing its own, back to magenta when it goes.
+- **Trick Room's recast:** after the dash and the moved room, a lit floor is laid `over` it with `topsy_turvy_room` as
+  its `enemy_status` and no duration: the room is topsy-turvy (light blue) for the rest of its time. Topsy-Turvy (3) is
+  just the orb, wherever it's cast.
+- **Rooms' look:** the edges' glowing strips are a twin only the owner sees (everyone else gets plain ones: nothing
+  through walls), its thin outline rings stack one each block up to 3 above its floor (and below, short of its reach), and the lit floor
+  never glows.
+- **Statuses:** `slot_damage_dealt: { primary: 0.5, ability_1: 0.5 }` - the holder's abilities in those slots deal
+  that much (Confuse Ray: basic attacks and 1 at half damage). Not their damage over time.
+- **Kill credit:** a kill made by someone confused is credited to whoever confused them (the game's killer is changed
+  first thing on death: kill credit, on-kill passives, and anything another plugin pays for a kill).
+- **Tags:** `state.confused` (Confuse Ray) - every tick they're turned to face, within 24 blocks, the nearest of the first
+  kind there is: their teammates, the neutral (no team: camps, bosses), their enemies, then whoever confused them, run at them (`MovementControl.run`: on Bukkit a player's own walking is held and they're
+  moved at their sprinting speed) and use their primary on them as often as it's ready (give the status
+  `state.friendly_fire` too so it can hit a teammate); a crossbow is loaded for them after its draw time. A brain stands
+  aside meanwhile. Nobody in range at all: they get the stun's tags until someone is. Crowd control; label CONFUSED.
+  Cue trickster_confused (looping). The topsy-turvy room (`topsy_turvy_room`) only inverts controls now: no friendly fire.
+- **Floors:** `sticky: true` - its `enemy_status` stays on an enemy once they've stood on it (stepping off doesn't end
+  it) and comes off everyone it gave it to when the floor goes. `enemy_delay: 6` - an enemy has to stand on it that many
+  ticks in a row before its `enemy_status` goes on them (stepping off starts it over; off it, the status lasts its usual
+  ~0.3s): Trick Room's topsy-turvy room inverts after 0.3s in it, until ~0.3s after leaving.
+  A floor also puts its statuses on whoever stands on it the moment it's put down, not only from its first check.
+- **Boss bars:** a cast's timer bar (a `delay` with `boss_bar: true`) shows the seconds left after the ability's name.
+  `timer_color { color }` - the cast's bar turns that colour (pink, blue, red, green, yellow, purple, white; default
+  yellow); `text: ["#FF3DF2", "#FF9AD8"]` - its title's letters in those colours in turn (spaces skipped), e.g. Trick
+  Room's magenta and pink like its tiles while it's the Fae's, light blue and white once moved (against her enemies).
+- **Rooms' walls:** a drawn room has walls too: a checkerboard of thin glass panes along its four edges (its floor's
+  colours, never lit), from a block below its floor to two above its reach. Only players inside the room see them.
+- **Cues:** trickster_room_shift (the room moved), trickster_topsy_cast, trickster_topsy_trail (the orb's trail),
+  trickster_topsy_hit, trickster_topsy_turvy (looping, on whoever has it: rings turning opposite ways at their feet and
+  over their head), trickster_room_flip (lights up the whole room it's played in: FloorRenderer), trickster_switch,
+  trickster_switch_trail (looping, on each of them while they fly), trickster_switch_land, trickster_switch_fail.
+
+## Added for the Arcanist rework
+
+`archmage.yml` (the character is still `arcanist`): Arcane Focus is gone (no RMB, no Focus); the passive is Arcane Barrage
+(bolt / missile hits charge Barrage mode); 3 is Arcane Screen instead of Unstable Binding; the ultimate is Arcane Ascension
+instead of the spyglass Arcane Barrage. (The old kit stays as `fixtures/archmage.yml` for the engine tests.)
+
+- **Aim previews:** pressing another ability while aiming one: an ability with a preview of its own switches to it (as
+  before); one without fires right away and the preview STAYS UP (it used to close). One that can't be cast right now (on
+  cooldown, blocked) leaves the preview alone.
+- **screen** `{ at, width, height, hold, accelerate, effects, catch_cue, boost_cue, store }` - a flat rectangle standing on
+  the spot in `at` (default aim), facing the way the caster looks right now (pitch too), pulled 0.6 short of a wall the spot
+  is on; `width` across (level), `height` tall. Projectiles that fly through it, once each: an ENEMY one stops inside it
+  for `hold` ticks (default 40, not ageing meanwhile), then flies on as it was; the caster's and their allies' fly on
+  `accelerate` times as fast, and whoever they hit afterwards (an enemy of the caster) gets `effects` FROM THE CASTER (e.g.
+  `{ id: damage, sp: 0.6, knockback: false }`: their spell power, not the shooter's). It stays until the cast ends (keep
+  it alive with a delay after it); its middle is `store` (default "screen"). Drawn for everyone as a light blue glass pane
+  with two glowing diamonds in it (ScreenRenderer). Cues at the projectile: `catch_cue`, `boost_cue`.
+- **Aim previews:** `shape: screen` with `width` and `height` - the screen itself, where a `screen` node would put it,
+  facing the look.
+- **Motion:** `{ type: homing, status: <status>, range: 12, turn: 0.15, angle: 90 }` - instead of `key`: a slight pull
+  toward the nearest enemy within `range` that has that status FROM THE CASTER, and is within `angle` degrees (full width)
+  of where it flies; its speed stays. None: it flies on (the Arcanist's bolts curving into whoever his missile marked).
+- **remember_spot:** `into: 0.6` - pushed that much further along the shot that hit (from `hit_from` to the hit): into the
+  wall it struck (negative: back out of it). No ground drop with `into` unless `ground: true`.
+- **choose_spot:** a wired `cancelled` port - RMB, or another ability's preview taking over, exits `cancelled` instead of
+  using the crosshair (only `timeout` still uses it). `timeout: 0` - no time limit.
+- **apply_effects:** `count_kills: <key>` - how many of the targets were alive before it and aren't after (e.g. a kill
+  that gives a charge back: `times: <key>`).
+- **Tags:** `state.slow_flight` - with `state.flying`, half the flying speed. `state.level_flight` - with `state.flying`,
+  held at the height they had when it started: no flying up or down (on Bukkit pushed back every tick they drift off it,
+  put back if they get more than 0.6 away; a teleport sets the new height). Give it with `grant_tags` once a rise is over.
+- **screen:** `distance: 3` instead of `at` - straight ahead of the caster that far along their look, short of a wall in the
+  way (no aim preview needed). Its two diamonds are glass too (blue and purple) and enchanting glyphs swirl round its edge.
+- **delay:** `boss_bar_count: <status>` (with `boss_bar: true`, and `boss_bar_label: "geometries"`) - the bar's title also
+  shows the caster's stacks of that status, e.g. "Arcane Ascension  7.5s  ◆ 2 geometries".
+- **Effects:** teleport `{ to, keep_height: true }` - over (or under) the spot, at the height they're at (a level blink in
+  the air: Foldstep during Arcane Ascension).
+- **Projectile visual:** `"wire_star"` (or `"wire_star:<outer block>:<inner block>"`, default purple and magenta concrete) - a
+  tumbling 3D star: two wireframe cubes, one turned inside the other, only their edges showing (24 glowing block displays:
+  for small, short-lived shots). Its size is `visual_size` (or `size`).
+- **Cues:** arcanist_bolt_trail (enchanting glyphs), arcanist_bolt_burst (1 block), arcanist_bolt_burst_big (2.5), arcanist_barrage_trail, arcanist_barrage_mode
+  (looping: runes circling him, for everyone), arcanist_mark_hit, arcanist_marked (looping), arcanist_missile_sink,
+  arcanist_missile_lodged, arcanist_missile_trail, arcanist_screen_raise, arcanist_screen_fade, arcanist_screen_catch,
+  arcanist_screen_boost, arcanist_geometry_warn (a 4-block circle on the ground filling up over 1s), arcanist_geometry_blast
+  (4 blocks). Keep the radii in step with archmage.yml (ArcanistCues).
+
+## Scalings in descriptions
+
+An ability's `display.description` lines may hold tokens, shown in the colour of the stat they scale with (as on the
+inventory's stat items), with the exact number for the player right now after them:
+
+- `{base:1.3}` - "130% base damage (52)", gold: their base damage x damage dealt (Strength...).
+- `{sp:0.9}` - "90% spell power (27)", blue (spell power's colour): their spell power points (0 without any). For an
+  ability's `sp:` damage part, e.g. "{base:0.2} + {sp:0.9}".
+- `{max_hp:0.1}` - "10% of their max HP", red (depends on whoever it hits: no exact number).
+- `{own_hp:0.2}` - "20% of your max HP (42)", red (a heal or shield of their own).
+
+The rest of the line stays plain grey. The icons are drawn again when those numbers change (an item, a buff). Keep the
+numbers in step with the ability's effects. (Minecraft doesn't tell the server about keys pressed while hovering in an
+inventory, so the exact numbers are always shown rather than on a key.)
+
+## PvE: brains
+
+A character can have a `brain:`: what drives a NON-player playing it (a PvE enemy, a boss). Players are never driven,
+whatever they play. Put `playable: false` on an enemies-only kit to keep it out of champ select. See
+`pve/bramble_knight.yml` for a first boss.
+
+```yaml
+brain:
+  think_every: 5          # ticks between decisions (default 5)
+  range: 20               # how far it notices enemies (default 16)
+  sight: true             # only enemies it can see (default true)
+  chase: { speed: 0.22, stop_at: 2.5 }   # walk after its target (blocks a tick), up to that close; leave out: no walking
+  rules:                  # tried in order every decision: the first that holds AND casts wins (one cast per decision)
+    - { cast: ability_3, once: true, when: { health_below: 0.4 } }
+    - { cast: ability_1, every: 100, when: { target_within: 4 } }
+    - { cast: primary, when: { target_within: 3.5 } }
+```
+
+- **Target:** the nearest enemy in range (and sight). It keeps the one it has while it's still valid: alive, in range and
+  sight, not untargetable or hidden. Clones and decoys count: it can be fooled. It always faces its target, so whatever it
+  casts goes at them; aim previews are skipped (it fires at what it faces).
+- **cast:** a slot (`primary`, `ability_1`... as if its key were pressed) or an ability id. Its cooldown, costs and crowd
+  control apply as for anyone: a rule that can't cast right now is skipped and the next one tried.
+- **every:** ticks before the same rule can fire again. **once:** only ever once (until it dies). **recast:** press it again
+  that many ticks later (a recast, a second stage).
+- **when** (all must hold): `target_within` / `target_beyond` (blocks), `health_below` / `health_above` (a share of its max
+  HP), `target_health_below`, `chance` (0..1, rolled each decision), `has_tag` / `lacks_tag` (a tag on itself).
+- **Mobs with their own AI** (a zombie) keep it: they walk and fight as usual, and the brain adds the casting (leave out
+  `chase`). A mannequin has no AI: give it `chase` to walk.
+- **Spawning:** `/ae mob <character> [entity type] [team]` (default a mannequin, no team: everyone's enemy), or give an
+  existing entity a character with `/ae char <character> <selector>`. `/ae dummy <character> [team]` is a mannequin that
+  just stands there (for testing against a kit), its ultimate charged.

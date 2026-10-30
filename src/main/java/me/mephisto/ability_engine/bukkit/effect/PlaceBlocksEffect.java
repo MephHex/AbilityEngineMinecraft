@@ -40,9 +40,15 @@ import java.util.Map;
  *       standing on the spot, across the line from the caster to it (facing the caster)</li>
  *   <li>{@code shape: tomb} (on an entity): a pillar around them, 3x3 and {@code height} tall with a lid, leaving
  *       only the column they stand in empty</li>
+ *   <li>{@code shape: floor} (on a spot): the ground itself turned into {@code block} in a disc {@code radius} blocks
+ *       round (default 4). It spreads out from the spot along the ground's surface (the top of each column), block by
+ *       block: each step at most {@code step_up} blocks up (default 1) and {@code step_down} down (default 2), so a
+ *       wall or a ledge too high stops it. Blocks that hold something (chests, signs...) are left alone.
+ *       {@code sight: true}: only blocks the spot can see at head height (1.5 above it, to 1.5 above each block's top):
+ *       nothing behind a wall 2 or more blocks tall or round a corner; a 1-block wall doesn't hide anything</li>
  *   <li>{@code block} (default PACKED_ICE), {@code duration} ticks (required)</li>
  * </ul>
- * Only air and replaceable blocks (grass, snow layers...) are replaced. Anyone standing where it goes is shoved out of
+ * Only air and replaceable blocks (grass, snow layers...) are replaced (a floor: the ground's own top blocks). Anyone standing where it goes is shoved out of
  * the way first (a wall: to whichever side of it they're on; a tomb: out of the pillar, away from whoever's buried), so
  * it goes up whole. Placed blocks can't be broken, blown up, pushed or melted; they're all put back when the plugin
  * stops.
@@ -81,6 +87,12 @@ public final class PlaceBlocksEffect implements Effect {
                 return center.clone().add(away.normalize().multiply(2.3));
             });
             place(blocks, material, duration, e);
+            return;
+        }
+        if (shape.equals("floor")) {
+            Location spot = spot(ctx);
+            if (spot != null) placeOver(floor(spot, p.getDouble("radius", 4), p.getInt("step_up", 1), p.getInt("step_down", 2),
+                    p.getBool("sight", false)), material, duration);
             return;
         }
         // wall
@@ -122,6 +134,83 @@ public final class PlaceBlocksEffect implements Effect {
             return w == null ? null : new Location(w, pt.position().x(), pt.position().y(), pt.position().z());
         }
         return null;
+    }
+
+    /**
+     * The ground in a disc round {@code spot}, spread out from it along the surface: from each column to the ones beside
+     * it, whose top may be at most {@code stepUp} blocks higher and {@code stepDown} lower (a wall or a high ledge stops it,
+     * and nothing is reached over one). {@code sight}: only those {@code spot} can see at head height (and it spreads no
+     * further from one it can't): a wall 2 blocks tall hides what's behind it, a 1-block one doesn't.
+     */
+    private static List<Block> floor(Location spot, double radius, int stepUp, int stepDown, boolean sight) {
+        Location eye = spot.clone().add(0, SIGHT_HEIGHT, 0); // (head height: a 1-block wall is under the line)
+        World w = spot.getWorld();
+        int cx = spot.getBlockX(), cz = spot.getBlockZ();
+        Block start = surface(w, cx, cz, spot.getBlockY() + 1, spot.getBlockY() - 2);
+        if (start == null) return List.of();
+        List<Block> out = new ArrayList<>();
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        java.util.ArrayDeque<Block> queue = new java.util.ArrayDeque<>();
+        seen.add(columnKey(cx, cz));
+        queue.add(start);
+        int[][] around = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        while (!queue.isEmpty()) {
+            Block b = queue.poll();
+            out.add(b);
+            for (int[] d : around) {
+                int x = b.getX() + d[0], z = b.getZ() + d[1];
+                if (Math.pow(x + 0.5 - spot.getX(), 2) + Math.pow(z + 0.5 - spot.getZ(), 2) > radius * radius) continue;
+                if (!seen.add(columnKey(x, z))) continue;
+                Block next = surface(w, x, z, b.getY() + stepUp, b.getY() - stepDown);
+                if (next == null || (sight && !sees(eye, next))) continue;
+                queue.add(next);
+            }
+        }
+        return out;
+    }
+
+    /** The top of the ground in a column, between these heights: a solid block with nothing solid on it; null = none. */
+    private static Block surface(World w, int x, int z, int top, int bottom) {
+        for (int y = top; y >= bottom; y--) {
+            Block b = w.getBlockAt(x, y, z);
+            if (b.getType().isSolid() && !b.getRelative(0, 1, 0).getType().isSolid()) return b;
+        }
+        return null;
+    }
+
+    private static long columnKey(int x, int z) { return ((long) x << 32) ^ (z & 0xffffffffL); }
+
+    /** How high above the ground a floor's sight runs (both ends): walls lower than this don't hide anything. */
+    private static final double SIGHT_HEIGHT = 1.5;
+
+    /**
+     * Can {@code eye} see {@code b} at head height: nothing solid between it and {@code SIGHT_HEIGHT} above b's top (so a
+     * wall has to be 2 blocks tall to hide what's behind it)?
+     */
+    private static boolean sees(Location eye, Block b) {
+        Location head = b.getLocation().add(0.5, 1 + SIGHT_HEIGHT, 0.5);
+        Vector to = head.toVector().subtract(eye.toVector());
+        double distance = to.length();
+        if (distance < 1e-6) return true;
+        var hit = eye.getWorld().rayTraceBlocks(eye, to.normalize(), distance, org.bukkit.FluidCollisionMode.NEVER, true);
+        return hit == null || hit.getHitBlock() == null;
+    }
+
+    /** Turn these solid blocks into {@code material} for {@code duration} ticks (never ones holding something). */
+    private static void placeOver(List<Block> blocks, Material material, int duration) {
+        List<Location> mine = new ArrayList<>();
+        for (Block b : blocks) {
+            Location key = b.getLocation();
+            if (PLACED.containsKey(key) || b.getType() == material) continue;
+            if (b.getState() instanceof org.bukkit.block.TileState) continue; // a chest, a sign: left as it is
+            PLACED.put(key, b.getBlockData().clone());
+            b.setType(material, false);
+            mine.add(key);
+        }
+        if (mine.isEmpty()) return;
+        Bukkit.getScheduler().runTaskLater(JavaPlugin.getProvidingPlugin(PlaceBlocksEffect.class), () -> {
+            for (Location key : mine) restore(key, material);
+        }, Math.max(1, duration));
     }
 
     /** Place them (where there's room), and take them away again after {@code duration} ticks. */
@@ -201,7 +290,9 @@ public final class PlaceBlocksEffect implements Effect {
         params.requireInt("duration");
         material(params);
         String shape = params.getString("shape", "wall").toLowerCase(Locale.ROOT);
-        if (!shape.equals("wall") && !shape.equals("tomb")) throw params.error("shape", "expected wall or tomb");
+        if (!shape.equals("wall") && !shape.equals("tomb") && !shape.equals("floor")) {
+            throw params.error("shape", "expected wall, tomb or floor");
+        }
     }
 
     /** Placed blocks can't be broken, blown up, pushed or melted away early. */

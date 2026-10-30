@@ -40,8 +40,27 @@ public final class NodeTypes {
     public static NodeTypes withBuiltins() {
         NodeTypes t = new NodeTypes();
         t.register("print", (p, e) -> new PrintNode(p.requireString("message")));
-        t.register("delay", (p, e) -> new DelayNode(p.requireInt("ticks"), p.getBool("cast_bar", false),
-                p.getBool("boss_bar", false)));
+        t.register("delay", (p, e) -> {
+            String countOf = knownStatus(p, "boss_bar_count", e);
+            if (countOf != null && !p.getBool("boss_bar", false)) throw p.error("boss_bar_count", "needs boss_bar: true");
+            return new DelayNode(p.requireInt("ticks"), p.getBool("cast_bar", false), p.getBool("boss_bar", false))
+                    .counting(countOf, p.getString("boss_bar_label", ""));
+        });
+        t.register("timer_color", (p, e) -> {
+            if (!p.has("color") && !p.has("text")) throw p.error("color", "give color: (the bar) and/or text: (its title's letters)");
+            String color = p.has("color") ? p.requireString("color").toLowerCase(java.util.Locale.ROOT) : null;
+            if (color != null && !me.mephisto.ability_engine.engine.nodes.control.TimerColorNode.COLORS.contains(color)) {
+                throw p.error("color", "one of " + me.mephisto.ability_engine.engine.nodes.control.TimerColorNode.COLORS);
+            }
+            java.util.List<String> text = p.has("text") ? p.getStringList("text") : null;
+            if (text != null) {
+                if (text.isEmpty()) throw p.error("text", "give at least one colour, \"#RRGGBB\"");
+                for (String c : text) {
+                    if (!c.matches("#[0-9a-fA-F]{6}")) throw p.error("text", "colours are \"#RRGGBB\", not '" + c + "'");
+                }
+            }
+            return new me.mephisto.ability_engine.engine.nodes.control.TimerColorNode(color, text);
+        });
         t.register("switch", (p, e) -> {
             Set<String> cases = new LinkedHashSet<>(p.getParams("on").keys());
             cases.remove(Ports.DEFAULT);
@@ -58,7 +77,7 @@ public final class NodeTypes {
                 p.getBool("infusions", false),
                 p.getString("count", null),
                 p.getString("times", null),
-                p.getString("count_players", null)));
+                p.getString("count_players", null)).countingKills(p.getString("count_kills", null)));
         t.register("projectile", (p, e) -> new ProjectileNode(seekMarksKnown(Parsers.projectile(p), p, e), p.getString("store", null),
                 new ProjectileNode.Launch(p.getString("from", null), p.getDouble("up", 0), p.getDouble("back", 0),
                         p.getString("toward", null)), Parsers.pattern(p)));
@@ -71,7 +90,8 @@ public final class NodeTypes {
             return new DashNode(
                     p.getDouble("speed", 1.2), p.requireDouble("range"), p.getDouble("radius", 0.6), p.getBool("flat", false),
                     p.getBool("pierce", false), p.getString("store", null), Parsers.dashDirection(p),
-                    p.getString("mover", null), towardCursor(p), p.getString("to", null), p.getDouble("stop_short", 0), follow);
+                    p.getString("mover", null), towardCursor(p), p.getString("to", null), p.getDouble("stop_short", 0), follow)
+                    .walls(p.has("on") && p.getParams("on").keys().contains(DashNode.WALL)); // wired: walls exit "wall"
         });
         // ---- Vanguard: leaps, tethers, mid-cast aiming, manual cooldowns ----
         t.register("leap", (p, e) -> {
@@ -93,7 +113,7 @@ public final class NodeTypes {
                         me.mephisto.ability_engine.engine.targeting.Targeting.Shape.CIRCLE, p.requireDouble("range"),
                         p.getDouble("radius", 1.0), 1.0, 60, p.getInt("timeout", 100), p.getBool("ground", true),
                         p.getDouble("max_drop", 40)),
-                p.getString("store", "aim")));
+                p.getString("store", "aim"), p.has("on") && p.getParams("on").keys().contains("cancelled")));
         t.register("link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.LinkNode(
                 p.requireString("name"), p.requireString("target"), p.requireDouble("range"),
                 p.getDouble("damage_taken", 1.0), p.getDouble("redirect", 0), p.getBool("copy_positive", false),
@@ -101,6 +121,17 @@ public final class NodeTypes {
         t.register("find_link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindLinkNode(
                 p.requireString("name"), p.getString("store", "linked")));
         t.register("unlink", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.UnlinkNode(p.requireString("name")));
+        t.register("clone_mode", (p, e) -> {
+            java.util.List<String> messages = p.has("messages") ? p.getStringList("messages") : java.util.List.of();
+            if (!messages.isEmpty() && messages.size() != 3) throw p.error("messages", "three: copy, still, puppet");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.CloneModeNode(messages);
+        });
+        t.register("steal_ultimate", (p, e) -> {
+            int window = p.getInt("window", 400);
+            if (window < 1) throw p.error("window", "ticks the stolen ultimate can be cast in, at least 1 (400 = 20s)");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.StealUltimateNode(p.getString("target", "target"),
+                    window, p.getString("message", "Their ultimate can't be stolen."));
+        });
         t.register("start_cooldown", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.StartCooldownNode(
                 p.getBool("restart", false)));
         t.register("on_cooldown", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.OnCooldownNode(
@@ -108,14 +139,26 @@ public final class NodeTypes {
         t.register("end_cast", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.EndCastNode());
         t.register("fork", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.ForkNode());
         t.register("summon_clone", (p, e) -> {
+            if (p.has("beside") && p.has("at")) throw p.error("beside", "give at: or beside:, not both");
             double health = p.getDouble("health", 0);
             if (health < 0) throw p.error("health", "must be >= 0 (0 = can't be hurt)");
             double share = p.getDouble("health_share", 0);
             if (share < 0) throw p.error("health_share", "must be >= 0");
             if (health > 0 && share > 0) throw p.error("health", "give health or health_share, not both");
+            double range = p.getDouble("range", 12);
+            if (range <= 0) throw p.error("range", "blocks (with at: cursor), above 0");
+            int hits = p.getInt("hits", 0);
+            if (hits < 0) throw p.error("hits", "basic attacks that break it, at least 0 (0 = it doesn't count hits)");
+            if (hits > 0 && health <= 0 && share <= 0) throw p.error("hits", "needs health (it has to be hittable)");
+            String face = p.getString("face", "toward_owner");
+            if (!face.equals("owner") && !face.equals("toward_owner")) throw p.error("face", "expected owner or toward_owner");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
                     p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),
-                    p.getString("at", null), p.getString("of", null), health, share, p.getBool("glowing", false));
+                    p.getString("at", null), p.getString("of", null), health, share, p.getBool("glowing", false))
+                    .extras(range, face.equals("owner"), p.getBool("disguise", false), p.getBool("mirror", false), hits,
+                            p.getString("end_cue", null))
+                    .beside(beside(p))
+                    .onBreak(knownStatus(p, "on_break", e));
         });
         t.register("move_to", (p, e) -> {
             var look = switch (p.getString("look", "none")) {
@@ -134,7 +177,21 @@ public final class NodeTypes {
                 p.requireString("summon")));
         t.register("find_summon", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.FindSummonNode(
                 p.requireString("summon"), p.getString("store", "summon")));
-        t.register("swap", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.SwapNode(p.requireString("with")));
+        t.register("swap", (p, e) -> {
+            double speed = p.getDouble("speed", 0);
+            if (speed < 0) throw p.error("speed", "blocks a tick for a flight (0.35), or leave it out for an instant swap");
+            for (String k : java.util.List.of("lift", "side", "min_ticks", "max_ticks", "status")) {
+                if (speed == 0 && p.has(k)) throw p.error(k, "only for a flight: give speed too");
+            }
+            int min = p.getInt("min_ticks", 10);
+            int max = p.getInt("max_ticks", 60);
+            if (min < 1 || max < min) throw p.error("max_ticks", "min_ticks at least 1, max_ticks at least min_ticks");
+            String status = p.getString("status", null);
+            if (status != null && e.statusDefs().find(status).isEmpty()) throw p.error("status", "unknown status '" + status + "' (define it under 'statuses:')");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.SwapNode(p.requireString("with"), speed,
+                    p.getDouble("lift", 0), p.getDouble("side", 0), min, max, status);
+        });
+        t.register("refund", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.RefundNode(p.getString("message", null)));
         t.register("counter", (p, e) -> new CounterNode(p.requireString("counter"), p.requireInt("every"),
                 p.getBool("peek", false)));
         t.register("charge", (p, e) -> {
@@ -165,7 +222,7 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.control.RandomNode(ports);
         });
         t.register("remember_spot", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.RememberSpotNode(
-                p.requireString("of"), p.requireString("store"), p.getBool("ground", true)));
+                p.requireString("of"), p.requireString("store"), p.getBool("ground", !p.has("into")), p.getDouble("into", 0)));
         t.register("ward_reset", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.WardResetNode());
         t.register("spell_shield", (p, e) -> {
             double max = p.requireDouble("max");
@@ -185,7 +242,7 @@ public final class NodeTypes {
         t.register("release_tags", (p, e) -> new ReleaseTagsNode());
         t.register("steer_projectile", (p, e) -> new SteerProjectileNode(
                 p.requireString("ability"), p.getDouble("turn", 0.25), p.getDouble("range", 60)));
-        t.register("set", (p, e) -> new SetNode(p.requireString("key"), p.requireString("value")));
+        t.register("set", (p, e) -> new SetNode(p.requireString("key"), p.requireString("value"), p.getString("of", null)));
         t.register("construct", (p, e) -> new ConstructNode(
                 p.getString("at", "aim"),
                 p.getString("store", "construct"),
@@ -252,7 +309,7 @@ public final class NodeTypes {
             if (fixed == null && key == null) throw p.error("times", "give a number, or a blackboard key holding one");
             if (fixed != null && fixed < 1) throw p.error("times", "must be at least 1");
             return new me.mephisto.ability_engine.engine.nodes.control.RepeatNode(fixed, key, p.getDouble("scale", 1),
-                    p.getInt("every", 0), p.getString("spend", null));
+                    p.getInt("every", 0), p.getString("spend", null), p.getBool("attack_speed", false));
         });
         t.register("set_off_constructs", (p, e) -> {
             double radius = p.requireDouble("radius");
@@ -260,7 +317,8 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SetOffConstructsNode(p.requireString("ability"),
                     p.getString("center", "hit"), radius);
         });
-        t.register("cast", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.CastNode(p.requireString("ability")));
+        t.register("cast", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.CastNode(p.requireString("ability"),
+                p.getBool("free", false)));
         t.register("end_projectiles", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.EndProjectilesNode(
                 p.requireString("ability"), p.getString("node", null)));
         t.register("strike_constructs", (p, e) -> {
@@ -274,8 +332,22 @@ public final class NodeTypes {
             if (duration < 1) throw p.error("duration", "must be at least 1 tick");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.TetherNode(p.getString("target", "target"), duration,
                     p.requireDouble("range"), p.getInt("sight_grace", 10), p.getStringSet("break_on", Set.of()),
-                    p.requireString("cue"), p.getInt("stages", 4));
+                    p.requireString("cue"), p.getInt("stages", 4), p.getInt("pulse_every", 0));
         });
+        t.register("boss_bar", (p, e) -> {
+            String status = p.requireString("stacks_of");
+            if (e.statusDefs().find(status).isEmpty()) throw p.error("stacks_of", "unknown status '" + status + "'");
+            int max = p.requireInt("max");
+            if (max < 1) throw p.error("max", "how many stacks empty it, at least 1");
+            return new me.mephisto.ability_engine.engine.nodes.control.BossBarNode(status, max);
+        });
+        t.register("grant_tags", (p, e) -> {
+            Set<String> tags = p.getStringSet("tags", Set.of());
+            if (tags.isEmpty()) throw p.error("tags", "give the tags to put on the caster until the cast ends");
+            return new me.mephisto.ability_engine.engine.nodes.control.GrantTagsNode(tags);
+        });
+        t.register("for_each", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.ForEachNode(
+                Parsers.query(p.requireParams("query")), p.getInt("max", 0), p.getString("store", "target")));
         t.register("health_below", (p, e) -> {
             double share = p.requireDouble("share");
             if (share <= 0 || share > 1) throw p.error("share", "a share of max HP, e.g. 0.1");
@@ -313,7 +385,68 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.gameplay.LeashNode(p.getString("target", "target"), length,
                     duration, pull, p.getDouble("max_speed", 1.5), p.getDouble("range", 32), p.getString("cue", null));
         });
-        t.register("play_cue", (p, e) -> new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null)));
+        // ---- Graviton: a field slowing enemy shots ----
+        t.register("slow_field", (p, e) -> {
+            double slow = p.requireDouble("slow");
+            if (slow <= 0 || slow >= 1) throw p.error("slow", "the share of their speed inside it, between 0 and 1 (0.15 = 15%)");
+            double length = p.requireDouble("length"), width = p.requireDouble("width"), height = p.getDouble("height", 3);
+            if (length <= 0) throw p.error("length", "must be above 0 (blocks)");
+            if (width <= 0) throw p.error("width", "must be above 0 (blocks)");
+            if (height <= 0) throw p.error("height", "must be above 0 (blocks)");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.SlowFieldNode(p.getString("at", "aim"), length, width,
+                    height, slow);
+        });
+        // ---- Arcanist: a screen shots fly through (see Screens) ----
+        t.register("screen", (p, e) -> {
+            double width = p.requireDouble("width"), height = p.requireDouble("height");
+            if (width <= 0) throw p.error("width", "must be above 0 (blocks)");
+            if (height <= 0) throw p.error("height", "must be above 0 (blocks)");
+            int hold = p.getInt("hold", 40);
+            if (hold < 0) throw p.error("hold", "ticks an enemy projectile is held in it, at least 0");
+            double accelerate = p.getDouble("accelerate", 1.0);
+            if (accelerate <= 0) throw p.error("accelerate", "the speed multiplier for friendly projectiles, above 0 (1.5)");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.ScreenNode(p.getString("at", "aim"),
+                    p.getString("store", "screen"), width, height, hold, accelerate,
+                    p.has("effects") ? Parsers.effects(p, "effects", e.effects()) : java.util.List.of(),
+                    p.getString("catch_cue", null), p.getString("boost_cue", null)).ahead(screenDistance(p));
+        });
+        // ---- Amethyst: a floor of hers (see Floors) ----
+        t.register("floor", (p, e) -> {
+            String over = p.getString("over", null);
+            if (over != null) {
+                for (String k : java.util.List.of("radius", "at", "shape", "up", "down", "drop")) {
+                    if (p.has(k)) throw p.error(k, "over: lays it over that floor (its spot, size and shape): leave " + k + " out");
+                }
+            }
+            double radius = over != null ? 1 : p.requireDouble("radius");
+            if (radius <= 0) throw p.error("radius", "must be above 0 (blocks)");
+            double drop = p.getDouble("drop", 4);
+            if (drop < 0) throw p.error("drop", "how far down to look for the ground, at least 0 (blocks)");
+            for (String key : java.util.List.of("enemy_status", "owner_status")) {
+                String status = p.getString(key, null);
+                if (status != null && e.statusDefs().find(status).isEmpty()) {
+                    throw p.error(key, "unknown status '" + status + "' (define it under 'statuses:')");
+                }
+            }
+            int duration = p.getInt("duration", 0);
+            if (duration < 0) throw p.error("duration", "ticks it lasts, at least 0 (0 = until the cast ends)");
+            String shape = p.getString("shape", "circle");
+            if (!shape.equals("circle") && !shape.equals("square")) throw p.error("shape", "expected circle or square");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.FloorNode(p.getString("at", "aim"), radius,
+                    p.getString("name", null), p.getString("enemy_status", null), p.getString("owner_status", null), drop,
+                    duration, p.getBool("drawn", true), p.getBool("sight", false)).square(shape.equals("square"))
+                    .reach(reach(p, "up"), reach(p, "down")).over(over, p.getBool("lit", false))
+                    .sticky(p.getBool("sticky", false)).enemyDelay(p.getInt("enemy_delay", 0));
+        });
+        t.register("play_cue", (p, e) -> {
+            String audience = p.getString("audience", "everyone");
+            if (!audience.equals("everyone") && !audience.equals("caster")) throw p.error("audience", "expected everyone or caster");
+            if (p.has("ahead") && p.has("to")) throw p.error("ahead", "give to: or ahead:, not both");
+            double ahead = p.getDouble("ahead", 0);
+            if (ahead < 0) throw p.error("ahead", "blocks ahead of 'at' the line goes, above 0");
+            return new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null),
+                    p.getString("numbered_by", null)).casterOnly(audience.equals("caster")).ahead(ahead);
+        });
         return t;
     }
 
@@ -326,6 +459,21 @@ public final class NodeTypes {
     }
 
     /** charge's {@code load: { resource, every, max }} (null without one). */
+    /** A floor's up / down: blocks, 0-10 (missing: NaN, the default). */
+    private static double reach(Params p, String key) {
+        if (!p.has(key)) return Double.NaN;
+        double v = p.getDouble(key, 0);
+        if (v < 0 || v > 10) throw p.error(key, "blocks above / below the floor that still count as on it, 0-10");
+        return v;
+    }
+
+    /** summon_clone's beside: blocks to the caster's side, above 0 (0 = not beside them). */
+    private static double beside(me.mephisto.ability_engine.engine.data.Params p) {
+        double b = p.getDouble("beside", 0);
+        if (b < 0 || b > 10) throw p.error("beside", "blocks to the caster's left or right, 0-10");
+        return b;
+    }
+
     private static me.mephisto.ability_engine.engine.nodes.control.ChargeNode.Load chargeLoad(Params p) {
         if (!p.has("load")) return null;
         Params l = p.getParams("load");
@@ -344,8 +492,16 @@ public final class NodeTypes {
         try {
             return ConstructSystem.TriggeredBy.valueOf(v.toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            throw p.error("triggered_by", "expected enemies, allies, all or everyone (all and the caster)");
+            throw p.error("triggered_by", "expected enemies, allies, all, everyone (all and the caster) or owner_and_enemies");
         }
+    }
+
+    /** A screen's {@code distance} ahead of the caster (0 = at its {@code at} key instead). */
+    private static double screenDistance(Params p) {
+        double d = p.getDouble("distance", 0);
+        if (d < 0) throw p.error("distance", "blocks ahead of the caster, above 0");
+        if (d > 0 && p.has("at")) throw p.error("distance", "either distance (ahead of the caster) or at, not both");
+        return d;
     }
 
     /** An optional status id that must exist (null if not given). */
@@ -364,6 +520,10 @@ public final class NodeTypes {
             if (m instanceof me.mephisto.ability_engine.engine.projectile.Seek seek && seek.mark() != null
                     && e.statusDefs().find(seek.mark()).isEmpty()) {
                 throw p.error("motion", "seek: unknown mark status '" + seek.mark() + "' (define it under 'statuses:')");
+            }
+            if (m instanceof me.mephisto.ability_engine.engine.projectile.MarkHoming home
+                    && e.statusDefs().find(home.status()).isEmpty()) {
+                throw p.error("motion", "homing: unknown status '" + home.status() + "' (define it under 'statuses:')");
             }
         }
         return spec;

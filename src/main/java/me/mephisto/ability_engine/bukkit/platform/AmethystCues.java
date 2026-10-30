@@ -174,6 +174,124 @@ final class AmethystCues {
             w.playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.5f, 0.8f);
             w.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1.5f, 0.5f);
         });
+
+        registerRework(c, plugin);
+    }
+
+    /**
+     * Her notes: a pentatonic scale (C D E G A C), so any run of them sounds musical. {@code note(1)} is the lowest; past
+     * the 6th it keeps climbing by octaves' worth of the same steps (and stays within what the game can play).
+     */
+    private static final int[] SCALE = {0, 2, 4, 7, 9, 12};
+    private static final float LOWEST = 0.7f;
+
+    static float note(int n) {
+        int i = Math.max(0, n - 1);
+        int semitones = SCALE[i % SCALE.length] + 12 * (i / SCALE.length);
+        return (float) Math.min(2.0, LOWEST * Math.pow(2, semitones / 12.0));
+    }
+
+    /** The rework: hanging shards lodging, Recall's notes, Allegro, Geode Bloom and its floor, gliding, Arpeggio, Geode Heart. */
+    private static void registerRework(BukkitCuePlayer c, Plugin plugin) {
+        // ---- primary: a shard lodging where it ends ----
+        c.register("amethyst_shard_lodge", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.6f, 1.2f));
+
+        // ---- Recall: each shard on the same enemy one note higher ----
+        for (int n = 1; n <= 6; n++) {
+            float pitch = note(n);
+            c.register("amethyst_recall_hit_" + n, loc -> {
+                loc.getWorld().spawnParticle(Particle.BLOCK, loc, 12, 0.25, 0.3, 0.25, 0, AMETHYST);
+                loc.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, loc, 2, 0.2, 0.2, 0.2, 0.05);
+                loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, pitch);
+            });
+        }
+
+        // ---- 1: Allegro ----
+        c.register("amethyst_allegro", loc -> {
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 14, 0.4, 0.5, 0.4, 0, PALE);
+            w.spawnParticle(Particle.NOTE, loc.clone().add(0, 2.1, 0), 3, 0.4, 0.1, 0.4, 1);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1.5f);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, note(5));
+        });
+        c.registerLoop("amethyst_allegro_aura", e -> { // glints at her hands while it lasts (restarts as it fades a step)
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location at = e.getLocation().add(0, e.getHeight() * 0.55, 0);
+                at.getWorld().spawnParticle(Particle.DUST, at, 2, 0.35, 0.2, 0.35, 0, PALE);
+            }, 0, 3);
+            return (CueHandle) task::cancel;
+        });
+
+        // ---- 2: Geode Bloom ----
+        c.register("amethyst_geode_throw", loc -> {
+            loc.getWorld().playSound(loc, Sound.ENTITY_WITCH_THROW, 0.8f, 1.2f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.6f, 0.9f);
+        });
+        c.register("amethyst_geode_bounce", loc -> {
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 8, 0.15, 0.15, 0.15, 0, AMETHYST);
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_PLACE, 1f, 1.2f);
+        });
+        c.registerLoop("amethyst_feet_geode", e -> feetGeode(plugin, e)); // rooted by the burst: feet stuck in a geode
+        c.register("amethyst_geode_burst", loc -> { // 2.5 blocks: keep it in step with Geode Bloom's burst
+            World w = loc.getWorld();
+            Location at = loc.clone().add(0, 0.3, 0);
+            w.spawnParticle(Particle.BLOCK, at, 60, 1.2, 0.3, 1.2, 0, AMETHYST);
+            w.spawnParticle(Particle.DUST, at, 25, 1.2, 0.4, 1.2, 0, VIOLET);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1.3f, 0.8f);
+        });
+        c.register("amethyst_floor_form", loc -> { // the floor crystallizing (FloorRenderer draws the floor itself)
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.END_ROD, loc.clone().add(0, 0.2, 0), 12, 1.5, 0.05, 1.5, 0.02);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1.2f, 0.8f);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, note(1));
+        });
+
+        // ---- the crystal floor: gliding ----
+        c.register("amethyst_glide", loc -> {
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 6, 0.25, 0.3, 0.25, 0, PALE);
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.9f, note(4));
+        });
+        c.register("amethyst_glide_trail", loc -> {
+            loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, -0.4, 0), 2, 0.15, 0.1, 0.15, 0, VIOLET);
+            loc.getWorld().spawnParticle(Particle.DUST, loc, 1, 0.15, 0.3, 0.15, 0, PALE);
+        });
+
+        // ---- 3: Arpeggio ----
+        c.registerLoop("amethyst_arpeggio_charge", e -> { // the 0.5s charge: light gathering around her
+            e.getWorld().playSound(e.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1f, 1.2f);
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location at = e.getLocation().add(0, e.getHeight() * 0.6, 0);
+                at.getWorld().spawnParticle(Particle.END_ROD, at, 2, 0.4, 0.4, 0.4, 0.01);
+                at.getWorld().spawnParticle(Particle.DUST, at, 3, 0.4, 0.4, 0.4, 0, VIOLET);
+            }, 0, 2);
+            return (CueHandle) task::cancel;
+        });
+        for (int n = 1; n <= 6; n++) { // each shot of the run one note higher
+            float pitch = note(n);
+            c.register("amethyst_arpeggio_note_" + n, loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME,
+                    1.2f, pitch));
+        }
+
+        // ---- ultimate: Geode Heart ----
+        c.register("amethyst_heart_encase", loc -> { // a rising chord as the geode closes
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 40, 0.4, 0.8, 0.4, 0, AMETHYST);
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_PLACE, 1.2f, 0.7f);
+            int[] chord = {1, 3, 4, 6};
+            for (int i = 0; i < chord.length; i++) {
+                float pitch = note(chord[i]);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME,
+                        1.2f, pitch), i * 3L);
+            }
+        });
+        c.register("amethyst_heart_shatter", loc -> { // 3 blocks: keep it in step with Geode Heart's shatter
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.BLOCK, loc, 90, 1.5, 0.8, 1.5, 0, AMETHYST);
+            w.spawnParticle(Particle.DUST, loc, 30, 1.5, 0.8, 1.5, 0, VIOLET);
+            w.playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.5f, 0.8f);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1.5f, 0.5f);
+        });
     }
 
     /** A shard circling someone: where it is right now, and how to take it away. */
@@ -269,6 +387,56 @@ final class AmethystCues {
         return () -> {
             task.cancel();
             for (var d : shown) d.remove();
+        };
+    }
+
+    /**
+     * Rooted by Geode Bloom: their feet stuck in a small amethyst geode (by their size): a knee-high shell with clusters
+     * bristling out of it and a calcite rim at its foot. It follows them (they can't walk anyway) and cracks apart as it
+     * ends.
+     */
+    private static CueHandle feetGeode(Plugin plugin, org.bukkit.entity.Entity e) {
+        var box = e.getBoundingBox();
+        float w = (float) Math.max(0.7, box.getWidthX() * 1.7), h = (float) Math.max(0.4, box.getHeight() * 0.28);
+        java.util.List<Piece> pieces = java.util.List.of(
+                new Piece(Material.AMETHYST_BLOCK, 0, 0, 0, w, h, 0),                                    // the shell
+                new Piece(Material.CALCITE, 0, -0.02f, 0, w + 0.2f, 0.15f, 0),                          // its rim
+                new Piece(Material.AMETHYST_CLUSTER, w * 0.42f, h * 0.4f, 0, w * 0.4f, w * 0.4f, -0.7f),
+                new Piece(Material.AMETHYST_CLUSTER, -w * 0.42f, h * 0.3f, w * 0.1f, w * 0.35f, w * 0.35f, 0.7f),
+                new Piece(Material.MEDIUM_AMETHYST_BUD, w * 0.05f, h * 0.9f, -w * 0.35f, w * 0.3f, w * 0.3f, 0.3f),
+                new Piece(Material.SMALL_AMETHYST_BUD, -w * 0.1f, h * 0.9f, w * 0.38f, w * 0.25f, w * 0.25f, -0.3f));
+        Location at = e.getLocation();
+        at.setPitch(0);
+        at.setYaw(0);
+        java.util.List<org.bukkit.entity.BlockDisplay> shown = new java.util.ArrayList<>();
+        for (Piece piece : pieces) {
+            shown.add(at.getWorld().spawn(at, org.bukkit.entity.BlockDisplay.class, d -> {
+                d.setBlock(piece.block().createBlockData());
+                d.setPersistent(false);
+                d.setTeleportDuration(2);
+                VisualEntities.mark(d);
+                d.setTransformation(new org.bukkit.util.Transformation(
+                        new org.joml.Vector3f(piece.x() - piece.size() / 2, piece.y(), piece.z() - piece.size() / 2),
+                        new org.joml.Quaternionf().rotateZ(piece.tilt()),
+                        new org.joml.Vector3f(piece.size(), piece.height(), piece.size()), new org.joml.Quaternionf()));
+            }));
+        }
+        e.getWorld().spawnParticle(Particle.BLOCK, at.clone().add(0, h / 2, 0), 20, w / 3, h / 3, w / 3, 0, AMETHYST);
+        e.getWorld().playSound(at, Sound.BLOCK_AMETHYST_CLUSTER_PLACE, 1f, 0.8f);
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!e.isValid()) return;
+            Location now = e.getLocation();
+            now.setPitch(0);
+            now.setYaw(0);
+            for (var d : shown) if (d.isValid()) d.teleport(now);
+        }, 2, 2);
+        return () -> {
+            task.cancel();
+            for (var d : shown) d.remove();
+            if (!e.isValid()) return;
+            Location now = e.getLocation();
+            e.getWorld().spawnParticle(Particle.BLOCK, now.clone().add(0, h / 2, 0), 25, w / 3, h / 3, w / 3, 0, AMETHYST);
+            e.getWorld().playSound(now, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 0.8f, 1.3f);
         };
     }
 

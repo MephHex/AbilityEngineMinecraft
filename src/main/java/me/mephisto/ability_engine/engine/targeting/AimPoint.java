@@ -18,6 +18,8 @@ import java.util.UUID;
  *       deeper than {@code max_drop} below your feet. If the ground there is too deep (a cliff, the
  *       void), it walks back toward you and uses the last spot that IS valid: the cliff edge.
  *       Empty only if nothing on the way back is valid (red preview, confirm refused).</li>
+ *   <li>The crosshair on the SIDE of a block whose top is at most {@link #STEP_UP} above it (a step, a low wall,
+ *       just under a ledge's edge): the spot goes on top of it, not down at its foot behind it.</li>
  * </ul>
  */
 public final class AimPoint {
@@ -28,6 +30,12 @@ public final class AimPoint {
     private static final double SURFACE_BACKOFF = 0.3;
     /** How far apart the cliff-edge search samples the ground, walking back toward the caster. */
     private static final double EDGE_STEP = 0.25;
+    /** A wall's side under the crosshair with its top at most this far above: the spot goes up on top. */
+    private static final double STEP_UP = 1.0;
+    /** How far into the wall (flat) its top is looked for. */
+    private static final double INTO = 0.3;
+    /** The ground found below the crosshair this much lower than it: the crosshair is on a side, not a top. */
+    private static final double SIDE = 0.1;
     /** Player eye height: max_drop is measured from the feet. */
     private static final double EYE_HEIGHT = 1.62;
 
@@ -46,6 +54,10 @@ public final class AimPoint {
         // 1) straight below the crosshair
         Vec3 start = hit.add(a.eye().subtract(hit).normalize().multiply(SURFACE_BACKOFF));
         Optional<Vec3> ground = groundAt(engine, world, start, lowest);
+        if (ground.isPresent() && ground.get().y() < hit.y() - SIDE) { // on a block's side: on top of it, if it's low
+            Optional<Vec3> top = topOf(engine, world, a, hit);
+            if (top.isPresent()) return Optional.of(new PointTarget(world, top.get()));
+        }
         if (ground.isPresent()) return Optional.of(new PointTarget(world, ground.get()));
 
         // 2) too deep or nothing below: walk back toward the caster to the last valid spot (cliff edge)
@@ -59,6 +71,15 @@ public final class AimPoint {
             if (ground.isPresent()) return Optional.of(new PointTarget(world, ground.get()));
         }
         return Optional.empty();
+    }
+
+    /** The top of the block whose side {@code hit} is on, if it's at most STEP_UP above (else: inside the wall, none). */
+    private static Optional<Vec3> topOf(AbilityEngine engine, String world, Aim a, Vec3 hit) {
+        Vec3 flat = new Vec3(hit.x() - a.eye().x(), 0, hit.z() - a.eye().z());
+        if (flat.lengthSquared() < 1e-6) return Optional.empty();
+        Vec3 in = flat.normalize().multiply(INTO);
+        Vec3 probe = new Vec3(hit.x() + in.x(), hit.y() + STEP_UP, hit.z() + in.z());
+        return engine.world().groundBelow(world, probe, STEP_UP + SIDE).filter(g -> g.y() >= hit.y() - SIDE / 2);
     }
 
     private static Optional<Vec3> groundAt(AbilityEngine engine, String world, Vec3 from, double lowest) {

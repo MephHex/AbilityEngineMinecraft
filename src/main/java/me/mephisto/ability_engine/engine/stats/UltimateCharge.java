@@ -71,8 +71,17 @@ public final class UltimateCharge {
 
     public boolean ready(UUID player) { return of(player) >= FULL - 1e-9; }
 
-    /** Does casting this ability wait on the caster's charge (it's their ultimate, and ultimates charge)? */
-    public boolean gates(UUID caster, String abilityId) { return enabled && stats.isUltimate(caster, abilityId); }
+    private StolenUltimates stolen; // a stolen ultimate is free: it never waits on the charge
+
+    public void setStolen(StolenUltimates stolen) { this.stolen = stolen; }
+
+    /**
+     * Does casting this ability wait on the caster's charge (it's their ultimate, and ultimates charge)? A stolen one
+     * doesn't (see StolenUltimates).
+     */
+    public boolean gates(UUID caster, String abilityId) {
+        return enabled && stats.isUltimate(caster, abilityId) && (stolen == null || !stolen.holds(caster, abilityId));
+    }
 
     /** More charge (percent points), x their ult_charge_rate; capped at 100. Only with a character. */
     public void add(UUID player, double amount) {

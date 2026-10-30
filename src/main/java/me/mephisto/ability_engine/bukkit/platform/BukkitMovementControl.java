@@ -80,6 +80,118 @@ public final class BukkitMovementControl implements MovementControl {
         e.setFallDistance(0);
     }
 
+    /** A jump: how fast a body leaves the ground (vanilla's 0.42), whatever step up it was asked for. */
+    private static final double JUMP_SPEED = 0.42;
+
+    /**
+     * A walking step for a body (a mirroring clone): its velocity this tick is the step sideways, and its own up/down
+     * (gravity keeps pulling it, it falls off edges), so the game's physics stop it at walls. A step up while it stands
+     * on the ground is a jump.
+     */
+    @Override
+    public void stride(UUID entity, Vec3 step) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid()) return;
+        double vy = e.getVelocity().getY();
+        if (step.y() > 0.1 && e.isOnGround()) vy = JUMP_SPEED;
+        e.setVelocity(new Vector(step.x(), vy, step.z()));
+    }
+
+    /** How much of its sideways speed a body keeps each tick: on the ground (block friction) and in the air (drag). */
+    private static final double GROUND_KEEP = 0.546, AIR_KEEP = 0.91;
+
+    /**
+     * Like walking keys: each tick it's pushed toward {@code move} by just enough that, against the game's own friction,
+     * it settles at that speed (on the ground or in the air), so a knockback on it adds to that and wears off as usual.
+     */
+    @Override
+    public void drive(UUID entity, Vec3 move, boolean jump) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid()) return;
+        Vector v = e.getVelocity();
+        boolean ground = e.isOnGround();
+        double accel = 1 - (ground ? GROUND_KEEP : AIR_KEEP);
+        v.setX(v.getX() + move.x() * accel);
+        v.setZ(v.getZ() + move.z() * accel);
+        if (jump && ground) v.setY(JUMP_SPEED);
+        e.setVelocity(v);
+    }
+
+    /** The sneaking pose (a mannequin crouches like a player holding SHIFT). */
+    @Override
+    public void crouch(UUID entity, boolean crouched) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid()) return;
+        e.setSneaking(crouched);
+        if (e.getPose() != (crouched ? org.bukkit.entity.Pose.SNEAKING : org.bukkit.entity.Pose.STANDING)) {
+            e.setPose(crouched ? org.bukkit.entity.Pose.SNEAKING : org.bukkit.entity.Pose.STANDING, crouched);
+        }
+    }
+
+    @Override
+    public void swing(UUID entity) {
+        if (Bukkit.getEntity(entity) instanceof LivingEntity living && living.isValid()) living.swingMainHand();
+    }
+
+    /**
+     * A player: pushed by exactly this tick's step of the path, so their own client flies them along it smoothly (a
+     * teleport every tick jitters their camera); where they land is set exactly by the flight's end. Anything else: a
+     * blink (the clients smooth a non-player's moves by themselves).
+     */
+    @Override
+    public void flyStep(UUID entity, Vec3 from, Vec3 to) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid()) return;
+        if (!(e instanceof org.bukkit.entity.Player)) {
+            blink(entity, to);
+            return;
+        }
+        e.setVelocity(Convert.bukkit(to.subtract(from)));
+        e.setFallDistance(0);
+    }
+
+    /** Running: x1.3 their walking speed, like sprinting. Blocks a tick per point of the movement speed attribute. */
+    private static final double RUN = 1.3, WALK_PER_SPEED = 4.317 / 20 / 0.1;
+
+    /**
+     * Running along {@code direction} (someone confused): a player on the ground is moved at the speed they'd sprint (their
+     * own walking is held meanwhile, see InvertedControls; in the air they carry on as they are); anything else is driven.
+     */
+    @Override
+    public void run(UUID entity, Vec3 direction) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid()) return;
+        if (!(e instanceof org.bukkit.entity.Player p)) {
+            drive(entity, direction.multiply(0.25), false);
+            return;
+        }
+        if (!p.isOnGround()) return;
+        double speed = me.mephisto.ability_engine.bukkit.status.PuppetHold.speedOf(p) * WALK_PER_SPEED * RUN;
+        p.setVelocity(new Vector(direction.x() * speed, 0, direction.z() * speed));
+    }
+
+    /** Momentum (velocity) and the look both kept: the game moves them on from the new spot as before. */
+    private static final io.papermc.paper.entity.TeleportFlag[] KEEP_MOMENTUM = {
+            io.papermc.paper.entity.TeleportFlag.Relative.VELOCITY_X,
+            io.papermc.paper.entity.TeleportFlag.Relative.VELOCITY_Y,
+            io.papermc.paper.entity.TeleportFlag.Relative.VELOCITY_Z,
+            io.papermc.paper.entity.TeleportFlag.Relative.VELOCITY_ROTATION,
+            KEEP_RIDERS};
+
+    @Override
+    public void blink(UUID entity, Vec3 center) {
+        Entity e = Bukkit.getEntity(entity);
+        if (e == null || !e.isValid()) return;
+        Location to = e.getLocation(); // keeps world, yaw and pitch
+        to.setX(center.x());
+        to.setY(center.y() - e.getBoundingBox().getHeight() / 2);
+        to.setZ(center.z());
+        Vector velocity = e.getVelocity();
+        e.teleport(to, KEEP_MOMENTUM);
+        if (!(e instanceof org.bukkit.entity.Player)) e.setVelocity(velocity); // (a player's client keeps its own)
+        e.setFallDistance(0);
+    }
+
     /** Head and body both: a mannequin (no AI) wouldn't turn its body by itself before it moves. */
     @Override
     public void face(UUID entity, Vec3 direction) {

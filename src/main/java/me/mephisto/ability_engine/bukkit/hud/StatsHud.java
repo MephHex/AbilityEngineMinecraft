@@ -46,9 +46,10 @@ public final class StatsHud {
 
     /**
      * Where the stats go, in the order {@link #stats} makes them: the left of the main inventory, clear of the hotbar
-     * and of the 3x3 bag on the right. Top row HP, damage, armor; under it attack speed, cooldown reduction, move speed.
+     * and of the 3x3 bag on the right. Top row HP, damage, armor; under it attack speed, cooldown reduction, move speed;
+     * then spell power, critical strike chance, spell resistance.
      */
-    private static final int[] SLOTS = {9, 10, 11, 18, 19, 20};
+    private static final int[] SLOTS = {9, 10, 11, 18, 19, 20, 27, 28, 29};
     /** Vanilla walking speed (the player's base movement attribute). */
     private static final double VANILLA_SPEED = 0.1;
     /** Every character shows 10 hearts, whatever their max HP. */
@@ -268,7 +269,7 @@ public final class StatsHud {
         double scale = scaleSource.scale();
         List<Stat> out = new ArrayList<>();
 
-        double max = sheet.health();
+        double max = engine.stats().maxHealth(id); // with items (max_health)
         double now = p.getHealth() * scale;
         double shield = p.getAbsorptionAmount() * scale;
         List<String> health = new ArrayList<>(List.of(
@@ -277,12 +278,11 @@ public final class StatsHud {
         if (shield > 0) health.add(String.format("Shield: %.0f", shield));
         out.add(new Stat(Material.GLISTERING_MELON_SLICE, "Max HP: " + fmt(max), NamedTextColor.RED, health));
 
-        double dealt = 1;
+        double dealt = engine.stats().damageDealtMultiplier(id);
         List<String> sources = new ArrayList<>();
         for (ActiveStatus s : engine.statuses().on(id)) {
             if (s.def().damageDealt() != 1) {
-                dealt *= s.def().damageDealt();
-                sources.add(String.format("x%.2f %s", s.def().damageDealt(), s.def().id()));
+                sources.add(String.format("x%.2f %s%s", s.def().damageDealt(), s.def().id(), s.stacks() > 1 ? " x" + s.stacks() : ""));
             }
         }
         List<String> damage = new ArrayList<>(List.of("Your abilities and attacks deal", "a % of this."));
@@ -291,7 +291,7 @@ public final class StatsHud {
         }
         out.add(new Stat(Material.BLAZE_POWDER, "Base damage: " + fmt(sheet.baseDamage()), NamedTextColor.GOLD, damage));
 
-        out.add(new Stat(Material.IRON_CHESTPLATE, "Armor: " + fmt(sheet.armor()), NamedTextColor.GRAY, List.of(
+        out.add(new Stat(Material.IRON_CHESTPLATE, "Armor: " + fmt(Math.round(engine.stats().armor(id))), NamedTextColor.GRAY, List.of(
                 String.format("Takes %.0f%% less damage", engine.stats().armorReduction(id) * 100),
                 String.format("(armor / (armor + %.0f))", engine.stats().armorConstant()),
                 "Damage over time and % max HP hits",
@@ -305,6 +305,28 @@ public final class StatsHud {
         out.add(new Stat(Material.SUGAR, String.format("Move speed: %.0f%%", sheet.moveSpeed() * 100), NamedTextColor.AQUA,
                 List.of(String.format("Right now: %.0f%%", current * 100), "(100% = vanilla walking; slows and",
                         "haste multiply it, sprinting too)")));
+
+        double power = engine.stats().spellPower(id);
+        out.add(new Stat(Material.LAPIS_LAZULI, String.format("Spell power: %.0f", power), NamedTextColor.BLUE, List.of(
+                "Abilities that scale with spell power",
+                "(blue in their descriptions) deal that",
+                "share of it: 90% spell power with 20",
+                "is 18 damage.")));
+
+        double chance = engine.stats().critChance(id);
+        double critDamage = engine.crits().damage() + engine.stats().critDamageBonus(id);
+        out.add(new Stat(Material.FLINT, String.format("Critical strike: %.0f%%", chance * 100), NamedTextColor.YELLOW, lines(
+                engine.stats().abilitiesCrit(id) ? "Your abilities can crit too." : null,
+                String.format("Basic attacks crit for %.0f%% damage.", critDamage * 100),
+                "Not a flat roll: every attack that",
+                "doesn't crit makes the next likelier,",
+                "and a crit starts it over.")));
+
+        out.add(new Stat(Material.PRISMARINE_CRYSTALS, "Spell resistance: " + fmt(engine.stats().spellResistance(id)),
+                NamedTextColor.DARK_AQUA, List.of(
+                String.format("Takes %.0f%% less damage from", engine.stats().spellResistanceReduction(id) * 100),
+                "enemy abilities and damage over time",
+                String.format("(resistance / (resistance + %.0f))", engine.stats().armorConstant()))));
         return out;
     }
 
@@ -314,7 +336,9 @@ public final class StatsHud {
         List<String> sources = new ArrayList<>();
         for (ActiveStatus s : engine.statuses().on(id)) {
             double cdr = s.def().extras().cooldownReduction();
-            if (cdr != 1) sources.add(String.format("%.0f%% %s", (1 - Math.pow(cdr, Math.max(1, s.stacks()))) * 100, s.def().id()));
+            int n = Math.max(1, s.stacks());
+            double share = s.def().extras().additive() ? (1 - cdr) * n : 1 - Math.pow(cdr, n);
+            if (cdr != 1) sources.add(String.format("%.0f%% %s", share * 100, s.def().id()));
         }
         List<String> lines = new ArrayList<>(List.of("Your abilities (1, 2, 3, ultimate)",
                 String.format("come back %.0f%% sooner.", (1 - m) * 100), "Not primary / secondary fire or melee."));

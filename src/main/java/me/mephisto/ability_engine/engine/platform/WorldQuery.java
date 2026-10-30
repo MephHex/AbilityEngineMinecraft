@@ -58,4 +58,10 @@ public interface WorldQuery {
      * as a unit vector. Empty when standing still. Default: unknown (always empty).
      */
     default Optional<Vec3> movementOf(UUID entity) { return Optional.empty(); }
+
+    /**
+     * How a player is trying to move this tick, from the keys they hold (see MoveInput): only what they put in, never
+     * knockback or being moved by others. Empty for anything that isn't a player (or a platform that can't tell).
+     */
+    default Optional<MoveInput> inputOf(UUID entity) { return Optional.empty(); }
 }

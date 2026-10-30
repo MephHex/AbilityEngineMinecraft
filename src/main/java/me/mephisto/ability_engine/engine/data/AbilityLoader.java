@@ -139,6 +139,13 @@ public final class AbilityLoader {
             }
         }
 
+        // A stolen copy given as another ability (steal_as): that one has to exist (any file).
+        for (String id : abilityOrigin.keySet()) {
+            engine.abilities().find(id).map(a -> a.stealAs()).filter(as -> engine.abilities().find(as).isEmpty())
+                    .ifPresent(as -> report.error(abilityOrigin.get(id) + ": abilities." + id + ".steal_as: unknown ability '"
+                            + as + "' (missing, or it failed to load)"));
+        }
+
         // After abilities, so kits can be checked against what actually loaded (from any file).
         Map<String, String> characterOrigin = new HashMap<>();
         for (Params file : files) {
@@ -335,10 +342,20 @@ public final class AbilityLoader {
                 if (every < 1) throw r.error("regen_every", "ticks for one unit to come back, at least 1 (60 = 3s)");
                 regen = 20.0 / every;
             }
-            resources.put(name, new ResourceDef(name, r.requireDouble("max"), regen,
+            double max = r.requireDouble("max");
+            double start = r.getDouble("start", -1);
+            if (r.has("start") && (start < 0 || start > max)) throw r.error("start", "how much a fresh character has, 0 to max");
+            int expire = r.getInt("expire_after", 0);
+            if (expire < 0) throw r.error("expire_after", "ticks after the last gain until all of it is lost (0 = never)");
+            String expireStatus = r.getString("expire_status", null);
+            if (expireStatus != null && expire <= 0) throw r.error("expire_status", "needs expire_after");
+            if (expireStatus != null && engine.statusDefs().find(expireStatus).isEmpty()) {
+                throw r.error("expire_status", "unknown status '" + expireStatus + "' (define it under 'statuses:')");
+            }
+            resources.put(name, new ResourceDef(name, max, regen,
                     r.getInt("delay", 0), hotbar, r.getString("icon", null), reload,
                     r.getString("shown_while", null), r.getString("hidden_while", null), r.getBool("refill_sweep", false),
-                    r.getBool("on_weapon", false)));
+                    r.getBool("on_weapon", false), start, expire, expireStatus));
         }
         QuiverDef quiver = p.has("quiver") ? Parsers.quiver(p.getParams("quiver"), engine.statusDefs().ids()) : null;
         if (quiver != null && quiver.hotbarSlot() > 0) {
@@ -357,7 +374,133 @@ public final class AbilityLoader {
         }
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
-                hover, variants(p), lowHealth(p), characterOnLethal(p));
+                hover, variants(p), lowHealth(p), characterOnLethal(p), outOfCombat(p), characterOnKill(p), healthBands(p),
+                glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true));
+    }
+
+    /**
+     * {@code brain: { think_every, range, sight, chase: { speed, stop_at }, rules: [ { cast, every, once, recast, when:
+     * { target_within, target_beyond, health_below, health_above, target_health_below, chance, has_tag, lacks_tag } } ] }}:
+     * what drives a non-player playing this character (see BrainManager).
+     */
+    private CharacterDef.Brain brain(Params p, Map<String, String> slots) {
+        if (!p.has("brain")) return null;
+        Params b = p.getParams("brain");
+        int every = b.getInt("think_every", 5);
+        if (every < 1) throw b.error("think_every", "ticks between decisions, at least 1");
+        double range = b.getDouble("range", 16);
+        if (range <= 0) throw b.error("range", "blocks it looks for enemies in, above 0");
+        CharacterDef.Brain.Chase chase = null;
+        if (b.has("chase")) {
+            Params c = b.getParams("chase");
+            double speed = c.getDouble("speed", 0.2);
+            if (speed <= 0) throw c.error("speed", "blocks a tick, above 0");
+            chase = new CharacterDef.Brain.Chase(speed, c.getDouble("stop_at", 2));
+        }
+        java.util.List<CharacterDef.Brain.Rule> rules = new java.util.ArrayList<>();
+        for (Params r : b.getParamsList("rules")) {
+            String cast = r.requireString("cast");
+            boolean slot = me.mephisto.ability_engine.engine.loadout.Slots.ALL.contains(cast);
+            if (slot && !slots.containsKey(cast)) throw r.error("cast", "its slot " + cast + " is empty");
+            if (!slot && engine.abilities().find(cast).isEmpty()) {
+                throw r.error("cast", "not a slot (" + me.mephisto.ability_engine.engine.loadout.Slots.ALL + ") or an ability");
+            }
+            int ruleEvery = r.getInt("every", 0);
+            if (ruleEvery < 0) throw r.error("every", "ticks between two of its casts, at least 0");
+            java.util.List<CharacterDef.Brain.Condition> when = new java.util.ArrayList<>();
+            Params w = r.getParams("when");
+            for (String kind : w.keys()) {
+                if (!CharacterDef.Brain.Condition.KINDS.contains(kind)) {
+                    throw w.error(kind, "unknown condition, expected one of " + new java.util.TreeSet<>(CharacterDef.Brain.Condition.KINDS));
+                }
+                if (kind.endsWith("_tag")) when.add(new CharacterDef.Brain.Condition(kind, 0, w.requireString(kind)));
+                else when.add(new CharacterDef.Brain.Condition(kind, w.requireDouble(kind), null));
+            }
+            rules.add(new CharacterDef.Brain.Rule(cast, when, ruleEvery, r.getBool("once", false), r.getInt("recast", 0)));
+        }
+        return new CharacterDef.Brain(every, range, b.getBool("sight", true), chase, rules);
+    }
+
+    /** {@code passive_statuses: [ <status>, ... ]}: always kept on them (e.g. a passive's on_damaged). */
+    private java.util.List<String> passiveStatuses(Params p) {
+        if (!p.has("passive_statuses")) return java.util.List.of();
+        java.util.List<String> ids = p.getStringList("passive_statuses");
+        for (String s : ids) {
+            if (engine.statusDefs().find(s).isEmpty()) {
+                throw p.error("passive_statuses", "unknown status '" + s + "' (define it under 'statuses:')");
+            }
+        }
+        return ids;
+    }
+
+    /** {@code marks: { range, unless, glyph }}: a marker only they see over nearby enemies (see CharacterDef.Marks). */
+    private CharacterDef.Marks marks(Params p) {
+        if (!p.has("marks")) return null;
+        Params m = p.getParams("marks");
+        double range = m.getDouble("range", 10);
+        if (range <= 0) throw m.error("range", "blocks, above 0");
+        String unless = m.getString("unless", null);
+        if (unless != null && engine.statusDefs().find(unless).isEmpty()) {
+            throw m.error("unless", "unknown status '" + unless + "' (define it under 'statuses:')");
+        }
+        return new CharacterDef.Marks(range, unless, m.getString("glyph", "*"));
+    }
+
+    /**
+     * {@code glide: { distance, speed, gap, cue, trail, teleport }}: SHIFT + a movement key on their own floor (see
+     * Floors); {@code teleport: true} blinks there at once instead of gliding.
+     */
+    private static CharacterDef.Glide glide(Params p) {
+        if (!p.has("glide")) return null;
+        Params g = p.getParams("glide");
+        double distance = g.getDouble("distance", 3);
+        if (distance <= 0) throw g.error("distance", "blocks per glide, above 0");
+        double speed = g.getDouble("speed", 0.75);
+        if (speed <= 0) throw g.error("speed", "blocks per tick, above 0");
+        int gap = g.getInt("gap", 10);
+        if (gap < 1) throw g.error("gap", "ticks between glides, at least 1");
+        return new CharacterDef.Glide(distance, speed, gap, g.getString("cue", null), g.getString("trail", null),
+                g.getBool("teleport", false));
+    }
+
+    /** {@code health_bands: { size: 0.2, cast: <ability>, statuses: [...] }}: see HealthBandsManager. */
+    private CharacterDef.HealthBands healthBands(Params p) {
+        if (!p.has("health_bands")) return null;
+        Params b = p.getParams("health_bands");
+        double size = b.requireDouble("size");
+        if (size <= 0 || size > 0.5) throw b.error("size", "a share of max HP per band, e.g. 0.2 (five bands)");
+        String cast = b.getString("cast", null);
+        if (cast != null && engine.abilities().find(cast).isEmpty()) {
+            throw b.error("cast", "unknown ability '" + cast + "' (define it under 'abilities:')");
+        }
+        java.util.List<String> statuses = b.has("statuses") ? b.getStringList("statuses") : java.util.List.of();
+        for (String s : statuses) {
+            if (engine.statusDefs().find(s).isEmpty()) throw b.error("statuses", "unknown status '" + s + "' (define it under 'statuses:')");
+        }
+        if (!statuses.isEmpty() && Math.abs(statuses.size() * size - 1) > 1e-6) {
+            throw b.error("statuses", "one per band, lowest first: " + Math.round(1 / size) + " for bands of " + size);
+        }
+        return new CharacterDef.HealthBands(size, cast, statuses);
+    }
+
+    /** {@code on_kill: { effects: [...], cue }}: on them every time they kill someone (cue: a line from the victim). */
+    private CharacterDef.OnKill characterOnKill(Params p) {
+        if (!p.has("on_kill")) return null;
+        Params k = p.getParams("on_kill");
+        return new CharacterDef.OnKill(Parsers.effects(k, "effects", engine.effects()), k.getString("cue", null));
+    }
+
+    /** {@code out_of_combat: { after: 80, status: <status> }}: that status is kept on them while they're out of combat. */
+    private CharacterDef.OutOfCombat outOfCombat(Params p) {
+        if (!p.has("out_of_combat")) return null;
+        Params o = p.getParams("out_of_combat");
+        int after = o.requireInt("after");
+        if (after < 1) throw o.error("after", "must be at least 1 tick");
+        String status = o.requireString("status");
+        if (engine.statusDefs().find(status).isEmpty()) {
+            throw o.error("status", "unknown status '" + status + "' (define it under 'statuses:')");
+        }
+        return new CharacterDef.OutOfCombat(after, status);
     }
 
     /** {@code on_lethal: { status, health }}: their passive cheat death (not while they already have that status). */
@@ -502,8 +645,12 @@ public final class AbilityLoader {
         boolean hasRecast = built.nodeIds().stream()
                 .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.control.AwaitRecastNode);
         String cdStart = p.getString("cooldown_starts", hasRecast ? "after_recast" : "cast");
-        if (!cdStart.equals("cast") && !cdStart.equals("after_recast") && !cdStart.equals("manual")) {
-            throw p.error("cooldown_starts", "expected cast, after_recast or manual");
+        if (!cdStart.equals("cast") && !cdStart.equals("after_recast") && !cdStart.equals("manual") && !cdStart.equals("end")) {
+            throw p.error("cooldown_starts", "expected cast, after_recast, manual or end");
+        }
+        String stealAs = p.getString("steal_as", null);
+        if (stealAs != null && !p.getBool("stealable", true)) {
+            throw p.error("steal_as", "a stolen copy is given as steal_as: leave stealable out (or true)");
         }
         // Abilities that dash are movement abilities (blocked while rooted) unless they say movement: false.
         boolean dashes = built.nodeIds().stream()
@@ -523,6 +670,9 @@ public final class AbilityLoader {
                 .needsConstructs(p.raw("needs_constructs") instanceof java.util.List<?> ids // several: any of theirs
                         ? String.join(",", p.getStringList("needs_constructs")) : p.getString("needs_constructs", null))
                 .alsoFlying(p.getString("also_flying", null))
+                .cooldownAtEnd(cdStart.equals("end"))
+                .stealable(p.getBool("stealable", true))
+                .stealAs(stealAs)
                 .cooldown(p.getInt("cooldown", 0))
                 .costs(costs(p.getParams("cost")))
                 .mode(Parsers.mode(p))
@@ -535,7 +685,9 @@ public final class AbilityLoader {
     }
 
     private static AbilityDisplay display(String id, Params p) {
-        return new AbilityDisplay(p.getString("name", id), p.getString("icon", null), p.getStringList("description"));
+        int hotbar = p.getInt("hotbar", 0);
+        if (hotbar < 0 || hotbar > 9) throw p.error("hotbar", "a hotbar slot 1-9 for its own icon (0: none)");
+        return new AbilityDisplay(p.getString("name", id), p.getString("icon", null), p.getStringList("description"), hotbar);
     }
 
     /**

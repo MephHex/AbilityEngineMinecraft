@@ -31,6 +31,19 @@ public final class MovementTracker implements Listener {
     private record Step(long tick, Vec3 direction) {}
 
     private final Map<UUID, Step> last = new HashMap<>();
+    /** The server tick each player last jumped on (Paper's jump event: the moment they leave the ground by jumping). */
+    private final Map<UUID, Long> jumped = new HashMap<>();
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onJump(com.destroystokyo.paper.event.player.PlayerJumpEvent e) {
+        jumped.put(e.getPlayer().getUniqueId(), (long) Bukkit.getCurrentTick());
+    }
+
+    /** Did they jump this tick (or the one before: the jump's packet can land just before or after our tick)? */
+    public boolean justJumped(UUID id) {
+        Long at = jumped.get(id);
+        return at != null && Bukkit.getCurrentTick() - at <= 1;
+    }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent e) {
@@ -41,7 +54,10 @@ public final class MovementTracker implements Listener {
     }
 
     @EventHandler
-    public void onQuit(PlayerQuitEvent e) { last.remove(e.getPlayer().getUniqueId()); }
+    public void onQuit(PlayerQuitEvent e) {
+        last.remove(e.getPlayer().getUniqueId());
+        jumped.remove(e.getPlayer().getUniqueId());
+    }
 
     /** Unit horizontal direction the entity is moving, empty if it's standing still. */
     public Optional<Vec3> directionOf(UUID id) {

@@ -125,7 +125,7 @@ class ValkyrieTest {
         assertTrue(t.engine.targeting().isTargeting(p), "choosing where to dive");
         assertTrue(pos(p).y() > 5, "high up: " + pos(p));
         assertTrue(t.engine.tags().has(p, Tags.ANCHORED), "hanging there");
-        assertTrue(t.engine.tags().has(p, Tags.BLOCK_WALK), "can't move");
+        assertFalse(t.engine.tags().has(p, Tags.BLOCK_WALK), "not locked: she can drift a little");
 
         Vec3 spot = pos(enemy).add(0, -1, 0);
         t.world.look(p, spot.subtract(pos(p)));

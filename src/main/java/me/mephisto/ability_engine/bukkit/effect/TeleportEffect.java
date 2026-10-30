@@ -44,7 +44,9 @@ public final class TeleportEffect implements Effect {
 
         Location from = entity.getLocation();
         boolean ground = ctx.params().getBool("ground", false);
-        Location safe = safeSpot(world, dest.get().position(), Convert.vec(from), ground);
+        Vec3 to = dest.get().position();
+        if (ctx.params().getBool("keep_height", false)) to = new Vec3(to.x(), from.getY(), to.z()); // (the engine's spots are body centres)
+        Location safe = safeSpot(world, to, Convert.vec(from), ground);
         if (safe == null) {
             ctx.engine().log().debug(() -> "teleport: no safe spot near " + dest.get().position());
             return;

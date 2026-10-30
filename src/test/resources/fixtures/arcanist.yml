@@ -1,0 +1,583 @@
+# content: fixture_arcanist (the reworked Arcanist; the old kit is fixtures/archmage.yml, whose ultimate keeps the id
+# arcanist_ult1: here it is arcanist_ascension)
+# The Arcanist: primary Arcane Bolt (passive: Arcane Barrage mode), 1 Arcane Missile, 2 Foldstep, 3 Arcane Screen,
+# F Arcane Ascension.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Arcane Barrage): every enemy hit by an Arcane Bolt is +1 charge, by Arcane Missile +2 (5s without one and they're
+#   gone). 6 charges: Barrage mode for 5s - bolts are bigger and burst wider (2.5 blocks instead of 1). Enemies see it:
+#   arcane runes circle him meanwhile. No charges are gained during it. The XP bar shows the charges (and Barrage's time).
+
+statuses:
+  arcane_charge:                     # PASSIVE: charges toward Barrage mode
+    duration: 100                    # 5s without a hit and they're gone
+    stacking: stack
+    max_stacks: 6
+    at_max: arcanist_barrage_mode    # full: Barrage mode
+    positive: false                  # his alone (a tether doesn't copy it)
+  arcanist_barrage_mode:             # PASSIVE: bigger bolts, wider bursts
+    duration: 100                    # 5s
+    stacking: refresh
+    tags: [arcanist.barrage]
+    cue: arcanist_barrage_mode       # runes circling him, for everyone to see
+    positive: false
+  arcanist_mark:                     # Arcane Missile: marked (glowing; his bolts curve toward them)
+    duration: 80                     # 4s
+    stacking: refresh
+    tags: [state.glowing]
+    cue: arcanist_marked
+  arcanist_channeling:               # Arcane Ascension: channeling a geometry - no abilities, no basic attacks
+    duration: 20                     # 1s (until it goes off)
+    tags: [block.ability]
+    positive: false
+  arcanist_geometry_charges:         # Arcane Ascension: geometries left to place (the XP bar during the ultimate)
+    duration: 0                      # until used (the ultimate clears leftovers)
+    stacking: stack
+    max_stacks: 6                    # 3, plus one back for every kill
+    tags: [state.geometry_charged]
+
+abilities:
+
+  # PRIMARY (LMB): Arcane Bolt. A fast bolt (a tumbling 3D star of two wireframe cubes, trailing enchanting glyphs) that
+  # bursts on whatever it hits, enemy or terrain: 50% base damage + 50% spell power to everyone within 1 block. Curves slightly toward enemies you marked with Arcane Missile. In Barrage mode (the passive): a bigger
+  # bolt, a 2.5-block burst.
+  arcanist_primary:
+    cooldown: 16                     # 0.8s between shots (the attack_speed stat sets it)
+    blocked_by: [block.ability]
+    display:
+      name: "Arcane Bolt"
+      icon: AMETHYST_SHARD
+      description:
+        - "Fast bolt, bursts on impact (1 block):"
+        - "{base:0.5} + {sp:0.5}."
+        - "Curves toward marked enemies."
+        - "Passive - Arcane Barrage: hits charge it"
+        - "(bolt +1, missile +2). 6: Barrage mode 5s,"
+        - "bigger bolts, 2.5-block bursts."
+    nodes:
+      mode:
+        type: has_tag
+        tag: arcanist.barrage
+        on: { has: big_fire, lacks: fire }
+      fire:
+        type: projectile
+        speed: 2.4
+        size: 0.5
+        range: 30
+        lifetime: 40
+        visual: wire_star            # two wireframe cubes, one turned inside the other: a 3D star
+        trail: arcanist_bolt_trail   # enchanting glyphs
+        motion:
+          - { type: homing, status: arcanist_mark, range: 12, turn: 0.15, angle: 90 }   # a slight curve toward the marked
+        on: { hit_entity: burst, hit_block: burst }
+      burst:
+        type: apply_effects          # enemy or terrain: it bursts
+        targets: { type: radius, center: hit, radius: 1 }
+        count: bolt_hits
+        effects:
+          - { id: damage, base: 0.5, sp: 0.5 }    # 50% base damage + 50% spell power
+        next: burst_cue
+      burst_cue:
+        type: play_cue
+        cue: arcanist_bolt_burst
+        at: hit
+        next: landed
+      big_fire:                      # Barrage mode
+        type: projectile
+        speed: 2.4
+        size: 0.9
+        visual_size: 0.9
+        range: 30
+        lifetime: 40
+        visual: wire_star
+        trail: arcanist_barrage_trail
+        motion:
+          - { type: homing, status: arcanist_mark, range: 12, turn: 0.15, angle: 90 }
+        on: { hit_entity: big_burst, hit_block: big_burst }
+      big_burst:
+        type: apply_effects
+        targets: { type: radius, center: hit, radius: 2.5 }
+        effects:
+          - { id: damage, base: 0.5, sp: 0.5 }
+        next: big_burst_cue
+      big_burst_cue:
+        type: play_cue
+        cue: arcanist_bolt_burst_big
+        at: hit
+      # ---- the passive: a hit charges it ----
+      landed:
+        type: switch                 # hit nobody: no charge
+        key: bolt_hits
+        on: { "0": ~, default: charging }
+      charging:
+        type: has_tag                # (none during Barrage mode)
+        tag: arcanist.barrage
+        on: { lacks: charge }
+      charge:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: arcane_charge }
+        next: full
+      full:
+        type: has_tag                # that was the 6th: Barrage mode is on, the charges are spent
+        tag: arcanist.barrage
+        on: { has: spent }
+      spent:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: arcane_charge }
+
+  # 1: Arcane Missile (12s). A slow missile. An enemy hit takes 100% base damage and is MARKED for 4s: glowing, and your
+  # bolts curve toward them. Recast (1) while it flies: it turns to your crosshair, EMPOWERED: fast; whoever it hits is
+  # stunned 0.6s and marked, and it explodes (3 blocks). Into terrain unempowered: it sinks into the face it hit, and for
+  # 4s you can recast to fire it back out of there (from a block off the wall), empowered, at your crosshair.
+  # The cooldown starts once it's all over.
+  arcanist_ab1:
+    cooldown: 240
+    cooldown_starts: end             # (through both recasts: in flight, then out of a wall)
+    display:
+      name: "Arcane Missile"
+      icon: ECHO_SHARD
+      description:
+        - "Slow missile: {base:1.0}, marks 4s (glowing,"
+        - "your bolts curve to them). Recast: it flies"
+        - "at your crosshair, stuns 0.6s and explodes."
+        - "Into a wall: it sinks in; recast within 4s."
+    nodes:
+      fire:
+        type: projectile
+        store: missile
+        speed: 0.45
+        size: 0.7
+        lifetime: 100
+        visual: "entity:END_CRYSTAL"
+        on: { spawned: wait_flight, hit_entity: on_hit, hit_block: on_block }
+      # ---- recast while it flies: empowered, at the crosshair ----
+      wait_flight:
+        type: await_recast
+        window: 100
+        while: missile               # (gone: hit someone, or sunk into a wall)
+        on: { recast: empower }
+      empower:
+        type: set
+        key: phase
+        value: empowered
+        next: steer
+      steer:
+        type: redirect_projectile
+        projectile: missile
+        toward: cursor
+        speed: 1.5
+        next: steer_cue
+      steer_cue:
+        type: play_cue
+        cue: cast
+      on_hit:
+        type: switch
+        key: phase
+        on: { empowered: stun_target, default: plain_hit }
+      on_block:
+        type: switch
+        key: phase
+        on: { empowered: explode, default: sink }
+      plain_hit:
+        type: apply_effects
+        on_hit: true                 # buffs apply to the target hit
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.0 }             # 100% base damage
+          - { id: status, status: arcanist_mark }
+        next: plain_cue
+      plain_cue:
+        type: play_cue
+        cue: arcanist_mark_hit
+        at: hit
+        next: charging
+      # ---- into terrain: it sinks in, waiting for the recast ----
+      sink:
+        type: remember_spot          # into the face it hit (the look)...
+        of: hit
+        into: 0.6
+        store: lodged
+        next: mouth
+      mouth:
+        type: remember_spot          # ...and a block out of it (where the empowered one starts: never inside the wall)
+        of: hit
+        into: -1.0
+        store: mouth
+        next: sink_cue
+      sink_cue:
+        type: play_cue
+        cue: arcanist_missile_sink
+        at: lodged
+        next: sit
+      sit:
+        type: fork                   # it sits in the wall while the recast window is open
+        on: { out: stuck, also: wait_recast }
+      stuck:
+        type: construct
+        at: lodged
+        height: 0
+        size: 0.5
+        fuse: 80                     # 4s
+        solid: false                 # shots and punches pass
+        visual: "entity:END_CRYSTAL"
+        cue: arcanist_missile_lodged
+        cue_every: 4
+      wait_recast:
+        type: await_recast
+        window: 80                   # 4s
+        on: { recast: unstick }
+      unstick:
+        type: set_off_constructs     # out of the wall...
+        ability: arcanist_ab1
+        center: lodged
+        radius: 1.5
+        next: crosshair
+      crosshair:
+        type: acquire_target         # ...at whatever is under the crosshair now
+        query: { type: cursor, range: 60 }
+        store: steer_to
+        on: { hit: empowered, miss: empowered }
+      empowered:
+        type: projectile
+        from: mouth
+        toward: steer_to
+        speed: 1.5
+        size: 0.8
+        lifetime: 60
+        visual: "entity:END_CRYSTAL"
+        trail: arcanist_missile_trail
+        on: { spawned: empower_cue, hit_entity: stun_target, hit_block: explode }
+      empower_cue:
+        type: play_cue
+        cue: cast
+        at: mouth
+      stun_target:
+        type: apply_effects
+        on_hit: true                 # buffs apply to the main target (not again via the explosion)
+        targets: { type: key, key: hit }
+        effects:
+          - { id: status, status: stun, duration: 12 }   # 0.6s
+          - { id: status, status: arcanist_mark }
+        next: explode
+      explode:
+        type: apply_effects
+        targets: { type: radius, center: hit, radius: 3 }
+        count: missile_hits
+        effects:
+          - { id: damage, base: 1.65, max_hp: 0.1 }       # 165% base damage + 10% of their max HP
+        next: explode_cue
+      explode_cue:
+        type: play_cue
+        cue: arcanist_missile_blast  # its whole 3-block reach shows, on terrain or on someone
+        at: hit
+        next: blast_landed
+      blast_landed:
+        type: switch                 # the explosion hit nobody: no charge
+        key: missile_hits
+        on: { "0": ~, default: charging }
+      # ---- the passive: +2 charges ----
+      charging:
+        type: has_tag
+        tag: arcanist.barrage
+        on: { lacks: charge }
+      charge:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: arcane_charge, stacks: 2 }
+        next: full
+      full:
+        type: has_tag
+        tag: arcanist.barrage
+        on: { has: spent }
+      spent:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: arcane_charge }
+
+  # ---- Foldstep: aimed, channeled blink ---------------------------------------------
+  #  Press: a preview circle follows your crosshair (only you see it). LMB confirms, right click
+  #  cancels. Nothing is spent until you confirm. Always lands on the ground straight
+  #  below your crosshair; the preview sits on that spot.
+  #  Then: 0.5s channel (rooted, no other abilities, XP bar fills), then teleport.
+  #  Stun or silence during the channel cancels it (the cooldown is still spent).
+  #  During Arcane Ascension (no flying up or down) it's a level blink: over the spot, at the height you fly at.
+  arcanist_ab2:
+    cooldown: 180
+    movement: true                   # a blink: not while rooted (dashes count automatically)
+    display:
+      name: "Foldstep"
+      icon: ENDER_PEARL
+      description:
+        - "Aim, then channel 0.5s (rooted) and"
+        - "teleport there, up to 12 blocks."
+    targeting:
+      shape: circle                  # circle | line | cone | point
+      range: 15                      # the confirmed spot arrives as "aim"
+      radius: 0.6                    # size of the preview
+      ground: true                   # lands on the ground straight below where you aim, at most
+                                     # 40 blocks below your feet (default max_drop). Deeper (off a
+                                     # cliff): you land on the cliff edge instead. Entities are ignored.
+    # Held for the whole cast: root + no other abilities.
+    active_tags: [state.casting, block.move, block.ability]
+    # Use the state.* tags here, NOT block.ability: tags are reference-counted, so while the
+    # cast itself holds block.ability, a stun adding it again doesn't count as "newly added".
+    interrupted_by: [state.stunned, state.silenced]
+    nodes:
+      mark:
+        type: play_cue
+        cue: teleport
+        at: aim                      # shows enemies where you're going
+        next: channel
+      channel:
+        type: delay
+        ticks: 10                    # 0.5s
+        cast_bar: true               # fills the XP bar while you wait
+        next: blink
+      blink:
+        type: has_tag                # flying level (the ultimate): stay up there
+        tag: state.level_flight
+        on: { has: blink_level, lacks: blink_ground }
+      blink_ground:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: teleport, to: aim, ground: true }
+        next: arrive
+      blink_level:
+        type: apply_effects
+        targets: { type: self }
+        effects:
+          - { id: teleport, to: aim, keep_height: true }
+        next: arrive
+      arrive:
+        type: play_cue
+        cue: teleport
+
+  # 3: Arcane Screen (14s). At once (no aiming): a screen of light blue glass in the air 3 blocks ahead of you (or short of a
+  # wall in the way), facing the way you look, 6 wide and 3 tall, for 6s. Enemy projectiles that fly through it stop inside it for 2s, then fly on. Yours and
+  # your allies' fly on 60% faster, and whoever they hit takes 60% of your spell power on top (no base damage).
+  arcanist_ab3:
+    cooldown: 280
+    display:
+      name: "Arcane Screen"
+      icon: LIGHT_BLUE_STAINED_GLASS_PANE
+      description:
+        - "A screen 3 blocks ahead, facing your look,"
+        - "6s. Enemy shots through it stop for 2s."
+        - "Allied shots fly 60% faster and their"
+        - "hit deals +{sp:0.6} more."
+    nodes:
+      raise:
+        type: screen
+        distance: 3                  # 3 blocks ahead along your look (short of a wall)
+        width: 6
+        height: 3
+        hold: 40                     # enemy shots: held 2s
+        accelerate: 1.6              # allied shots: +60% speed...
+        effects:
+          - { id: damage, sp: 0.6, knockback: false }   # ...and 60% spell power on their hit (0 base)
+        catch_cue: arcanist_screen_catch
+        boost_cue: arcanist_screen_boost
+        next: raise_cue
+      raise_cue:
+        type: play_cue
+        cue: arcanist_screen_raise
+        at: screen
+        next: stand
+      stand:
+        type: delay                  # it stands while the cast lasts
+        ticks: 120                   # 6s
+        next: fade
+      fade:
+        type: play_cue
+        cue: arcanist_screen_fade
+        at: screen
+
+  # ULTIMATE (F): Arcane Ascension. Rise into the sky and fly (slowly, and only level: no flying up or down) for 12s, with 3
+  # unstable geometries. The boss bar counts the time down and shows the geometries left (the XP bar too). F again: pick a
+  # spot (a circle, LMB places it, RMB puts the choice away): the geometry appears over it and he channels it for 1s (the XP
+  # bar fills; no abilities, basic attacks or other placing meanwhile), then it explodes (4 blocks: 220% base damage, knocked back); enemies see the
+  # circle on the ground meanwhile. Each enemy it kills gives one back. Foldstep still works up there (a level blink). It
+  # ends when the time runs out, or when the last geometry has gone off.
+  arcanist_ascension:
+    cooldown: 900                    # placeholder until ults charge from damage
+    display:
+      name: "Arcane Ascension"
+      icon: NETHER_STAR
+      description:
+        - "Rise and fly level for 12s, 3 geometries."
+        - "F: pick a spot, channel 1s: it explodes"
+        - "(4 blocks): {base:2.2}. A kill: +1."
+    active_tags: [state.arcanist_ult, state.flying, state.slow_flight]   # flight (slow), and the XP bar (see forms)
+    movement: false                  # Foldstep roots you for a moment: that mustn't end the ultimate...
+    blocked_by: [block.ability, block.move]   # ...but you can't START it while rooted
+    nodes:
+      rise_cue:
+        type: play_cue
+        cue: barrage_rise
+        next: rise
+      rise:
+        type: leap
+        direction: up
+        up: 1.3                      # ~10 blocks up, like Hero's Descent
+        until: apex
+        next: arm
+      arm:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: arcanist_geometry_charges }    # nothing left over from last time
+          - { id: status, status: arcanist_geometry_charges, stacks: 3 }
+        next: level
+      level:
+        type: grant_tags             # at the top: held at this height from now on (on from the start, it'd stop the rise)
+        tags: [state.level_flight]
+        next: split
+      split:
+        type: fork                   # the timer and the placing run side by side
+        on: { out: last, also: pick }
+      last:
+        type: delay
+        ticks: 240                   # 12s
+        boss_bar: true
+        boss_bar_count: arcanist_geometry_charges   # the bar's title: "Arcane Ascension  7.5s  <> 2 geometries"
+        boss_bar_label: "geometries"
+        next: over
+      over:
+        type: apply_effects          # time's up: what's left is gone
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: arcanist_geometry_charges }
+        next: end
+      end:
+        type: end_cast
+      # ---- F again: place one ----
+      pick:
+        type: await_recast
+        window: 240
+        on: { recast: loaded }
+      loaded:
+        type: has_tag
+        tag: state.geometry_charged
+        on: { has: choose, lacks: pick }
+      choose:
+        type: choose_spot            # a circle follows the crosshair: LMB places it there, RMB puts it away
+        range: 60
+        radius: 4
+        timeout: 0                   # no time limit (the ultimate's own)
+        ground: true
+        max_drop: 60
+        store: blast_at
+        on: { out: spend, none: pick, cancelled: pick }
+      spend:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: arcanist_geometry_charges, stacks: 1 }
+        next: place
+      place:
+        type: fork                   # it goes off by itself; he channels it meanwhile, then the next one can be picked
+        on: { out: warn, also: channel }
+      channel:
+        type: apply_effects          # 1s: no abilities or basic attacks until it goes off...
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: arcanist_channeling }
+        next: channel_bar
+      channel_bar:
+        type: delay                  # ...and the XP bar fills meanwhile
+        ticks: 20
+        cast_bar: true
+        next: again
+      warn:
+        type: play_cue               # the circle on the ground, for everyone, until it goes off
+        cue: arcanist_geometry_warn
+        at: blast_at
+        next: geometry
+      geometry:
+        type: construct              # the unstable geometry (Unstable Binding's): spins up as its fuse burns
+        at: blast_at
+        height: 1.2
+        size: 0.8
+        fuse: 20                     # 1s
+        visual: CHORUS_PLANT
+        on: { fuse: blast, struck: blast }   # (your bolt sets it off at once)
+      blast:
+        type: apply_effects
+        targets: { type: radius, center: blast_at, radius: 4, height: 4 }
+        count_kills: kills
+        effects:
+          - { id: damage, base: 2.2 }             # 220% base damage
+          - { id: knockback, from: blast_at, radius: 4, center: 1.2, edge: 0.4, lift: 0.5 }
+        next: blast_cue
+      blast_cue:
+        type: play_cue
+        cue: arcanist_geometry_blast
+        at: blast_at
+        next: bounty
+      bounty:
+        type: switch                 # a kill: a geometry back for each
+        key: kills
+        on: { "0": ~, default: reward }
+      reward:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        times: kills
+        effects:
+          - { id: status, status: arcanist_geometry_charges }
+        next: reward_cue
+      reward_cue:
+        type: play_cue
+        cue: barrage_reload
+      again:
+        type: has_tag                # more to place: wait for F again
+        tag: state.geometry_charged
+        on: { has: pick, lacks: last_one }
+      last_one:
+        type: delay                  # that was the last: once it has gone off (a kill may give one back)...
+        ticks: 5
+        next: recheck
+      recheck:
+        type: has_tag
+        tag: state.geometry_charged
+        on: { has: pick, lacks: end }   # ...none left: the ultimate is over
+
+characters:
+  arcanist:
+    name: "Arcanist"
+    weapon: BREEZE_ROD
+    stats:                           # see docs/character-stats.md
+      health: 175                    # max HP
+      armor: 10                      # damage taken x 100 / (100 + armor)
+      base_damage: 28                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      attack_speed: 1.25             # basic attacks per second
+    status_bar: { status: arcane_charge, fill: stacks }   # XP bar: the passive's charges (out of 6)
+    slots:
+      primary: arcanist_primary      # LMB: Arcane Bolt
+      ability_1: arcanist_ab1        # 1, press 1 again (missile in a wall) to recast
+      ability_2: arcanist_ab2        # 2, LMB to confirm
+      ability_3: arcanist_ab3        # 3, LMB to place
+      ultimate: arcanist_ascension        # F: Arcane Ascension (F again: place a geometry)
+    forms:
+      - while: state.arcanist_ult    # during Arcane Ascension: the XP bar counts the geometries left
+        slots: {}
+        status_bar: arcanist_geometry_charges
+      - while: arcanist.barrage      # in Barrage mode: the XP bar runs down its time
+        slots: {}
+        status_bar: { status: arcanist_barrage_mode, level: none }

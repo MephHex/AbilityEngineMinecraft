@@ -146,7 +146,7 @@ abilities:
       range: 12                      # the confirmed spot arrives as "aim"
       radius: 0.6                    # size of the preview
       ground: true                   # lands on the ground straight below where you aim, at most
-                                     # 6 blocks below your feet (default max_drop). Deeper (off a
+                                     # 40 blocks below your feet (default max_drop). Deeper (off a
                                      # cliff): you land on the cliff edge instead. Entities are ignored.
     # Held for the whole cast: root + no other abilities.
     active_tags: [state.casting, block.move, block.ability]

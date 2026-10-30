@@ -20,6 +20,7 @@ public final class RadiusQuery implements TargetQuery {
     private final boolean includeCaster;
     private final double inner;
     private final boolean sight;
+    private double height;          // > 0: a column instead of a sphere (radius on the ground, this tall from the centre up)
 
     /** The line of sight starts this far above the centre (a spot on the ground would start inside it). */
     private static final double SIGHT_LIFT = 0.4;
@@ -41,6 +42,15 @@ public final class RadiusQuery implements TargetQuery {
         this.includeCaster = includeCaster;
     }
 
+    /**
+     * A column: everything within {@code radius} on the ground of the centre, from a block below it to {@code height}
+     * above (someone lifted high over a circle on the ground is still in it).
+     */
+    public RadiusQuery column(double height) {
+        this.height = height;
+        return this;
+    }
+
     /** Distance on the ground plane (a ring on the floor: height doesn't count). */
     private static double flat(me.mephisto.ability_engine.engine.math.Vec3 a, me.mephisto.ability_engine.engine.math.Vec3 b) {
         double dx = a.x() - b.x(), dz = a.z() - b.z();
@@ -59,6 +69,13 @@ public final class RadiusQuery implements TargetQuery {
         var c = center.get().position();
         var eye = c.add(0, SIGHT_LIFT, 0);
         String w = center.get().world();
+        if (height > 0) {
+            return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), Math.hypot(radius, height + 1)),
+                    e -> flat(e.center(), c) <= radius && e.center().y() >= c.y() - 1 && e.center().y() <= c.y() + height
+                            && (inner <= 0 || flat(e.center(), c) > inner),
+                    e -> flat(e.center(), c),
+                    includeCaster, maxTargets);
+        }
         return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), radius),
                 e -> e.center().distance(c) <= radius && (inner <= 0 || flat(e.center(), c) > inner)
                         && (!sight || world.sweep(w, eye, e.center(), 0.05, id -> true).isEmpty()), // blocks only

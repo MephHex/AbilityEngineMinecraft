@@ -27,6 +27,9 @@ public final class Teams {
 
     public boolean allies(UUID a, UUID b) {
         if (a.equals(b)) return true;
+        // friendly fire (state.friendly_fire): on nobody's side for now, their own team's enemy too
+        if (tags != null && (tags.has(a, me.mephisto.ability_engine.engine.tag.Tags.FRIENDLY_FIRE)
+                || tags.has(b, me.mephisto.ability_engine.engine.tag.Tags.FRIENDLY_FIRE))) return false;
         Optional<String> ta = world.teamOf(a);
         return ta.isPresent() && Objects.equals(ta.get(), world.teamOf(b).orElse(null));
     }

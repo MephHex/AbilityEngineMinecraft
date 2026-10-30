@@ -21,7 +21,7 @@ statuses:
   valkyrie_hovering:                   # Valkyrie's Leap, the dive: hanging in the sky while choosing where to dive
     duration: 80                     # safety cap; removed as the dive starts
     stacking: refresh
-    tags: [state.anchored, block.walk]   # hangs there, can't move
+    tags: [state.anchored]           # hangs at that height, drifting a little (like the Vanguard's Hero's Descent)
     positive: false
   valkyrie_battle_cry:                 # War Cry: faster and stronger
     duration: 80                     # 4s
@@ -68,7 +68,7 @@ abilities:
 
   # 1: Valkyrie's Leap (8s). Leap forward and slash a half circle in front of you as you land (4 blocks): 100% base
   # damage, and your next basic attack is ready at once. Hit someone: press 1 again (within 3s) to leap and slash again.
-  # Hit again: press 1 once more to soar up (you can't move up there) and pick a spot (1 again, or where you look after
+  # Hit again: press 1 once more to soar up (you can drift a little up there) and pick a spot (1 again, or where you look after
   # 3s): you dive onto it, 140% base damage within 4 blocks, knocking enemies up. Not while gliding. Builds Fervor.
   # The cooldown starts when the chain ends: a miss, a window let go, or the third press (the dive). Until then its icon
   # glints while 1 can be pressed again.
@@ -186,7 +186,7 @@ abilities:
         until: apex
         next: hover
       hover:
-        type: apply_effects          # ...and hang there (can't move)
+        type: apply_effects          # ...and hang there (drifting a little)
         targets: { type: self }
         on_hit: false
         effects:
@@ -396,6 +396,7 @@ abilities:
   # ULTIMATE (F): Divine Ward. 5s to choose (a boss bar; the ally in your sights glows): LMB wards that ally, RMB wards
   # yourself: no damage for 4s, and they can't die. F again: cancel. (The cooldown starts as you press F.)
   valkyrie_ult1:
+    stealable: false                 # Stolen Fable can't take it: choosing is the Valkyrie's own LMB / RMB meanwhile (a form)
     cooldown: 1200                   # placeholder until ults charge from damage
     cancel_on_repress: true          # F again: cancel
     active_tags: [state.choosing_ward]   # LMB / RMB pick (see forms below)

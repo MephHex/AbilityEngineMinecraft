@@ -91,6 +91,54 @@ class ItemHooksTest {
     }
 
     @Test
+    void aSureCritDealsCritDamageOnBasicAttacksAndRunsOnCrit() throws IOException {
+        setup(Map.of(
+                "edge", Map.of("crit_chance", 1.0, "crit_damage", 0.25,
+                        "on_crit", List.of(Map.of("id", "status", "status", "shred"), Map.of("id", "status", "status", "rush", "self", true))),
+                "shred", Map.of("duration", 40, "armor", 0.9),
+                "rush", Map.of("duration", 40, "move_speed", 1.25)));
+        UUID enemy = foe(2, 0);
+        give("edge");
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
+        assertEquals(BASE * 2.0, t.damage(enemy), 1e-6, "175% + 25%");
+        assertTrue(has(enemy, "shred"), "on_crit: on whoever it hit");
+        assertTrue(has(p, "rush"), "self: on the attacker");
+    }
+
+    @Test
+    void abilitiesOnlyCritWithAbilityCrits() throws IOException {
+        setup(Map.of("edge", Map.of("crit_chance", 1.0), "lens", Map.of("ability_crits", true)));
+        UUID enemy = foe(2, 0);
+        give("edge");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success()); // Venom Dagger: 60%
+        double plain = t.damage(enemy);
+        assertEquals(BASE * 0.6, plain, 1e-6, "an ability doesn't crit");
+        t.engine.cooldowns().clearAll(p);
+        give("lens");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
+        assertEquals(BASE * 0.6 * 1.75, t.damage(enemy) - plain, 1e-6, "with ability_crits it does");
+    }
+
+    @Test
+    void spellPowerIsPointsOnlySpellPowerPartsScaleWith() throws IOException {
+        setup(Map.of("tome", Map.of("spell_power", 30)));
+        t.load(Map.of("abilities", Map.of("zap", Map.of("nodes", Map.of("hit", Map.of("type", "apply_effects",
+                "targets", Map.of("type", "radius", "radius", 20),
+                "effects", List.of(Map.of("id", "damage", "base", 0.2, "sp", 0.9, "knockback", false))))))));
+        UUID enemy = foe(2, 0);
+        assertTrue(t.engine.activator().activate(p, "zap").success());
+        assertEquals(BASE * 0.2, t.damage(enemy), 1e-6, "no spell power: only the base part");
+        give("tome");
+        assertEquals(30, t.engine.stats().spellPower(p), 1e-9);
+        t.engine.cooldowns().clear(p, "zap");
+        t.time.advance(20);
+        assertTrue(t.engine.activator().activate(p, "zap").success());
+        assertEquals(BASE * 0.2 * 2 + 27, t.damage(enemy), 1e-6, "90% of 30 more");
+        assertEquals(100, DamageModifiers.apply(t.engine, p, enemy, 100, 1, true).amount(), 1e-9,
+                "it doesn't multiply anything else");
+    }
+
+    @Test
     void maxHealthMultipliesTheirMaxHp() throws IOException {
         setup(Map.of("elixir", Map.of("max_health", 1.2)));
         assertEquals(230, t.engine.stats().maxHealth(p), 1e-9);

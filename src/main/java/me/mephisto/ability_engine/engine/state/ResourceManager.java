@@ -21,7 +21,21 @@ public final class ResourceManager {
         long updatedAt;           // tick the value was last brought up to date
         long lastSpend = Long.MIN_VALUE / 2;
         long heldAt = Long.MIN_VALUE / 2; // last holdReload: still in use (a volley in hand or firing)
+        long lastGain = Long.MIN_VALUE / 2; // expire_after: it all goes this long after the last gain
     }
+
+    /** Told when a pool that expires (expire_after) gains some, and when it's spent down to nothing. */
+    public interface ExpiryListener {
+        /** Some was gained: its time starts over from now. */
+        void gained(UUID owner, ResourceDef def);
+
+        /** The last of it was spent (or it was set to nothing): there's nothing left to expire. */
+        void emptied(UUID owner, ResourceDef def);
+    }
+
+    private ExpiryListener expiry;
+
+    public void setExpiryListener(ExpiryListener listener) { this.expiry = listener; }
 
     /** A holdReload this recent still counts as in use (volley bullets go every 3 ticks). */
     private static final long HELD_TICKS = 3;
@@ -33,12 +47,13 @@ public final class ResourceManager {
         this.clock = clock;
     }
 
-    /** Give an owner a defined pool, starting full. Re-defining keeps the current value (clamped). */
+    /** Give an owner a defined pool, starting full (or at its start). Re-defining keeps the current value (clamped). */
     public void define(UUID owner, ResourceDef def) {
         Pool p = pools.computeIfAbsent(owner, k -> new HashMap<>()).get(def.id());
         if (p == null) {
             p = new Pool();
-            p.value = def.max();
+            p.value = def.start() < 0 ? def.max() : Math.min(def.start(), def.max());
+            p.lastGain = clock.now(); // (what it starts with counts as gained now)
             pools.get(owner).put(def.id(), p);
         } else {
             update(p);
@@ -62,8 +77,10 @@ public final class ResourceManager {
     public void consume(UUID owner, String resource, double amount) {
         Pool p = poolOrCreate(owner, resource);
         update(p);
+        double before = p.value;
         p.value = Math.max(0, p.value - amount);
         p.lastSpend = clock.now();
+        changed(owner, p, before);
     }
 
     /**
@@ -81,13 +98,44 @@ public final class ResourceManager {
     public void add(UUID owner, String resource, double amount) {
         Pool p = poolOrCreate(owner, resource);
         update(p);
+        double before = p.value;
         p.value = clamp(p, p.value + amount);
+        if (amount > 0) gained(owner, p);
+        changed(owner, p, before);
     }
 
     public void set(UUID owner, String resource, double amount) {
         Pool p = poolOrCreate(owner, resource);
         update(p);
+        double before = p.value;
         p.value = clamp(p, Math.max(0, amount));
+        if (p.value > before) gained(owner, p);
+        changed(owner, p, before);
+    }
+
+    /**
+     * Ticks until all of it expires (expire_after: that long after the last gain); 0 when it doesn't expire or there's
+     * none.
+     */
+    public long expiresIn(UUID owner, String resource) {
+        Pool p = pool(owner, resource);
+        if (p == null || p.def == null || p.def.expireTicks() <= 0) return 0;
+        update(p);
+        if (p.value <= 1e-9) return 0;
+        return Math.max(0, p.lastGain + p.def.expireTicks() - clock.now());
+    }
+
+    /** Some was gained: an expiring pool's time starts over. */
+    private void gained(UUID owner, Pool p) {
+        if (p.def == null || p.def.expireTicks() <= 0) return;
+        p.lastGain = clock.now();
+        if (expiry != null) expiry.gained(owner, p.def);
+    }
+
+    /** It went from some to none: an expiring pool has nothing left to expire. */
+    private void changed(UUID owner, Pool p, double before) {
+        if (p.def == null || p.def.expireTicks() <= 0 || expiry == null) return;
+        if (before > 1e-9 && p.value <= 1e-9) expiry.emptied(owner, p.def);
     }
 
     /** Current amount, including regen up to now. */
@@ -143,6 +191,10 @@ public final class ResourceManager {
 
     private void update(Pool p) {
         long now = clock.now();
+        // expire_after: nothing gained for that long, it's all gone (its status runs out at the same moment by itself).
+        if (p.def != null && p.def.expireTicks() > 0 && p.value > 0 && now >= p.lastGain + p.def.expireTicks()) {
+            p.value = 0;
+        }
         // Ammo: empty, and the reload time since the last shot is up: full again.
         if (p.def != null && p.def.reloadTicks() > 0 && p.value < 1 - 1e-9 && now >= p.lastSpend + p.def.reloadTicks()) {
             p.value = p.def.max();

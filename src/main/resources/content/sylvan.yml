@@ -601,6 +601,7 @@ abilities:
   # ULTIMATE (F): Walking Tree. Tear your roots out and walk for 8s (a boss bar; no abilities meanwhile): every 0.5s
   # each enemy in your domain loses 30% base damage, and it heals you. Then you take root again where you stand.
   sylvan_walk:
+    stealable: false                 # Stolen Fable can't take it: it uproots and replants the Sylvan's tree (it would plant anyone else)
     cooldown: 1200                   # placeholder until ults charge from damage
     active_tags: [state.walking_tree, block.ability]   # walking: no abilities
     display:

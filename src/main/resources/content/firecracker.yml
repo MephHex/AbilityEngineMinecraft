@@ -1,0 +1,354 @@
+# content: firecracker
+# The Firecracker: a marksman with fireworks. Fires every shot twice, blinds whoever watches her rockets go off, fills
+# corners with bouncing rockets, rocket-jumps on her own firework bombs, and ends the show with a grand finale.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Double Tap): every basic attack fires two shots, a moment apart: 50% base damage each, and each applies
+#   on-hit effects (items' too). A kill: 50% faster basic attacks for 3s.
+
+statuses:
+  firecracker_rush:                  # PASSIVE: Double Tap, after a kill
+    duration: 60                     # 3s
+    stacking: refresh
+    attack_speed: 1.5                # +50%
+    tags: [buff.rush]
+    positive: false                  # (hers alone: a tether doesn't copy it)
+  firecracker_flashed:               # Rocket: watched it go off - blinded (a white flash, then Blindness)
+    duration: 40                     # 2s
+    stacking: refresh
+    tags: [state.blinded]
+    cue: firecracker_flashed
+  firecracker_slowed:                # Firework Bomb: shaken
+    duration: 40                     # 2s
+    stacking: refresh
+    move_speed: 0.6                  # -40%
+    cue: firecracker_dazed
+  firecracker_soaring:               # Firework Bomb, on herself: blown into the air, the landing doesn't hurt
+    duration: 80
+    stacking: refresh
+    tags: [state.safe_fall]
+    positive: false
+
+abilities:
+
+  # PRIMARY (LMB): Firecracker. Double Tap: two small bullets (1.8 blocks/tick, 25 blocks), 0.15s apart, each 50% base
+  # damage, crackling into sparks on whatever it hits.
+  firecracker_primary:
+    cooldown: 12                     # (the attack_speed stat sets it)
+    display:
+      name: "Firecracker"
+      description:
+        - "Double Tap: two shots, 50% base damage"
+        - "each (both apply on-hit effects). A kill:"
+        - "+50% attack speed 3s."
+    nodes:
+      volley:
+        type: repeat                 # Double Tap
+        times: 2
+        every: 3
+        on: { each: shoot }
+      shoot:
+        type: projectile
+        speed: 1.8
+        size: 0.25
+        range: 25
+        lifetime: 20
+        visual: "block:REDSTONE_BLOCK"
+        visual_size: 0.15
+        trail: firecracker_spark
+        on: { spawned: shoot_cue, hit_entity: hit, hit_block: pop }
+      shoot_cue:
+        type: play_cue
+        cue: firecracker_shot
+      hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.5, ignore_iframes: true }
+        next: pop
+      pop:
+        type: play_cue
+        cue: firecracker_hit           # a crackle of sparks
+        at: hit
+
+  # ULTIMATE's basic attack: Grand Finale. Double Tap: two big fireworks, each 100% base damage (50% more than a normal
+  # shot) and knocking the enemy back, bursting big.
+  firecracker_finale:
+    cooldown: 12                     # (the attack_speed stat sets it)
+    display:
+      name: "Grand Finale"
+      description:
+        - "Double Tap: two big fireworks, 100% base"
+        - "damage each, knocking back."
+    nodes:
+      volley:
+        type: repeat
+        times: 2
+        every: 3
+        on: { each: shoot }
+      shoot:
+        type: projectile
+        speed: 1.6
+        size: 0.5
+        range: 30
+        lifetime: 25
+        visual: FIREWORK_ROCKET
+        visual_size: 0.6
+        face_flight: true
+        trail: firecracker_trail
+        on: { spawned: shoot_cue, hit_entity: hit, hit_block: burst }
+      shoot_cue:
+        type: play_cue
+        cue: firecracker_finale_shot
+      hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.0, ignore_iframes: true, knockback: false }
+          - { id: knockback, from: caster, radius: 40, center: 0.9, edge: 0.9, lift: 0.35 }
+        next: burst
+      burst:
+        type: play_cue
+        cue: firecracker_finale_burst
+        at: hit
+
+  # 1: Rocket (9s). A firework rocket (1.4 blocks/tick, 30 blocks) that explodes on what it hits: 90% base damage within
+  # 3 blocks, and they burn. Any enemy who saw it go off (within 14 blocks, looking at it, no wall in between) is
+  # flashbanged: blinded for 2s.
+  firecracker_ab1:
+    cooldown: 180                    # 9s
+    display:
+      name: "Rocket"
+      icon: FIREWORK_ROCKET
+      description:
+        - "A rocket: explodes for 90% (3 blocks),"
+        - "burning them. Whoever watched it go off is"
+        - "blinded 2s."
+    nodes:
+      launch:
+        type: projectile
+        speed: 1.4
+        size: 0.5
+        range: 30
+        lifetime: 40
+        visual: FIREWORK_ROCKET
+        visual_size: 0.5
+        face_flight: true
+        trail: firecracker_trail
+        store: rocket
+        on: { spawned: launch_cue, hit_entity: blast, hit_block: blast }
+      launch_cue:
+        type: play_cue
+        cue: firecracker_launch
+      blast:
+        type: apply_effects
+        targets: { type: radius, center: rocket, radius: 3 }
+        effects:
+          - { id: damage, base: 0.9 }
+          - { id: status, status: burn }
+        next: flash
+      flash:
+        type: apply_effects          # whoever was looking at it
+        targets: { type: radius, center: rocket, radius: 14, sight: true, looking_at: 70 }
+        effects:
+          - { id: status, status: firecracker_flashed }
+        next: blast_cue
+      blast_cue:
+        type: play_cue
+        cue: firecracker_rocket_blast
+        at: rocket
+
+  # 2: Scatter Fire (10s). Three small rockets packed tight together (10 degrees), fast: they ricochet off the ground and
+  # walls, hardly slowing, until they burn out (1.5s), and fly through enemies (45% base damage each, once per rocket).
+  # Like an old scatter arrow: fire it at a wall or the floor near them.
+  firecracker_ab2:
+    cooldown: 200                    # 10s
+    display:
+      name: "Scatter Fire"
+      icon: GUNPOWDER
+      description:
+        - "Three fast rockets, close together, that"
+        - "ricochet off walls and floors: through"
+        - "enemies, 45% each, until they burn out."
+    nodes:
+      scatter:
+        type: projectile
+        count: 3
+        fan: 10                      # close together
+        speed: 1.9                   # fast
+        size: 0.35
+        lifetime: 30                 # 1.5s
+        bounces: 12
+        bounce_walls: true
+        restitution: 0.9             # ricochets, hardly slowing
+        friction: 0.02
+        pierce: 10
+        motion:
+          - { type: gravity, amount: 0.02 }
+        visual: FIREWORK_ROCKET
+        visual_size: 0.3
+        face_flight: true
+        trail: firecracker_spark
+        store: scatter
+        on: { spawned: scatter_cue, hit_entity: singe, expired: fizzle }
+      scatter_cue:
+        type: play_cue
+        cue: firecracker_scatter
+      singe:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.45, ignore_iframes: true }
+        next: singe_cue
+      singe_cue:
+        type: play_cue
+        cue: firecracker_pop
+        at: hit
+      fizzle:
+        type: play_cue
+        cue: firecracker_pop
+        at: scatter
+
+  # 3: Firework Bomb (14s). Pick a circle (18 blocks; radius 4): after a short wind-up (0.4s, no basic attacks) you throw
+  # a firework bomb there. 1.5s later it goes off: enemies within 4 blocks take 60% base damage, are knocked back and up,
+  # and slowed 40% for 2s. Press 3 again meanwhile to set it off early (its icon glints while you can). Caught in it
+  # yourself: blown back and up too (no damage, no slow, no fall damage): a rocket jump.
+  firecracker_ab3:
+    cooldown: 280                    # 14s
+    cooldown_starts: cast            # (from the throw, not from the early detonation)
+    targeting: { shape: circle, range: 18, radius: 4, ground: true }
+    active_tags: [state.disarmed]    # (the wind-up: released as she throws)
+    display:
+      name: "Firework Bomb"
+      icon: TNT
+      description:
+        - "Pick a spot: throw a firework bomb. 1.5s"
+        - "later (or 3 again): 60%, knocked back and"
+        - "up, -40% speed 2s (4 blocks). Works on"
+        - "you too."
+    nodes:
+      windup_cue:
+        type: start_cue
+        cue: firecracker_windup
+        next: windup
+      windup:
+        type: delay
+        ticks: 8                     # 0.4s
+        cast_bar: true
+        next: free
+      free:
+        type: release_tags
+        next: throw
+      throw:
+        type: projectile
+        toward: aim
+        speed: 1.2
+        size: 0.3
+        lifetime: 40
+        visual: "block:TNT"
+        visual_size: 0.35
+        trail: firecracker_spark
+        store: thrown
+        on: { spawned: throw_cue, hit_block: landed, hit_entity: landed, expired: landed }
+      throw_cue:
+        type: play_cue
+        cue: firecracker_throw
+      landed:
+        type: fork                   # the bomb, and 3 again to set it off early
+        on: { out: plant, also: early }
+      early:
+        type: await_recast
+        window: 30                   # = the fuse
+        on: { recast: detonate, timeout: ~ }
+      detonate:
+        type: set_off_constructs     # the bomb goes off now (its "triggered")
+        ability: firecracker_ab3
+        center: thrown
+        radius: 2
+      plant:
+        type: construct
+        at: thrown
+        height: 0
+        size: 0.5
+        fuse: 30                     # 1.5s
+        solid: false
+        visual: "block:TNT"
+        store: bomb
+        cue: firecracker_fuse
+        cue_every: 3
+        on: { fuse: boom, triggered: boom }   # its time, or 3 again
+      boom:
+        type: apply_effects
+        targets: { type: radius, center: bomb, radius: 4 }
+        effects:
+          - { id: damage, base: 0.6, knockback: false }
+          - { id: knockback, from: bomb, radius: 4, center: 1.1, edge: 0.6, lift: 0.8 }   # back and up
+          - { id: status, status: firecracker_slowed }
+        next: boom_cue
+      boom_cue:
+        type: play_cue
+        cue: firecracker_bomb_blast
+        at: bomb
+        next: caught
+      caught:
+        type: in_range               # herself too: just the push
+        center: bomb
+        radius: 4
+        on: { inside: soar }
+      soar:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: firecracker_soaring }
+          - { id: knockback, from: bomb, radius: 4, center: 1.1, edge: 0.6, lift: 1.0 }
+
+  # ULTIMATE (F): Grand Finale (6s, a boss bar). Your basic attacks become big fireworks: still two a shot, each 100% base
+  # damage (50% more) and knocking the enemy back.
+  firecracker_ult:
+    stealable: false                 # Stolen Fable can't take it: the fireworks are the Firecracker's own primary meanwhile (a form)
+    cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
+    active_tags: [state.grand_finale]   # the finale kit (see forms)
+    display:
+      name: "Grand Finale"
+      icon: GLOWSTONE_DUST
+      description:
+        - "6s: your basic attacks are big fireworks,"
+        - "100% each (two a shot), knocking back."
+    nodes:
+      open:
+        type: play_cue
+        cue: firecracker_finale_start
+        next: show
+      show:
+        type: start_cue
+        cue: firecracker_finale_aura
+        next: last
+      last:
+        type: delay
+        ticks: 120                   # 6s
+        boss_bar: true
+
+characters:
+  firecracker:
+    name: "Firecracker"
+    weapon: FIREWORK_STAR
+    stats:                           # see docs/character-stats.md
+      health: 190                    # max HP
+      armor: 5                       # damage taken x 100 / (100 + armor)
+      base_damage: 40                # abilities deal % of this
+      move_speed: 1.05               # x vanilla walking speed
+      attack_speed: 1.6              # shots per second (two bullets each): 20 / 1.6 rounds to 12 ticks
+    on_kill:                         # PASSIVE: Double Tap's rush
+      effects:
+        - { id: status, status: firecracker_rush }
+      cue: firecracker_kill
+    forms:
+      - while: state.grand_finale    # Grand Finale: big fireworks
+        slots: { primary: firecracker_finale }
+    slots:
+      primary: firecracker_primary   # LMB: Firecracker (Double Tap)
+      ability_1: firecracker_ab1     # 1: Rocket
+      ability_2: firecracker_ab2     # 2: Scatter Fire
+      ability_3: firecracker_ab3     # 3: Firework Bomb
+      ultimate: firecracker_ult      # F: Grand Finale

@@ -98,14 +98,46 @@ class TargetingTest {
     }
 
     @Test
-    void anotherAbilitySwitchesAndCastsIt() {
+    void anInstantAbilityFiresAndTheAimStaysUp() {
         TestEngine t = setup();
         UUID p = t.spawn(0, 1, 0);
         t.engine.activator().activate(p, "blink");
         assertTrue(t.engine.activator().activate(p, "zap").success());
-        assertFalse(t.engine.targeting().isTargeting(p));
+        assertTrue(t.engine.cooldowns().remainingTicks(p, "zap") > 0, "zap was cast");
+        assertTrue(t.engine.targeting().isTargeting(p), "still aiming blink");
+        assertEquals("blink", t.engine.targeting().current(p).orElseThrow().id());
         assertEquals(0, t.engine.cooldowns().remainingTicks(p, "blink"));
+        assertTrue(t.render.previewEnds.isEmpty());
+        assertTrue(t.engine.targeting().confirm(p).success(), "and blink can still be confirmed");
+    }
+
+    @Test
+    void anotherAimedAbilitySwitchesThePreview() {
+        TestEngine t = new TestEngine();
+        Map<String, Object> f = file();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> abilities = (Map<String, Object>) f.get("abilities");
+        abilities.put("wall", map("cooldown", 100,
+                "targeting", map("shape", "point", "range", 10),
+                "nodes", map("hurt", map("type", "apply_effects", "targets", map("type", "self"),
+                        "effects", list(map("id", "damage", "amount", 1))))));
+        t.load(f);
+        UUID p = t.spawn(0, 1, 0);
+        t.engine.activator().activate(p, "blink");
+        assertTrue(t.engine.activator().activate(p, "wall").openedTargeting());
+        assertEquals("wall", t.engine.targeting().current(p).orElseThrow().id(), "now aiming the other one");
         assertEquals(list("switched"), t.render.previewEnds);
+        assertEquals(0, t.engine.cooldowns().remainingTicks(p, "blink"), "nothing spent");
+    }
+
+    @Test
+    void anAbilityThatCantBeCastLeavesTheAimAlone() {
+        TestEngine t = setup();
+        UUID p = t.spawn(0, 1, 0);
+        t.engine.activator().activate(p, "zap");
+        t.engine.activator().activate(p, "blink");
+        assertFalse(t.engine.activator().activate(p, "zap").success(), "zap is on cooldown");
+        assertTrue(t.engine.targeting().isTargeting(p), "still aiming blink");
     }
 
     @Test

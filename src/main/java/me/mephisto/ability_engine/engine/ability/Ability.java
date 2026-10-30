@@ -38,6 +38,11 @@ import java.util.Set;
  *                        of shards left lying around); its icon counts them, greyed out with none (null = always)
  * @param alsoFlying      with needsConstructs: the projectiles that ability's node of this name has flying count too
  *                        (e.g. shards still on their way, that a recall stops and calls back); null = only constructs
+ * @param cooldownAtEnd   the cooldown starts when the cast ends, however it ends (its time is up, its summon is gone,
+ *                        the caster died), and no second cast starts while one runs ({@code cooldown_starts: end})
+ * @param stealable       another caster can take a copy of it (an ultimate stolen by Stolen Fable); false: it reads its
+ *                        owner's own kit (forms, ammo...) and doesn't work for anyone else
+ * @param stealAs         stolen, the thief gets this ability instead (a version that works for any caster); null = itself
  */
 public record Ability(
         String id,
@@ -61,7 +66,10 @@ public record Ability(
         boolean recastMovement,
         String passiveWhile,
         String needsConstructs,
-        String alsoFlying
+        String alsoFlying,
+        boolean cooldownAtEnd,
+        boolean stealable,
+        String stealAs
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -97,6 +105,9 @@ public record Ability(
         private String passiveWhile;
         private String needsConstructs;
         private String alsoFlying;
+        private boolean cooldownAtEnd;
+        private boolean stealable = true;
+        private String stealAs;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -128,6 +139,12 @@ public record Ability(
         public Builder needsConstructs(String abilityId) { this.needsConstructs = abilityId; return this; }
         /** With needsConstructs: that ability's projectiles from this node, still flying, count too. */
         public Builder alsoFlying(String node) { this.alsoFlying = node; return this; }
+        /** The cooldown starts when the cast ends, however it ends; one cast at a time meanwhile. */
+        public Builder cooldownAtEnd(boolean v) { this.cooldownAtEnd = v; return this; }
+        /** Can another caster take a copy of it (steal_ultimate)? */
+        public Builder stealable(boolean v) { this.stealable = v; return this; }
+        /** Stolen, the thief gets this ability instead (null = itself). */
+        public Builder stealAs(String abilityId) { this.stealAs = abilityId; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -142,7 +159,8 @@ public record Ability(
             }
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
                     cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
-                    refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile, needsConstructs, alsoFlying);
+                    refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile, needsConstructs, alsoFlying, cooldownAtEnd,
+                    stealable, stealAs);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

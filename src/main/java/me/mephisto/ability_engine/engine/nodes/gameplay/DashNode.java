@@ -36,10 +36,13 @@ import java.util.Set;
  * them. Only walls stop it (anyone in the way is flown past, floors are glided along); it gives up ("miss")
  * after flying {@code range} blocks' worth of ticks, or if they're gone.
  * <p>Whoever dashes has the tag {@code state.dashing} meanwhile (e.g. a hover passive holds off).
+ * <p>With a {@code wall} port wired, being stopped by terrain (or an enemy barrier, or stuck) exits "wall" instead of
+ * "miss" (which is then only running out of range), e.g. someone flung into a wall sticks to it.
  */
 public final class DashNode implements GraphNode {
 
-    private static final Set<String> OUTPUTS = Set.of(Ports.HIT, Ports.MISS, Ports.PASSED);
+    public static final String WALL = "wall";
+    private static final Set<String> OUTPUTS = Set.of(Ports.HIT, Ports.MISS, Ports.PASSED, WALL);
     /** How far to look for the cursor point with toward: cursor (then capped at the dash's range). */
     private static final double CURSOR_RANGE = 40;
     /**
@@ -62,6 +65,15 @@ public final class DashNode implements GraphNode {
     private String toKey;               // dash to the point in this key (stopping there), e.g. a chosen landing spot
     private double stopShort;           // with toKey: stop this many blocks before it (e.g. in front of the caster)
     private boolean follow;             // with toKey: chase the entity in it (re-aimed every tick) until reaching them
+    private boolean walls;              // stopped by terrain: "wall" instead of "miss"
+
+    /** Stopped by terrain (a wall, a barrier, stuck): exit "wall" instead of "miss". */
+    public DashNode walls(boolean walls) {
+        this.walls = walls;
+        return this;
+    }
+
+    private String wallPort() { return walls ? WALL : Ports.MISS; }
 
     /** Above the followed entity's centre: where a follow dash arrives (over their head, not into their body). */
     private static final double FOLLOW_ABOVE = 1.2;
@@ -178,6 +190,8 @@ public final class DashNode implements GraphNode {
         }
         dir = dir.normalize();
         if (dir.isZero()) return NodeResult.out(Ports.MISS);
+        // A mirroring clone dashing along the caster's aim: its mirror image's way (toward them if they dash at it)
+        if (!mover.equals(ctx.caster()) && !towardCursor && toKey == null && !follow) dir = engine.mirrors().reflect(mover, dir);
 
         if (store != null) ctx.blackboard().putRaw(store + "_start", start.get());
         // An echo dashing turns to face where it's going first. Never a player's camera (the caster's, or an
@@ -254,7 +268,11 @@ public final class DashNode implements GraphNode {
             }
             boolean stuck = stillTicks >= (moving ? STUCK_TICKS : START_GRACE_TICKS);
             boolean outOfRange = chased == null && here.distance(start.position()) >= maxRange; // (a chase: ticks only)
-            if (outOfRange || ++ticks > maxTicks || stuck) {
+            if (stuck && !outOfRange) {
+                finish(wallPort());
+                return;
+            }
+            if (outOfRange || ++ticks > maxTicks) {
                 finish(Ports.MISS);
                 return;
             }
@@ -264,7 +282,7 @@ public final class DashNode implements GraphNode {
             var barrier = engine.barriers().cross(pos.get().world(), here, ahead, radius, ctx.caster());
             if (barrier.isPresent()) { // an enemy's frontal barrier: like hitting a wall
                 engine.barriers().blocked(pos.get().world(), barrier.get().position());
-                finish(Ports.MISS);
+                finish(wallPort());
                 return;
             }
             if (pierce) {
@@ -276,7 +294,7 @@ public final class DashNode implements GraphNode {
                     if (h.isEmpty()) break;
                     if (!(h.get().target() instanceof EntityTarget enemy)) {
                         if (glideAlongFloor(h.get())) return; // try again next tick, flattened
-                        finish(Ports.MISS); // a wall
+                        finish(wallPort()); // a wall
                         return;
                     }
                     passed.add(enemy.id());
@@ -294,7 +312,7 @@ public final class DashNode implements GraphNode {
                     ctx.put(Keys.HIT, enemy);
                     finish(Ports.HIT);
                 } else if (!glideAlongFloor(hit.get())) {
-                    finish(Ports.MISS); // a wall
+                    finish(wallPort()); // a wall
                 }
                 return;
             }

@@ -1,0 +1,144 @@
+# content: pve/bramble_knight
+# PvE: the Bramble Knight, a first boss. Not playable (playable: false: it isn't in champ select); a non-player playing it
+# is driven by its brain: it walks after the nearest enemy and picks what to do with its rules.
+# Spawn one: /ae mob bramble_knight   (a mannequin; or /ae mob bramble_knight zombie, any living type, [team])
+# Format and all options: see README.md in this folder ("PvE: brains"). Edit, then /ae reload.
+#
+# What it does: a heavy axe swing up close; a ground slam it telegraphs for a second (a ring on the ground: get out),
+# that roots whoever it catches; a charge at anyone who keeps their distance; and below 40% HP, once, it enrages:
+# harder and faster for 10s.
+
+statuses:
+  bramble_enraged:
+    duration: 200                    # 10s
+    tags: [buff.bramble_enraged]
+    damage_dealt: 1.3                # +30% damage
+    move_speed: 1.25                 # +25% speed
+    cue: berserker_rampage           # red rage around it while it lasts
+
+abilities:
+
+  # PRIMARY: a heavy axe swing in front of it.
+  bramble_swing:
+    cooldown: 25                     # (its stats' attack_speed sets it: 0.8 a second)
+    display:
+      name: "Thorned Axe"
+      description:
+        - "A heavy swing in front of it: {base:1.0}."
+    nodes:
+      swing:
+        type: apply_effects
+        targets: { type: cone, range: 3.5, angle: 100 }
+        effects:
+          - { id: damage, base: 1.0 }  # 100% base damage
+        next: swing_cue
+      swing_cue:
+        type: play_cue
+        cue: dh_swing
+
+  # 1: Bramble Slam. A ring on the ground warns everyone for 1s, then it slams: everyone within 4 blocks is hit, knocked
+  # away and rooted 1s.
+  bramble_slam:
+    cooldown: 160                    # 8s
+    active_tags: [block.ability]
+    interrupted_by: [state.stunned]
+    display:
+      name: "Bramble Slam"
+      description:
+        - "Telegraphed 1s, then a slam (4 blocks):"
+        - "{base:1.5}, knocked away, rooted 1s."
+    nodes:
+      warn:
+        type: play_cue               # the warning ring (4 blocks: keep it in step with the slam's radius)
+        cue: shockwave_4
+        next: windup
+      windup:
+        type: delay
+        ticks: 20                    # 1s to get out
+        next: slam
+      slam:
+        type: apply_effects
+        targets: { type: radius, radius: 4 }
+        effects:
+          - { id: damage, base: 1.5, knockback: false }   # 150% base damage
+          - { id: knockback, from: caster, radius: 4, center: 1.4, edge: 0.5, lift: 0.4 }
+          - { id: status, status: root, duration: 20 }    # rooted 1s
+        next: slam_cue
+      slam_cue:
+        type: play_cue
+        cue: slime_slam
+
+  # 2: Thorn Charge. A charge straight at whoever it faces (10 blocks), hitting and slowing everyone it runs through.
+  bramble_charge:
+    cooldown: 240                    # 12s
+    active_tags: [block.ability]
+    display:
+      name: "Thorn Charge"
+      description:
+        - "Charges 10 blocks ahead: {base:1.2}"
+        - "and slowed, to everyone it runs through."
+    nodes:
+      off:
+        type: play_cue
+        cue: dh_lunge
+        next: charge
+      charge:
+        type: dash
+        speed: 1.2
+        range: 10
+        radius: 0.8
+        flat: true
+        pierce: true
+        on: { passed: gore }         # each one it reaches
+      gore:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 1.2 }  # 120% base damage
+          - { id: status, status: slow, duration: 40 }
+
+  # 3: Enrage. +30% damage and +25% speed for 10s (its brain does this once, below 40% HP).
+  bramble_enrage:
+    cooldown: 600
+    display:
+      name: "Enrage"
+      description:
+        - "10s: +30% damage, +25% speed."
+    nodes:
+      rage:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: bramble_enraged }
+        next: rage_cue
+      rage_cue:
+        type: play_cue
+        cue: berserker_rampage_start
+
+characters:
+  bramble_knight:
+    name: "Bramble Knight"
+    playable: false                  # PvE only: not in champ select
+    weapon: NETHERITE_AXE
+    stats:
+      health: 1500
+      armor: 30
+      base_damage: 30
+      move_speed: 0.9
+      attack_speed: 0.8
+      scale: 1.3
+    slots:
+      primary: bramble_swing
+      ability_1: bramble_slam
+      ability_2: bramble_charge
+      ability_3: bramble_enrage
+    brain:
+      think_every: 5                 # decides 4 times a second
+      range: 20                      # notices enemies this far away (in sight)
+      chase: { speed: 0.22, stop_at: 2.5 }   # walks after its target, up to swinging distance
+      rules:                         # tried in order: the first that holds and casts wins
+        - { cast: ability_3, once: true, when: { health_below: 0.4 } }                 # enrage, once
+        - { cast: ability_1, every: 100, when: { target_within: 4 } }                  # slam whoever's close
+        - { cast: ability_2, every: 120, when: { target_beyond: 6, target_within: 12 } }   # charge whoever keeps away
+        - { cast: primary, when: { target_within: 3.5 } }                              # otherwise, swing

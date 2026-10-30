@@ -10,6 +10,7 @@ import java.util.Optional;
 /**
  * Where the teleport effect sends someone: {@code to: <key>} (that spot), or {@code away_from: <key>, distance: N}
  * (N blocks straight out from that spot, level with where they are: e.g. everyone in an area flung out of it).
+ * {@code keep_height: true} (with {@code to}): to that spot's x/z, at the height they're at (a level blink in the air).
  * Platforms then find the nearest spot there where they fit. Nobody else can teleport someone unmovable
  * (block.displace).
  */
@@ -23,7 +24,13 @@ public final class TeleportAway {
             return Optional.empty(); // someone unmovable isn't teleported by others
         }
         String to = ctx.params().getString("to", null);
-        if (to != null) return KeyQuery.read(ctx.execution(), to).flatMap(ctx.engine().world()::positionOf);
+        if (to != null) {
+            var spot = KeyQuery.read(ctx.execution(), to).flatMap(ctx.engine().world()::positionOf);
+            if (!ctx.params().getBool("keep_height", false)) return spot;
+            var here = ctx.engine().world().positionOf(target); // keep_height: over (or under) the spot, at their own height
+            return spot.flatMap(s -> here.map(h -> new PointTarget(s.world(), new Vec3(s.position().x(), h.position().y(),
+                    s.position().z()))));
+        }
         var center = KeyQuery.read(ctx.execution(), ctx.params().requireString("away_from"))
                 .flatMap(ctx.engine().world()::positionOf);
         var at = ctx.engine().world().positionOf(target);
@@ -42,6 +49,7 @@ public final class TeleportAway {
     public static void validate(me.mephisto.ability_engine.engine.data.Params params) {
         if (params.has("to") == params.has("away_from")) throw params.error("to", "give either to: <key> or away_from: <key>");
         if (params.has("away_from") && params.getDouble("distance", 6) <= 0) throw params.error("distance", "must be above 0 (blocks)");
+        if (params.getBool("keep_height", false) && !params.has("to")) throw params.error("keep_height", "needs to: <key>");
     }
 
     private TeleportAway() {}

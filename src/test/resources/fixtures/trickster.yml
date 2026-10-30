@@ -1,0 +1,481 @@
+# content: trickster
+# The Fae Trickster: a melee diver. Engages with a double cone slash, blinks around inside its own Trick Room, turns
+# enemies' controls (and their own team) against them, and swaps places with an enemy.
+# Lore: born from the folklore of a city and its villages, stories of dark creatures that tempt children to lie. It
+# exists to cause chaos and deceive, yet has a soft spot for the less fortunate.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# Times in ticks (20 = 1s), distances in blocks.
+#
+# PASSIVE (Sucker Punch): the Fae's first basic attack on an enemy silences them for 1s, unless that enemy hit the Fae
+#   first. Each enemy is READY or SPENT for this Fae (SPENT = they have sucker_punch_spent from it):
+#   - an enemy hurting the Fae: SPENT (sucker_punch's on_damaged)
+#   - the Fae's basic attack on a READY enemy: silenced, then SPENT (trickster_primary)
+#   - back to READY after 8s with no damage either way between them (any hit between them starts the 8s over)
+#   - either of them dying: READY again (ends_with_source, and dying clears everything on you)
+#   Only the Fae's own basic attacks silence: not Play Rough or Confuse Ray. READY enemies within 10 blocks have a small
+#   glyph over their heads that only the Fae sees (marks:).
+
+statuses:
+  sucker_punch:                      # the passive itself, always on the Fae (passive_statuses)
+    duration: 10
+    neutral: true                    # bookkeeping: nothing purges, cleanses or copies it
+    on_damaged:                      # an enemy hurt the Fae first: SPENT
+      - { id: status, status: sucker_punch_spent, attacker: true }
+    ability_on_hit:                  # the Fae's abilities hitting a SPENT enemy start its 8s over (never makes one SPENT)
+      - { id: status, status: sucker_punch_spent, only_refresh: true }
+  sucker_punch_spent:                # on an enemy: this Fae can't silence them right now
+    duration: 160                    # passive.reset_after_no_damage: 8s without damage between them, then READY
+    stacking: refresh
+    neutral: true                    # not a debuff: wards and cleanses ignore it
+    ends_with_source: true           # the Fae dies: every enemy is READY again
+  trick_room_inside:                 # the Fae standing in its (magenta) Trick Room (the floor keeps it on)
+    duration: 6
+    tags: [state.on_floor, state.in_trick_room]   # on_floor: SHIFT + moving teleports (the character's glide)
+    move_speed: 1.15                 # ab2.room_speed: +15% movement speed
+    neutral: true                    # (the room's, not a buff to copy or cleanse)
+  trick_room_flipped:                # the Fae standing in its Trick Room once it's moved (topsy-turvy): no teleports, no speed
+    duration: 6
+    tags: [state.in_trick_room]
+  trickster_confused:                # Confuse Ray: after their closest teammate (see Confusion), hitting faster
+    duration: 60                     # ab3.duration: 3s
+    stacking: refresh
+    tags: [state.confused, state.friendly_fire]   # (friendly fire: their attacks can hit their own teammates)
+    attack_speed: 1.5                # ab3.attack_speed: +50% (their basic attacks, a crossbow's draw)
+    slot_damage_dealt: { primary: 0.5, ability_1: 0.5 }   # ab3.damage: their basic attacks and 1 at half damage
+    cue: trickster_confused          # spinning motes over their head: everyone can see it
+    positive: false
+  topsy_turvy_room:                  # Trick Room moved (2 again): controls inverted while they're in it
+    duration: 6                      # (the lit room keeps putting it back while they're in it: it ends 0.3s after they leave)
+    stacking: refresh
+    tags: [state.inverted]           # WASD the other way (and in the air; a mob walks away from whoever it's after)
+    cue: trickster_topsy_turvy       # turning rings round them: everyone can see it
+    positive: false
+  switcheroo_swap:                   # Switcheroo: on both of you while you fly (comes off when you land)
+    duration: 80                     # (only a safety net: the swap takes it off)
+    neutral: true                    # nothing blocks, cleanses or copies it (it lands on the unstoppable too)
+    tags: [state.swapping, state.untargetable, block.ability, state.anchored, block.displace,
+           block.knockback, state.safe_fall]   # can't act, can't be targeted (damage over time still ticks), not moved
+    # (no block.walk: a player is flown by pushes their own client follows, which holding them in place would fight;
+    # their keys barely steer in the air, and they land exactly on the spot anyway)
+
+abilities:
+
+  # PRIMARY: a quick claw swipe at whoever's in front of you. On a READY enemy: Sucker Punch (silenced 1s). Landing it
+  # on any enemy (a player, a mob, a dummy) while you're inside your Trick Room takes 1s off Play Rough's cooldown
+  # (outside it, or a miss: nothing).
+  trickster_primary:
+    cooldown: 15                     # (its stats' attack_speed sets it: 1.3 a second)
+    display:
+      name: "Swipe"
+      description:
+        - "A quick swipe: {base:1.0}."
+        - "Sucker Punch: your first swipe on an enemy"
+        - "silences them 1s, unless they hit you first."
+        - "Inside your Trick Room, each swipe that"
+        - "lands: Play Rough -1s."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 3.5, angle: 40 }
+        on: { hit: swipe, miss: whiff }
+      whiff:
+        type: play_cue
+        cue: trickster_swipe
+      swipe:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 1.0, knockback: false }  # 100% base damage; no knockback
+        next: swipe_cue
+      swipe_cue:
+        type: play_cue
+        cue: trickster_swipe
+        at: target
+        next: ready
+      ready:
+        type: has_status             # Sucker Punch: READY (nothing from this Fae on them) or SPENT?
+        status: sucker_punch_spent
+        target: target
+        mine: true
+        on: { lacks: hush, has: again }
+      hush:
+        type: apply_effects
+        targets: { type: key, key: target }
+        on_hit: false
+        effects:
+          - { id: status, status: silence, duration: 20 }   # passive.silence_duration: 1s
+          - { id: status, status: sucker_punch_spent }
+        next: hush_cue
+      hush_cue:
+        type: play_cue
+        cue: trickster_hush
+        at: target
+        next: quick
+      again:
+        type: apply_effects          # already SPENT: a hit between them starts its 8s over
+        targets: { type: key, key: target }
+        on_hit: false
+        effects:
+          - { id: status, status: sucker_punch_spent }
+        next: quick
+      quick:
+        type: has_tag                # landed on an enemy inside your Trick Room: Play Rough comes back sooner
+        tag: state.in_trick_room
+        on: { has: quicken }
+      quicken:
+        type: reduce_cooldown
+        slot: ability_1
+        ticks: 20                    # ab1.cdr_per_basic_hit_in_room: 1s
+
+  # 1: Play Rough (like Mimikyu's move). Lunge a step forward and slash a cone in front of you, twice, 0.2s apart: everyone
+  # in the cone when each slash lands is hit by it. Each lunge stops in front of anyone in the way, so you stay on them.
+  # The slashes are drawn on you, wherever you go. Stunned or silenced, the rest is lost. Every swipe that lands while
+  # you're inside your Trick Room takes 1s off its cooldown.
+  trickster_ab1:
+    cooldown: 100                    # ab1.cooldown: 5s, from when the second slash lands
+    cooldown_starts: end
+    display:
+      name: "Play Rough"
+      icon: RABBIT_HIDE
+      description:
+        - "Lunge a step forward and slash the cone in"
+        - "front of you (3 blocks), twice, 0.2s apart:"
+        - "{base:0.75} each."
+        - "Swipes that land inside your Trick Room:"
+        - "-1s cooldown."
+    active_tags: [block.ability]
+    interrupted_by: [state.stunned, state.silenced]
+    nodes:
+      lunge:
+        type: dash                   # a step forward...
+        speed: 0.5
+        range: 1                     # ab1.lunge: 1 block before each slash
+        radius: 0.6
+        flat: true
+        on: { hit: slash, miss: slash }   # (someone in the way: you stop in front of them)
+      slash:
+        type: apply_effects          # ...and a slash: the cone where you are now, the way you face now
+        targets: { type: cone, range: 3, angle: 90 }   # ab1.range, ab1.angle (keep TricksterCues in step)
+        effects:
+          - { id: damage, base: 0.75, ignore_iframes: true, knockback: false }   # 75% base damage (150% over both); no knockback
+        next: slash_cue
+      slash_cue:
+        type: start_cue              # drawn on you over a few ticks, moving with you
+        cue: trickster_play_rough
+        next: between
+      between:
+        type: delay
+        ticks: 4                     # ab1.hit_gap: 0.2s
+        next: lunge_2
+      lunge_2:
+        type: dash
+        speed: 0.5
+        range: 1
+        radius: 0.6
+        flat: true
+        on: { hit: slash_2, miss: slash_2 }
+      slash_2:
+        type: apply_effects
+        targets: { type: cone, range: 3, angle: 90 }
+        effects:
+          - { id: damage, base: 0.75, ignore_iframes: true, knockback: false }   # 75% base damage; no knockback
+        next: slash_2_cue
+      slash_2_cue:
+        type: start_cue
+        cue: trickster_play_rough
+        next: linger
+      linger:
+        type: delay                  # (the second slash gets drawn to the end before the cast ends)
+        ticks: 4
+
+  # 2: Trick Room. A dash straight ahead (7 blocks, level; a wall stops it sooner), then an 11x11 square on the ground
+  # below where you end up, for 10s. Two halves, one or the other: the room is yours (magenta) until you move it, then
+  # it's against your enemies (light blue). Inside it (feet up to 2 blocks above or below its floor), SHIFT while moving (any of
+  # WASD) teleports you 6 blocks that way, never out of the room or into a wall, at most every 0.5s (the character's
+  # glide:). Standing still or outside it, SHIFT is a normal sneak. Press 2 again while you're inside it (once per room,
+  # not while rooted): a 4-block dash where you face, and the room moves to where you end up (its 10s don't start over)
+  # and turns topsy-turvy for the rest of them: its floor lights up light blue, and every enemy who's been in it for 0.3s
+  # has their controls inverted, until 0.3s after they step back out. The magenta
+  # room gives you +15% movement speed and the SHIFT teleports while you're in it; the moved one doesn't (in either, your swipes
+  # take 1s off Play Rough).
+  # Drawn: a magenta and purple checkerboard floor on the ground at the bottom of it, and checkered walls that whoever is
+  # inside the room sees (they don't light up).
+  trickster_ab2:
+    cooldown: 280                    # ab2.cooldown: 14s, from when the room goes
+    cooldown_starts: end
+    survives_death: true             # the room stays its 10s even if you die
+    movement: false                  # (a root later on mustn't end the room)...
+    blocked_by: [block.ability, block.move]   # ...but you can't start the dash while rooted
+    display:
+      name: "Trick Room"
+      icon: PURPLE_CARPET
+      description:
+        - "Dash ahead (7 blocks) and put an 11x11 room"
+        - "where you land for 10s. Inside it: +15%"
+        - "speed, and SHIFT while moving teleports you"
+        - "6 blocks."
+        - "2 again inside it (once): dash 4 blocks,"
+        - "the room moves to where you land and turns"
+        - "topsy-turvy for the rest of its time: no"
+        - "more speed or teleports for you, but every"
+        - "enemy in it (after 0.3s) has inverted"
+        - "controls until 0.3s after they leave."
+    active_tags: [block.ability]     # (only while dashing: see free)
+    nodes:
+      dash_cue:
+        type: play_cue
+        cue: trickster_room_dash
+        next: dash
+      dash:
+        type: dash
+        flat: true                   # straight ahead where you face, level (looking up or down doesn't tilt it)
+        speed: 1.0                   # ab2.dash_speed: blocks a tick (7 blocks: ~0.35s)
+        range: 7                     # ab2.dash_range (a wall stops you sooner: the room goes where you stopped)
+        pierce: true                 # past anyone in the way
+        on: { miss: free }
+      free:
+        type: release_tags           # you can act again once you've arrived
+        next: room
+      room:
+        type: floor
+        at: caster                   # where you arrived
+        shape: square
+        radius: 5.5                  # ab2.room_size: 11x11 (5.5 from the centre to each side; on the block grid)
+        up: 2                        # ab2.room_height: inside with your feet up to 2 blocks above...
+        down: 2                      # ...or below its floor
+        name: trick_room             # (the lit floor is laid over it by this name)
+        owner_status: trick_room_inside
+        drop: 40                     # (no duration: it lasts as long as the cast, see last)                     # on the ground below where you ended up (a dash off a ledge: down there)
+        next: room_cue
+      room_cue:
+        type: play_cue
+        cue: trickster_room
+        next: bar_mine
+      bar_mine:
+        type: timer_color            # the boss bar: purple while the room is yours...
+        color: purple
+        text: ["#FF3DF2", "#FF9AD8"] # (its title in the tiles' colours: magenta and pink, letter by letter)
+        next: split
+      split:
+        type: fork                   # the room's 10s, and pressing 2 again to move it, side by side
+        on: { out: last, also: again }
+      last:
+        type: delay                  # (the cast lasts as long as the room: its cooldown starts when it goes)
+        ticks: 200                   # ab2.room_duration: 10s
+        boss_bar: true               # counts down on the boss bar (it matters: speed and teleports, or the trap)
+        next: over
+      over:
+        type: end_cast
+      again:
+        type: await_recast           # 2 again...
+        window: 200
+        on: { recast: inside }
+      inside:
+        type: has_status             # ...while you're in the room (outside it: nothing, press again from inside)
+        status: trick_room_inside
+        on: { has: rooted, lacks: again }
+      rooted:
+        type: has_tag                # (rooted: no dash, the press is kept)
+        tag: block.move
+        on: { has: again, lacks: shift_cue }
+      shift_cue:
+        type: play_cue
+        cue: trickster_room_dash
+        next: shift
+      shift:
+        type: dash
+        flat: true
+        speed: 1.0
+        range: 4                     # ab2.recast_dash: 4 blocks
+        pierce: true
+        on: { miss: moved }
+      moved:
+        type: floor                  # the same room, around where you are now (it replaces the old one)
+        at: caster
+        shape: square
+        radius: 5.5
+        up: 2
+        down: 2
+        name: trick_room
+        owner_status: trick_room_flipped # (no more teleports or speed for you: it's the enemies' turn)
+        drop: 40                     # (no duration: it goes with the cast, when the first room would have)
+        next: moved_cue
+      moved_cue:
+        type: play_cue
+        cue: trickster_room_shift
+        next: flip_cue
+      flip_cue:
+        type: play_cue               # ...and it turns topsy-turvy: a burst of sparkles...
+        cue: trickster_room_flip
+        next: flip
+      flip:
+        type: floor                  # ...and a lit floor laid over it for the rest of the room's time (it goes with the cast)
+        over: trick_room
+        name: topsy_room
+        lit: true
+        enemy_status: topsy_turvy_room   # every enemy in it (no damage)...
+        enemy_delay: 6               # ...once they've been in it 0.3s (it ends ~0.3s after they step out: Floors HOLD)
+        next: bar_theirs
+      bar_theirs:
+        type: timer_color            # ...blue once it's turned against your enemies
+        color: blue
+        text: ["#6FCBFF", "#FFFFFF"] # (light blue and white, like the lit tiles)
+
+  # 3: Confuse Ray. Fire a slow fae beam straight ahead (16 blocks). The first enemy it hits takes 20% base damage + 90%
+  # spell power (only the base part is boosted by +damage) and is confused for 3s: turned to face their closest teammate,
+  # running at them and using their primary on them over and over, 50% faster but at half damage (their 1 too; a crossbow
+  # is drawn and fired for them; their attacks can hit their own team). Who they go after, the first there is within 24
+  # blocks: their teammates, the neutral (camps, bosses), their enemies, and only then you. Nobody in range at all:
+  # they're just stunned. A kill they make meanwhile is yours (and whatever it's worth). (Their keys do nothing; see Confusion.)
+  trickster_ab3:
+    cooldown: 280                    # ab3.cooldown: 14s
+    display:
+      name: "Confuse Ray"
+      icon: CHORUS_FRUIT
+      description:
+        - "Fire a slow beam (16 blocks): the enemy it"
+        - "hits takes {base:0.2}"
+        - "+ {sp:0.9} and is confused for 3s:"
+        - "they turn on their closest teammate, run at"
+        - "them and attack them: 50% faster, at half"
+        - "damage. No teammate near: the closest"
+        - "neutral, then enemy, then you. Nobody near:"
+        - "stunned. Their kills meanwhile are yours."
+    nodes:
+      throw_cue:
+        type: play_cue
+        cue: trickster_topsy_cast
+        next: throw
+      throw:
+        type: projectile
+        speed: 0.55                  # ab3.orb_speed: slow (11 blocks a second)
+        range: 16                    # ab3.orb_range
+        lifetime: 60
+        size: 0.6
+        visual: HEART_OF_THE_SEA
+        visual_size: 0.45
+        trail: trickster_topsy_trail
+        on: { hit_entity: flip, hit_block: fizzle }
+      flip:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.2, sp: 0.9 }      # 20% base damage + 90% spell power
+          - { id: status, status: trickster_confused }
+        next: flip_cue
+      flip_cue:
+        type: play_cue
+        cue: trickster_topsy_hit
+        at: hit
+      fizzle:
+        type: play_cue
+        cue: fizzle
+        at: hit
+
+  # ULTIMATE (F): Switcheroo. Point at an enemy (15 blocks, in sight): you both float up a little and fly to each other's
+  # spot, passing each other on the way (slowly: about 7 blocks a second, 1 to 2.5s). Meanwhile neither of you can act,
+  # walk or be targeted (damage over time still ticks), and nothing can push either of you. You land exactly where the
+  # other one stood. No one there, or they can't be moved: nothing happens and your charge is kept.
+  trickster_ult:
+    cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
+    movement: true                   # rooted: can't
+    display:
+      name: "Switcheroo"
+      icon: ENDER_PEARL
+      description:
+        - "Swap places with the enemy in your sights"
+        - "(15 blocks): you both float up and fly to"
+        - "each other's spot. Meanwhile neither of"
+        - "you can act or be targeted (damage over"
+        - "time still ticks). Nobody there: charge kept."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 15, ray_size: 0.5 }   # ult.range (a little forgiving)
+        on: { hit: lift_off, miss: nobody }
+      nobody:
+        type: refund                 # nobody there: the charge is kept
+        next: nobody_cue
+      nobody_cue:
+        type: play_cue
+        cue: trickster_switch_fail
+        audience: caster             # only you see it
+      lift_off:
+        type: play_cue
+        cue: trickster_switch
+        next: lift_off_2
+      lift_off_2:
+        type: play_cue
+        cue: trickster_switch
+        at: target
+        next: trail
+      trail:
+        type: start_cue              # sparkles behind each of you while you fly (until the cast ends)
+        cue: trickster_switch_trail
+        next: trail_2
+      trail_2:
+        type: start_cue
+        cue: trickster_switch_trail
+        at: target
+        next: swap
+      swap:
+        type: swap
+        with: target
+        speed: 0.35                  # ult.fly_speed: blocks a tick (7 a second)
+        min_ticks: 20                # ...but at least 1s
+        max_ticks: 50                # ...and at most 2.5s
+        lift: 1.0                    # ult.hover: floats this high on the way
+        side: 0.75                   # each curves this far to its side: you pass each other
+        status: switcheroo_swap      # on both of you until you land
+        on: { none: stuck }
+        next: land
+      stuck:
+        type: refund                 # they can't be moved: the charge is kept
+        message: "They can't be moved."
+        next: nobody_cue
+      land:
+        type: play_cue
+        cue: trickster_switch_land
+        next: land_2
+      land_2:
+        type: play_cue
+        cue: trickster_switch_land
+        at: target
+
+characters:
+  trickster:                         # diver kit
+    name: "Fae Trickster"
+    weapon: COPPER_HOE               # (for now)
+    stats:                           # see docs/character-stats.md
+      health: 210                    # max HP
+      armor: 15                      # damage taken x 100 / (100 + armor)
+      base_damage: 34                # abilities and swipes deal % of this
+      move_speed: 1.05               # x vanilla walking speed
+      attack_speed: 1.3              # swipes per second (20 / 1.3 rounds to 15 ticks)
+    passive_statuses: [sucker_punch] # PASSIVE: Sucker Punch
+    marks:                           # READY enemies near you (Sucker Punch would silence them): a glyph only you see
+      range: 10
+      unless: sucker_punch_spent
+      glyph: "✦"
+    status_items:                    # the passive's description, in slot 9
+      - status: sucker_punch
+        hotbar: 9
+        icon: POPPED_CHORUS_FRUIT
+        name: "Sucker Punch (passive)"
+        description:
+          - "Your first swipe on an enemy silences"
+          - "them 1s, unless they hit you first."
+          - "Ready again after 8s with no damage"
+          - "between you. ✦ marks who's ready."
+    glide:                           # Trick Room: SHIFT + moving teleports you in your room
+      teleport: true
+      distance: 6                    # ab2.teleport_distance
+      gap: 10                        # ab2.teleport_interval: 0.5s
+      cue: trickster_blink           # where you left and where you arrived
+    slots:
+      primary: trickster_primary     # LMB: Swipe
+      ability_1: trickster_ab1       # 1: Play Rough
+      ability_2: trickster_ab2       # 2: Trick Room (again inside it: move it)
+      ability_3: trickster_ab3       # 3: Confuse Ray
+      ultimate: trickster_ult        # F: Switcheroo

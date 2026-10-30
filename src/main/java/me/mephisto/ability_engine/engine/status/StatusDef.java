@@ -71,12 +71,58 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      * @param cooldownReduction  the holder's ability cooldowns are multiplied by this, below 1 (0.95 = 5% shorter)
      * @param allyHealingDealt   the holder's heals on others (allies) are multiplied by this (1.4 = 40% more)
      * @param ultChargeRate      the holder's ultimate charges this much faster (1.25 = 25% faster: hits and over time)
-     * @param onDamaged          effects on the holder whenever an enemy (or a monster) hurts them
+     * @param onDamaged          effects on the holder whenever an enemy (or a monster) hurts them ({@code attacker: true}
+     *                           on one: on whoever hurt them instead)
+     * @param additive           its STATS add up with other additive statuses' (and per stack) instead of multiplying:
+     *                           two +20% items = +40% (items). Everything else still multiplies with that. Its EFFECTS
+     *                           (everything that isn't a stat, see {@link Combat}) count once, however many stacks.
+     * @param combat             spell power, critical strikes and spell resistance
+     * @param slowCap            above 0: its slow counts together with every other status that has a slow_cap, and that
+     *                           combined slow is at most the largest of their caps (0.4 = never more than 40% slower from
+     *                           them, however many there are); other slows still multiply on top
+     * @param moveSpeedUnless    its move_speed doesn't count while the holder has this tag (null = always counts), e.g. a
+     *                           slow that only holds off a floor of their own
+     * @param slotDamage         the damage of the holder's abilities in these slots is multiplied by this ({primary: 0.5,
+     *                           ability_1: 0.5}: their basic attacks and 1 at half damage), e.g. while confused
      */
     public record Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
                          List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
-                         double ultChargeRate, List<EffectConfig> onDamaged) {
-        public static final Extras NONE = new Extras(1, 1, 0, List.of(), List.of(), 1, 1, 1, List.of());
+                         double ultChargeRate, List<EffectConfig> onDamaged, boolean additive, Combat combat,
+                         double slowCap, String moveSpeedUnless, java.util.Map<String, Double> slotDamage) {
+
+        /** No slot damage. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
+                      double ultChargeRate, List<EffectConfig> onDamaged, boolean additive, Combat combat,
+                      double slowCap, String moveSpeedUnless) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, cooldownReduction, allyHealingDealt,
+                    ultChargeRate, onDamaged, additive, combat, slowCap, moveSpeedUnless, java.util.Map.of());
+        }
+        public static final Extras NONE = new Extras(1, 1, 0, List.of(), List.of(), 1, 1, 1, List.of(), false, Combat.NONE);
+
+        /** Without a slow cap or move_speed_unless. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
+                      double ultChargeRate, List<EffectConfig> onDamaged, boolean additive, Combat combat) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, cooldownReduction, allyHealingDealt,
+                    ultChargeRate, onDamaged, additive, combat, 0, null);
+        }
+
+        /** Without spell power, crits or spell resistance. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
+                      double ultChargeRate, List<EffectConfig> onDamaged, boolean additive) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, cooldownReduction, allyHealingDealt,
+                    ultChargeRate, onDamaged, additive, Combat.NONE);
+        }
+
+        /** Not additive. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
+                      double ultChargeRate, List<EffectConfig> onDamaged) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, cooldownReduction, allyHealingDealt,
+                    ultChargeRate, onDamaged, false);
+        }
 
         /** No cooldown reduction. */
         public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
@@ -94,6 +140,31 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
             basicOnHit = basicOnHit == null ? List.of() : List.copyOf(basicOnHit);
             abilityOnHit = abilityOnHit == null ? List.of() : List.copyOf(abilityOnHit);
             onDamaged = onDamaged == null ? List.of() : List.copyOf(onDamaged);
+            if (combat == null) combat = Combat.NONE;
+            if (slowCap < 0) slowCap = 0;
+            slotDamage = slotDamage == null ? java.util.Map.of() : java.util.Map.copyOf(slotDamage);
+        }
+    }
+
+    /**
+     * Spell power, critical strikes and spell resistance (items use these). The first three are STATS (an additive
+     * status: per stack); the rest are effects (once, however many stacks).
+     *
+     * @param spellPower      points of spell power (20 = 20): what an ability's {@code sp:} damage parts are a share of
+     *                        (90% spell power with 20 = 18 damage). Nothing else scales with it.
+     * @param critChance      added to the holder's chance (0..1) to critically strike with a basic attack (0.2 = +20%);
+     *                        crits aren't a flat roll: see {@link me.mephisto.ability_engine.engine.combat.Crits}
+     * @param spellResistance points: damage from others' abilities x {@code constant / (constant + points)}, like armor
+     * @param critDamage      added to how much a critical strike deals (0.35: 175% -> 210%)
+     * @param abilityCrits    the holder's abilities can critically strike too (a roll per cast)
+     * @param onCrit          effects on whoever the holder's critical strike hits ({@code self: true}: on the holder)
+     */
+    public record Combat(double spellPower, double critChance, double spellResistance, double critDamage,
+                         boolean abilityCrits, List<EffectConfig> onCrit) {
+        public static final Combat NONE = new Combat(0, 0, 0, 0, false, List.of());
+
+        public Combat {
+            onCrit = onCrit == null ? List.of() : List.copyOf(onCrit);
         }
     }
 
@@ -107,9 +178,18 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      * @param cue      a looping cue on the holder while it lasts (null = none)
      * @param then     when its time runs out (not when it's removed early), this status goes on the holder (null =
      *                 none), e.g. one stage growing into the next
+     * @param endsWithSource it comes off everyone who has it from someone when that someone dies (e.g. a mark that's
+     *                 about the two of them)
+     * @param neutral  bookkeeping, neither a buff nor a debuff: nothing blocks, cleanses, purges or copies it (e.g. "they
+     *                 hit me first")
      */
-    public record Links(String atMax, String requires, String cue, String then, boolean cuePerStack) {
+    public record Links(String atMax, String requires, String cue, String then, boolean cuePerStack,
+                        boolean endsWithSource, boolean neutral) {
         public static final Links NONE = new Links(null, null, null, null);
+
+        public Links(String atMax, String requires, String cue, String then, boolean cuePerStack) {
+            this(atMax, requires, cue, then, cuePerStack, false, false);
+        }
 
         public Links(String atMax, String requires, String cue) { this(atMax, requires, cue, null); }
 

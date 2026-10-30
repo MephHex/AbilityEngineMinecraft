@@ -379,6 +379,19 @@ class AlchemistTest {
     }
 
     @Test
+    void aFlaskThrownAtYourFeetBurstsOnYouAsItLandsWithoutBouncing() throws IOException {
+        setup();
+        t.world.floor(0);
+        UUID enemy = t.spawn(2, 1, 0);           // within the burst
+        t.world.look(p, new Vec3(0.05, -1, 0));  // straight at your feet
+        t.engine.loadouts().activate(p, "ability_2");
+        t.time.advance(5);                       // a bounce first would keep it up for ~20 ticks
+        assertTrue(t.engine.tags().has(p, Tags.HASTED), "caught as it lands: the tonic");
+        assertEquals(50, t.damage(enemy), 1e-9, "and it burst on you");
+        assertEquals(0, t.damage(p), 1e-9, "your own flask doesn't hurt you");
+    }
+
+    @Test
     void aFlaskThrownUpBurstsOnYouWhenItComesDown() throws IOException {
         setup();
         UUID enemy = t.spawn(2, 1, 0);           // within the burst, not in the flask's way
