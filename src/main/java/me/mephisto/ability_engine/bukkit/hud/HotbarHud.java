@@ -68,7 +68,8 @@ public final class HotbarHud {
     /** Items stack to 64 by default; icons are raised to 99 so longer cooldowns still count down. */
     private static final int MAX_COUNT = 99;
     /** The slots the hotbar shows (SHIFT has no icon). */
-    private static final List<String> HUD_SLOTS = Slots.ALL.stream().filter(s -> !Slots.SNEAK.equals(s)).toList();
+    private static final List<String> HUD_SLOTS = Slots.ALL.stream()
+            .filter(s -> !Slots.SNEAK.equals(s) && !Slots.SNEAK_SECONDARY.equals(s)).toList();
     private static final Map<String, Integer> HOTBAR_POSITIONS = Map.of(
             Slots.ABILITY_1, 0, Slots.ABILITY_2, 1, Slots.ABILITY_3, 2, Slots.ULTIMATE, OFFHAND_SLOT);
     private static final Map<String, Material> FALLBACK_ICONS = Map.of(
@@ -188,6 +189,7 @@ public final class HotbarHud {
             inv.setItem(def.hotbarSlot() - 1, gauge(p, def));
         }
         drawBolts(p, character.get());
+        passiveInSlotNine(p.getUniqueId()).ifPresent(passive -> inv.setItem(8, passiveItem(p.getUniqueId(), passive)));
         if (character.get().has(CharacterDef.ELYTRA)) wearElytra(p);
         statusItemsShown.remove(p.getUniqueId());
         weaponGlint.put(p.getUniqueId(), weaponGlints(p.getUniqueId(), character.get()));
@@ -217,6 +219,8 @@ public final class HotbarHud {
                     if (remaining <= 0 && engine.activator().isUnavailable(id, a)) remaining = UNAVAILABLE_SWEEP_TICKS;
                     // An ultimate still charging: greyed out the same way (its stack counts the percent)
                     if (remaining <= 0 && ultCharging(id, a)) remaining = UNAVAILABLE_SWEEP_TICKS;
+                    // A recast that isn't ready yet (recast_ready_while): greyed out until it is
+                    if (remaining <= 0 && engine.activator().recastNotReady(id, a)) remaining = UNAVAILABLE_SWEEP_TICKS;
                     syncSweep(p, sent, sweepKey(id, c, slot, a), now, remaining);
                 });
             }
@@ -301,7 +305,10 @@ public final class HotbarHud {
                     if (!isHudItem(item)) return;
                     boolean want = engine.instances().awaitingRecast(id, a.id()) || engine.activator().isPassive(id, a)
                             || (engine.ultCharge().gates(id, a.id()) && engine.ultCharge().ready(id)) // a charged ultimate
-                            || engine.stolen().isFree(id, a.id()); // a stolen one, ready to use
+                            || engine.stolen().isFree(id, a.id()) // a stolen one, ready to use
+                            || (a.display().glintWhenReady() && engine.cooldowns().remainingTicks(id, a.id()) <= 0
+                                && !engine.instances().isRunning(id, a.id())); // glint_when_ready: ready to cast
+                    if (engine.activator().recastNotReady(id, a)) want = false; // its recast isn't ready yet: no glint
                     ItemMeta meta = item.getItemMeta();
                     boolean has = meta.hasEnchantmentGlintOverride() && meta.getEnchantmentGlintOverride();
                     if (want == has) return;
@@ -385,12 +392,12 @@ public final class HotbarHud {
         List<Bolt> queue = engine.quivers().queue(p.getUniqueId());
         PlayerInventory inv = p.getInventory();
         for (int i = 0; i < q.size(); i++) {
-            inv.setItem(q.hotbarSlot() - 1 + i, i < queue.size() ? boltItem(queue.get(i), i == 0) : null);
+            inv.setItem(q.hotbarSlot() - 1 + i, i < queue.size() ? boltItem(p.getUniqueId(), queue.get(i), i == 0) : null);
         }
     }
 
     /** A plain bolt is an arrow; an infused one a tipped arrow in the infusions' mixed color. */
-    private ItemStack boltItem(Bolt bolt, boolean next) {
+    private ItemStack boltItem(UUID id, Bolt bolt, boolean next) {
         List<InfusionDef> infusions = infusionsOf(bolt);
         ItemStack item = new ItemStack(infusions.isEmpty() ? Material.ARROW : Material.TIPPED_ARROW);
         ItemMeta meta = item.getItemMeta();
@@ -404,7 +411,7 @@ public final class HotbarHud {
         List<Component> lore = new ArrayList<>();
         for (InfusionDef inf : infusions) {
             lore.add(plain(inf.name(), TextColor.fromHexString(inf.color())));
-            for (String line : inf.description()) lore.add(plain("  " + line, NamedTextColor.GRAY));
+            for (String line : inf.description()) lore.add(Descriptions.line(engine, id, true, "  " + line));
         }
         if (next) lore.add(plain("Loads next (hold RMB to draw)", NamedTextColor.DARK_GRAY));
         meta.lore(lore);
@@ -489,18 +496,18 @@ public final class HotbarHud {
                     String shown = state.ready() ? "ready" : String.valueOf(seconds);
                     if (shown.equals(wardShown.get(id))) return;
                     wardShown.put(id, shown);
-                    p.getInventory().setItem(ward.hotbarSlot() - 1, wardItem(ward, state.ready(), seconds));
+                    p.getInventory().setItem(ward.hotbarSlot() - 1, wardItem(id, ward, state.ready(), seconds));
                 }));
     }
 
-    private ItemStack wardItem(CharacterDef.Ward ward, boolean ready, int seconds) {
+    private ItemStack wardItem(UUID id, CharacterDef.Ward ward, boolean ready, int seconds) {
         Material m = ward.icon() == null ? null : Material.matchMaterial(ward.icon());
         ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.TOTEM_OF_UNDYING);
         ItemMeta meta = item.getItemMeta();
         meta.setMaxStackSize(MAX_COUNT);
         meta.displayName(plain("[Passive] ", NamedTextColor.YELLOW).append(plain(ward.name(), NamedTextColor.WHITE)));
         List<Component> lore = new ArrayList<>();
-        for (String line : ward.description()) lore.add(plain(line, NamedTextColor.GRAY));
+        for (String line : ward.description()) lore.add(Descriptions.line(engine, id, true, line));
         String readyText = ward.isBarrier()
                 ? String.format("Ready: takes %.0f%% of the next hit", ward.absorb() * 100)
                 : ward.isReflex() ? "Ready: goes off when you're hit"
@@ -620,6 +627,57 @@ public final class HotbarHud {
         return tag(item, meta);
     }
 
+    // ---- the passive, explained (slot 9, or on the weapon) ---------------------------------------
+
+    /** Their character's passive explanation (the base character's: a form doesn't change it), or null. */
+    private CharacterDef.Passive passiveOf(UUID id) {
+        return engine.loadouts().baseCharacterOf(id).map(CharacterDef::passive).orElse(null);
+    }
+
+    /**
+     * Their passive, when it goes in hotbar slot 9: nothing else of theirs is kept there for good (the quiver's bolts, a
+     * gauge, a ward, an ability's own icon). A status item or the hearing item there only borrows the slot while it shows.
+     */
+    private Optional<CharacterDef.Passive> passiveInSlotNine(UUID id) {
+        Optional<CharacterDef> base = engine.loadouts().baseCharacterOf(id);
+        if (base.isEmpty() || base.get().passive() == null || slotNineKept(base.get())) return Optional.empty();
+        return Optional.of(base.get().passive());
+    }
+
+    private boolean slotNineKept(CharacterDef c) {
+        QuiverDef q = c.quiver();
+        if (q != null && q.hotbarSlot() > 0 && q.hotbarSlot() <= 9 && q.hotbarSlot() + q.size() > 9) return true;
+        if (c.ward() != null && c.ward().hotbarSlot() == 9) return true;
+        for (ResourceDef r : c.resources().values()) if (r.hotbarSlot() == 9) return true;
+        List<CharacterDef> looks = new ArrayList<>();
+        looks.add(c);
+        for (CharacterDef.Form f : c.forms()) looks.add(c.in(f));
+        for (CharacterDef def : looks) {
+            for (String slot : HUD_SLOTS) {
+                if (ability(def, slot).filter(a -> hasIcon(slot, a) && position(slot, a) == 8).isPresent()) return true;
+            }
+        }
+        return false;
+    }
+
+    /** What an emptied slot shows: slot 9 goes back to the passive's item (when it lives there), others are empty. */
+    private ItemStack emptySlot(UUID id, int hotbarSlot) {
+        if (hotbarSlot != 9) return null;
+        return passiveInSlotNine(id).map(passive -> passiveItem(id, passive)).orElse(null);
+    }
+
+    private ItemStack passiveItem(UUID id, CharacterDef.Passive passive) {
+        Material m = passive.icon() == null ? null : Material.matchMaterial(passive.icon());
+        ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.NETHER_STAR);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(plain("[Passive] ", NamedTextColor.YELLOW).append(plain(passive.name(), NamedTextColor.WHITE)));
+        List<Component> lore = new ArrayList<>();
+        for (String line : passive.description()) lore.add(Descriptions.line(engine, id, true, line));
+        meta.lore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP, ItemFlag.HIDE_ATTRIBUTES);
+        return tag(item, meta);
+    }
+
     // ---- status items (e.g. magic rounds loaded) ------------------------------------------------
 
     /** The first status item per slot the player has right now. */
@@ -653,7 +711,7 @@ public final class HotbarHud {
             shown.put(slot, key);
             ItemStack there = inv.getItem(slot - 1);
             if (there != null && !isHudItem(there)) continue; // the player's own item: leave it
-            inv.setItem(slot - 1, want == null ? null : statusItem(want, stacks));
+            inv.setItem(slot - 1, want == null ? emptySlot(id, slot) : statusItem(id, want, stacks));
         }
         boolean glint = weaponGlints(id, c);
         if (glint != weaponGlint.getOrDefault(id, false)) {
@@ -677,10 +735,10 @@ public final class HotbarHud {
         int pos = hearing.hotbarSlot() - 1;
         ItemStack there = p.getInventory().getItem(pos);
         if (there != null && !isHudItem(there)) return; // the player's own item: leave it
-        p.getInventory().setItem(pos, count == 0 ? null : hearingItem(hearing, count));
+        p.getInventory().setItem(pos, count == 0 ? emptySlot(id, hearing.hotbarSlot()) : hearingItem(id, hearing, count));
     }
 
-    private ItemStack hearingItem(CharacterDef.Hearing hearing, int count) {
+    private ItemStack hearingItem(UUID id, CharacterDef.Hearing hearing, int count) {
         Material m = hearing.icon() == null ? null : Material.matchMaterial(hearing.icon());
         ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.ECHO_SHARD);
         item.setAmount(Math.min(MAX_COUNT, count));
@@ -688,7 +746,7 @@ public final class HotbarHud {
         meta.setMaxStackSize(MAX_COUNT);
         meta.displayName(plain("[Passive] ", NamedTextColor.YELLOW).append(plain(hearing.name(), NamedTextColor.LIGHT_PURPLE)));
         List<Component> lore = new ArrayList<>();
-        for (String line : hearing.description()) lore.add(plain(line, NamedTextColor.GRAY));
+        for (String line : hearing.description()) lore.add(Descriptions.line(engine, id, true, line));
         lore.add(plain(count + (count == 1 ? " enemy heard" : " enemies heard"), NamedTextColor.LIGHT_PURPLE));
         meta.lore(lore);
         meta.setEnchantmentGlintOverride(true);
@@ -696,7 +754,7 @@ public final class HotbarHud {
         return tag(item, meta);
     }
 
-    private ItemStack statusItem(CharacterDef.StatusItem entry, int stacks) {
+    private ItemStack statusItem(UUID id, CharacterDef.StatusItem entry, int stacks) {
         Material m = entry.icon() == null ? null : Material.matchMaterial(entry.icon());
         ItemStack item = new ItemStack(m != null && m.isItem() ? m : Material.GLOWSTONE_DUST);
         item.setAmount(Math.max(1, Math.min(MAX_COUNT, stacks)));
@@ -704,7 +762,7 @@ public final class HotbarHud {
         meta.setMaxStackSize(MAX_COUNT);
         meta.displayName(plain(entry.name() + (stacks > 0 ? " x" + stacks : ""), NamedTextColor.LIGHT_PURPLE));
         List<Component> lore = new ArrayList<>();
-        for (String line : entry.description()) lore.add(plain(line, NamedTextColor.GRAY));
+        for (String line : entry.description()) lore.add(Descriptions.line(engine, id, true, line));
         meta.lore(lore);
         meta.setEnchantmentGlintOverride(true);
         meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
@@ -738,6 +796,11 @@ public final class HotbarHud {
                     // A stolen ultimate: the seconds left to use it
                     if (engine.stolen().isFree(id, a.id())) {
                         seconds = Math.max(1, Math.min(MAX_COUNT, (int) Math.ceil(engine.stolen().ticksLeft(id) / 20.0)));
+                    }
+                    // countdown: <status>: while they have it, the seconds it has left (e.g. until a recast is allowed)
+                    String countdown = a.display().countdown();
+                    if (countdown != null && engine.statuses().has(id, countdown)) {
+                        seconds = Math.max(1, Math.min(MAX_COUNT, (int) Math.ceil(engine.statuses().remainingTicks(id, countdown) / 20.0)));
                     }
                     if (item.getAmount() != seconds) {
                         item.setAmount(seconds);
@@ -842,6 +905,12 @@ public final class HotbarHud {
                 for (String line : a.display().description()) lore.add(Descriptions.line(engine, p.getUniqueId(), false, line));
             });
         }
+        CharacterDef.Passive passive = passiveOf(p.getUniqueId());
+        if (passive != null && passiveInSlotNine(p.getUniqueId()).isEmpty()) { // slot 9 is taken: on the weapon instead
+            if (!lore.isEmpty()) lore.add(Component.empty());
+            lore.add(plain("[Passive] ", NamedTextColor.YELLOW).append(plain(passive.name(), NamedTextColor.WHITE)));
+            for (String line : passive.description()) lore.add(Descriptions.line(engine, p.getUniqueId(), true, line));
+        }
         if (!lore.isEmpty()) meta.lore(lore);
         tag(item, meta);
         count.ifPresent(item::setAmount);
@@ -858,7 +927,7 @@ public final class HotbarHud {
         boolean rapid = engine.quivers().rapidFire(id);
         if (rapid && loaded.isEmpty()) loaded = engine.quivers().queue(id).stream().findFirst(); // shot straight from the quiver
         if (meta instanceof CrossbowMeta crossbow) {
-            crossbow.setChargedProjectiles(loaded.map(b -> List.of(boltItem(b, false))).orElse(List.of()));
+            crossbow.setChargedProjectiles(loaded.map(b -> List.of(boltItem(id, b, false))).orElse(List.of()));
         }
         int speed = engine.quivers().reloadSpeed(id);
         if (speed > 0) meta.addEnchant(Enchantment.QUICK_CHARGE, speed, true);

@@ -668,6 +668,16 @@ characters:
       move_speed: 1.15
       attack_speed: 1.6
       scale: 0.45
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Growth"
+      icon: OAK_SAPLING
+      description:
+        - "You start as a seed: Take Root (2) to"
+        - "sprout a sapling. 20s later a young tree"
+        - "(enemies outside your 8-block domain deal"
+        - "half damage, nothing moves you), 60s later"
+        - "a large tree (14 blocks: nothing outside"
+        - "it can hurt you)."
     slots:
       primary: sylvan_seed_shot      # LMB: Seed Shot
       ability_1: sylvan_blink        # 1: Blink

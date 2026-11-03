@@ -55,8 +55,61 @@ public final class StatSheets {
 
     /** Max HP (design HP): a character's sheet, else what the platform says, else the default. */
     public double maxHealth(UUID entity) {
-        if (hasSheet(entity)) return of(entity).health() * maxHealthMultiplier(entity);
+        if (hasSheet(entity)) return (of(entity).health() + flat(entity, c -> c.maxHealthFlat())) * maxHealthMultiplier(entity);
         return world.maxHealth(entity).orElse(CharacterDef.Stats.DEFAULT.health());
+    }
+
+    /** Max HP above their character's own (items, buffs): what {@code bonus_hp} scales with. 0 without a sheet. */
+    public double bonusHealth(UUID entity) {
+        if (!hasSheet(entity)) return 0;
+        return Math.max(0, maxHealth(entity) - of(entity).health());
+    }
+
+    /**
+     * Damage above their character's own base damage: base damage x damage dealt (items, buffs: +25% = 1.25), less the
+     * base damage. What {@code max_hp_bonus_dmg} scales with. 0 without a sheet, or with nothing raising it.
+     */
+    public double bonusDamage(UUID entity) {
+        if (!hasSheet(entity)) return 0;
+        double own = of(entity).baseDamage();
+        return Math.max(0, baseDamage(entity) * damageDealtMultiplier(entity) - own);
+    }
+
+    /**
+     * The statuses an entity's stats come from: its own, and for a body standing in for a player (Mitosis's clone) also
+     * the player's items (additive statuses): it has their stats, while its buffs and debuffs are its own.
+     */
+    private java.util.List<ActiveStatus> statsOn(UUID entity) {
+        var own = statuses.on(entity);
+        var owner = loadouts.standInFor(entity);
+        if (owner.isEmpty()) return own;
+        java.util.List<ActiveStatus> all = new java.util.ArrayList<>(own);
+        for (ActiveStatus s : statuses.on(owner.get())) if (s.def().extras().additive()) all.add(s);
+        return all;
+    }
+
+    /** A flat stat from the holder's statuses (items: per copy), added up. */
+    private double flat(UUID entity, java.util.function.ToDoubleFunction<me.mephisto.ability_engine.engine.status.StatusDef.Combat> stat) {
+        double sum = 0;
+        for (ActiveStatus s : statsOn(entity)) sum += stat.applyAsDouble(s.def().extras().combat()) * statStacks(s);
+        return sum;
+    }
+
+    /**
+     * A character's own spell resistance, from their armor: below 10 armor as much as their armor, 10 to 20 their armor
+     * less 5, above 20 their armor less 10 (25 armor: 15 spell resistance).
+     */
+    private boolean resistanceFromArmor; // off until configured (config.yml spell-resistance-from-armor)
+
+    /** Characters have spell resistance of their own, from their armor (see {@link #baseSpellResistance}). */
+    public void setResistanceFromArmor(boolean on) { this.resistanceFromArmor = on; }
+
+    public boolean resistanceFromArmor() { return resistanceFromArmor; }
+
+    public static double baseSpellResistance(double armor) {
+        if (armor < 10) return Math.max(0, armor);
+        if (armor <= 20) return armor - 5;
+        return armor - 10;
     }
 
     /** An additive total never takes a stat below this share (e.g. lots of cooldown reduction: 90% at most). */
@@ -93,12 +146,12 @@ public final class StatSheets {
 
     /** A stat (armor, damage, move and attack speed, max HP, cooldown reduction, spell power): items add up per copy. */
     private double combine(UUID entity, java.util.function.ToDoubleFunction<ActiveStatus> stat, boolean perStack) {
-        return combine(statuses.on(entity), stat, perStack, true, s -> false);
+        return combine(statsOn(entity), stat, perStack, true, s -> false);
     }
 
     /** An effect (anything that isn't a stat): an item's counts once, however many copies of it are in the bag. */
     private double combineEffect(UUID entity, java.util.function.ToDoubleFunction<ActiveStatus> effect) {
-        return combine(statuses.on(entity), effect, false, false, s -> false);
+        return combine(statsOn(entity), effect, false, false, s -> false);
     }
 
     /** How many times a status's stat counts: its stacks (a stat builds up per stack, an item per copy). */
@@ -107,7 +160,7 @@ public final class StatSheets {
     /** The sheet's armor, x the holder's statuses' {@code armor} (each to the power of its stacks: a shred). */
     public double armor(UUID entity) {
         if (!hasSheet(entity)) return 0;
-        return of(entity).armor() * combine(entity, s -> s.def().armor(), true);
+        return (of(entity).armor() + flat(entity, c -> c.armorFlat())) * combine(entity, s -> s.def().armor(), true);
     }
 
     /** What the holder's damage is multiplied by: their statuses' {@code damage_dealt} (Strength, items...). */
@@ -125,35 +178,38 @@ public final class StatSheets {
      */
     public double spellPower(UUID entity) {
         double sum = 0;
-        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().spellPower() * statStacks(s);
+        for (ActiveStatus s : statsOn(entity)) sum += s.def().extras().combat().spellPower() * statStacks(s);
         return Math.max(0, sum);
     }
 
     /** The holder's chance (0..1) to critically strike: their statuses' {@code crit_chance}, added up (per stack). */
     public double critChance(UUID entity) {
         double sum = 0;
-        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().critChance() * statStacks(s);
+        for (ActiveStatus s : statsOn(entity)) sum += s.def().extras().combat().critChance() * statStacks(s);
         return Math.max(0, Math.min(1, sum));
     }
 
     /** Extra damage on the holder's critical strikes: their statuses' {@code crit_damage}, added up (an effect: once). */
     public double critDamageBonus(UUID entity) {
         double sum = 0;
-        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().critDamage();
+        for (ActiveStatus s : statsOn(entity)) sum += s.def().extras().combat().critDamage();
         return sum;
     }
 
     /** Can the holder's abilities (not only basic attacks) critically strike? (a status's {@code ability_crits}) */
     public boolean abilitiesCrit(UUID entity) {
-        for (ActiveStatus s : statuses.on(entity)) if (s.def().extras().combat().abilityCrits()) return true;
+        for (ActiveStatus s : statsOn(entity)) if (s.def().extras().combat().abilityCrits()) return true;
         return false;
     }
 
     /** Spell resistance points: their statuses' {@code spell_resistance}, added up (per stack). */
     public double spellResistance(UUID entity) {
-        double sum = 0;
-        for (ActiveStatus s : statuses.on(entity)) sum += s.def().extras().combat().spellResistance() * statStacks(s);
-        return sum;
+        double sum = resistanceFromArmor && hasSheet(entity) ? baseSpellResistance(of(entity).armor()) : 0, mult = 1; // their own
+        for (ActiveStatus s : statsOn(entity)) {
+            sum += s.def().extras().combat().spellResistance() * statStacks(s);
+            mult *= Math.pow(s.def().extras().combat().spellResistanceMult(), Math.max(1, s.stacks())); // a shred
+        }
+        return sum * mult;
     }
 
     /** What's left of an ability's hit after spell resistance: x constant / (constant + points), like armor. */
@@ -168,7 +224,13 @@ public final class StatSheets {
         return points / (armorConstant + points);
     }
 
-    public double baseDamage(UUID entity) { return of(entity).baseDamage(); }
+    /** Their base damage: the character's own, plus flat base damage from statuses (items). */
+    public double baseDamage(UUID entity) {
+        return hasSheet(entity) ? of(entity).baseDamage() + flat(entity, c -> c.baseDamageFlat()) : of(entity).baseDamage();
+    }
+
+    /** Points of cooldown reduction (ability_haste, items per copy): cooldowns x constant / (constant + points). */
+    public double abilityHaste(UUID entity) { return flat(entity, c -> c.abilityHaste()); }
 
     /** What's left of a hit after armor: x constant / (constant + armor). */
     public double afterArmor(UUID victim, double amount) {
@@ -188,7 +250,7 @@ public final class StatSheets {
      * Unstoppable, debuffs don't slow them.
      */
     public double attackSpeedMultiplier(UUID entity) {
-        return combine(statuses.on(entity), s -> s.def().attackSpeed(), true,
+        return combine(statsOn(entity), s -> s.def().attackSpeed(), true,
                 s -> s.def().attackSpeed() < 1 && statuses.crowdControlSuppressed(entity, s));
     }
 
@@ -200,15 +262,50 @@ public final class StatSheets {
      * more than the largest of their caps (Recall's slow and a crystal floor's: 40% at most).
      */
     public double moveSpeedMultiplier(UUID entity) {
-        var on = statuses.on(entity);
+        var on = statsOn(entity);
         java.util.function.Predicate<ActiveStatus> off = s -> (s.def().moveSpeed() < 1 && statuses.crowdControlSuppressed(entity, s))
                 || (s.def().extras().moveSpeedUnless() != null && tags != null && tags.has(entity, s.def().extras().moveSpeedUnless()));
+        double resistance = slowResistance(entity);
+        if (resistance > 0) return resistedMoveSpeed(on, off, resistance);
         double rest = combine(on, s -> s.def().extras().slowCap() > 0 ? 1 : s.def().moveSpeed(), true, off);
         double cap = 0;
         for (ActiveStatus s : on) if (!off.test(s) && s.def().moveSpeed() < 1) cap = Math.max(cap, s.def().extras().slowCap());
         if (cap <= 0) return rest;
         double capped = combine(on, s -> s.def().extras().slowCap() > 0 ? s.def().moveSpeed() : 1, true, off);
         return Math.max(capped, 1 - cap) * rest;
+    }
+
+    /**
+     * {@link #moveSpeedMultiplier} for someone with slow resistance: the slows (move_speed below 1, capped ones as usual)
+     * are combined on their own, and only {@code 1 - resistance} of what they take off is taken off; the rest (haste)
+     * multiplies on top as usual. E.g. 40% slower with 30% resistance: 28% slower.
+     */
+    private double resistedMoveSpeed(java.util.List<ActiveStatus> on, java.util.function.Predicate<ActiveStatus> off, double resistance) {
+        double haste = combine(on, s -> s.def().extras().slowCap() > 0 || s.def().moveSpeed() < 1 ? 1 : s.def().moveSpeed(), true, off);
+        double slow = combine(on, s -> s.def().extras().slowCap() > 0 || s.def().moveSpeed() > 1 ? 1 : s.def().moveSpeed(), true, off);
+        double cap = 0;
+        for (ActiveStatus s : on) if (!off.test(s) && s.def().moveSpeed() < 1) cap = Math.max(cap, s.def().extras().slowCap());
+        if (cap > 0) slow *= Math.max(combine(on, s -> s.def().extras().slowCap() > 0 ? s.def().moveSpeed() : 1, true, off), 1 - cap);
+        return haste * resisted(slow, resistance);
+    }
+
+    /** What's left of a slow ({@code multiplier} below 1) after {@code resistance} (0..1) of it is shrugged off. */
+    public static double resisted(double multiplier, double resistance) {
+        if (multiplier >= 1 || resistance <= 0) return multiplier;
+        return 1 - (1 - multiplier) * (1 - Math.min(1, resistance));
+    }
+
+    /**
+     * How much of every slow the holder shrugs off (0..1): their statuses' {@code slow_resistance}, each per stack, as
+     * shares that multiply (two 30%: 51%). Slows from move_speed statuses and the {@code state.slowed} tag both shrink.
+     */
+    public double slowResistance(UUID entity) {
+        double kept = 1;
+        for (ActiveStatus s : statsOn(entity)) {
+            double r = s.def().extras().slowResistance();
+            if (r > 0) kept *= Math.pow(1 - r, statStacks(s));
+        }
+        return 1 - kept;
     }
 
     /**
@@ -222,7 +319,7 @@ public final class StatSheets {
     /** The Jump Boost level the entity's statuses give it right now ({@code jump_boost}: the highest one); 0 = none. */
     public int jumpBoost(UUID entity) {
         int level = 0;
-        for (ActiveStatus s : statuses.on(entity)) level = Math.max(level, s.def().jumpBoost());
+        for (ActiveStatus s : statsOn(entity)) level = Math.max(level, s.def().jumpBoost());
         return level;
     }
 
@@ -236,7 +333,8 @@ public final class StatSheets {
      * of its stacks, multiplied together (two 0.95s: x0.9025). Always above 0; 1 = none.
      */
     public double cooldownMultiplier(UUID entity) {
-        return combine(entity, s -> s.def().extras().cooldownReduction(), true);
+        double haste = abilityHaste(entity); // points, like armor: 20 = x0.83, 100 = x0.5, never 0
+        return combine(entity, s -> s.def().extras().cooldownReduction(), true) * armorConstant / (armorConstant + haste);
     }
 
     /** What the healer's heals on others are multiplied by: their statuses' {@code ally_healing_dealt} (1 = none). */
@@ -254,6 +352,11 @@ public final class StatSheets {
 
     public void setUltimatesCharge(boolean charge) { this.ultimatesCharge = charge; }
 
+    /** Ultimates with a cooldown of their own (ult_charge: false): it runs even while ultimates charge. */
+    private java.util.function.Predicate<String> ultimateOwnCooldown = id -> false;
+
+    public void setUltimateOwnCooldown(java.util.function.Predicate<String> own) { this.ultimateOwnCooldown = own; }
+
     /** Is this ability whatever is in the caster's ultimate slot now? */
     public boolean isUltimate(UUID caster, String abilityId) {
         return loadouts.characterOf(caster).map(c -> abilityId.equals(c.abilityIn(Slots.ULTIMATE))).orElse(false);
@@ -262,7 +365,7 @@ public final class StatSheets {
     /** The share of their ability damage the attacker heals (their statuses' {@code ability_lifesteal}, added up). */
     public double abilityLifesteal(UUID attacker) {
         double sum = 0;
-        for (ActiveStatus s : statuses.on(attacker)) sum += s.def().extras().abilityLifesteal(); // (an effect: once)
+        for (ActiveStatus s : statsOn(attacker)) sum += s.def().extras().abilityLifesteal(); // (an effect: once)
         return sum;
     }
 
@@ -298,7 +401,7 @@ public final class StatSheets {
      * charge is what it waits for.
      */
     public int cooldownTicks(UUID caster, String abilityId, int ownCooldown) {
-        if (ultimatesCharge && isUltimate(caster, abilityId)) return 0;
+        if (ultimatesCharge && isUltimate(caster, abilityId) && !ultimateOwnCooldown.test(abilityId)) return 0;
         int ticks = loadouts.sheetOf(caster)
                 .filter(c -> c.stats().attackSpeed() > 0 && abilityId.equals(c.abilityIn(Slots.PRIMARY)))
                 .map(c -> Math.max(1, (int) Math.round(20 / c.stats().attackSpeed())))

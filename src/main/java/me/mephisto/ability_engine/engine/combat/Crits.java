@@ -16,8 +16,8 @@ import java.util.UUID;
  */
 public final class Crits {
 
-    /** How much a critical strike deals (config.yml crit-damage): 1.75 = 175%. */
-    public static final double DEFAULT_DAMAGE = 1.75;
+    /** How much a critical strike deals (config.yml crit-damage): 1.4 = 140%. */
+    public static final double DEFAULT_DAMAGE = 1.4;
 
     private static final class Streak {
         int attempts;          // attacks since the last crit (the next is attempts + 1)
@@ -36,6 +36,15 @@ public final class Crits {
     public Crits(Random random) { this.random = random; }
 
     public void setDamage(double damage) { this.damage = damage > 1 ? damage : DEFAULT_DAMAGE; }
+
+    /** An ABILITY's critical strike (a status's ability_crits), config.yml ability-crit-damage: 1.2 = 120%. */
+    public static final double DEFAULT_ABILITY_DAMAGE = 1.2;
+    private double abilityDamage = DEFAULT_ABILITY_DAMAGE;
+
+    public void setAbilityDamage(double damage) { this.abilityDamage = damage > 1 ? damage : DEFAULT_ABILITY_DAMAGE; }
+
+    /** What an ability's critical strike deals, before the attacker's crit_damage. */
+    public double abilityDamage() { return abilityDamage; }
 
     /** What a critical strike deals, before the attacker's crit_damage: 1.75 = 175%. */
     public double damage() { return damage; }

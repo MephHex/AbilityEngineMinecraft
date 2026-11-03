@@ -72,15 +72,23 @@ public final class UltimateCharge {
     public boolean ready(UUID player) { return of(player) >= FULL - 1e-9; }
 
     private StolenUltimates stolen; // a stolen ultimate is free: it never waits on the charge
+    /** Ultimates with a cooldown of their own (ult_charge: false): they never wait on the charge. */
+    private java.util.function.Predicate<String> ownCooldown = id -> false;
+
+    public void setOwnCooldown(java.util.function.Predicate<String> ownCooldown) {
+        this.ownCooldown = ownCooldown;
+        stats.setUltimateOwnCooldown(ownCooldown);
+    }
 
     public void setStolen(StolenUltimates stolen) { this.stolen = stolen; }
 
     /**
      * Does casting this ability wait on the caster's charge (it's their ultimate, and ultimates charge)? A stolen one
-     * doesn't (see StolenUltimates).
+     * doesn't (see StolenUltimates), nor one with a cooldown of its own ({@code ult_charge: false}).
      */
     public boolean gates(UUID caster, String abilityId) {
-        return enabled && stats.isUltimate(caster, abilityId) && (stolen == null || !stolen.holds(caster, abilityId));
+        return enabled && stats.isUltimate(caster, abilityId) && !ownCooldown.test(abilityId)
+                && (stolen == null || !stolen.holds(caster, abilityId));
     }
 
     /** More charge (percent points), x their ult_charge_rate; capped at 100. Only with a character. */
@@ -111,7 +119,9 @@ public final class UltimateCharge {
         var instance = ctx.execution().instance();
         String ability = instance.ability().id();
         if (stats.isUltimate(caster, ability) || !instance.markLanded()) return;
-        add(caster, stats.isFire(caster, ability) ? basicHit : abilityHit);
+        // a second body's hit (Mitosis's clone) charges its owner
+        UUID owner = loadouts.standInFor(caster).orElse(caster);
+        add(owner, stats.isFire(caster, ability) ? basicHit : abilityHit);
     }
 
     /** Every second: everyone with a character charges a little by themselves. */

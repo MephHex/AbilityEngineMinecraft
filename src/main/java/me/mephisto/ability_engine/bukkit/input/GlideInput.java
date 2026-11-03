@@ -19,7 +19,7 @@ import org.bukkit.plugin.Plugin;
  * Gliding on a floor of your own (a character's {@code glide:}, see Floors): holding SHIFT with a movement key glides you
  * that way (W ahead, S back, A / D to the side, diagonals too, relative to where you face), again as soon as its gap
  * allows while they're held. On your floor, sneaking doesn't slow you down (vanilla's sneak speed is lifted there), so
- * holding SHIFT to glide never drags you. The keys come from the player's input (Paper 1.21.3+), read every tick.
+ * holding SHIFT to glide never drags you. A teleporting glide needs your feet on the ground. The keys come from the player's input (Paper 1.21.3+), read every tick.
  */
 public final class GlideInput implements Listener {
 
@@ -50,6 +50,8 @@ public final class GlideInput implements Listener {
             if (!onFloor) continue;
             Input in = p.getCurrentInput();
             if (!in.isSneak()) continue;
+            // (a teleporting glide, the Trick Room's: only with your feet on the floor, never mid-jump or falling)
+            if (glide.teleport() && !engine.mirrors().puppeting(id) && !p.isOnGround()) continue;
             double ahead = (in.isForward() ? 1 : 0) - (in.isBackward() ? 1 : 0);
             double side = (in.isLeft() ? 1 : 0) - (in.isRight() ? 1 : 0);
             if (ahead == 0 && side == 0) continue;

@@ -12,7 +12,7 @@ import java.util.UUID;
  * What a hit really deals, after statuses, tethers and armor. Every damage effect (the platform's, the tests')
  * runs its amount through here:
  * <ol>
- *   <li>x the attacker's {@code damage_dealt} statuses (Strength), and an ability's x their spell power</li>
+ *   <li>x the attacker's {@code damage_dealt} statuses (Strength); spell power is flat points, added by an ability's sp: part</li>
  *   <li>x the victim's {@code damage_taken} statuses; an ability's: x their spell resistance (like armor)</li>
  *   <li>each tether on the victim takes off its share ({@code damage_taken}), and {@code redirect} of what
  *       it took off goes to the tether's owner instead; {@code mirror} of what's left ALSO hits the owner
@@ -49,12 +49,18 @@ public final class DamageModifiers {
      */
     public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, double pierceShare,
                                boolean ability) {
+        return apply(engine, attacker, victim, amount, pierceShare, ability, false);
+    }
+
+    /** @param trueDamage true damage ({@code type: true}): spell resistance doesn't reduce it either (armor: pierceShare 1) */
+    public static Result apply(AbilityEngine engine, UUID attacker, UUID victim, double amount, double pierceShare,
+                               boolean ability, boolean trueDamage) {
         engine.combat().hit(attacker, victim); // both are in combat now (e.g. a ward's out-of-combat timer)
         if (attacker != null && !attacker.equals(victim)) {
             amount *= engine.stats().damageDealtMultiplier(attacker);
         }
         amount *= engine.stats().damageTakenMultiplier(victim, ability);
-        if (ability && attacker != null && !attacker.equals(victim)) {
+        if (ability && !trueDamage && attacker != null && !attacker.equals(victim)) {
             amount = engine.stats().afterSpellResistance(victim, amount); // all of an ability's hit, % max HP parts too
         }
         amount *= farMultiplier(engine, attacker, victim);

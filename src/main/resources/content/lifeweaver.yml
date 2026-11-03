@@ -76,8 +76,7 @@ abilities:
       description:
         - "Hold RMB: drain the enemy in your sights"
         - "(8 blocks): 30% base damage every 0.2s,"
-        - "40% of it healing you. Passive - Lingering"
-        - "Soul: killed, a Spectral Remnant 5s first."
+        - "40% of it healing you."
     nodes:
       split:
         type: fork                   # how long it's held, and the drain meanwhile
@@ -433,6 +432,15 @@ characters:
     forms:
       - while: state.choosing_beyond # Beyond Life and Death: choosing
         slots: { primary: lw_beyond_ally, secondary: lw_beyond_self }
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Lingering Soul"
+      icon: GHAST_TEAR
+      description:
+        - "A blow that would kill you doesn't: you're"
+        - "a Spectral Remnant for 5s (nothing can"
+        - "target you, no abilities but your"
+        - "ultimate), then you die. Apotheosis"
+        - "meanwhile revives you at 50% HP."
     slots:
       secondary: lw_drain            # RMB (hold): Life Drain (no LMB)
       ability_1: lw_ab1              # 1: Harmonic Strike

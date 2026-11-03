@@ -18,7 +18,7 @@ final class GravitonCues {
     private static final Particle.DustOptions VIOLET = new Particle.DustOptions(Color.fromRGB(160, 110, 255), 0.9f);
 
     /** Gravitic Collapse's circle (its radius in graviton.yml). */
-    private static final double WELL_RADIUS = 6;
+    private static final double WELL_RADIUS = 8;
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary ----
@@ -33,6 +33,17 @@ final class GravitonCues {
 
         // ---- 1: Gravity Grasp ----
         c.register("graviton_grasp_throw", loc -> loc.getWorld().playSound(loc, Sound.ENTITY_ENDER_EYE_LAUNCH, 1f, 0.6f));
+        c.register("graviton_grasp_trail", loc -> { // the orb in flight: motes pulled in toward it, a ring circling it
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.REVERSE_PORTAL, loc, 4, 0.25, 0.25, 0.25, 0.02);
+            double a = (w.getGameTime() % 40) / 40.0 * Math.PI * 2;
+            for (int i = 0; i < 3; i++) {
+                double t = a + i * Math.PI * 2 / 3;
+                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(t) * 0.55, loc.getY() + Math.sin(t * 2) * 0.15,
+                        loc.getZ() + Math.sin(t) * 0.55, 1, 0, 0, 0, 0, VIOLET);
+            }
+            if (w.getGameTime() % 3 == 0) w.spawnParticle(Particle.END_ROD, loc, 1, 0.15, 0.15, 0.15, 0.01);
+        });
         c.register("graviton_grasp_catch", loc -> {
             loc.getWorld().spawnParticle(Particle.REVERSE_PORTAL, loc, 25, 0.3, 0.5, 0.3, 0.05);
             loc.getWorld().playSound(loc, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1f, 0.8f);

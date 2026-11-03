@@ -57,6 +57,28 @@ public final class LoadoutManager {
         assignListeners.forEach(l -> l.accept(player));
     }
 
+    /** Bodies standing in for a player (Mitosis's clone): body -> the player whose character it plays too. */
+    private final Map<UUID, UUID> standIns = new HashMap<>();
+
+    /**
+     * {@code body} plays {@code owner}'s character from now on (their kit, forms, stats), without being assigned it: no
+     * passives, no resources, no ultimate charge of its own. Until {@link #dropStandIn}.
+     */
+    public void standIn(UUID body, UUID owner) { standIns.put(body, owner); }
+
+    public void dropStandIn(UUID body) { standIns.remove(body); }
+
+    /** Whose character this body plays, if it's someone's stand-in. */
+    public Optional<UUID> standInFor(UUID body) { return Optional.ofNullable(standIns.get(body)); }
+
+    /** The character id {@code player} plays: their own, or (a stand-in) their owner's. */
+    private String idOf(UUID player) {
+        String id = assigned.get(player);
+        if (id != null) return id;
+        UUID owner = standIns.get(player);
+        return owner == null ? null : assigned.get(owner);
+    }
+
     public void clear(UUID player) {
         assigned.remove(player);
         overrides.remove(player);
@@ -77,7 +99,7 @@ public final class LoadoutManager {
 
     /** Their character with its form applied, without any slot overrides (what's really theirs right now). */
     public Optional<CharacterDef> kitOf(UUID player) {
-        String id = assigned.get(player);
+        String id = idOf(player);
         if (id == null) return Optional.empty();
         return characters.find(id).map(c -> {
             for (CharacterDef.Form form : c.forms()) {
@@ -114,7 +136,7 @@ public final class LoadoutManager {
      * own (a stage of growth). A form without stats doesn't change the sheet (nor which primary follows attack speed).
      */
     public Optional<CharacterDef> sheetOf(UUID player) {
-        String id = assigned.get(player);
+        String id = idOf(player);
         if (id == null) return Optional.empty();
         return characters.find(id).map(c -> {
             for (CharacterDef.Form form : c.forms()) {
@@ -126,7 +148,7 @@ public final class LoadoutManager {
 
     /** The player's character as defined, ignoring forms (its own primary, its own stats). */
     public Optional<CharacterDef> baseCharacterOf(UUID player) {
-        String id = assigned.get(player);
+        String id = idOf(player);
         return id == null ? Optional.empty() : characters.find(id);
     }
 
@@ -201,7 +223,8 @@ public final class LoadoutManager {
         if (character.isEmpty()) return ActivationResult.fail("no_character");
         String abilityId = character.get().abilityIn(slot);
         if (abilityId == null) return ActivationResult.fail("empty_slot:" + slot);
-        var blocked = slotBlocked(player, slot);
+        boolean free = abilities.find(abilityId).map(a -> a.ignoresCrowdControl()).orElse(false); // e.g. Mitosis's swap
+        var blocked = free ? Optional.<ActivationResult>empty() : slotBlocked(player, slot);
         if (blocked.isPresent()) return blocked.get();
         java.util.Map<String, Object> presets = new java.util.HashMap<>(extra);
         presets.put(Keys.SLOT.name(), slot);

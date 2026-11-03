@@ -25,7 +25,9 @@ import java.util.stream.Stream;
  *   <li>every {@code .yml} under {@code content/} (subfolders too), in path order</li>
  *   <li>an old single {@code abilities.yml}, if it's still there</li>
  * </ul>
- * The jar's content/ files are copied out on a fresh install (no content/ and no abilities.yml).
+ * The jar's content/ files are copied out on a fresh install (no content/ and no abilities.yml). Later, a file the jar
+ * ships that the folder doesn't have (a new kit after an update) is copied out too; files already there are never
+ * touched (edits on the server stay).
  *
  * <p>Development helpers (config.yml, read again on every /ae reload):
  * <ul>
@@ -76,6 +78,14 @@ public final class AbilityFiles {
                 List<String> shipped = shippedContent();
                 for (String entry : shipped) plugin.saveResource(entry, overwrite);
                 if (overwrite) plugin.getLogger().info("DEV: overwrote " + shipped.size() + " content file(s) from the jar");
+            } else if (content.isDirectory()) { // an update with new files (a new kit): copy out only those
+                List<String> added = new ArrayList<>();
+                for (String entry : shippedContent()) {
+                    if (new File(plugin.getDataFolder(), entry).exists()) continue;
+                    plugin.saveResource(entry, false);
+                    added.add(entry);
+                }
+                if (!added.isEmpty()) plugin.getLogger().info("Added " + added.size() + " new content file(s) from the jar: " + added);
             }
             nameBase = plugin.getDataFolder().toPath();
             if (legacy.exists()) files.add(legacy.toPath());

@@ -119,12 +119,9 @@ abilities:
     display:
       name: "Amethyst Shard"
       description:
-        - "Ammo = piercing shards: fast, through"
-        - "everyone (80%, 50% behind the first), they"
-        - "hang 7s where they end: RMB recalls. No"
-        - "ammo: slower regular shards (80%, first"
-        - "enemy). Ammo is lost 8s after you last got"
-        - "some (Allegro +4, Arpeggio +2, Geode Heart +6)."
+        - "With ammo: a piercing shard (Piercing"
+        - "Shards, below). No ammo: a slower regular"
+        - "shard (80%, first enemy)."
     nodes:
       load:
         type: spend                  # a piercing shard of ammo...
@@ -744,6 +741,16 @@ characters:
       gap: 10                        # 0.5s between glides
       cue: amethyst_glide            # a chime
       trail: amethyst_glide_trail
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Piercing Shards"
+      icon: AMETHYST_CLUSTER
+      description:
+        - "Your ammo (the count on your weapon, 6"
+        - "max) is piercing shards: fast, through"
+        - "everyone (80%, 50% behind the first), they"
+        - "hang 7s where they end: RMB recalls. Ammo"
+        - "is lost 8s after you last got some"
+        - "(Allegro +4, Arpeggio +2, Geode Heart +6)."
     slots:
       primary: amethyst_primary      # LMB: Amethyst Shard (piercing with ammo, regular without)
       secondary: amethyst_recall     # RMB: Recall (its icon: slot 9)

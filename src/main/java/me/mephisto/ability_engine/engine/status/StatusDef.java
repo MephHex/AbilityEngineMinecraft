@@ -84,11 +84,22 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      *                           slow that only holds off a floor of their own
      * @param slotDamage         the damage of the holder's abilities in these slots is multiplied by this ({primary: 0.5,
      *                           ability_1: 0.5}: their basic attacks and 1 at half damage), e.g. while confused
+     * @param slowResistance     this share (0..1) of every slow on the holder is shrugged off (0.3: a 40% slow is 28%)
      */
     public record Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
                          List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
                          double ultChargeRate, List<EffectConfig> onDamaged, boolean additive, Combat combat,
-                         double slowCap, String moveSpeedUnless, java.util.Map<String, Double> slotDamage) {
+                         double slowCap, String moveSpeedUnless, java.util.Map<String, Double> slotDamage,
+                         double slowResistance) {
+
+        /** No slow resistance. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
+                      double ultChargeRate, List<EffectConfig> onDamaged, boolean additive, Combat combat,
+                      double slowCap, String moveSpeedUnless, java.util.Map<String, Double> slotDamage) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, cooldownReduction, allyHealingDealt,
+                    ultChargeRate, onDamaged, additive, combat, slowCap, moveSpeedUnless, slotDamage, 0);
+        }
 
         /** No slot damage. */
         public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
@@ -143,6 +154,7 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
             if (combat == null) combat = Combat.NONE;
             if (slowCap < 0) slowCap = 0;
             slotDamage = slotDamage == null ? java.util.Map.of() : java.util.Map.copyOf(slotDamage);
+            slowResistance = Math.max(0, Math.min(1, slowResistance));
         }
     }
 
@@ -158,13 +170,30 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      * @param critDamage      added to how much a critical strike deals (0.35: 175% -> 210%)
      * @param abilityCrits    the holder's abilities can critically strike too (a roll per cast)
      * @param onCrit          effects on whoever the holder's critical strike hits ({@code self: true}: on the holder)
+     * @param spellResistanceMult the holder's spell resistance x this per stack (0.8 = 20% shredded); 1 = unchanged
+     * @param abilityHaste    points of cooldown reduction: ability cooldowns x {@code constant / (constant + points)}, like
+     *                        armor (20 = 17% shorter; never all of it)
+     * @param armorFlat       flat armor added to the character's own (before any % armor)
+     * @param maxHealthFlat   flat max HP added to the character's own (design HP, before any % max HP)
+     * @param baseDamageFlat  flat base damage added to the character's own (what "% base damage" is a share of)
      */
     public record Combat(double spellPower, double critChance, double spellResistance, double critDamage,
-                         boolean abilityCrits, List<EffectConfig> onCrit) {
-        public static final Combat NONE = new Combat(0, 0, 0, 0, false, List.of());
+                         boolean abilityCrits, List<EffectConfig> onCrit, double spellResistanceMult, double abilityHaste,
+                         double armorFlat, double maxHealthFlat, double baseDamageFlat) {
+        public static final Combat NONE = new Combat(0, 0, 0, 0, false, List.of(), 1, 0, 0, 0, 0);
 
         public Combat {
             onCrit = onCrit == null ? List.of() : List.copyOf(onCrit);
+        }
+
+        public Combat(double spellPower, double critChance, double spellResistance, double critDamage,
+                      boolean abilityCrits, List<EffectConfig> onCrit, double spellResistanceMult) {
+            this(spellPower, critChance, spellResistance, critDamage, abilityCrits, onCrit, spellResistanceMult, 0, 0, 0, 0);
+        }
+
+        public Combat(double spellPower, double critChance, double spellResistance, double critDamage,
+                      boolean abilityCrits, List<EffectConfig> onCrit) {
+            this(spellPower, critChance, spellResistance, critDamage, abilityCrits, onCrit, 1);
         }
     }
 

@@ -126,6 +126,13 @@ final class TricksterCues {
             w.playSound(loc, Sound.ENTITY_ILLUSIONER_PREPARE_MIRROR, 0.9f, 1.6f);
         });
         c.registerLoop("trickster_switch_trail", e -> switchTrail(plugin, e)); // sparkles behind each of them as they fly
+        c.register("trickster_switch_throw", loc -> // the swap charm thrown
+                loc.getWorld().playSound(loc, Sound.ENTITY_ENDER_PEARL_THROW, 0.9f, 1.3f));
+        c.register("trickster_switch_trail_puff", loc -> { // the charm in flight: fae dust behind it
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.DUST, loc, 3, 0.15, 0.15, 0.15, 0, LILAC);
+            w.spawnParticle(Particle.DUST, loc, 1, 0.1, 0.1, 0.1, 0, PINK);
+        });
         c.register("trickster_switch_land", loc -> {
             World w = loc.getWorld();
             w.spawnParticle(Particle.DUST, loc, 12, 0.35, 0.2, 0.35, 0, PINK);

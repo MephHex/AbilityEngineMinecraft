@@ -27,7 +27,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * four thin squares turned 22.5 degrees from each other (together a 16-sided disc within 2% of round), and a light
  * shimmer over it a few times a second. No real blocks. {@link #spawnFloor} is the one place that builds the look (a
  * model can replace it later). A square one (the Fae Trickster's Trick Room) is drawn as a glowing pink outline instead
- * ({@link #spawnRoom}), with motes rising off its edges and fainter guide outlines a block above and below its floor.
+ * ({@link #spawnRoom}), with motes rising off its edges and fainter guide outlines a block above and below its floor, on
+ * a flat checkerboard floor you can walk on (invisible barriers hold it up, sent to the players only: no real blocks).
  */
 public final class FloorRenderer implements Floors.Listener {
 
@@ -54,7 +55,9 @@ public final class FloorRenderer implements Floors.Listener {
         current = this;
         engine.floors().addListener(this);
         Bukkit.getScheduler().runTaskTimer(plugin, this::shimmer, SHIMMER_EVERY, SHIMMER_EVERY);
-        Bukkit.getScheduler().runTaskTimer(plugin, this::showWalls, WALLS_EVERY, WALLS_EVERY);
+        Bukkit.getScheduler().runTaskTimer(plugin, this::showAllWalls, WALLS_EVERY, WALLS_EVERY);
+        Bukkit.getScheduler().runTaskTimer(plugin, this::sendAllFooting, FOOTING_EVERY, FOOTING_EVERY);
+        Bukkit.getPluginManager().registerEvents(new FootingGuard(), plugin);
     }
 
     @Override
@@ -108,7 +111,7 @@ public final class FloorRenderer implements Floors.Listener {
                 return List.of();
             }
         }
-        return groundPanes(w, patch, LIT_DARK, LIT_LIGHT, null).all();
+        return flatPanes(w, patch, LIT_DARK, LIT_LIGHT, null).all();
     }
 
     private static void recolor(List<BlockDisplay> panes, Material block, Color glow) {
@@ -121,17 +124,14 @@ public final class FloorRenderer implements Floors.Listener {
     }
 
     /**
-     * A room's floor: in every block column of it, a thin glass pane on the ground there within its reach (the first solid
-     * top going down from its {@code up} above its floor to its {@code down} below), so it shows at the bottom of the
-     * whole room wherever the ground is: put down on a block a step above the ground around it, the floor shows down on
-     * that ground. A column that's a wall all the way up, or has no ground in reach, has none. The columns alternate
-     * between the two colours like a checkerboard (by the block they're on, so it lines up with the world's grid).
+     * A room's floor: one flat sheet at its height across the whole of it, a thin glass pane in every block column. It
+     * runs straight through blocks in the way (hidden inside them, never laid on top of them) and over dips and drops
+     * (where its footing holds you up, see {@link #placeFooting}). The columns alternate between the two colours like a
+     * checkerboard (by the block they're on, so it lines up with the world's grid).
      */
-    private Checkers groundPanes(World w, Floors.Patch patch, Material dark, Material light, Color glow) {
+    private Checkers flatPanes(World w, Floors.Patch patch, Material dark, Material light, Color glow) {
         var audience = engine.audienceOf(patch.owner());
-        double base = patch.center().y();
-        double top = base + (Double.isNaN(patch.up()) ? 1 : patch.up());
-        double bottom = base - (Double.isNaN(patch.down()) ? 0.1 : patch.down());
+        double y = patch.center().y() + 0.005;
         int x0 = (int) Math.round(patch.center().x() - patch.radius());
         int z0 = (int) Math.round(patch.center().z() - patch.radius());
         int n = (int) Math.round(patch.radius() * 2);
@@ -139,11 +139,9 @@ public final class FloorRenderer implements Floors.Listener {
         for (int dz = 0; dz < n; dz++) {
             for (int dx = 0; dx < n; dx++) {
                 int x = x0 + dx, z = z0 + dz;
-                Double ground = groundIn(w, x, z, top, bottom);
-                if (ground == null) continue;
                 boolean isDark = Math.floorMod(x + z, 2) == 0;
                 Material block = isDark ? dark : light;
-                Location at = new Location(w, x, ground + 0.005, z);
+                Location at = new Location(w, x, y, z);
                 (isDark ? out.dark() : out.light()).add(w.spawn(at, BlockDisplay.class, d -> {
                     d.setBlock(block.createBlockData());
                     d.setPersistent(false);
@@ -168,20 +166,19 @@ public final class FloorRenderer implements Floors.Listener {
     private static final int WALLS_EVERY = 4;
     /** A room's walls run from this far below its floor... */
     private static final int WALL_BELOW = 1;
-    /** ...to this far above the top of its reach (a head's height). */
-    private static final int WALL_ABOVE = 2;
+    /** ...to this far above the top of its reach (a head's height, and 2 more: changed 2026-11-02, was 2). */
+    private static final int WALL_ABOVE = 4;
 
     /**
      * A room's four walls along its edges, a checkerboard of thin glass panes a block each (the same colours as its floor),
-     * from a block below its floor to two above the top of its reach. Nobody sees them until they're inside (showWalls).
+     * from a block below its floor to four above the top of its reach. Nobody sees them until they're inside (showWalls).
      */
     private List<BlockDisplay> wallPanes(World w, Floors.Patch patch) {
         int x0 = (int) Math.round(patch.center().x() - patch.radius());
         int z0 = (int) Math.round(patch.center().z() - patch.radius());
         int n = (int) Math.round(patch.radius() * 2);
-        double up = Double.isNaN(patch.up()) ? 1 : patch.up();
-        int y0 = (int) Math.floor(patch.center().y()) - WALL_BELOW;
-        int rows = (int) Math.ceil(up) + WALL_BELOW + WALL_ABOVE;
+        int y0 = wallBottom(patch);
+        int rows = wallRows(patch);
         List<BlockDisplay> out = new ArrayList<>();
         for (int row = 0; row < rows; row++) {
             int y = y0 + row;
@@ -194,6 +191,14 @@ public final class FloorRenderer implements Floors.Listener {
             }
         }
         return out;
+    }
+
+    /** The bottom of a room's walls (a block), and how many blocks tall they are. */
+    private static int wallBottom(Floors.Patch patch) { return (int) Math.floor(patch.center().y()) - WALL_BELOW; }
+
+    private static int wallRows(Floors.Patch patch) {
+        double up = Double.isNaN(patch.up()) ? 1 : patch.up();
+        return (int) Math.ceil(up) + WALL_BELOW + WALL_ABOVE;
     }
 
     private BlockDisplay wallCell(World w, double x, int y, double z, float sizeX, float sizeZ, int parity) {
@@ -210,54 +215,149 @@ public final class FloorRenderer implements Floors.Listener {
     }
 
     /** Every few ticks: each room's walls shown to the players inside it (who may see the room) and hidden from the rest. */
-    private void showWalls() {
-        for (var e : roomWalls.entrySet()) {
-            Floors.Patch room = e.getKey();
-            Walls walls = e.getValue();
-            World w = Bukkit.getWorld(room.world());
-            if (w == null) continue;
-            var audience = engine.audienceOf(room.owner());
-            java.util.Set<java.util.UUID> inside = new java.util.HashSet<>();
-            for (org.bukkit.entity.Player pl : w.getPlayers()) {
-                if (!audience.isEmpty() && !audience.contains(pl.getUniqueId())) continue;
-                Location at = pl.getLocation();
-                var middle = new me.mephisto.ability_engine.engine.math.Vec3(at.getX(), at.getY() + pl.getHeight() / 2, at.getZ());
-                if (room.contains(room.world(), middle)) inside.add(pl.getUniqueId());
-            }
-            for (java.util.UUID id : inside) {
-                if (!walls.shownTo().add(id)) continue; // (already sees them)
-                org.bukkit.entity.Player pl = Bukkit.getPlayer(id);
-                if (pl != null) for (BlockDisplay d : walls.panes()) if (d.isValid()) pl.showEntity(plugin, d);
-            }
-            for (java.util.UUID id : List.copyOf(walls.shownTo())) {
-                if (inside.contains(id)) continue;
-                walls.shownTo().remove(id);
-                org.bukkit.entity.Player pl = Bukkit.getPlayer(id);
-                if (pl != null) for (BlockDisplay d : walls.panes()) if (d.isValid()) pl.hideEntity(plugin, d);
-            }
+    private void showAllWalls() {
+        for (var e : roomWalls.entrySet()) showWalls(e.getKey(), e.getValue());
+    }
+
+    /**
+     * {@code room}'s walls shown to whoever is inside them (between the four walls, anywhere from their bottom to their
+     * top: jumping, up on a block or down in a dip, they stay) and hidden from the rest.
+     */
+    private void showWalls(Floors.Patch room, Walls walls) {
+        World w = Bukkit.getWorld(room.world());
+        if (w == null) return;
+        var audience = engine.audienceOf(room.owner());
+        double half = room.radius();
+        int bottom = wallBottom(room);
+        int top = bottom + wallRows(room);
+        java.util.Set<java.util.UUID> inside = new java.util.HashSet<>();
+        for (org.bukkit.entity.Player pl : w.getPlayers()) {
+            if (!audience.isEmpty() && !audience.contains(pl.getUniqueId())) continue;
+            Location at = pl.getLocation();
+            if (Math.abs(at.getX() - room.center().x()) > half || Math.abs(at.getZ() - room.center().z()) > half) continue;
+            if (at.getY() + pl.getHeight() < bottom || at.getY() > top) continue;
+            inside.add(pl.getUniqueId());
+        }
+        for (java.util.UUID id : inside) {
+            if (!walls.shownTo().add(id)) continue; // (already sees them)
+            org.bukkit.entity.Player pl = Bukkit.getPlayer(id);
+            if (pl != null) for (BlockDisplay d : walls.panes()) if (d.isValid()) pl.showEntity(plugin, d);
+        }
+        for (java.util.UUID id : List.copyOf(walls.shownTo())) {
+            if (inside.contains(id)) continue;
+            walls.shownTo().remove(id);
+            org.bukkit.entity.Player pl = Bukkit.getPlayer(id);
+            if (pl != null) for (BlockDisplay d : walls.panes()) if (d.isValid()) pl.hideEntity(plugin, d);
         }
     }
 
     /**
-     * The top of the ground in this column between {@code top} and {@code bottom}: the highest solid top there with room
-     * to stand above it, so a roof or a ceiling over the room is passed by (null: solid all the way, a wall; or no ground).
+     * A room's footing: invisible barriers in the empty blocks just under its floor (air, grass, water...: never terrain),
+     * so you walk on it over dips and drops, not just see it. They're never real blocks: each player is sent them on
+     * their own, only while their feet are on or above the floor. Anyone below it (down in a dip) never has them, so they
+     * can't be shut in under it: they climb out as usual, and stand on it from then on. Mobs aren't held up.
+     *
+     * @param cells  the blocks under its floor
+     * @param plane  the floor's height
+     * @param sentTo who has them now
      */
-    private static Double groundIn(World w, int x, int z, double top, double bottom) {
-        boolean openAbove = w.getBlockAt(x, (int) Math.floor(top) + 1, z).isPassable();
-        for (int y = (int) Math.floor(top); y >= (int) Math.floor(bottom) - 1; y--) {
-            var b = w.getBlockAt(x, y, z);
-            if (b.isPassable()) {
-                openAbove = true;
-                continue;
-            }
-            var box = b.getBoundingBox();
-            double surface = box.getVolume() > 0 ? box.getMaxY() : y + 1;
-            boolean ground = openAbove && surface <= top + 1e-6; // (solid above it: a ceiling or the inside of a wall)
-            openAbove = false;
-            if (!ground) continue;
-            return surface < bottom - 1e-6 ? null : surface;
+    private record Footing(String world, List<org.bukkit.block.Block> cells, double plane, double x, double z,
+                           double half, java.util.Set<java.util.UUID> audience, java.util.Set<java.util.UUID> sentTo) {}
+
+    private final Map<Floors.Patch, Footing> roomFooting = new HashMap<>();
+    private static final org.bukkit.block.data.BlockData FOOTING = Material.BARRIER.createBlockData();
+    /** How often the footing is sent (again: a block update from the server, e.g. a click on it, takes it away). */
+    private static final int FOOTING_EVERY = 2;
+    /** Feet this far under the floor still get it (a path block, farmland: a hair lower than the ground around). */
+    private static final double FOOTING_BELOW = 0.1;
+    /** Players this far outside the room's edges get it already (so it's there before they step on). */
+    private static final double FOOTING_MARGIN = 3;
+
+    private void placeFooting(World w, Floors.Patch patch) {
+        int y = (int) Math.round(patch.center().y()) - 1;
+        int x0 = (int) Math.round(patch.center().x() - patch.radius());
+        int z0 = (int) Math.round(patch.center().z() - patch.radius());
+        int n = (int) Math.round(patch.radius() * 2);
+        List<org.bukkit.block.Block> cells = new ArrayList<>();
+        for (int dz = 0; dz < n; dz++) for (int dx = 0; dx < n; dx++) cells.add(w.getBlockAt(x0 + dx, y, z0 + dz));
+        Footing footing = new Footing(w.getName(), cells, y + 1, patch.center().x(), patch.center().z(), patch.radius(),
+                engine.audienceOf(patch.owner()), new java.util.HashSet<>());
+        roomFooting.put(patch, footing);
+        sendFooting(footing);
+    }
+
+    /** Every couple of ticks: each room's footing to whoever is on or above it (again), taken back from whoever isn't. */
+    private void sendAllFooting() {
+        for (Footing footing : roomFooting.values()) sendFooting(footing);
+    }
+
+    private void sendFooting(Footing footing) {
+        World w = Bukkit.getWorld(footing.world());
+        if (w == null) return;
+        List<org.bukkit.block.BlockState> fake = new ArrayList<>();
+        for (var b : footing.cells()) {
+            if (!b.getType().isAir() && !b.isReplaceable()) continue; // (terrain there now: it shows as it is)
+            var s = b.getState(false);
+            s.setBlockData(FOOTING);
+            fake.add(s);
         }
-        return null;
+        java.util.Set<java.util.UUID> on = new java.util.HashSet<>();
+        double reach = footing.half() + FOOTING_MARGIN;
+        for (org.bukkit.entity.Player pl : w.getPlayers()) {
+            if (!footing.audience().isEmpty() && !footing.audience().contains(pl.getUniqueId())) continue;
+            Location at = pl.getLocation();
+            if (Math.abs(at.getX() - footing.x()) > reach || Math.abs(at.getZ() - footing.z()) > reach) continue;
+            if (at.getY() < footing.plane() - FOOTING_BELOW) continue; // below it: never shut in under it
+            on.add(pl.getUniqueId());
+            pl.sendBlockChanges(fake);
+        }
+        for (java.util.UUID id : List.copyOf(footing.sentTo())) {
+            if (on.contains(id)) continue;
+            org.bukkit.entity.Player pl = Bukkit.getPlayer(id);
+            if (pl != null) takeBack(pl, footing);
+        }
+        footing.sentTo().clear();
+        footing.sentTo().addAll(on);
+    }
+
+    /** The blocks under a room's floor shown to {@code pl} as they really are again. */
+    private static void takeBack(org.bukkit.entity.Player pl, Footing footing) {
+        List<org.bukkit.block.BlockState> real = new ArrayList<>();
+        for (var b : footing.cells()) real.add(b.getState(false));
+        pl.sendBlockChanges(real);
+    }
+
+    private void removeFooting(Floors.Patch patch) {
+        Footing footing = roomFooting.remove(patch);
+        if (footing == null) return;
+        for (java.util.UUID id : footing.sentTo()) {
+            org.bukkit.entity.Player pl = Bukkit.getPlayer(id);
+            if (pl != null) takeBack(pl, footing);
+        }
+    }
+
+    /** Is a room's footing holding {@code pl} up right now (they have it)? */
+    private boolean heldUp(org.bukkit.entity.Player pl) {
+        for (Footing footing : roomFooting.values()) if (footing.sentTo().contains(pl.getUniqueId())) return true;
+        return false;
+    }
+
+    /**
+     * The server can't see the footing (it's only on the players' screens): to it, standing on it is floating in the
+     * air. So no "flying is not enabled" kick for anyone it holds up.
+     */
+    private final class FootingGuard implements org.bukkit.event.Listener {
+        @org.bukkit.event.EventHandler(ignoreCancelled = true)
+        public void onKick(org.bukkit.event.player.PlayerKickEvent e) {
+            if (e.getCause() == org.bukkit.event.player.PlayerKickEvent.Cause.FLYING_PLAYER && heldUp(e.getPlayer())) {
+                e.setCancelled(true);
+            }
+        }
+
+        @org.bukkit.event.EventHandler
+        public void onQuit(org.bukkit.event.player.PlayerQuitEvent e) {
+            for (Footing footing : roomFooting.values()) footing.sentTo().remove(e.getPlayer().getUniqueId());
+        }
     }
 
     /** A room's edge: how wide each glowing strip is, and the colours over it. */
@@ -302,7 +402,7 @@ public final class FloorRenderer implements Floors.Listener {
 
     /**
      * A square floor's look (Trick Room): its outline on the ground, four thin pink strips along its edges (glowing for
-     * its owner only). No real blocks.
+     * its owner only), its flat floor and its walls, and the footing that holds the floor up (never real blocks).
      */
     private List<Display> spawnRoom(Floors.Patch patch) {
         World w = Bukkit.getWorld(patch.world());
@@ -348,13 +448,16 @@ public final class FloorRenderer implements Floors.Listener {
                 }));
             }
         }
-        // Its floor: magenta glass on the ground at the bottom of the room (light blue while Topsy-Turvy lights it)
-        Checkers floor = groundPanes(w, patch, ROOM_DARK, ROOM_LIGHT, null);
+        // Its floor: magenta glass, one flat sheet at its height (light blue while Topsy-Turvy lights it)
+        Checkers floor = flatPanes(w, patch, ROOM_DARK, ROOM_LIGHT, null);
         roomFloors.put(patch, floor);
         parts.addAll(floor.all());
+        placeFooting(w, patch); // (and you can walk on it, over dips and drops too)
         // Its walls: checkered too, seen only by whoever is inside it (they never light up)
         List<BlockDisplay> walls = wallPanes(w, patch);
-        roomWalls.put(patch, new Walls(walls, new java.util.HashSet<>()));
+        Walls shownWalls = new Walls(walls, new java.util.HashSet<>());
+        roomWalls.put(patch, shownWalls);
+        showWalls(patch, shownWalls); // (at once: a room moved around you doesn't blink out for a moment)
         parts.addAll(walls);
         w.playSound(at, Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 0.8f, 1.4f);
         return parts;
@@ -407,6 +510,7 @@ public final class FloorRenderer implements Floors.Listener {
         parts.forEach(d -> { if (d.isValid()) d.remove(); });
         roomFloors.remove(patch);
         roomWalls.remove(patch);
+        removeFooting(patch);
         Floors.Patch room = litOver.remove(patch);
         if (patch.lit()) { // no longer lit: the room it lay over (if it's still there) is magenta again
             Checkers floor = room == null ? null : roomFloors.get(room);

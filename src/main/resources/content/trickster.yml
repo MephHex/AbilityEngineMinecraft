@@ -69,7 +69,7 @@ abilities:
     display:
       name: "Swipe"
       description:
-        - "A quick swipe: {base:1.0}."
+        - "A quick swipe: {base:1.0|physical}."
         - "Sucker Punch: your first swipe on an enemy"
         - "silences them 1s, unless they hit you first."
         - "Inside your Trick Room, each swipe that"
@@ -86,7 +86,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: target }
         effects:
-          - { id: damage, base: 1.0, knockback: false }  # 100% base damage; no knockback
+          - { id: damage, base: 1.0, type: physical, knockback: false }  # 100% base damage; no knockback
         next: swipe_cue
       swipe_cue:
         type: play_cue
@@ -141,7 +141,7 @@ abilities:
       description:
         - "Lunge a step forward and slash the cone in"
         - "front of you (3 blocks), twice, 0.2s apart:"
-        - "{base:0.75} each."
+        - "{base:0.75|physical} each."
         - "Swipes that land inside your Trick Room:"
         - "-1s cooldown."
     active_tags: [block.ability]
@@ -158,7 +158,7 @@ abilities:
         type: apply_effects          # ...and a slash: the cone where you are now, the way you face now
         targets: { type: cone, range: 3, angle: 90 }   # ab1.range, ab1.angle (keep TricksterCues in step)
         effects:
-          - { id: damage, base: 0.75, ignore_iframes: true, knockback: false }   # 75% base damage (150% over both); no knockback
+          - { id: damage, base: 0.75, type: physical, ignore_iframes: true, knockback: false }   # 75% base damage (150% over both); no knockback
         next: slash_cue
       slash_cue:
         type: start_cue              # drawn on you over a few ticks, moving with you
@@ -179,7 +179,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 3, angle: 90 }
         effects:
-          - { id: damage, base: 0.75, ignore_iframes: true, knockback: false }   # 75% base damage; no knockback
+          - { id: damage, base: 0.75, type: physical, ignore_iframes: true, knockback: false }   # 75% base damage; no knockback
         next: slash_2_cue
       slash_2_cue:
         type: start_cue
@@ -191,16 +191,18 @@ abilities:
 
   # 2: Trick Room. A dash straight ahead (7 blocks, level; a wall stops it sooner), then an 11x11 square on the ground
   # below where you end up, for 10s. Two halves, one or the other: the room is yours (magenta) until you move it, then
-  # it's against your enemies (light blue). Inside it (feet up to 2 blocks above or below its floor), SHIFT while moving (any of
-  # WASD) teleports you 6 blocks that way, never out of the room or into a wall, at most every 0.5s (the character's
-  # glide:). Standing still or outside it, SHIFT is a normal sneak. Press 2 again while you're inside it (once per room,
-  # not while rooted): a 4-block dash where you face, and the room moves to where you end up (its 10s don't start over)
+  # it's against your enemies (light blue). Inside it means standing on its floor (feet on it, or up to a block above:
+  # nothing below it counts). Standing on the floor itself (not in the air, not on a block a step or two up: glide rise),
+  # SHIFT while moving (any of WASD) teleports you 6 blocks that way, never out of the room or into a wall, at most every
+  # 0.5s (the character's glide:). Standing still or outside it, SHIFT is a normal sneak. Press 2 again while you're inside it (once per room,
+  # not while rooted): a 4-block dash where you face, and the room moves to where you end up, at the same height (its 10s don't start over)
   # and turns topsy-turvy for the rest of them: its floor lights up light blue, and every enemy who's been in it for 0.3s
   # has their controls inverted, until 0.3s after they step back out. The magenta
   # room gives you +15% movement speed and the SHIFT teleports while you're in it; the moved one doesn't (in either, your swipes
   # take 1s off Play Rough).
-  # Drawn: a magenta and purple checkerboard floor on the ground at the bottom of it, and checkered walls that whoever is
-  # inside the room sees (they don't light up).
+  # Drawn: a magenta and purple checkerboard floor, one flat sheet at the room's height (through blocks, over dips: you
+  # walk on it there: invisible barriers, sent only to players whose feet are on or above it, so nobody gets shut in
+  # under it), and checkered walls that whoever is between them sees, at any height (they don't light up).
   trickster_ab2:
     cooldown: 280                    # ab2.cooldown: 14s, from when the room goes
     cooldown_starts: end
@@ -214,7 +216,7 @@ abilities:
         - "Dash ahead (7 blocks) and put an 11x11 room"
         - "where you land for 10s. Inside it: +15%"
         - "speed, and SHIFT while moving teleports you"
-        - "6 blocks."
+        - "6 blocks (standing on its floor)."
         - "2 again inside it (once): dash 4 blocks,"
         - "the room moves to where you land and turns"
         - "topsy-turvy for the rest of its time: no"
@@ -242,8 +244,8 @@ abilities:
         at: caster                   # where you arrived
         shape: square
         radius: 5.5                  # ab2.room_size: 11x11 (5.5 from the centre to each side; on the block grid)
-        up: 2                        # ab2.room_height: inside with your feet up to 2 blocks above...
-        down: 2                      # ...or below its floor
+        up: 1                        # ab2.room_height: inside only standing on its floor (feet up to a block above it: a step, a hop)...
+        down: 0.1                    # ...never below it (nothing under the floor counts; changed 2026-11-02, was 2 up and 2 down)
         name: trick_room             # (the lit floor is laid over it by this name)
         owner_status: trick_room_inside
         drop: 40                     # (no duration: it lasts as long as the cast, see last)                     # on the ground below where you ended up (a dash off a ledge: down there)
@@ -295,8 +297,9 @@ abilities:
         at: caster
         shape: square
         radius: 5.5
-        up: 2
-        down: 2
+        up: 1
+        down: 0.1
+        level: trick_room            # at the old room's height, not down on the ground below (you stay on its floor; 2026-11-02)
         name: trick_room
         owner_status: trick_room_flipped # (no more teleports or speed for you: it's the enemies' turn)
         drop: 40                     # (no duration: it goes with the cast, when the first room would have)
@@ -335,8 +338,8 @@ abilities:
       icon: CHORUS_FRUIT
       description:
         - "Fire a slow beam (16 blocks): the enemy it"
-        - "hits takes {base:0.2}"
-        - "+ {sp:0.9} and is confused for 3s:"
+        - "hits takes {base:0.2|magic}"
+        - "+ {sp:0.9|magic} and is confused for 3s:"
         - "they turn on their closest teammate, run at"
         - "them and attack them: 50% faster, at half"
         - "damage. No teammate near: the closest"
@@ -361,7 +364,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.2, sp: 0.9 }      # 20% base damage + 90% spell power
+          - { id: damage, base: 0.2, sp: 0.9, type: magic }      # 20% base damage + 90% spell power
           - { id: status, status: trickster_confused }
         next: flip_cue
       flip_cue:
@@ -373,10 +376,11 @@ abilities:
         cue: fizzle
         at: hit
 
-  # ULTIMATE (F): Switcheroo. Point at an enemy (15 blocks, in sight): you both float up a little and fly to each other's
+  # ULTIMATE (F): Switcheroo. Throw a swap charm where you look (a skillshot, 15 blocks, a generous hitbox): the enemy it
+  # hits takes 10% of their max HP (+2% per 20 spell power) as magic damage, and you both float up a little and fly to each other's
   # spot, passing each other on the way (slowly: about 7 blocks a second, 1 to 2.5s). Meanwhile neither of you can act,
   # walk or be targeted (damage over time still ticks), and nothing can push either of you. You land exactly where the
-  # other one stood. No one there, or they can't be moved: nothing happens and your charge is kept.
+  # other one stood. It misses, or they can't be moved: no swap, and your charge is kept.
   trickster_ult:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
     movement: true                   # rooted: can't
@@ -384,16 +388,30 @@ abilities:
       name: "Switcheroo"
       icon: ENDER_PEARL
       description:
-        - "Swap places with the enemy in your sights"
-        - "(15 blocks): you both float up and fly to"
-        - "each other's spot. Meanwhile neither of"
-        - "you can act or be targeted (damage over"
-        - "time still ticks). Nobody there: charge kept."
+        - "Throw a swap charm (15 blocks): the enemy"
+        - "hit takes {max_hp:0.1|magic} {max_hp_sp:0.02/20|magic},"
+        - "and you both fly to each other's spot."
+        - "Meanwhile neither of you can act or be"
+        - "targeted. A miss: charge kept."
     nodes:
       aim:
-        type: acquire_target
-        query: { type: hitscan, range: 15, ray_size: 0.5 }   # ult.range (a little forgiving)
-        on: { hit: lift_off, miss: nobody }
+        type: projectile             # a skillshot: the swap charm
+        speed: 1.5
+        size: 1.0                    # a generous hitbox
+        range: 15                    # ult.range
+        lifetime: 12
+        visual: ENDER_PEARL
+        trail: trickster_switch_trail_puff
+        on: { spawned: throw_cue, hit_entity: strike, hit_block: nobody, expired: nobody }
+      throw_cue:
+        type: play_cue
+        cue: trickster_switch_throw
+      strike:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, max_hp: 0.1, max_hp_sp: 0.001, type: magic, knockback: false }   # 10% max HP, +2% per 20 spell power
+        next: lift_off
       nobody:
         type: refund                 # nobody there: the charge is kept
         next: nobody_cue
@@ -408,7 +426,7 @@ abilities:
       lift_off_2:
         type: play_cue
         cue: trickster_switch
-        at: target
+        at: hit
         next: trail
       trail:
         type: start_cue              # sparkles behind each of you while you fly (until the cast ends)
@@ -417,11 +435,11 @@ abilities:
       trail_2:
         type: start_cue
         cue: trickster_switch_trail
-        at: target
+        at: hit
         next: swap
       swap:
         type: swap
-        with: target
+        with: hit
         speed: 0.35                  # ult.fly_speed: blocks a tick (7 a second)
         min_ticks: 20                # ...but at least 1s
         max_ticks: 50                # ...and at most 2.5s
@@ -441,7 +459,7 @@ abilities:
       land_2:
         type: play_cue
         cue: trickster_switch_land
-        at: target
+        at: hit
 
 characters:
   trickster:                         # diver kit
@@ -472,6 +490,7 @@ characters:
       teleport: true
       distance: 6                    # ab2.teleport_distance
       gap: 10                        # ab2.teleport_interval: 0.5s
+      rise: 0.6                      # only from the floor's own height (a slab's fine; on a block a step or two up: no; 2026-11-02)
       cue: trickster_blink           # where you left and where you arrived
     slots:
       primary: trickster_primary     # LMB: Swipe

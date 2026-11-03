@@ -59,8 +59,12 @@ public final class AbilityActivator {
         return total;
     }
 
-    /** Nothing to use right now (needs_constructs, none standing): it can't be cast, and its icon is greyed out. */
+    /**
+     * Nothing to use right now (needs_constructs, none standing), or not ready (ready_while: the caster lacks that tag):
+     * it can't be cast, and its icon is greyed out.
+     */
     public boolean isUnavailable(UUID caster, Ability ability) {
+        if (ability.readyWhile() != null && !engine.tags().has(caster, ability.readyWhile())) return true;
         return constructsFor(caster, ability) == 0;
     }
 
@@ -68,8 +72,9 @@ public final class AbilityActivator {
     public ActivationResult check(UUID caster, Ability ability) {
         if (isPassive(caster, ability)) return ActivationResult.fail(PASSIVE);
         if (isUnavailable(caster, ability)) return ActivationResult.fail(UNAVAILABLE);
-        if ((ability.mode().exclusive() || ability.cooldownAtEnd()) && engine.instances().isRunning(caster, ability.id())) {
-            return ActivationResult.fail("already_active"); // (cooldown_starts: end: one cast at a time)
+        if ((ability.mode().exclusive() || ability.cooldownAtEnd() || ultimateLastsTheCast(caster, ability))
+                && engine.instances().isRunning(caster, ability.id())) {
+            return ActivationResult.fail("already_active"); // (cooldown_starts: end, a held ultimate: one cast at a time)
         }
         // A stolen ultimate: one cast, free (no cooldown, charge or costs of its owner's); cast, it's spent.
         var stolen = engine.stolen();
@@ -92,6 +97,25 @@ public final class AbilityActivator {
             }
         }
         return ActivationResult.ok();
+    }
+
+    /**
+     * An ultimate with a recast (F again): it isn't used up by the first press. Its charge stays (or its cooldown waits)
+     * until the whole cast is over, through every recast, so its icon stays lit (glinting while a recast is open). A
+     * stolen one doesn't (it's free anyway), nor one with {@code cooldown_starts: manual} (its own start_cooldown).
+     */
+    public boolean ultimateLastsTheCast(UUID caster, Ability ability) {
+        return !ability.manualCooldown() && ability.graph().anyNode(n -> n instanceof AwaitRecastNode)
+                && engine.stats().isUltimate(caster, ability.id()) && !engine.stolen().isFree(caster, ability.id());
+    }
+
+    /**
+     * Its cast runs, but its recast isn't ready yet ({@code recast_ready_while}: the caster lacks that tag): the icon is
+     * greyed out and doesn't glint meanwhile.
+     */
+    public boolean recastNotReady(UUID caster, Ability ability) {
+        return ability.recastReadyWhile() != null && engine.instances().isRunning(caster, ability.id())
+                && !engine.tags().has(caster, ability.recastReadyWhile());
     }
 
     /** Pay the costs and start the cooldown. */
@@ -192,7 +216,20 @@ public final class AbilityActivator {
                     return ActivationResult.fail("blocked:" + Tags.BLOCK_MOVE);
                 }
                 running.recast();
+                recastEcho(running);
                 return ActivationResult.ok();
+            }
+        }
+        // Their own cast of it is over (its shot missed), but their second body's copy still waits for its recast (its
+        // shot landed): the key recasts that one.
+        if (freshPress) {
+            for (UUID body : engine.bodies().cloneOf(caster).stream().toList()) {
+                for (AbilityInstance running : engine.instances().of(body)) {
+                    if (running.ability().id().equals(ability.id()) && running.awaitingRecast() && running.isEcho()) {
+                        running.recast();
+                        return ActivationResult.ok();
+                    }
+                }
             }
         }
 
@@ -206,7 +243,7 @@ public final class AbilityActivator {
                 if (running.ability().id().equals(ability.id()) && running.isActive()) early = running;
             }
             boolean waitsForIt = early != null && early.cooldownPending() && ability.charges() <= 1
-                    && (ability.cooldownAfterRecast() || ability.manualCooldown());
+                    && (ability.cooldownAfterRecast() || ability.manualCooldown() || ultimateLastsTheCast(caster, ability));
             if (!freshPress && waitsForIt) return ActivationResult.fail("held");
             if (!freshPress) early = null;
             if (early != null) {
@@ -230,6 +267,14 @@ public final class AbilityActivator {
             return ActivationResult.fail("no_ground"); // quick cast into the air: refuse, spend nothing
         }
         return start(caster, ability, withAim(presets, aim.orElse(null)));
+    }
+
+    /** A recast of a cast with an echo: the echo (the second body's copy) is recast too, if it waits for one. */
+    private static void recastEcho(AbilityInstance running) {
+        var pair = running.pair();
+        if (pair == null) return;
+        AbilityInstance other = pair.other(running);
+        if (other != null && other.awaitingRecast()) other.recast();
     }
 
     private static Map<String, Object> withAim(Map<String, Object> presets, PointTarget aim) {
@@ -291,16 +336,26 @@ public final class AbilityActivator {
     private ActivationResult start(UUID caster, Ability ability, Map<String, Object> presets) {
         boolean borrowed = engine.stolen().isFree(caster, ability.id()); // a stolen ultimate's one cast: free
         if (!borrowed) ability.costs().forEach((resource, amount) -> engine.resources().consume(caster, resource, amount));
-        if (engine.ultCharge().gates(caster, ability.id())) engine.ultCharge().spend(caster); // the ultimate: all of it
+        boolean held = !borrowed && ultimateLastsTheCast(caster, ability); // a recast to come: used up when it's over
+        boolean charges = engine.ultCharge().gates(caster, ability.id());
+        if (charges && !held) engine.ultCharge().spend(caster); // the ultimate: all of it
         AbilityInstance instance = new AbilityInstance(engine, ability, caster, presets);
-        if (borrowed) {
+        if (held) instance.holdUltimateToEnd(charges);
+        else if (borrowed) {
             instance.deferCooldownManually(); // no cooldown of its own (its start_cooldown nodes still run)
             engine.stolen().cast(caster, instance);
         } else if (ability.manualCooldown()) instance.deferCooldownManually();
         else if (ability.cooldownAfterRecast() || ability.cooldownAtEnd()) instance.deferCooldown();
         else engine.cooldowns().start(caster, ability.id(), engine.stats().cooldownTicks(caster, ability.id(), ability.cooldownTicks()));
+        // Their second body (Mitosis) casts it too, at the same moment, from where it stands
+        AbilityInstance echo = engine.bodies().prepareEcho(caster, ability, presets);
+        if (echo != null) instance.pairWith(echo);
         engine.instances().add(instance);
         instance.start();
+        if (echo != null && engine.world().isAlive(echo.caster())) {
+            engine.instances().add(echo);
+            echo.start();
+        }
         // A basic attack: the caster's mirroring clones swing with them (as well as on the client's arm swing)
         if (presets.get(Keys.SLOT.name()) instanceof String slot
                 && me.mephisto.ability_engine.engine.loadout.LoadoutManager.isBasicAttack(slot)) {

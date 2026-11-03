@@ -108,12 +108,25 @@ public final class NodeTypes {
                     p.requireDouble("up"), p.getDouble("gravity", 0.08), until.equals("apex"), p.getString("store", null),
                     p.getBool("stop_at_enemies", false), p.getDouble("radius", 0.6));
         });
+        t.register("rush", (p, e) -> {
+            double start = p.getDouble("start_speed", 0.15);
+            double max = p.getDouble("max_speed", 0.7);
+            if (start <= 0 || max < start) throw p.error("max_speed", "blocks a tick, at least start_speed (above 0)");
+            int accelerate = p.getInt("accelerate", 60);
+            if (accelerate < 1) throw p.error("accelerate", "ticks to reach max_speed, at least 1");
+            int duration = p.requireInt("duration");
+            if (duration < 1) throw p.error("duration", "ticks it can run at most, at least 1");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.RushNode(start, max, accelerate, duration,
+                    p.getDouble("turn", 6), p.getDouble("radius", 0.8), p.getDouble("pin_distance", 1.3));
+        });
         t.register("choose_spot", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.ChooseSpotNode(
                 new me.mephisto.ability_engine.engine.targeting.Targeting(
                         me.mephisto.ability_engine.engine.targeting.Targeting.Shape.CIRCLE, p.requireDouble("range"),
                         p.getDouble("radius", 1.0), 1.0, 60, p.getInt("timeout", 100), p.getBool("ground", true),
                         p.getDouble("max_drop", 40)),
-                p.getString("store", "aim"), p.has("on") && p.getParams("on").keys().contains("cancelled")));
+                p.getString("store", "aim"), p.has("on") && p.getParams("on").keys().contains("cancelled"))
+                .echoSameSpot(p.getBool("echo_same_spot", false))
+                .keyConfirms(p.getBool("key_confirms", false)));
         t.register("link", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.LinkNode(
                 p.requireString("name"), p.requireString("target"), p.requireDouble("range"),
                 p.getDouble("damage_taken", 1.0), p.getDouble("redirect", 0), p.getBool("copy_positive", false),
@@ -152,12 +165,26 @@ public final class NodeTypes {
             if (hits > 0 && health <= 0 && share <= 0) throw p.error("hits", "needs health (it has to be hittable)");
             String face = p.getString("face", "toward_owner");
             if (!face.equals("owner") && !face.equals("toward_owner")) throw p.error("face", "expected owner or toward_owner");
+            String side = p.getString("side", "random");
+            if (!java.util.Set.of("left", "right", "random").contains(side)) throw p.error("side", "expected left, right or random");
+            boolean body = p.getBool("body", false);
+            java.util.Set<String> echo = p.getStringSet("echo", java.util.Set.of());
+            for (String slot : echo) {
+                if (!me.mephisto.ability_engine.engine.loadout.Slots.ALL.contains(slot)) {
+                    throw p.error("echo", "unknown slot '" + slot + "', expected some of " + me.mephisto.ability_engine.engine.loadout.Slots.ALL);
+                }
+            }
+            if (!echo.isEmpty() && !body) throw p.error("echo", "only a second body (body: true) copies casts");
+            boolean split = p.getBool("split_health", false);
+            if (body && !split && health <= 0 && share <= 0) throw p.error("body", "a second body needs health (split_health: true, health or health_share)");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SummonCloneNode(
                     p.requireString("summon"), p.getString("store", "summon"), p.requireInt("lifetime"),
                     p.getString("at", null), p.getString("of", null), health, share, p.getBool("glowing", false))
                     .extras(range, face.equals("owner"), p.getBool("disguise", false), p.getBool("mirror", false), hits,
                             p.getString("end_cue", null))
                     .beside(beside(p))
+                    .side(side)
+                    .body(body, echo, split, p.getString("fuse_cue", null), p.getString("transfer_cue", null))
                     .onBreak(knownStatus(p, "on_break", e));
         });
         t.register("move_to", (p, e) -> {
@@ -191,7 +218,11 @@ public final class NodeTypes {
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SwapNode(p.requireString("with"), speed,
                     p.getDouble("lift", 0), p.getDouble("side", 0), min, max, status);
         });
-        t.register("refund", (p, e) -> new me.mephisto.ability_engine.engine.nodes.control.RefundNode(p.getString("message", null)));
+        t.register("refund", (p, e) -> {
+            double share = p.getDouble("share", 1);
+            if (share <= 0 || share > 1) throw p.error("share", "how much of it comes back, above 0 up to 1 (0.5 = half)");
+            return new me.mephisto.ability_engine.engine.nodes.control.RefundNode(p.getString("message", null), share);
+        });
         t.register("counter", (p, e) -> new CounterNode(p.requireString("counter"), p.requireInt("every"),
                 p.getBool("peek", false)));
         t.register("charge", (p, e) -> {
@@ -414,7 +445,7 @@ public final class NodeTypes {
         t.register("floor", (p, e) -> {
             String over = p.getString("over", null);
             if (over != null) {
-                for (String k : java.util.List.of("radius", "at", "shape", "up", "down", "drop")) {
+                for (String k : java.util.List.of("radius", "at", "shape", "up", "down", "drop", "level")) {
                     if (p.has(k)) throw p.error(k, "over: lays it over that floor (its spot, size and shape): leave " + k + " out");
                 }
             }
@@ -436,7 +467,8 @@ public final class NodeTypes {
                     p.getString("name", null), p.getString("enemy_status", null), p.getString("owner_status", null), drop,
                     duration, p.getBool("drawn", true), p.getBool("sight", false)).square(shape.equals("square"))
                     .reach(reach(p, "up"), reach(p, "down")).over(over, p.getBool("lit", false))
-                    .sticky(p.getBool("sticky", false)).enemyDelay(p.getInt("enemy_delay", 0));
+                    .sticky(p.getBool("sticky", false)).enemyDelay(p.getInt("enemy_delay", 0))
+                    .level(p.getString("level", null));
         });
         t.register("play_cue", (p, e) -> {
             String audience = p.getString("audience", "everyone");
@@ -447,6 +479,7 @@ public final class NodeTypes {
             return new PlayCueNode(p.requireString("cue"), p.getString("at", null), p.getString("to", null),
                     p.getString("numbered_by", null)).casterOnly(audience.equals("caster")).ahead(ahead);
         });
+        me.mephisto.ability_engine.engine.nodes.gameplay.BodyNodes.register(t); // second bodies (Mitosis)
         return t;
     }
 

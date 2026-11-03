@@ -66,6 +66,39 @@ public final class BukkitMovementControl implements MovementControl {
     public static final io.papermc.paper.entity.TeleportFlag KEEP_RIDERS =
             io.papermc.paper.entity.TeleportFlag.EntityState.RETAIN_PASSENGERS;
 
+    /** Each at the other's feet, looking the other's way: whatever their sizes or poses (crouching), nobody in the floor. */
+    @Override
+    public void swapPlaces(UUID a, UUID b, Vec3 centerA, Vec3 centerB, Vec3 lookA, Vec3 lookB) {
+        Entity ea = Bukkit.getEntity(a), eb = Bukkit.getEntity(b);
+        if (ea == null || eb == null || !ea.isValid() || !eb.isValid()) {
+            MovementControl.super.swapPlaces(a, b, centerA, centerB, lookA, lookB);
+            return;
+        }
+        Location atA = ea.getLocation(), atB = eb.getLocation();
+        if (ea instanceof LivingEntity la) atA.setDirection(la.getEyeLocation().getDirection());
+        if (eb instanceof LivingEntity lb) atB.setDirection(lb.getEyeLocation().getDirection());
+        ea.teleport(atB, KEEP_RIDERS);
+        eb.teleport(atA, KEEP_RIDERS);
+        for (Entity e : new Entity[]{ea, eb}) {
+            e.setFallDistance(0);
+            e.setVelocity(new Vector(0, 0, 0));
+        }
+    }
+
+    @Override
+    public void putAt(UUID who, UUID where, Vec3 whereCenter, Vec3 whereLook) {
+        Entity e = Bukkit.getEntity(who), there = Bukkit.getEntity(where);
+        if (e == null || there == null || !e.isValid() || !there.isValid()) {
+            MovementControl.super.putAt(who, where, whereCenter, whereLook);
+            return;
+        }
+        Location at = there.getLocation();
+        if (there instanceof LivingEntity l) at.setDirection(l.getEyeLocation().getDirection());
+        e.teleport(at, KEEP_RIDERS);
+        e.setFallDistance(0);
+        e.setVelocity(new Vector(0, 0, 0));
+    }
+
     /** One teleport with the new view (players can't be turned without one). */
     @Override
     public void teleport(UUID entity, Vec3 center, Vec3 look) {

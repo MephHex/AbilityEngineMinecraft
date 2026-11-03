@@ -1,0 +1,769 @@
+# content: mitosis
+# Mitosis: a blue slime brawler (damage, some sustain) that buds off a second body. The clone copies every input and every
+# cast (LMB, 1, 2, 3, F) from its own position and facing; swap and fuse are the only things it doesn't copy.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+# Spec: "Mitosis build spec" (30 Oct 2026). The names in capitals in the comments are the spec's tunables.
+#
+# PASSIVE (RMB): Mitosis. Bud off a clone 1.5 blocks to your left (CLONE_SPAWN_OFFSET), facing exactly where you face:
+#   it takes half your health (rounded down), you keep the rest; it has your max HP, armor, damage, speed and attack
+#   speed (your items' stats too). No time limit. While it lives:
+#   - it looks at what you look at (the spot your crosshair is on, up to 24 blocks): your lines of sight cross there,
+#     and its casts go at it too;
+#   - it walks as you walk, relative to a heading of its own that turns as you turn (never put back in step: walls and
+#     drops drift you apart); crowd control on it holds only it;
+#   - every cast of yours from LMB, 1, 2, 3 and F it casts too, from where it stands; its damage, kills and ultimate
+#     charge are yours;
+#   - RMB again from 10s (FUSE_MIN_TIME), within 2 blocks of it (FUSE_RANGE): fuse back. Its health is added to yours
+#     (up to your max HP) and its buffs and debuffs move over to you (the same one on both: the stronger stays);
+#   - SHIFT + RMB (5s, SWAP_COOLDOWN; it comes before a plain RMB): swap places and facing with it, even stunned, rooted or silenced. Health, buffs and
+#     debuffs stay with each body: you take over the clone's;
+#   - a blow that would kill you moves you into the clone instead (consciousness transfer): no death, your old body
+#     splashes apart, you go on with the clone's health and effects. The attacker gets a little ultimate charge.
+#   The passive goes on cooldown (15s, PASSIVE_COOLDOWN) when the clone is fused, dies or takes you in.
+#   Hotbar slot 9: glinting = ready to bud; the stack counts down to the fuse (10 -> 1); greyed with a count = cooldown.
+#   The XP bar is the clone's health.
+
+statuses:
+  mitosis_fuse_wait:                 # PASSIVE: seconds until the fuse is allowed (the slot 9 count)
+    duration: 200                    # FUSE_MIN_TIME: 10s
+    neutral: true                    # bookkeeping: never moves to the other body, nothing cleanses it
+  mitosis_sticky_slow:               # Sticky Fingers: tethered
+    duration: 60                     # STICKY_WINDOW: 3s (taken off when the tether ends)
+    stacking: refresh
+    move_speed: 0.75                 # STICKY_SLOW: 25%
+  mitosis_rush_hold:                 # Blob Rush: the channel (you can aim, not walk)
+    duration: 10                     # RUSH_CHANNEL: 0.5s
+    tags: [block.walk]
+    neutral: true
+  mitosis_bounce_slow:               # Bounce Back: holding the wall up
+    duration: 60                     # BOUNCE_DURATION: 3s
+    move_speed: 0.6                  # BOUNCE_MOVE_SPEED: 60%
+    neutral: true
+  mitosis_puddled:                   # Bubble Trouble: a puddle, can't move
+    duration: 40                     # ULT_CHANNEL: 2s
+    tags: [block.walk]
+    neutral: true
+  # Bubble Trouble's slow, rising over the channel from 20% to 70% (ULT_SLOW_START / ULT_SLOW_MAX). Each pulse lasts 1s;
+  # their slow_caps keep two at once from adding up (the strongest counts).
+  mitosis_puddle_slow_1: { duration: 20, stacking: refresh, move_speed: 0.8, slow_cap: 0.2 }
+  mitosis_puddle_slow_2: { duration: 20, stacking: refresh, move_speed: 0.675, slow_cap: 0.325 }
+  mitosis_puddle_slow_3: { duration: 20, stacking: refresh, move_speed: 0.55, slow_cap: 0.45 }
+  mitosis_puddle_slow_4: { duration: 20, stacking: refresh, move_speed: 0.425, slow_cap: 0.575 }
+  mitosis_puddle_slow_5: { duration: 20, stacking: refresh, move_speed: 0.3, slow_cap: 0.7 }
+  mitosis_swallowed:                 # Bubble Trouble: inside the bubble, carried along
+    duration: 40                     # (uncarry takes it off on landing; this is only the safety net)
+    stacking: refresh
+    tags: [state.stunned, block.move, block.ability, state.swapping]
+    cue: mitosis_swallowed
+
+abilities:
+
+  # PASSIVE (RMB): Mitosis. See the top of the file.
+  mitosis_bud:
+    cooldown: 300                    # PASSIVE_COOLDOWN: 15s, from when the clone is fused, dies or takes you in
+    cooldown_starts: manual
+    blocked_by: [block.ability, mitosis.melted]   # (not during Bubble Trouble)
+    display:
+      name: "Mitosis"
+      icon: SLIME_BALL
+      hotbar: 9
+      glint_when_ready: true         # glinting = ready to bud
+      countdown: mitosis_fuse_wait   # the stack counts down to the fuse
+      description:
+        - "RMB: bud a clone with half your HP. It"
+        - "copies your moves and casts from its own"
+        - "spot. RMB after 10s within 2 blocks: fuse"
+        - "back (its HP and effects come to you)."
+        - "SHIFT + RMB: swap places with it (5s)."
+        - "A killing blow moves you into it instead."
+    nodes:
+      bud:
+        type: summon_clone
+        summon: mitosis_clone
+        store: clone
+        lifetime: 0                  # no time limit
+        beside: 1.5                  # CLONE_SPAWN_OFFSET
+        side: left
+        body: true                   # a second body (see the top of the file)
+        split_health: true
+        echo: [primary, ability_1, ability_2, ability_3, ultimate]
+        end_cue: mitosis_clone_burst # it dies: it bursts into slime (a fuse or a transfer has its own cue)
+        fuse_cue: mitosis_fuse
+        transfer_cue: mitosis_transfer
+        next: check
+      check:
+        type: find_summon            # (no room, or too little health to split: nothing happens, nothing spent)
+        summon: mitosis_clone
+        store: clone
+        on: { found: budded }
+      budded:
+        type: play_cue
+        cue: mitosis_bud
+        at: clone
+        next: both
+      both:
+        type: fork
+        on: { out: watch, also: wait }
+      watch:
+        type: await_summon           # fused, killed or taken in: the passive's cooldown starts
+        summon: mitosis_clone
+        on: { destroyed: cool, gone: cool }
+      cool:
+        type: start_cooldown
+        next: over
+      over:
+        type: end_cast
+      wait:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_fuse_wait }
+        next: wait_fuse
+      wait_fuse:
+        type: delay
+        ticks: 200                   # FUSE_MIN_TIME: 10s
+        next: fuse_window
+      fuse_window:
+        type: await_recast           # RMB again: fuse (open as long as the clone lives)
+        window: 72000
+        on: { recast: near, timeout: fuse_window }
+      near:
+        type: in_range
+        center: clone
+        radius: 2                    # FUSE_RANGE
+        on: { inside: fuse, outside: too_far }
+      too_far:
+        type: play_cue
+        cue: mitosis_too_far
+        audience: caster
+        next: fuse_window
+      fuse:
+        type: fuse_body              # (the clone goes: watch starts the cooldown)
+
+  # SHIFT + RMB: swap places and facing with your clone. Works stunned, rooted or silenced; the clone doesn't copy it.
+  mitosis_swap:
+    cooldown: 100                    # SWAP_COOLDOWN: 5s
+    cooldown_starts: manual          # (no clone: nothing happens, nothing spent)
+    blocked_by: []
+    ignores_crowd_control: true
+    display:
+      name: "Swap"
+      description:
+        - "SHIFT + RMB: swap places with your clone."
+    nodes:
+      swap:
+        type: swap_body
+        on: { out: spent }
+      spent:
+        type: start_cooldown
+        next: swap_cue
+      swap_cue:
+        type: play_cue
+        cue: mitosis_swap
+
+  # PRIMARY (LMB): Stretch. A slime arm shoots 5 blocks ahead (STRETCH_RANGE) and stops at the first enemy or block in
+  # its way: 100% base damage (STRETCH_DAMAGE) to that one enemy.
+  mitosis_primary:
+    cooldown: 18                     # (the attack_speed stat sets it: 1.1 a second)
+    display:
+      name: "Stretch"
+      description:
+        - "A slime arm shoots 5 blocks ahead:"
+        - "{base:1.0|physical} to the first enemy."
+    nodes:
+      aim:
+        type: acquire_target
+        query: { type: hitscan, range: 5, ray_size: 0.3 }   # STRETCH_RANGE (the first enemy or block in the way)
+        on: { hit: slap, miss: whiff }
+      whiff:
+        type: play_cue
+        cue: mitosis_stretch
+        at: caster
+        ahead: 5
+      slap:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 1.0, type: physical }   # STRETCH_DAMAGE: 100% base damage
+        next: slap_cue
+      slap_cue:
+        type: play_cue
+        cue: mitosis_stretch
+        at: caster
+        to: target
+
+  # 1: Sticky Fingers (10s). Throw a sticky arm (14 blocks): the enemy it hits takes 60% base damage, is slowed 25% and
+  # tethered to you. The tether breaks past 10 blocks or after 3s. Press 1 again while it holds: a second arm.
+  #   - it hits another enemy: both are pulled into each other, 100% base damage each, stunned 1s;
+  #   - it hits a wall: the tethered enemy is pulled into it, 80% base damage, stunned 0.75s if they hit it;
+  #   - it hits the same enemy: 60% base damage again, no pull; it misses: the tether ends.
+  # The first arm missing: full cooldown. With your clone: two arms, two tethers. Both arms landing within 0.5s
+  # (STICKY_SYNC_WINDOW) pull at once: two enemies slammed together, or one pulled into the wall the other arm hit
+  # (the same enemy: both arms' damage, no pull); both second arms are used up.
+  mitosis_ab1:
+    cooldown: 200                    # STICKY_COOLDOWN: 10s, from when the second arm is spent or the window runs out
+    cooldown_starts: end
+    blocked_by: [block.ability, mitosis.melted]   # (not during Bubble Trouble)
+    display:
+      name: "Sticky Fingers"
+      icon: LEAD
+      description:
+        - "Throw a sticky arm: {base:0.6|physical},"
+        - "-25% speed, tethered 3s (10 blocks)."
+        - "Again: a second arm. Another enemy: both"
+        - "slammed together, {base:1.0|physical} each,"
+        - "stunned 1s. A wall: pulled into it,"
+        - "{base:0.8|physical}, stunned 0.75s."
+    nodes:
+      throw:
+        type: projectile
+        speed: 1.5                   # STICKY_SPEED
+        size: 0.5
+        range: 14                    # STICKY_RANGE
+        lifetime: 12
+        visual: "orb:LIGHT_BLUE_STAINED_GLASS:BLUE_CONCRETE"
+        visual_size: 0.45
+        trail: mitosis_arm_trail
+        on: { spawned: throw_cue, hit_entity: stick, hit_block: splat }
+      throw_cue:
+        type: play_cue
+        cue: mitosis_arm_throw
+      splat:
+        type: play_cue               # a wall: a miss (unless the clone's arm landed on an enemy just now)
+        cue: mitosis_splat
+        at: hit
+        next: splat_meet
+      splat_meet:
+        type: echo_meet
+        window: 10                   # STICKY_SYNC_WINDOW: 0.5s
+        on: { met: synced }
+      stick:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, type: physical }   # STICKY_DAMAGE: 60% base damage
+          - { id: status, status: mitosis_sticky_slow }
+        next: stick_cue
+      stick_cue:
+        type: play_cue
+        cue: mitosis_stick
+        at: hit
+        next: tether
+      tether:
+        type: link
+        name: mitosis_sticky
+        target: hit
+        range: 10                    # STICKY_TETHER_BREAK
+        cue: mitosis_tether
+        next: meet
+      meet:
+        type: echo_meet              # the clone's arm landed too, within 0.5s: pull at once
+        window: 10
+        on: { met: synced, alone: window, consumed: let_go }
+      window:
+        type: await_recast
+        window: 60                   # STICKY_WINDOW: 3s
+        on: { recast: holds, timeout: let_go }
+      holds:
+        type: find_link              # still tethered? (it breaks past 10 blocks)
+        name: mitosis_sticky
+        store: tethered
+        on: { found: second, none: let_go }
+      second:
+        type: projectile
+        speed: 1.5
+        size: 0.5
+        range: 14
+        lifetime: 12
+        visual: "orb:LIGHT_BLUE_STAINED_GLASS:BLUE_CONCRETE"
+        visual_size: 0.45
+        trail: mitosis_arm_trail
+        on: { spawned: throw_cue, hit_entity: second_hit, hit_block: second_wall, expired: let_go }
+      second_hit:
+        type: same_target
+        a: hit
+        b: tethered
+        on: { same: again, different: slam_mid }
+      again:
+        type: apply_effects          # the same enemy: damage only
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, type: physical }
+        next: let_go
+      slam_mid:
+        type: midpoint
+        a: hit
+        b: tethered
+        store: mid
+        next: slam_pull
+      slam_pull:
+        type: fork
+        on: { out: pull_tethered, also: pull_hit }
+      pull_tethered:
+        type: dash
+        mover: tethered
+        to: mid
+        stop_short: 0.4
+        speed: 1.2
+        range: 20
+        radius: 0.5
+        pierce: true
+        on: { miss: slam }
+      pull_hit:
+        type: dash
+        mover: hit
+        to: mid
+        stop_short: 0.4
+        speed: 1.2
+        range: 20
+        radius: 0.5
+        pierce: true
+      slam:
+        type: apply_effects
+        targets: { type: radius, center: mid, radius: 1.8 }   # the two of them, where they met
+        effects:
+          - { id: damage, base: 1.0, type: physical }   # STICKY_SLAM_DAMAGE: 100% base damage each
+          - { id: status, status: stun, duration: 20 }  # STICKY_SLAM_STUN: 1s
+        next: slam_cue
+      slam_cue:
+        type: play_cue
+        cue: mitosis_slam
+        at: mid
+        next: let_go
+      second_wall:
+        type: dash                   # the tethered enemy, into the wall the arm hit
+        mover: tethered
+        to: hit
+        speed: 1.4
+        range: 20
+        radius: 0.5
+        pierce: true
+        on: { wall: wall_slam, miss: wall_drag }
+      wall_slam:
+        type: apply_effects
+        targets: { type: key, key: tethered }
+        effects:
+          - { id: damage, base: 0.8, type: physical }    # STICKY_WALL_DAMAGE: 80% base damage
+          - { id: status, status: stun, duration: 15 }   # STICKY_WALL_STUN: 0.75s
+        next: wall_cue
+      wall_cue:
+        type: play_cue
+        cue: mitosis_wall_slam
+        at: tethered
+        next: let_go
+      wall_drag:
+        type: apply_effects          # pulled up to it, didn't hit it: the damage, no stun
+        targets: { type: key, key: tethered }
+        effects:
+          - { id: damage, base: 0.8, type: physical }
+        next: let_go
+      # Synced: this arm and the clone's landed together. "hit" is this arm's, "other" the clone's (or yours).
+      synced:
+        type: is_ally
+        target: hit
+        on: { enemy: synced_mine, none: synced_wall }
+      synced_mine:
+        type: is_ally
+        target: other
+        on: { enemy: synced_both, none: synced_into_theirs }
+      synced_both:
+        type: same_target
+        a: hit
+        b: other
+        on: { same: let_go, different: sync_mid }   # the same enemy: both arms' damage, no pull
+      sync_mid:
+        type: midpoint
+        a: hit
+        b: other
+        store: mid
+        next: sync_pull
+      sync_pull:
+        type: fork
+        on: { out: sync_pull_hit, also: sync_pull_other }
+      sync_pull_hit:
+        type: dash
+        mover: hit
+        to: mid
+        stop_short: 0.4
+        speed: 1.2
+        range: 20
+        radius: 0.5
+        pierce: true
+        on: { miss: slam }
+      sync_pull_other:
+        type: dash
+        mover: other
+        to: mid
+        stop_short: 0.4
+        speed: 1.2
+        range: 20
+        radius: 0.5
+        pierce: true
+      synced_into_theirs:
+        type: dash                   # my arm's enemy, into the wall the other arm hit
+        mover: hit
+        to: other
+        speed: 1.4
+        range: 20
+        radius: 0.5
+        pierce: true
+        on: { wall: sync_wall_slam_hit, miss: sync_wall_drag_hit }
+      sync_wall_slam_hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8, type: physical }
+          - { id: status, status: stun, duration: 15 }
+        next: sync_wall_cue_hit
+      sync_wall_cue_hit:
+        type: play_cue
+        cue: mitosis_wall_slam
+        at: hit
+        next: let_go
+      sync_wall_drag_hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8, type: physical }
+        next: let_go
+      synced_wall:
+        type: is_ally                # my arm hit a wall: the other arm's enemy is pulled into it
+        target: other
+        on: { enemy: synced_into_mine }
+      synced_into_mine:
+        type: dash
+        mover: other
+        to: hit
+        speed: 1.4
+        range: 20
+        radius: 0.5
+        pierce: true
+        on: { wall: sync_wall_slam_other, miss: sync_wall_drag_other }
+      sync_wall_slam_other:
+        type: apply_effects
+        targets: { type: key, key: other }
+        effects:
+          - { id: damage, base: 0.8, type: physical }
+          - { id: status, status: stun, duration: 15 }
+        next: sync_wall_cue_other
+      sync_wall_cue_other:
+        type: play_cue
+        cue: mitosis_wall_slam
+        at: other
+      sync_wall_drag_other:
+        type: apply_effects
+        targets: { type: key, key: other }
+        effects:
+          - { id: damage, base: 0.8, type: physical }
+      let_go:
+        type: unlink                 # the tether ends (and its slow)
+        name: mitosis_sticky
+        next: unslow
+      unslow:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: mitosis_sticky_slow }
+        next: unslow_tethered
+      unslow_tethered:
+        type: apply_effects          # (after a second arm: "hit" is whoever it hit, the tethered one is here)
+        targets: { type: key, key: tethered }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: mitosis_sticky_slow }
+
+  # 2: Blob Rush (9s). Channel 0.5s as a player-sized blob of blue slime (you can aim, not walk), then dash 8 blocks
+  # (level) the way you aim, in about 0.3s; a wall stops you. Every enemy you pass through: 70% base damage and knocked
+  # 3 blocks aside, away from your path.
+  mitosis_ab2:
+    cooldown: 180                    # RUSH_COOLDOWN: 9s
+    blocked_by: [block.ability, mitosis.melted]
+    active_tags: [block.ability, state.disarmed, state.invisible]   # the blob in your place (it shows instead of you)
+    interrupted_by: [state.stunned]
+    display:
+      name: "Blob Rush"
+      icon: BLUE_WOOL
+      description:
+        - "Turn into a blob (0.5s), then rush 8"
+        - "blocks: {base:0.7|physical} to everyone you"
+        - "pass through, knocked aside."
+    nodes:
+      hold:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_rush_hold }
+        next: blob
+      blob:
+        type: start_cue
+        cue: mitosis_blob
+        next: channel
+      channel:
+        type: delay
+        ticks: 10                    # RUSH_CHANNEL: 0.5s
+        cast_bar: true
+        next: rush_cue
+      rush_cue:
+        type: play_cue
+        cue: mitosis_rush
+        next: rush
+      rush:
+        type: dash
+        flat: true
+        speed: 1.35                  # 8 blocks in ~0.3s
+        range: 8                     # RUSH_DISTANCE
+        radius: 0.8
+        pierce: true
+        on: { passed: bump }
+      bump:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.7, type: physical, knockback: false }   # RUSH_DAMAGE: 70% base damage
+          - { id: knockback, from: caster, radius: 3, center: 0.55, edge: 0.55, lift: 0.3, sideways: true }   # RUSH_KNOCKBACK: ~3 blocks aside
+        next: bump_cue
+      bump_cue:
+        type: play_cue
+        cue: mitosis_splat
+        at: hit
+
+  # 3: Bounce Back (14s). For 3s a wall of bouncy slime stands 1 block in front of you (3 wide, 3 tall), turning with
+  # you: enemy projectiles that fly into it go straight back, now yours. Enemies walking into it are bounced back 2
+  # blocks. Meanwhile you move at 60% speed and can't use LMB.
+  mitosis_ab3:
+    cooldown: 280                    # BOUNCE_COOLDOWN: 14s
+    blocked_by: [block.ability, mitosis.melted]
+    active_tags: [state.disarmed]    # no LMB
+    display:
+      name: "Bounce Back"
+      icon: LIGHT_BLUE_STAINED_GLASS
+      description:
+        - "A wall of slime in front of you for 3s:"
+        - "enemy projectiles bounce back as yours,"
+        - "enemies are bounced away. 60% speed, no"
+        - "LMB meanwhile."
+    nodes:
+      slow:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_bounce_slow }
+        next: wall_cue
+      wall_cue:
+        type: start_cue
+        cue: mitosis_wall
+        next: wall
+      wall:
+        type: barrier
+        distance: 1                  # BOUNCE_WALL_OFFSET
+        radius: 1.5                  # BOUNCE_WALL_WIDTH / HEIGHT: 3 across
+        projectiles_only: true
+        reflect: true                # what it catches flies back, cast by you
+        next: push
+      push:
+        type: repeat
+        times: 30                    # BOUNCE_DURATION: 3s (every 2 ticks)
+        every: 2
+        on: { each: shove, out: done }
+      shove:
+        type: apply_effects          # walking into it: bounced back (BOUNCE_PUSH: ~2 blocks)
+        targets: { type: cone, range: 2.2, angle: 110 }
+        on_hit: false
+        effects:
+          - { id: knockback, from: caster, radius: 2.2, center: 0.4, edge: 0.4, lift: 0.25 }
+      done:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: mitosis_bounce_slow }
+
+  # ULTIMATE (F): Bubble Trouble.
+  #   1. Puddle (2s): you melt into a flat square of slime that grows over the channel, up to 4 blocks from you to each
+  #      side (9 x 9 at full; MitosisCues draws it): you can't move, attack or use 1-3 (SHIFT + RMB still swaps). Enemies
+  #      on it are slowed, 20% rising to 70% as it grows. F again meanwhile: cancelled (they keep the slow), half your
+  #      charge back.
+  #   2. Root: enemies on the full square are rooted 1.5s.
+  #   3. Pick (2s): a ring shows where you look (15 blocks); LMB or F picks it (else where you look when time's up).
+  #   4. Bubble: enemies within 5 blocks are swallowed (they can't act) and you leap there in 1s, carrying them.
+  #   5. Landing: 120% base damage within 4 blocks, knocked about 3 blocks away from the middle.
+  # The clone does it too, from its own puddle, and its bubble leaps to the spot you pick (ULT_CLONE_SAME_TARGET).
+  # The Slime's ultimate too (slime.yml): one ability, tuned here for both.
+  mitosis_ult:
+    cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
+    # (mitosis.melted, not block.ability: that would block its own F-again cancel; 1-3 and the fuse are blocked by it)
+    active_tags: [mitosis.melted, state.disarmed, state.invisible, state.safe_fall]   # the puddle / bubble shows instead of you
+    blocked_by: [block.ability, block.move]
+    interrupted_by: []               # a stun doesn't end it (you can't move anyway); death does
+    display:
+      name: "Bubble Trouble"
+      icon: HEART_OF_THE_SEA
+      description:
+        - "Melt into a puddle that grows for 2s (up"
+        - "to 4 blocks each way): enemies on it are"
+        - "slowed 20% -> 70%, then rooted 1.5s."
+        - "Pick a spot (15 blocks): a bubble swallows"
+        - "enemies within 5 and leaps there, then"
+        - "{base:1.2|physical} within 4, knocked away."
+        - "F during the puddle: cancel, half back."
+    nodes:
+      melt:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_puddled }
+        next: puddle_cue
+      puddle_cue:
+        type: start_cue
+        cue: mitosis_puddle          # (it ends by itself after 2s)
+        next: split
+      split:
+        type: fork
+        on: { out: channel, also: cancel_window }
+      cancel_window:
+        type: await_recast           # F again during the puddle: cancel
+        window: 38
+        on: { recast: give_back }
+      give_back:
+        type: refund
+        share: 0.5                   # half the charge back
+        next: stop
+      stop:
+        type: end_cast
+      channel:
+        type: fork
+        on: { out: wait, also: slows }
+      slows:
+        type: delay                  # (each pulse covers the square as it is then: 0.8, 1.6, 2.4, 3.2, 4 blocks)
+        ticks: 8
+        next: slow_pulses
+      slow_pulses:
+        type: repeat
+        times: 5                     # ULT_SLOW_START 20% ... ULT_SLOW_MAX 70%
+        every: 8
+        on: { each: slow_level }
+      slow_level:
+        type: switch
+        key: repeat_index
+        on: { "1": slow_1, "2": slow_2, "3": slow_3, "4": slow_4, default: slow_5 }
+      slow_1:
+        type: apply_effects
+        targets: { type: radius, radius: 0.8, square: true }   # the puddle's square, growing to ULT_RADIUS: 4
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_puddle_slow_1 }
+      slow_2:
+        type: apply_effects
+        targets: { type: radius, radius: 1.6, square: true }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_puddle_slow_2 }
+      slow_3:
+        type: apply_effects
+        targets: { type: radius, radius: 2.4, square: true }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_puddle_slow_3 }
+      slow_4:
+        type: apply_effects
+        targets: { type: radius, radius: 3.2, square: true }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_puddle_slow_4 }
+      slow_5:
+        type: apply_effects
+        targets: { type: radius, radius: 4, square: true }
+        on_hit: false
+        effects:
+          - { id: status, status: mitosis_puddle_slow_5 }
+      wait:
+        type: delay
+        ticks: 40                    # ULT_CHANNEL: 2s
+        cast_bar: true
+        next: root
+      root:
+        type: apply_effects
+        targets: { type: radius, radius: 4, square: true }   # the full square
+        on_hit: false
+        effects:
+          - { id: status, status: root, duration: 30 }   # ULT_ROOT: 1.5s
+        next: root_cue
+      root_cue:
+        type: play_cue
+        cue: mitosis_root
+        next: firm
+      firm:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: mitosis_puddled }
+        next: pick
+      pick:
+        type: choose_spot
+        range: 15                    # ULT_LEAP_RANGE
+        radius: 4                    # (the ring: ULT_LAND_RADIUS)
+        timeout: 40                  # ULT_PICK_TIME: 2s, then where you look
+        ground: true
+        store: leap_to
+        key_confirms: true           # LMB or F
+        echo_same_spot: true         # ULT_CLONE_SAME_TARGET: the clone's bubble goes where you pick
+        on: { out: swallow, none: land }
+      swallow:
+        type: carry
+        query: { type: radius, radius: 5 }   # ULT_PULL_RADIUS
+        status: mitosis_swallowed
+        next: bubble
+      bubble:
+        type: start_cue
+        cue: mitosis_bubble
+        next: leap_cue
+      leap_cue:
+        type: play_cue
+        cue: mitosis_bubble_leap
+        next: leap
+      leap:
+        type: fly_to
+        to: leap_to
+        ticks: 20                    # ULT_FLIGHT_TIME: 1s
+        height: 3
+        next: spit
+      spit:
+        type: uncarry
+        next: land
+      land:
+        type: apply_effects
+        targets: { type: radius, radius: 4 }   # ULT_LAND_RADIUS
+        effects:
+          - { id: damage, base: 1.2, type: physical, knockback: false }   # ULT_LAND_DAMAGE: 120% base damage
+          - { id: knockback, from: caster, radius: 4, center: 0.45, edge: 0.35, lift: 0.3 }   # ~3 blocks (ULT_KNOCKBACK was 6)
+        next: land_cue
+      land_cue:
+        type: play_cue
+        cue: mitosis_land
+
+characters:
+  mitosis:
+    name: "Mitosis"
+    weapon: BLUE_DYE
+    stats:                           # see docs/character-stats.md
+      health: 240                    # max HP
+      armor: 20                      # damage taken x 100 / (100 + armor)
+      base_damage: 38                # abilities deal % of this
+      move_speed: 1.05               # x vanilla walking speed
+      attack_speed: 1.1              # Stretches per second (ATTACK_SPEED): 20 / 1.1 rounds to 18 ticks
+      scale: 0.9                     # size
+    status_bar: { clone_health: true }   # the XP bar: the clone's health (empty without one)
+    slots:
+      primary: mitosis_primary       # LMB: Stretch
+      secondary: mitosis_bud         # RMB: Mitosis (bud / fuse; its icon in slot 9)
+      sneak_secondary: mitosis_swap  # SHIFT + RMB: swap with the clone
+      ability_1: mitosis_ab1         # 1: Sticky Fingers
+      ability_2: mitosis_ab2         # 2: Blob Rush
+      ability_3: mitosis_ab3         # 3: Bounce Back
+      ultimate: mitosis_ult          # F: Bubble Trouble

@@ -79,6 +79,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         projectileRenderer.setAudience(engine::audienceOf);      // a duel in a veil: only the two see their shots
         worldQuery.setDamageScale(() -> damage.scale());   // mobs' max HP, for % max HP damage
         TagBindings tagBindings = TagBindings.withDefaults();
+        TagBindings.setSlowResistance(id -> engine.stats().slowResistance(id)); // the Warrior shrugs off part of a slow
         engine.tags().addListener(tagBindings);
         var liftedDrift = new me.mephisto.ability_engine.bukkit.status.LiftedDrift(engine); // slows reach the lifted's drift
         engine.tags().addListener(liftedDrift);
@@ -208,7 +209,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         keybinds.load(getConfig(), getLogger());
         damage.setScale(getConfig().getDouble("damage-scale", 10));
         engine.stats().setArmorConstant(getConfig().getDouble("armor-constant", 100));
-        engine.crits().setDamage(getConfig().getDouble("crit-damage", 1.75));
+        engine.crits().setDamage(getConfig().getDouble("crit-damage", 1.4));
+        engine.crits().setAbilityDamage(getConfig().getDouble("ability-crit-damage", 1.2));
+        engine.stats().setResistanceFromArmor(getConfig().getBoolean("spell-resistance-from-armor", true));
         engine.stats().setMobMaxHpCap(getConfig().getDouble("max-hp-damage-cap-for-mobs", 200));
         engine.setMeleeAssistReach(getConfig().getDouble("melee-assist-reach", 1.0));
         hud.setHideOffhandInHand(getConfig().getBoolean("resource-pack.hide-ultimate-in-hand", false));

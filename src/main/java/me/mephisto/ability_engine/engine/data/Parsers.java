@@ -96,7 +96,8 @@ public final class Parsers {
                 double height = p.getDouble("height", 0);
                 if (height < 0) throw p.error("height", "a column this tall above the centre (blocks), or leave it out for a sphere");
                 yield new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
-                        p.getInt("max", 0), p.getBool("include_caster", false), inner, p.getBool("sight", false)).column(height);
+                        p.getInt("max", 0), p.getBool("include_caster", false), inner, p.getBool("sight", false)).column(height)
+                        .square(p.getBool("square", false));
             }
             case "cone" -> {
                 String heading = p.getString("heading", "aim");
@@ -257,7 +258,8 @@ public final class Parsers {
                 case "seek" -> new me.mephisto.ability_engine.engine.projectile.Seek(m.getDouble("range", 6),
                         m.requireDouble("speed"), m.requireDouble("base"), m.getDouble("turn", 0.3),
                         m.getDouble("max_distance", 0), m.getInt("hover", 0), m.getString("to", null),
-                        m.getDouble("up", 0), m.getBool("lock", false), m.getString("mark", null));
+                        m.getDouble("up", 0), m.getBool("lock", false), m.getString("mark", null),
+                        Math.max(0, m.getInt("mark_lasts", 0)));
                 default -> throw m.error("type", "unknown motion '" + type + "' (gravity, drag, homing, accelerate, seek)");
             });
         }
@@ -428,7 +430,10 @@ public final class Parsers {
                 || p.getDouble("ability_damage_taken", 1) < 1 || p.getDouble("ability_lifesteal", 0) > 0 || p.has("basic_on_hit") || p.has("ability_on_hit")
                 || p.has("cooldown_reduction") || p.getDouble("ally_healing_dealt", 1) > 1 || p.getDouble("ult_charge_rate", 1) > 1
                 || p.getDouble("spell_power", 0) > 0 || p.getDouble("crit_chance", 0) > 0 || p.getDouble("spell_resistance", 0) > 0
-                || p.getDouble("crit_damage", 0) > 0 || p.getBool("ability_crits", false) || p.has("on_crit");
+                || p.getDouble("ability_haste", 0) > 0 || p.getDouble("armor_flat", 0) > 0 || p.getDouble("max_health_flat", 0) > 0
+                || p.getDouble("base_damage_flat", 0) > 0
+                || p.getDouble("crit_damage", 0) > 0 || p.getBool("ability_crits", false) || p.has("on_crit")
+                || p.getDouble("slow_resistance", 0) > 0;
         boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
         if (p.getBool("neutral", false)) {
             if (p.getBool("positive", false)) throw p.error("neutral", "a neutral status is neither a buff nor a debuff: leave out positive");
@@ -469,7 +474,14 @@ public final class Parsers {
         return new StatusDef.Extras(maxHealth, abilityTaken, lifesteal, optionalEffects(p, "basic_on_hit", registry),
                 optionalEffects(p, "ability_on_hit", registry), cdr, allyHealing, ultRate,
                 optionalEffects(p, "on_damaged", registry), p.getBool("additive", false), combat(p, registry), slowCap,
-                p.getString("move_speed_unless", null), slotDamage(p));
+                p.getString("move_speed_unless", null), slotDamage(p), slowResistance(p));
+    }
+
+    /** {@code slow_resistance: 0.3}: that share of every slow on the holder is shrugged off. */
+    private static double slowResistance(Params p) {
+        double r = p.getDouble("slow_resistance", 0);
+        if (r < 0 || r > 1) throw p.error("slow_resistance", "the share of every slow shrugged off, 0-1 (0.3 = slows 30% weaker)");
+        return r;
     }
 
     /** {@code slot_damage_dealt: { primary: 0.5, ability_1: 0.5 }}: the holder's abilities in those slots deal that much. */
@@ -498,8 +510,16 @@ public final class Parsers {
         if (resistance < 0) throw p.error("spell_resistance", "points, >= 0 (20 = 17% less damage from abilities)");
         double critDamage = p.getDouble("crit_damage", 0);
         if (critDamage < 0) throw p.error("crit_damage", "must be >= 0 (0.35 = critical strikes deal 35% more)");
+        double resistanceMult = p.getDouble("spell_resistance_mult", 1);
+        if (resistanceMult < 0) throw p.error("spell_resistance_mult", "a multiplier on the holder's spell resistance, >= 0 (0.8 = 20% shredded)");
+        double haste = p.getDouble("ability_haste", 0);
+        if (haste < 0) throw p.error("ability_haste", "points of cooldown reduction, >= 0 (20 = 17% shorter cooldowns, like armor)");
+        for (String flat : new String[]{"armor_flat", "max_health_flat", "base_damage_flat"}) {
+            if (p.getDouble(flat, 0) < 0) throw p.error(flat, "a flat amount added to the character's own, >= 0");
+        }
         return new StatusDef.Combat(spellPower, critChance, resistance, critDamage, p.getBool("ability_crits", false),
-                optionalEffects(p, "on_crit", registry));
+                optionalEffects(p, "on_crit", registry), resistanceMult, haste, p.getDouble("armor_flat", 0),
+                p.getDouble("max_health_flat", 0), p.getDouble("base_damage_flat", 0));
     }
 
     /** {@code on_lethal: { status, health }}: a killing blow leaves them at health (share of max HP) with that status. */

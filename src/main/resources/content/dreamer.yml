@@ -2,8 +2,8 @@
 # The Dreamer: an assassin who slips between the waking world and the Dream Realm.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Backstab): every damage effect of hers has  backstab: 1.5  - hitting a target from behind
-# (outside the front 220 degrees of where they face) deals x1.5 and shows a crit.
+# PASSIVE (Backstab): every damage effect of hers has  backstab_bonus: 20, backstab_crit: 50  - hitting a target from
+# behind (outside the front 220 degrees of where they face) deals 20 more (+10 per 20% crit chance) and shows a crit.
 
 statuses:
   dreamwalking:                      # Dreamwalk: gone from sight, ignored by every ability
@@ -17,6 +17,7 @@ statuses:
     once: true                       # used up by the first hit
     on_hit:
       - { id: status, status: blinded }
+      - { id: damage, base: 0.1, type: physical }   # +10% base damage (the hit itself has the backstab)
   blinded:
     duration: 40                     # 2s
     stacking: refresh
@@ -31,14 +32,14 @@ abilities:
       name: "Dream Blade"
       icon: GOLDEN_SWORD
       description:
-        - "Quick slash in front of you."
-        - "Crits from behind (x1.5)."
+        - "Quick slash in front of you:"
+        - "{base:1.0|physical}."
     nodes:
       slash:
         type: apply_effects
         targets: { type: cone, range: 2.8, angle: 80 }
         effects:
-          - { id: damage, base: 1.0, backstab: 1.5 }   # 100% base damage
+          - { id: damage, base: 1.0, type: physical, backstab_bonus: 20, backstab_crit: 50 }   # 100% base damage
         next: slash_cue
       slash_cue:
         type: play_cue
@@ -46,7 +47,7 @@ abilities:
 
   # 1: slip into the Dream Realm for 5s: hidden from other players (armor and held items too),
   # ignored by every ability, faster. Dealing damage wakes you up. Your next primary fire (within
-  # 10s) also blinds.
+  # 10s) also blinds, and deals 10% base damage more (physical).
   dreamwalk:
     cooldown: 240                    # 12s
     display:
@@ -55,7 +56,8 @@ abilities:
       description:
         - "5s: invisible, untargetable and faster."
         - "Dealing damage wakes you. Your next"
-        - "primary fire blinds."
+        - "basic attack blinds and deals"
+        - "{base:0.1|physical} more."
     nodes:
       enter:
         type: apply_effects
@@ -78,9 +80,10 @@ abilities:
       name: "Crescent Rush"
       icon: PHANTOM_MEMBRANE
       description:
-        - "Dash where you look, damaging everyone"
-        - "you pass through. Your Echo repeats it."
-        - "Refreshes on player kills."
+        - "Dash where you look: {base:0.8|physical}"
+        - "to everyone you pass through. Your Echo"
+        - "repeats it: {base:0.8|magic}. Refreshes"
+        - "on player kills."
     active_tags: [state.dashing, block.ability]
     interrupted_by: [state.stunned]
     nodes:
@@ -105,7 +108,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }     # the enemy just passed
         effects:
-          - { id: damage, base: 1.4, backstab: 1.5 }   # 140% base damage
+          - { id: damage, base: 0.8, type: physical, backstab_bonus: 20, backstab_crit: 50 }   # 80% base damage
         next: slash_cue
       slash_cue:
         type: play_cue
@@ -134,7 +137,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.4, backstab: 1.5 }
+          - { id: damage, base: 0.8, type: magic, backstab_bonus: 20, backstab_crit: 50 }   # the echo's: 80% base damage, magic
         next: echo_slash_cue
       echo_slash_cue:
         type: play_cue
@@ -186,8 +189,8 @@ abilities:
 
   # ULTIMATE (F): Dream Tempest. You vanish into the dream and watch from above: lifted 10 blocks up and
   # 8 back from the spot you cast it from, looking down at it, untargetable and unseen. For 3s (a boss
-  # bar counts it down) blades of the dream slash everything within 5 blocks of that spot: 10 damage
-  # every 0.2s, 150 in all, and slowed while inside. A ring on the ground shows everyone the edge. You
+  # bar counts it down) blades of the dream slash everything within 5 blocks of that spot: 10% base damage
+  # every 0.2s, 150% in all (physical), and slowed while inside. A ring on the ground shows everyone the edge. You
   # can't move or use anything meanwhile. Then you're back exactly where you were.
   dreamer_ult1:
     cooldown: 900                    # placeholder until ults charge from damage
@@ -197,7 +200,7 @@ abilities:
       description:
         - "Vanish and watch from above for 3s while"
         - "blades slash everything within 5 blocks of"
-        - "where you stood: 150 damage in all,"
+        - "where you stood: {base:1.5|physical} in all,"
         - "slowing everyone inside."
         - "Then you return to that spot."
     active_tags: [state.untargetable, state.hidden, state.anchored, block.move, block.ability]
@@ -228,7 +231,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: origin, radius: 5 }
         effects:
-          - { id: damage, base: 0.25, knockback: false, ignore_iframes: true }   # 25% base damage a pulse
+          - { id: damage, base: 0.1, type: physical, knockback: false, ignore_iframes: true }   # 10% base damage a pulse, x15 = 150%
           - { id: status, status: slow, duration: 10 }   # slowed while inside, and 0.5s after leaving
         next: slash_cue
       slash_cue:
@@ -259,6 +262,13 @@ characters:
     status_bar:                      # XP bar: drains over Dreamwalk's 5s, no number
       status: dreamwalking
       level: none
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Backstab"
+      icon: PHANTOM_MEMBRANE
+      description:
+        - "Your hits from behind (outside their"
+        - "front 220 degrees) deal {flat:20|physical}"
+        - "{crit_per:10/0.2|physical} more, a crit."
     slots:
       primary: dream_blade           # LMB
       ability_1: dreamwalk           # 1

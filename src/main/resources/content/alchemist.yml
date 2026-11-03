@@ -11,7 +11,8 @@
 # Passive (Hunter's Rhythm): the first bolt that hits jumps your crossbow to Quick Charge 2, the next
 #   hits to 3 and 4 (draw time 1.25s -> 0.75s -> 0.5s -> 0.25s). Stacks last 5s, refreshed by each
 #   hit. Shown on the XP bar (the number = the stacks, the bar drains as they run out) and as Quick
-#   Charge on the crossbow.
+#   Charge on the crossbow. Venom Step gives a stack too. Explained on the crossbow's tooltip (slot 9 is the quiver's).
+# Damage types: poison is physical, Flame magic, Frost true damage (ignores armor); 8% of their max HP each.
 
 statuses:
   alchemists_rhythm:                 # the passive: its stacks are the crossbow's reload speed
@@ -27,9 +28,9 @@ statuses:
     tags: [state.poisoned]
     healing_taken: 0.6               # poisoned: 40% less healing
     tick:
-      every: 20                      # ...3.75% of their max HP per second = 15% total (armor reduces it)
+      every: 20                      # ...2% of their max HP per second = 8% total
       effects:
-        - { id: damage, max_hp: 0.0375, max_hp_armored: true, knockback: false }   # like flat damage: armor reduces it
+        - { id: damage, max_hp: 0.02, type: physical, knockback: false }   # physical: armor reduces it
 
   flask_tonic:                       # caught in your own flask: a burst of speed and a little healing
     duration: 60                     # 3s
@@ -56,17 +57,17 @@ statuses:
     stacking: refresh
     tags: [state.frozen]
     tick:
-      every: 15                      # ...3.75% of their max HP 4 times = 15% total
+      every: 15                      # ...2% of their max HP 4 times = 8% total
       effects:
-        - { id: damage, max_hp: 0.0375, damage_type: freeze }   # true damage: % max HP that ignores armor
+        - { id: damage, max_hp: 0.02, type: true, damage_type: freeze }   # true damage: ignores armor
   scorched:                          # Flame: on fire, no knockback (armor reduces it, like poison)
     duration: 60                     # 3s...
     stacking: refresh
     tags: [state.burning]            # looks on fire (no vanilla fire damage)
     tick:
-      every: 15                      # ...3.75% of their max HP 4 times = 15% total
+      every: 15                      # ...2% of their max HP 4 times = 8% total
       effects:
-        - { id: damage, max_hp: 0.0375, max_hp_armored: true, damage_type: fire }   # like flat damage: armor reduces it
+        - { id: damage, max_hp: 0.02, type: magic, damage_type: fire }   # magic: armor reduces it
   paralyzed:                         # Paralysis: slowed, and basic attacks 40% slower
     duration: 40                     # 2s
     stacking: refresh
@@ -79,20 +80,20 @@ infusions:
   poison:
     name: "Poison"
     color: "#4E9331"
-    description: ["Poisons: 15% of their max HP over 4s", "(armor reduces it), 40% less healing."]
+    description: ["Poisons: {max_hp:0.08|physical} over 4s,", "40% less healing."]
     on_hit:
       - { id: status, status: poisoned }
   # Volatile Flask: each of your 3 queued bolts gets ONE of these, at random.
   frost:
     name: "Frost"
     color: "#8FD8FF"
-    description: ["Freezes: 15% of their max HP over 3s,", "ignoring armor, and slowed."]
+    description: ["Freezes: {max_hp:0.08|true} over 3s,", "and slowed."]
     on_hit:
       - { id: status, status: frozen }
   flame:
     name: "Flame"
     color: "#F0672B"
-    description: ["Burns: 15% of their max HP over 3s", "(armor reduces it)."]
+    description: ["Burns: {max_hp:0.08|magic} over 3s."]
     on_hit:
       - { id: status, status: scorched }
   paralysis:
@@ -111,13 +112,9 @@ abilities:
       name: "Infused Bolt"
       description:
         - "Hold RMB to draw, RMB again to shoot the"
-        - "loaded bolt: {base:1.0} + its infusions."
-        - "Each hit: Venom Step's cooldown -1s."
-        - "On a Snare-marked enemy: {base:0.9} more"
-        - "(the mark is used up)."
-        - "Passive - Hunter's Rhythm: each hit raises"
-        - "your Quick Charge to 2, 3, then 4 (draws"
-        - "0.75s / 0.5s / 0.25s). Lasts 5s per hit."
+        - "loaded bolt: {base:1.0|physical} + its"
+        - "infusions. Each hit: Venom Step's"
+        - "cooldown -1s."
     nodes:
       take:
         type: take_bolt              # the loaded bolt leaves the crossbow (stored as "bolt")
@@ -160,7 +157,7 @@ abilities:
         targets: { type: key, key: hit }
         infusions: true              # + everything this bolt was infused with
         effects:
-          - { id: damage, base: 1.0 }             # 100% base damage
+          - { id: damage, base: 1.0, type: physical }   # 100% base damage
         next: rhythm
       rhythm:
         type: apply_effects          # the passive: +1 stack per hit
@@ -182,7 +179,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.9 }             # 90% base damage
+          - { id: damage, base: 0.4, type: physical }   # 40% base damage
           - { id: remove_status, status: alchemists_mark }   # used up
         next: mark_cue
       mark_cue:
@@ -202,7 +199,7 @@ abilities:
         type: play_cue
         cue: dry_fire
 
-  # 1: dash the way you're MOVING (strafe left = dash left; standing still = forward). Poisons the next
+  # 1: dash the way you're MOVING (strafe left = dash left; standing still = forward). +1 Hunter's Rhythm at once. Poisons the next
   # 3 bolts in your quiver, then instantly reloads (if the crossbow is empty): the loaded bolt is poisoned.
   # During Overdrive it also turns you invisible for 2.5s.
   alchemist_ab1:
@@ -212,9 +209,9 @@ abilities:
       icon: FERMENTED_SPIDER_EYE
       description:
         - "Dash 6 blocks the way you're moving."
-        - "Your next 3 bolts get Poison: {max_hp:0.15}"
-        - "over 4s (armor reduces it) and 40% less"
-        - "healing. Then the crossbow reloads."
+        - "+1 Hunter's Rhythm. Your next 3 bolts get"
+        - "Poison: {max_hp:0.08|physical} over 4s and"
+        - "40% less healing. Then the crossbow reloads."
         - "During Overdrive: invisible for 2.5s."
     active_tags: [state.dashing, block.ability]
     interrupted_by: [state.stunned]
@@ -222,6 +219,13 @@ abilities:
       whoosh:
         type: play_cue
         cue: alchemist_dash
+        next: rhythm
+      rhythm:
+        type: apply_effects          # +1 stack of the passive, at once (before the reload: it draws faster)
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: alchemists_rhythm }
         next: envenom
       envenom:
         type: infuse                 # poison the 3 queued bolts first...
@@ -267,7 +271,7 @@ abilities:
       description:
         - "Lob a flask: it bounces once, then bursts"
         - "(or on the first enemy it hits):"
-        - "{base:0.2} + {sp:1.1}"
+        - "{base:0.2|magic} + {sp:1.1|magic}"
         - "and a 3s slow to enemies within 3.5 blocks."
         - "Caught in it yourself (throw it at your"
         - "feet, or up and stand under it): +30% speed"
@@ -296,7 +300,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
-          - { id: damage, base: 0.2, sp: 1.1 }    # 20% base damage + 110% spell power
+          - { id: damage, base: 0.2, sp: 1.1, type: magic }   # 20% base damage + 110% spell power
           - { id: status, status: slow, duration: 60 }
         next: burst_cue
       burst_cue:
@@ -322,7 +326,7 @@ abilities:
         reroll: true                 # a bolt that already has one gets a new roll instead (no stacking up)
 
   # 3: toss a trap a short way. It hops once, slides a little, and arms where it stops. The first enemy
-  # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals +40.
+  # to step on it is rooted for 2s, glows and is marked for 5s: your next bolt on them deals 40% base damage more (physical).
   # A direct hit on an enemy mid-throw snaps shut on them at once. Traps stay armed when you die (not
   # when you log out); at most 5 at a time, a 6th removes your oldest. Your bolts pass through them. Your armed traps glow
   # for you (nobody else sees the glow), so you know where they are.
@@ -336,9 +340,9 @@ abilities:
         - "Toss a trap: it hops, slides and arms where"
         - "it stops. The first enemy to step on it is"
         - "rooted 2s, glows 5s and is marked: your"
-        - "next bolt on them deals +90% base damage."
-        - "Up to 5 traps, each lasts 30s. Yours glow"
-        - "for you (only you see it)."
+        - "next bolt on them deals {base:0.4|physical} more"
+        - "(the mark is used up). Up to 5 traps,"
+        - "each lasts 30s."
     nodes:
       toss:
         type: projectile
@@ -424,6 +428,13 @@ characters:
       move_speed: 1.0                # x vanilla walking speed
       # no attack_speed: the crossbow's draw (and Hunter's Rhythm) is the fire rate
     status_bar: alchemists_rhythm    # XP bar: number = Rhythm stacks (0-3), bar = their time left
+    passive:                         # explained on the crossbow (slots 7-9 are the quiver)
+      name: "Hunter's Rhythm"
+      description:
+        - "Each bolt hit (and Venom Step) raises your"
+        - "Quick Charge to 2, 3, then 4 (draws 0.75s"
+        - "/ 0.5s / 0.25s). Lasts 5s, refreshed by"
+        - "every hit."
     quiver:
       size: 3                        # the next 3 bolts...
       hotbar: 7                      # ...shown in slots 7, 8, 9 (leftmost loads next)

@@ -43,6 +43,14 @@ import java.util.Set;
  * @param stealable       another caster can take a copy of it (an ultimate stolen by Stolen Fable); false: it reads its
  *                        owner's own kit (forms, ammo...) and doesn't work for anyone else
  * @param stealAs         stolen, the thief gets this ability instead (a version that works for any caster); null = itself
+ * @param recastReadyWhile while a cast of it runs, its recast only counts as ready while the caster has this tag (e.g. the
+ *                        harpooned enemy is low enough to execute): otherwise its icon is greyed out; null = always
+ * @param ignoresCrowdControl no crowd control stops it, not even silence or disarm on its slot (Mitosis's swap, used
+ *                        stunned to get out of the stunned body); give it {@code blocked_by: []} too
+ * @param ultCharge       in the ultimate slot, it charges up like any ultimate (when ultimates charge); false: it has its
+ *                        own cooldown instead, charge or not (an ultimate something else makes available)
+ * @param readyWhile      it can only be cast while the caster has this tag (its icon greyed out otherwise, its key
+ *                        quiet); null = always
  */
 public record Ability(
         String id,
@@ -69,7 +77,11 @@ public record Ability(
         String alsoFlying,
         boolean cooldownAtEnd,
         boolean stealable,
-        String stealAs
+        String stealAs,
+        String recastReadyWhile,
+        boolean ignoresCrowdControl,
+        boolean ultCharge,
+        String readyWhile
 ) {
     public Ability {
         costs = Map.copyOf(costs);
@@ -108,6 +120,10 @@ public record Ability(
         private boolean cooldownAtEnd;
         private boolean stealable = true;
         private String stealAs;
+        private String recastReadyWhile;
+        private boolean ignoresCrowdControl;
+        private boolean ultCharge = true;
+        private String readyWhile;
 
         private Builder(String id, AbilityGraph graph) {
             this.id = id;
@@ -145,6 +161,13 @@ public record Ability(
         public Builder stealable(boolean v) { this.stealable = v; return this; }
         /** Stolen, the thief gets this ability instead (null = itself). */
         public Builder stealAs(String abilityId) { this.stealAs = abilityId; return this; }
+        /** While a cast runs, its recast is shown ready (lit, glinting) only while the caster has this tag. */
+        public Builder recastReadyWhile(String tag) { this.recastReadyWhile = tag; return this; }
+        public Builder ignoresCrowdControl(boolean on) { this.ignoresCrowdControl = on; return this; }
+        /** In the ultimate slot: charges up like any ultimate (true), or has its own cooldown (false). */
+        public Builder ultCharge(boolean on) { this.ultCharge = on; return this; }
+        /** Only castable while the caster has this tag (null = always). */
+        public Builder readyWhile(String tag) { this.readyWhile = tag; return this; }
 
         public Ability build() {
             // Channels are interruptible and mark the caster as channeling by default; instants aren't.
@@ -160,7 +183,7 @@ public record Ability(
             return new Ability(id, graph, cooldownTicks, costs, mode, blocked, interrupts, active, display, targeting,
                     cooldownAfterRecast, aura, cancelOnRepress, survivesDeath, movement,
                     refreshOnKill, manualCooldown, charges, recastMovement, passiveWhile, needsConstructs, alsoFlying, cooldownAtEnd,
-                    stealable, stealAs);
+                    stealable, stealAs, recastReadyWhile, ignoresCrowdControl, ultCharge, readyWhile);
         }
 
         private static Set<String> with(Set<String> tags, String tag) {

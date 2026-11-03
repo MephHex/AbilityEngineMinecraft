@@ -52,6 +52,9 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Recasts:** abilities with an `await_recast` node start their cooldown when the recast window
   closes (recast used, window timed out, or the cast ended), not on the first cast. Their hotbar
   icon glints while a recast is available. `cooldown_starts: cast` restores the old timing.
+  An **ultimate** with a recast lasts its whole cast instead: its charge is spent (or its cooldown starts) only when
+  the cast is over, through every recast, so meanwhile its icon stays lit and glinting (F again recasts, it never
+  starts a second cast). Not for `cooldown_starts: manual` ones, nor a stolen ultimate.
 - **Cues:** `play_cue` plays a one-shot cue at a spot (hit, impact, cast, spark, shatter, fizzle,
   teleport...), or between two spots with `to:` (geyser_beam). `start_cue` starts a looping one on
   an entity until the cast ends (riptide, parasol, guard_pose, geyser_charge).
@@ -122,6 +125,8 @@ through allies; allies can't trigger or break your constructs.
 
 - `tick: { every, effects: [...] }` - damage/heal over time, credited to whoever applied it.
 - `on_hit: [...]` - makes it a **buff**: while you have it, your on-hit hits also apply these.
+  A damage, heal or shield in there with `sp_of: source` scales its `sp` / `max_hp_sp` with the spell power of whoever
+  put the status on, not the holder's (the Fae's blessing: her ally's basic attacks deal more with HER spell power).
   `apply_effects` nodes apply on-hits with `on_hit: true`; by default only casts from the
   primary slot do. `on_hit: false` turns it off anywhere.
 
@@ -865,6 +870,9 @@ slot, so an ability is only silenced when it's in an ability slot.
   blocks), slime_slimed (looping), slime_windup (looping), slime_throw, slime_ball_trail, slime_splat, slime_stick,
   slime_stuck (looping: a slime block around their torso), slime_launch, slime_flop (3.5 blocks), slime_slam (4 blocks):
   keep the radii in step with slime.yml.
+- **Her ultimate's look:** a `variants:` entry (`while: mitosis.melted`, `cue_suffix: _slime`) plays Bubble Trouble's
+  cues as mitosis_puddle_slime (looping: a squishing slime-block pool that stays until the bubble leaps),
+  mitosis_root_slime, mitosis_bubble_slime (looping: a squashing and stretching slime block) and mitosis_land_slime.
 
 ## Added for the Firecracker
 
@@ -1027,10 +1035,16 @@ again, Topsy-Turvy instead of Changeling, Switcheroo instead of Stolen Fable, no
 - **Labels:** the overhead crowd-control text lists several one above the other, and shows no countdown for a status
   10 ticks long or less (one a floor keeps on whoever stands on it: it lasts while they're inside).
 - **Floors:** a floor laid `over` another moves with it when that one is replaced (Trick Room moved with 2 again takes
-  its lit room along), keeping its own time. A room (a square floor) is drawn with a floor of its own (a magenta and purple checkerboard of glass) on
-  the ground in every block column, the first solid top going down through its reach (put down a step above the ground
-  around it, it shows on that ground). A lit floor laid over a drawn room turns that floor light blue and glowing instead
-  of drawing its own, back to magenta when it goes.
+  its lit room along), keeping its own time. A room (a square floor) is drawn with a floor of its own (a magenta and purple
+  checkerboard of glass): one flat sheet at its height across all of it, through blocks in the way and over dips. Players
+  walk on it: invisible barriers in the empty blocks just under it, sent only to the players whose feet are on or above
+  it (never real blocks; anyone below it never gets them, so nobody is shut in under it; mobs aren't held up; the
+  server's fly-kick is held off for whoever it holds up). A lit floor laid over a drawn room turns that floor light blue
+  instead of drawing its own, back to magenta when it goes.
+- **Floors:** `level: <floor name>` - at the height of the caster's own floor of that name (if they have one) instead of
+  down on the ground below (Trick Room moved with 2 again stays level with where it was).
+- **Glide:** `rise: 0.6` - only with the feet at most that far above the floor (Trick Room's teleport: not from a block
+  standing on it).
 - **Trick Room's recast:** after the dash and the moved room, a lit floor is laid `over` it with `topsy_turvy_room` as
   its `enemy_status` and no duration: the room is topsy-turvy (light blue) for the rest of its time. Topsy-Turvy (3) is
   just the orb, wherever it's cast.
@@ -1057,7 +1071,8 @@ again, Topsy-Turvy instead of Changeling, Switcheroo instead of Stolen Fable, no
   yellow); `text: ["#FF3DF2", "#FF9AD8"]` - its title's letters in those colours in turn (spaces skipped), e.g. Trick
   Room's magenta and pink like its tiles while it's the Fae's, light blue and white once moved (against her enemies).
 - **Rooms' walls:** a drawn room has walls too: a checkerboard of thin glass panes along its four edges (its floor's
-  colours, never lit), from a block below its floor to two above its reach. Only players inside the room see them.
+  colours, never lit), from a block below its floor to four above its reach. Whoever stands between them sees them, at
+  any height they cover (jumping, up on a block, down in a dip).
 - **Cues:** trickster_room_shift (the room moved), trickster_topsy_cast, trickster_topsy_trail (the orb's trail),
   trickster_topsy_hit, trickster_topsy_turvy (looping, on whoever has it: rings turning opposite ways at their feet and
   over their head), trickster_room_flip (lights up the whole room it's played in: FloorRenderer), trickster_switch,
@@ -1119,10 +1134,59 @@ inventory's stat items), with the exact number for the player right now after th
   ability's `sp:` damage part, e.g. "{base:0.2} + {sp:0.9}".
 - `{max_hp:0.1}` - "10% of their max HP", red (depends on whoever it hits: no exact number).
 - `{own_hp:0.2}` - "20% of your max HP (42)", red (a heal or shield of their own).
+- `{bonus_hp:0.1}` - "10% bonus HP (12)", green: their max HP above their character's own (a `bonus_hp:` part).
+- `{flat:90}` - just "90" (a flat `amount:`).
+- `{sp_per:10/50}` - "+10 per 50 spell power (+N)", blue (e.g. a heal's `sp: 0.2`).
+- `{max_hp_sp:0.01/50}` - "+1% max HP per 50 spell power (+N%)", blue (a `max_hp_sp: 0.0002` part).
+
+**Damage types:** a damage token can end in its hit's type, `{sp:1.2|magic}`: the number in brackets (a `flat`
+token's number, a `max_hp` token's whole text) is then in that type's colour - orange physical, blue magic, dark purple
+true. That's what the hit DEALS, not what it scales with (a physical hit can scale with spell power: "{sp:0.9|physical}").
+The colour says whether defenses apply (only true damage ignores them), so descriptions don't spell it out. Without a
+type the number is white.
 
 The rest of the line stays plain grey. The icons are drawn again when those numbers change (an item, a buff). Keep the
 numbers in step with the ability's effects. (Minecraft doesn't tell the server about keys pressed while hovering in an
 inventory, so the exact numbers are always shown rather than on a key.)
+
+## Damage types, bonus HP and passives explained
+
+- **Damage:** `type: physical | magic | true` - the hit's damage type. Physical and magic both go through armor (all of
+  the hit, `max_hp` parts too) and, on an ability, spell resistance; true damage goes through neither. Without a type a
+  hit works as before (its `max_hp` part ignores armor; `max_hp_armored` / `ignore_armor` still work). Show it in the
+  description with the token's `|type` (see Scalings in descriptions). Not to be mixed up with `damage_type: freeze |
+  fire | magic`, which only picks the vanilla hurt (sound, no knockback).
+- **Damage:** `bonus_hp: 0.1` - 10% of the CASTER's bonus max HP (above their character's own `health`).
+  `max_hp_sp: 0.0002` - a further share of the target's max HP per spell power point (0.0002 = +1% per 50).
+- **Heals and shields:** `sp: 0.2` - + 20% of the healer's spell power (+10 per 50).
+- **Damage:** `max_hp_bonus_dmg: 0.001` - +0.1% of the target's max HP per point of the caster's bonus damage (base
+  damage x damage dealt, less the base damage). `max_hp_dmg: 0.001` - +0.1% per point of their damage (base x dealt).
+  `backstab_bonus: 20` (+ `backstab_crit: 50`: that much more per 100% crit chance) - from behind, a flat amount more,
+  shown as a crit (the old `backstab: 1.5` multiplier still works). `falloff_from: <key>, falloff_radius: 5,
+  falloff_edge: 0.5` - less the farther the target is from that spot: all of it there, half at 5 blocks and beyond.
+  `lifesteal_sp: 0.005` - that much more lifesteal per spell power point (+10% per 20).
+- **Heals:** `missing_hp: 0.4` - 40% of the health the target is missing.
+- **Knockback:** `max_up: 0.85` - the most upward push it gives, lift included (a blast jump that stays sane).
+- **Statuses:** `spell_resistance_mult: 0.8` - the holder's spell resistance x0.8 a stack (shredded 20%).
+- **Statuses (stats, items):** `ability_haste: 20` - cooldown reduction POINTS, like armor: ability cooldowns x 100 / (100
+  + points), so 20 = 17% shorter and it never reaches 100% (the old `cooldown_reduction: 0.8` multiplier still works).
+  `armor_flat: 10`, `max_health_flat: 50`, `base_damage_flat: 6` - flat amounts added to the character's own before any %
+  (`armor: 1.2` etc.). Characters have spell resistance of their own from their armor (config.yml
+  `spell-resistance-from-armor`): below 10 armor as much as their armor, 10 to 20 armor less 5, above 20 armor less 10.
+  Crits: basic attacks 140% (`crit-damage`), abilities (with `ability_crits`) 120% (`ability-crit-damage`); `crit_damage`
+  adds to both.
+- **Abilities:** `recast_ready_while: <tag>` - while its cast runs, the recast only shows ready (lit, glinting) while the
+  caster has that tag; otherwise its icon is greyed out (the Dragon Harpoon until its target is low enough to execute).
+  The tag `state.glowing_red` gives a red glowing outline through walls (seen by everyone).
+- **Projectiles:** `visual: orb` (or `orb:<shell block>:<core block>`) - a round orb, a see-through shell round a
+  tumbling core. Seek motion `mark_lasts: 60` - its mark goes on once, as it finds them, for that long.
+- **Description tokens:** `{max_hp_bonus_dmg:0.001}`, `{max_hp_dmg:0.01/10}` (gold) and `{crit_per:10/0.2}` ("+10 per
+  20% crit chance", red).
+- **Slow fields:** drawn as solid violet lines; their owner has lower gravity inside one of his own.
+- **Characters:** `passive: { name, icon, description }` - the passive, explained. An item in hotbar slot 9 when nothing
+  else of theirs is kept there (a quiver's bolts, a gauge, a ward, an ability's icon); a status item or the hearing item
+  in slot 9 only borrows it while it shows. Otherwise it's a "[Passive]" section of the weapon's tooltip. Description
+  tokens work in it (and in wards', status items' and infusions' descriptions too).
 
 ## PvE: brains
 
@@ -1156,3 +1220,93 @@ brain:
 - **Spawning:** `/ae mob <character> [entity type] [team]` (default a mannequin, no team: everyone's enemy), or give an
   existing entity a character with `/ae char <character> <selector>`. `/ae dummy <character> [team]` is a mannequin that
   just stands there (for testing against a kit), its ultimate charged.
+
+## Added for Mitosis
+
+`mitosis.yml`: a slime brawler that buds a second body which copies everything it does.
+
+- **summon_clone:** `body: true` - a SECOND BODY (one per caster): it plays the caster's character (their kit and stats,
+  their items' stats too; its buffs and debuffs are its own), is on their team, and copies them as they are, not mirrored:
+  it has a heading of its own that turns as they turn, and their walk relative to where they face is its walk relative to
+  that heading, at its own speed (never put back in step). It LOOKS at what they look at: the spot their crosshair is on
+  (a block or an enemy, up to 24 blocks; nothing there: that far along their look), so their lines of sight cross there,
+  and its echoes are aimed at that spot. Crowd control on it holds only it (stunned: it does nothing; rooted: it only turns).
+  `echo: [primary, ability_1, ...]` - every cast of theirs from those slots it casts too, at the same moment, from where it
+  stands and the way it faces (an ECHO: no costs or cooldown of its own; stunned, silenced or blocked, it skips it). Its
+  damage, kills and ultimate charge are theirs. A recast of theirs recasts its echo too (and their key recasts its echo
+  when their own cast is already over). `split_health: true` - it takes half their health (rounded down), its max HP is
+  theirs. `side: left | right | random` (with `beside`). `lifetime: 0` - no time limit. `fuse_cue`, `transfer_cue`.
+  A blow that would kill them while it lives moves them into it instead (consciousness transfer): their casts end (not
+  the one that made it), they're put where it is with its health and only its buffs and debuffs, it's gone, and whoever
+  landed the blow gets 5% ultimate charge.
+- **Nodes:** `fuse_body` -> out / none (its health added to theirs, up to max; its buffs and debuffs move over, the stronger
+  of two kept; it's gone), `swap_body` -> out / none (positions and facing traded; health, buffs and debuffs stay with
+  each body), `echo_meet { key, window, store }` -> met / alone / consumed (a cast and its echo meeting up: the second to
+  arrive within `window` ticks exits `met` with the first one's `key` value in `store`, the first exits `consumed`),
+  `same_target { a, b }` -> same / different, `midpoint { a, b, store }`, `carry { query, status, spread }` (enemies found
+  are carried inside the caster, moved to them every tick, with the status on, until `uncarry` or the cast ends; never the
+  unmovable), `uncarry`, `fly_to { to, ticks, height }` (an arc to a spot in exactly that many ticks, through walls).
+- **choose_spot:** `key_confirms: true` - the ability's own key picks the spot too (not only LMB); `echo_same_spot: true` -
+  an echo doesn't pick: it gets the spot its owner picks.
+- **refund:** `share: 0.5` - half: half the ultimate's charge back, or the cooldown starting over at half.
+- **Radius query:** `square: true` - a square on the ground instead of a sphere (lined up with the block grid, `radius`
+  from its centre to each side), from 1.5 blocks below the centre to `height` above (default 2.5): e.g. a puddle drawn as
+  a square, growing (one query per size).
+- **Knockback:** `sideways: true` - away from the line the caster faces along (a dash going through them), not from the
+  centre.
+- **Slots:** `sneak_secondary` - SHIFT + RMB (no hotbar icon). It comes first: SHIFT is read from the key itself, and on a
+  kit with one a plain RMB waits 2 ticks for a SHIFT pressed together with it. **Abilities:** `ignores_crowd_control: true` - not even
+  silence or disarm stops it (give it `blocked_by: []` too).
+- **display:** `glint_when_ready: true` - its icon glints while it can be cast; `countdown: <status>` - while the caster
+  has that status, its stack counts the seconds the status has left.
+- **Characters:** `status_bar: { clone_health: true }` - the XP bar shows their second body's health (empty without one).
+- **Content updates:** a content file the jar ships that the server's content folder doesn't have yet (a new kit) is
+  copied out on start. Files already there are never touched: to get changes to an existing kit, replace its file (or
+  turn on `dev.overwrite-content` once).
+- **Cues** (blue slime): mitosis_bud, mitosis_fuse, mitosis_transfer, mitosis_clone_burst, mitosis_swap, mitosis_too_far,
+  mitosis_stretch (line), mitosis_arm_throw, mitosis_arm_trail, mitosis_splat, mitosis_stick, mitosis_tether (line),
+  mitosis_slam, mitosis_wall_slam, mitosis_blob (looping), mitosis_rush, mitosis_wall (looping: 3 x 3, 1 block ahead),
+  mitosis_puddle (looping, ends by itself after 2s: a square of slime growing to 4 blocks each way, its edge drawn),
+  mitosis_root (the full square), mitosis_bubble
+  (looping), mitosis_swallowed (looping), mitosis_bubble_leap, mitosis_land (4 blocks). Keep the radii in step with
+  mitosis.yml (MitosisCues).
+
+## Added for the Warrior
+
+`warrior.yml`: a sword frontliner. Leaping Strike, Iron Will, Whirlwind, and Unstoppable Charge.
+
+- **Statuses:** `slow_resistance: 0.4` - that share of every slow on the holder is shrugged off: move_speed slows (a 40%
+  slow is 24%) and the `state.slowed` tag's -40% alike. Several multiply (two 30%: 51%). Haste isn't touched.
+- **rush** `{ start_speed, max_speed, accelerate, duration, turn, radius, pin_distance }` -> bump / full / pin / slam /
+  wall / out: a charge on foot. The caster runs forward by themselves from `start_speed` up to `max_speed` (blocks a
+  tick) over `accelerate` ticks (the XP bar fills), turning toward where they look by at most `turn` degrees a tick (0: at
+  once), for at most `duration` ticks. Every enemy it runs into (once each) is its own `bump` branch (hit = them); `full`
+  runs once at full speed; at full speed the first enemy it reaches is `pin`ned instead (hit = them) and carried
+  `pin_distance` blocks ahead (never the unmovable: they're bumped); running into terrain (a wall, a full block up, an
+  enemy barrier, or stuck) ends it: `slam` first with hit = whoever is pinned, then `wall`. Time up: `out`. A movement
+  ability (rooted or stunned, it stops); `state.dashing` meanwhile.
+- **Cues:** warrior_slash (line: `at: caster, to: aim`; 3.2 blocks, 90 degrees), warrior_whiff, warrior_leap,
+  warrior_leap_strike (line; 3.5 blocks, 110 degrees), warrior_iron_will, warrior_iron_will_aura (looping),
+  warrior_whirlwind (looping: the blade circling, 3 blocks), warrior_whirlwind_hit, warrior_charge_start, warrior_charge
+  (looping: dust at his feet), warrior_charge_full_start, warrior_charge_full (looping: flames, a burning wedge ahead),
+  warrior_bump, warrior_pin, warrior_wall_slam, warrior_crash (3.5 blocks), warrior_charge_end. Keep the radii in step with
+  warrior.yml (WarriorCues).
+
+## Added for the Dragon Hunter rework
+
+`dragon_hunter.yml` (2026-11-02): Hunter's Rhythm (a combo), Crescent Cleave, Dragon's Wake, Rising Fang and Clean Cut.
+The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.yml` for the engine tests.
+
+- **Abilities:** `ult_charge: false` - in the ultimate slot, it has its own `cooldown` even while ultimates charge up (it
+  never waits on the charge; something else makes it available). `ready_while: <tag>` - it can only be cast while the
+  caster has that tag: otherwise its icon is greyed out and its key does nothing (Clean Cut, at 5 combo levels).
+- **The combo** is all in YAML: every ability first `cast`s a hidden helper (`free: true`) that counts a level when the
+  window status is on, opens a new window, and at 5 levels `cast`s the ultimate (its own checks: not while it cools down).
+  The swing's helper counts a level and closes the window. A status with `at_max` marks the full combo for `ready_while`.
+- **The mark** (Rising Fang) is set off with `with_status: dh_mark` on the hit's own target query: those still marked
+  lose it and start bleeding, before the hit.
+- **Cues:** dh_combo_up_1..5 (a chime climbing with each level, `numbered_by`), dh_crescent (line: `at: caster, to: aim`;
+  a half circle, 4 blocks), dh_dash, dh_wake_slash (3.5 blocks), dh_blade_whirl (looping: the blade close round him,
+  1.6 blocks), dh_parry, dh_fang_cast, dh_fang_ready (looping), dh_fang, dh_marked (looping), dh_bleed_open, dh_bleeding
+  (looping), dh_cut_ready, dh_cut_leap, dh_clean_cut (3 blocks), dh_cut_return; dh_swing, dh_whiff and dh_execute as
+  before. Keep the radii in step with dragon_hunter.yml (DragonHunterCues).

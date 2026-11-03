@@ -1,5 +1,6 @@
 package me.mephisto.ability_engine.engine;
 
+import me.mephisto.ability_engine.engine.floor.Floors;
 import me.mephisto.ability_engine.engine.loadout.Slots;
 import me.mephisto.ability_engine.engine.math.Vec3;
 import me.mephisto.ability_engine.engine.tag.Tags;
@@ -355,6 +356,57 @@ class TricksterTest {
         assertFalse(t.engine.floors().glide(p, new Vec3(0, 0, 1)), "higher: outside");
         t.world.move(p, new Vec3(0, -1.7, 0));         // 2.6 down
         assertFalse(t.engine.floors().glide(p, new Vec3(0, 0, 1)), "lower: outside");
+    }
+
+    /** The shipped kit (not the fixture): teleports only from the floor's own height, not from a block on it. */
+    @Test
+    void shippedRoomTeleportsOnlyFromTheFloorItself() throws IOException {
+        setupShipped();
+        room();
+        t.world.move(p, new Vec3(0, 1.9, 0));          // feet a block up (on a block in the room): still in it...
+        t.time.advance(2);
+        assertTrue(t.engine.tags().has(p, "state.in_trick_room"), "a block up: in the room");
+        assertFalse(t.engine.floors().glide(p, new Vec3(0, 0, 1)), "...but no teleport from up there");
+        t.world.move(p, new Vec3(0, 1.4, 0));          // feet half a block up (a slab)
+        assertTrue(t.engine.floors().glide(p, new Vec3(0, 0, 1)), "a slab: fine");
+        t.time.advance(10);
+        t.world.move(p, new Vec3(0, 0.9, 0));          // on the floor
+        assertTrue(t.engine.floors().glide(p, new Vec3(0, 0, -1)), "on the floor: teleports");
+    }
+
+    /** The shipped kit: 2 again moves the room at the height it was, not down to the ground below where she lands. */
+    @Test
+    void shippedMovedRoomStaysLevelWithTheOldOne() throws IOException {
+        setupShipped();
+        t.world.box(-6, 2, -6, 6, 1);                  // a platform a block high, ending 2 ahead
+        t.world.move(p, new Vec3(0, 1.9, 0));          // on it
+        t.world.look(p, new Vec3(0, -1, 0));
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_2).success());
+        t.time.advance(3);
+        t.world.move(p, new Vec3(0, 1.9, 0));
+        t.world.look(p, new Vec3(1, 0, 0));
+        t.time.advance(2);
+        assertEquals(1, trickRoom().center().y(), 1e-9, "the room on the platform");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "the recast: 4 ahead, off the platform");
+        for (int i = 0; i < 8; i++) t.time.advance(1);
+        assertTrue(trickRoom().center().x() > 2, "moved past the platform's edge: " + trickRoom().center());
+        assertEquals(1, trickRoom().center().y(), 1e-9, "still level with where it was, not down on the ground");
+    }
+
+    private Floors.Patch trickRoom() {
+        return t.engine.floors().of(p).stream().filter(f -> "trick_room".equals(f.name())).findFirst().orElseThrow();
+    }
+
+    /** The real shipped kit instead of the fixture. */
+    private void setupShipped() throws IOException {
+        t = new TestEngine();
+        var report = ShippedContent.realReport(t.engine);
+        assertTrue(report.isClean(), () -> String.join("\n", report.errors()));
+        t.world.floor(0);
+        p = t.spawn(0, 1, 0);
+        t.world.team(p, "blue");
+        t.world.players.add(p);
+        t.engine.loadouts().assign(p, "trickster");
     }
 
     @Test

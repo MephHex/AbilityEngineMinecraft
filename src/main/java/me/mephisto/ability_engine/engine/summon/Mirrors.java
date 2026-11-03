@@ -65,6 +65,16 @@ public final class Mirrors implements Floors.BlinkListener {
     private final Map<UUID, Vec3> last = new HashMap<>();           // owner -> where they were last tick
     private final Map<UUID, Mode> modes = new HashMap<>();          // owner -> their clones' mode (missing = COPY)
     private TaskHandle ticker;
+    /** Clones that copy their owner as they are, not mirrored (Mitosis): see {@link #addFollower}. */
+    private final java.util.Set<UUID> followers = new java.util.HashSet<>();
+    /** Owner -> the way they looked last tick (yaw, pitch in degrees), for followers' turns. */
+    private final Map<UUID, double[]> lastLook = new HashMap<>();
+    /** Follower -> the way it walks "forward" (yaw, degrees): turned by its owner's turns, never put back in step. */
+    private final Map<UUID, Double> heading = new HashMap<>();
+    /** How far out a follower's owner's crosshair is looked for (blocks): the spot both of them look at. */
+    static final double FOCUS_RANGE = 24;
+    /** Closer than this to its eyes, the spot is no help (it'd stare at its feet): it looks along its heading. */
+    private static final double FOCUS_MIN = 2;
 
     public Mirrors(AbilityEngine engine) {
         this.engine = engine;
@@ -76,6 +86,108 @@ public final class Mirrors implements Floors.BlinkListener {
         mirror.put(clone, normal(owner, clone));
         engine.world().positionOf(new EntityTarget(owner)).ifPresent(p -> last.put(owner, p.position()));
         if (ticker == null) ticker = engine.scheduler().every(1, 1, this::tick);
+    }
+
+    /**
+     * {@code clone} copies {@code owner} as they are, from its own position (Mitosis), not as a mirror image:
+     * <ul>
+     *   <li>it has a heading of its own, turned by their turns (they turn 30 degrees right: so does its heading, from
+     *       wherever it was), and their walk relative to where they face is its walk relative to its heading (they walk
+     *       forward: it walks forward its way), at their speed (its own slows and haste counted instead of theirs). Never
+     *       put back in step with them: walls and drops drift them apart;</li>
+     *   <li>it LOOKS at what they look at: the spot their crosshair is on (a block or someone, up to 24 blocks; nothing
+     *       there: that far along their look), so their lines of sight cross there and both bodies' casts go at it. When
+     *       they look at IT, it looks back at them: their eyes meet.</li>
+     * </ul>
+     * Crowd control on it holds only it (stunned: it doesn't move or turn; rooted: it only turns).
+     */
+    public void addFollower(UUID owner, UUID clone) {
+        add(owner, clone);
+        followers.add(clone);
+        engine.world().aimOf(owner).ifPresent(a -> lastLook.put(owner, yawPitch(a.direction())));
+        engine.world().aimOf(clone).ifPresent(a -> heading.put(clone, yawPitch(a.direction())[0]));
+        faceFocus(owner, clone);
+    }
+
+    /**
+     * Turn {@code clone} (a follower) to look at the spot {@code owner} looks at right now (see {@link #addFollower}),
+     * e.g. just before it copies a cast, so it aims at what they aim at. False if there's nothing to look at.
+     */
+    public boolean faceFocus(UUID owner, UUID clone) {
+        var world = engine.world();
+        var theirs = world.aimOf(owner);
+        var its = world.aimOf(clone);
+        if (theirs.isEmpty() || its.isEmpty() || !theirs.get().world().equals(its.get().world())) return false;
+        Vec3 eye = theirs.get().eye(), dir = theirs.get().direction();
+        Vec3 far = eye.add(dir.multiply(FOCUS_RANGE));
+        String w = theirs.get().world();
+        Vec3 spot = world.sweep(w, eye, far, 0,
+                        id -> id.equals(owner) || id.equals(clone) || engine.teams().allies(owner, id))
+                .map(h -> h.position()).orElse(far);
+        // They look at IT: it looks back at them (their eyes meet), unless something stands in between
+        if (lookedAt(w, eye, dir, spot, clone)) {
+            Vec3 back = eye.subtract(its.get().eye());
+            if (back.isZero()) return false;
+            engine.movement().face(clone, back.normalize());
+            return true;
+        }
+        Vec3 toward = spot.subtract(its.get().eye());
+        if (toward.length() < FOCUS_MIN) return false;
+        engine.movement().face(clone, toward.normalize());
+        return true;
+    }
+
+    /** How close to their line of sight the follower's middle has to be (blocks) for them to be looking at it. */
+    private static final double LOOKED_AT = 0.7;
+
+    /**
+     * Is the owner, looking from {@code eye} along {@code dir}, looking at {@code clone}: its middle within LOOKED_AT of
+     * their line of sight, in front of them and nearer than whatever their sight stops at ({@code spot}).
+     */
+    private boolean lookedAt(String w, Vec3 eye, Vec3 dir, Vec3 spot, UUID clone) {
+        var at = engine.world().positionOf(new EntityTarget(clone));
+        if (at.isEmpty() || !at.get().world().equals(w)) return false;
+        Vec3 c = at.get().position();
+        double along = c.subtract(eye).dot(dir);
+        if (along <= 0 || along > spot.subtract(eye).length() + 0.5) return false;
+        return c.subtract(eye.add(dir.multiply(along))).length() <= LOOKED_AT;
+    }
+
+    /**
+     * {@code owner} was moved or turned by something (a swap): nothing to copy from that, start over from here. Their
+     * followers' headings start over from where they face now.
+     */
+    public void resync(UUID owner) {
+        engine.world().positionOf(new EntityTarget(owner)).ifPresent(p -> last.put(owner, p.position()));
+        engine.world().aimOf(owner).ifPresent(a -> lastLook.put(owner, yawPitch(a.direction())));
+        for (UUID clone : clonesOf(owner)) {
+            if (followers.contains(clone)) engine.world().aimOf(clone).ifPresent(a -> heading.put(clone, yawPitch(a.direction())[0]));
+        }
+    }
+
+    /** Minecraft's yaw and pitch (degrees) of a look. */
+    static double[] yawPitch(Vec3 d) {
+        Vec3 n = d.normalize();
+        return new double[]{Math.toDegrees(Math.atan2(-n.x(), n.z())), Math.toDegrees(-Math.asin(Math.max(-1, Math.min(1, n.y()))))};
+    }
+
+    /** The look along a yaw and pitch (degrees). */
+    static Vec3 look(double yaw, double pitch) {
+        double y = Math.toRadians(yaw), p = Math.toRadians(pitch);
+        return new Vec3(-Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(y) * Math.cos(p));
+    }
+
+    /** {@code v} turned about the upright axis by {@code degrees} (Minecraft yaw: +90 turns south into west). */
+    static Vec3 turn(Vec3 v, double degrees) {
+        double r = Math.toRadians(degrees), c = Math.cos(r), sn = Math.sin(r);
+        return new Vec3(v.x() * c - v.z() * sn, v.y(), v.x() * sn + v.z() * c);
+    }
+
+    private static double wrap(double degrees) {
+        double d = degrees % 360;
+        if (d > 180) d -= 360;
+        if (d < -180) d += 360;
+        return d;
     }
 
     /** A clone this close to its owner (sideways) when placed is on top of them: a half-turned copy, not a mirror. */
@@ -124,10 +236,13 @@ public final class Mirrors implements Floors.BlinkListener {
     private void tick() {
         ownerOf.keySet().removeIf(clone -> !live(clone));
         mirror.keySet().retainAll(ownerOf.keySet());
+        followers.retainAll(ownerOf.keySet());
+        heading.keySet().retainAll(followers);
         crouched.retainAll(ownerOf.keySet());
         Map<UUID, List<UUID>> byOwner = new LinkedHashMap<>();
         ownerOf.forEach((clone, owner) -> byOwner.computeIfAbsent(owner, k -> new ArrayList<>()).add(clone));
         last.keySet().retainAll(byOwner.keySet());
+        lastLook.keySet().retainAll(byOwner.keySet());
         for (UUID owner : List.copyOf(modes.keySet())) if (!byOwner.containsKey(owner)) forget(owner); // clone gone
         if (byOwner.isEmpty()) {
             ticker.cancel();
@@ -153,8 +268,14 @@ public final class Mirrors implements Floors.BlinkListener {
         var input = keys.map(in -> !held(owner) ? new MoveInput(Vec3.ZERO, false, in.sneak(), false)
                 : puppet ? new MoveInput(in.move(), in.jumpHeld(), in.sneak(), in.jumpHeld()) : in);
         var look = engine.world().aimOf(owner).map(a -> a.direction()).orElse(null);
+        double[] nowLook = look == null || look.isZero() ? null : yawPitch(look);
+        double[] lookBefore = nowLook == null ? null : lastLook.put(owner, nowLook);
         for (UUID clone : clones) {
             if (engine.tags().has(clone, Tags.DASHING)) continue; // its own (ghost) dash moves it meanwhile
+            if (followers.contains(clone)) {
+                follow(owner, clone, input.orElse(null), nowLook, lookBefore);
+                continue;
+            }
             if (input.isPresent()) { // what they put in, nothing else
                 MoveInput in = input.get();
                 if (mode == Mode.STILL) in = new MoveInput(Vec3.ZERO, false, in.sneak(), false); // it stays put
@@ -167,6 +288,36 @@ public final class Mirrors implements Floors.BlinkListener {
             } else if (mode == Mode.COPY && !teleported && !step.isZero()) engine.movement().stride(clone, reflect(clone, step));
             if (mode != Mode.STILL && look != null && !look.isZero()) engine.movement().face(clone, reflect(clone, look));
         }
+    }
+
+    /** One tick of a follower (see {@link #addFollower}): their walk and turns, its way. */
+    private void follow(UUID owner, UUID clone, MoveInput in, double[] nowLook, double[] lookBefore) {
+        var tags = engine.tags();
+        if (tags.has(clone, Tags.STUNNED)) return; // stunned: it does nothing at all
+        var cloneAim = engine.world().aimOf(clone).map(a -> a.direction()).orElse(null);
+        double[] cloneLook = cloneAim == null || cloneAim.isZero() ? null : yawPitch(cloneAim);
+        if (cloneLook != null && !heading.containsKey(clone)) heading.put(clone, cloneLook[0]);
+        if (nowLook != null && lookBefore != null && heading.containsKey(clone)) { // their turn is its heading's turn
+            heading.put(clone, heading.get(clone) + wrap(nowLook[0] - lookBefore[0]));
+        }
+        Double walkYaw = heading.get(clone);
+        if (in != null && walkYaw != null && nowLook != null) {
+            boolean held = tags.has(clone, Tags.BLOCK_MOVE) || tags.has(clone, Tags.BLOCK_WALK);
+            if (in.sneak() != crouched.contains(clone)) { // crouching with them (SHIFT)
+                if (in.sneak()) crouched.add(clone);
+                else crouched.remove(clone);
+                engine.movement().crouch(clone, in.sneak());
+            }
+            if (!held && (!in.move().isZero() || in.jump())) {
+                // their walk relative to their facing, turned onto its heading; its own speed instead of theirs
+                Vec3 move = turn(in.move(), walkYaw - nowLook[0]);
+                double theirs = engine.stats().moveSpeedMultiplier(owner);
+                if (theirs > 1e-6) move = move.multiply(engine.stats().moveSpeedMultiplier(clone) / theirs);
+                engine.movement().drive(clone, move, in.jump());
+            }
+        }
+        // it looks at what they look at (their lines of sight cross there); nothing useful to look at: along its heading
+        if (!faceFocus(owner, clone) && walkYaw != null && nowLook != null) engine.movement().face(clone, look(walkYaw, nowLook[1]));
     }
 
     /** Can {@code owner}'s keys move anything right now? Not rooted, stunned or held in place. */
@@ -241,6 +392,9 @@ public final class Mirrors implements Floors.BlinkListener {
         for (UUID owner : List.copyOf(modes.keySet())) forget(owner);
         ownerOf.clear();
         mirror.clear();
+        followers.clear();
+        lastLook.clear();
+        heading.clear();
         crouched.clear();
         last.clear();
         if (ticker != null) ticker.cancel();

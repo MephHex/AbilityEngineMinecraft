@@ -76,6 +76,7 @@ public final class AbilityEngine {
     private final me.mephisto.ability_engine.engine.floor.Floors floors;
     private final me.mephisto.ability_engine.engine.stats.StolenUltimates stolen;
     private final me.mephisto.ability_engine.engine.summon.Mirrors mirrors;
+    private final me.mephisto.ability_engine.engine.summon.Bodies bodies;
     private final me.mephisto.ability_engine.engine.ward.PassiveStatusManager passiveStatuses;
     private final me.mephisto.ability_engine.engine.ward.MarkManager marks;
     private final me.mephisto.ability_engine.engine.brain.BrainManager brains;
@@ -119,6 +120,7 @@ public final class AbilityEngine {
         stats.setTags(tags);
         this.floors = new me.mephisto.ability_engine.engine.floor.Floors(this);
         this.mirrors = new me.mephisto.ability_engine.engine.summon.Mirrors(this);
+        this.bodies = new me.mephisto.ability_engine.engine.summon.Bodies(this);
         floors.addBlinkListener(mirrors); // a clone blinks with its owner
         // A summon with an end cue: it plays where the summon is, as it goes (expired, broken, replaced...).
         summons.addRemovalListener((owner, entity, cue) -> {
@@ -145,6 +147,7 @@ public final class AbilityEngine {
             }
         });
         this.ultCharge = new me.mephisto.ability_engine.engine.stats.UltimateCharge(loadouts, stats, teams, platform.scheduler());
+        ultCharge.setOwnCooldown(id -> abilities().find(id).map(a -> !a.ultCharge()).orElse(false));
         ultCharge.setStolen(stolen);
         // A stolen ultimate that's gone can't still be aimed (its preview would cast it for free).
         stolen.setOnRelease((thief, ability) -> targeting.current(thief).filter(a -> a.id().equals(ability))
@@ -355,6 +358,9 @@ public final class AbilityEngine {
     public me.mephisto.ability_engine.engine.stats.StolenUltimates stolen() { return stolen; }
     /** Clones that copy their owner's moves (Changeling). */
     public me.mephisto.ability_engine.engine.summon.Mirrors mirrors() { return mirrors; }
+
+    /** Second bodies (Mitosis's clone): see Bodies. */
+    public me.mephisto.ability_engine.engine.summon.Bodies bodies() { return bodies; }
     /** Characters' passive_statuses: always on them. */
     public me.mephisto.ability_engine.engine.ward.PassiveStatusManager passiveStatuses() { return passiveStatuses; }
     /** Brains: what drives non-players playing a character with a brain (PvE enemies). */
@@ -427,6 +433,7 @@ public final class AbilityEngine {
         projectiles.shutdown();
         constructs.shutdown();
         summons.shutdown();
+        bodies.shutdown();
         links.shutdown();
         rides.shutdown();
         floors.shutdown();
@@ -498,6 +505,16 @@ public final class AbilityEngine {
      * </ol>
      */
     public java.util.OptionalDouble preventDeath(UUID victim) {
+        return preventDeath(victim, null);
+    }
+
+    /**
+     * @param attacker whoever landed the blow (null = unknown). First of all, with a second body alive (Mitosis) they
+     *                 move into it instead (Bodies.transfer).
+     */
+    public java.util.OptionalDouble preventDeath(UUID victim, UUID attacker) {
+        var transferred = bodies.transfer(victim, attacker);
+        if (transferred.isPresent()) return transferred;
         for (var s : java.util.List.copyOf(statuses.on(victim))) {
             var lethal = s.def().life().onLethal();
             if (lethal == null) continue;

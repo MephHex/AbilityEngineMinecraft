@@ -27,7 +27,11 @@ public final class Slots {
      */
     public static final String SNEAK = "sneak";
 
-    public static final List<String> ALL = List.of(PRIMARY, SECONDARY, MELEE, ABILITY_1, ABILITY_2, ABILITY_3, ULTIMATE, SNEAK);
+    /** SHIFT + RMB (sneaking while pressing the secondary's key): this slot instead of the secondary. No hotbar icon. */
+    public static final String SNEAK_SECONDARY = "sneak_secondary";
+
+    public static final List<String> ALL = List.of(PRIMARY, SECONDARY, MELEE, ABILITY_1, ABILITY_2, ABILITY_3, ULTIMATE, SNEAK,
+            SNEAK_SECONDARY);
 
     private Slots() {}
 }

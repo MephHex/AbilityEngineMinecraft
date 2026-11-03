@@ -3,7 +3,7 @@
 # and lifesteal, reaps the edge of his swing for true damage that heals him, and goes on an unstoppable rampage.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Bloodlust): below 40% health he hits 25% harder and swings 40% faster (hotbar slot 9 shows it, and his
+# PASSIVE (Bloodlust): below 40% health he hits 15% harder and swings 40% faster (hotbar slot 9 shows it, and his
 #   axe glints, while it lasts).
 #
 # ULTIMATE (F): Rampage. 8s unstoppable (no crowd control lands, what's on him ends; no knockback, nothing moves him)
@@ -13,7 +13,7 @@
 statuses:
   berserker_bloodlust:               # the passive: low on health (kept on while he is, see low_health below)
     duration: 10
-    damage_dealt: 1.25               # +25% damage
+    damage_dealt: 1.15               # +15% damage
     attack_speed: 1.4                # swings 40% faster
     cue: berserker_bloodlust         # dripping blood, a heartbeat
     positive: false                  # his alone (a tether doesn't copy it)
@@ -22,7 +22,7 @@ statuses:
     stacking: refresh
     move_speed: 0.6                  # -40%
   berserker_war_cry:                 # War Cry: faster, and his axe heals him (Axe Chop checks for it)
-    duration: 100                    # 5s
+    duration: 80                     # 4s
     stacking: refresh
     move_speed: 1.25                 # +25%
     tags: [buff.war_cry]
@@ -49,8 +49,6 @@ abilities:
         - "A heavy chop: 100% base damage (3.3 blocks)."
         - "Landing it on a player: Whirling Leap -0.25s."
         - "War Cry: heals 30% of the damage."
-        - "Passive - Bloodlust: below 40% health,"
-        - "+25% damage and 40% faster swings."
     nodes:
       check:
         type: has_status             # War Cry up (or Rampage): the chop drinks
@@ -83,7 +81,7 @@ abilities:
         slot: ability_1
         ticks: 5                     # 0.25s
 
-  # 1: Whirling Leap (8s). Leap ~2.5 blocks where you look and spin with your axe as you land: 90% base damage to
+  # 1: Whirling Leap (8s). Leap ~2.5 blocks where you look and spin with your axe as you land: 70% base damage (physical) to
   # enemies within 3.2 blocks, slowed 40% for 1.5s. Axe Chops that land on players take 0.25s off the cooldown.
   berserker_ab1:
     cooldown: 160                    # 8s
@@ -92,8 +90,9 @@ abilities:
       name: "Whirling Leap"
       icon: WIND_CHARGE
       description:
-        - "Leap a short way and spin: 90% base"
-        - "damage (3.2 blocks), slowed 40% for 1.5s."
+        - "Leap a short way and spin:"
+        - "{base:0.7|physical} (3.2 blocks), slowed"
+        - "40% for 1.5s."
         - "Axe Chops on players: -0.25s cooldown."
     nodes:
       take_off:
@@ -110,14 +109,14 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 3.2 }   # (the cue's ring: 3.2)
         effects:
-          - { id: damage, base: 0.9 }
+          - { id: damage, base: 0.7, type: physical }   # 70% base damage
           - { id: status, status: berserker_hamstring }
         next: spin_cue
       spin_cue:
         type: play_cue
         cue: berserker_spin
 
-  # 2: War Cry (14s). Draw breath (0.5s), then roar: 5s of +25% speed, and your Axe Chops heal you for 30% of their
+  # 2: War Cry (14s). Draw breath (0.5s), then roar: 4s of +25% speed, and your Axe Chops heal you for 30% of their
   # damage. Rampage keeps it on for its whole 8s: meanwhile its icon glints and pressing 2 does nothing.
   berserker_ab2:
     cooldown: 280                    # 14s
@@ -126,7 +125,7 @@ abilities:
       name: "War Cry"
       icon: GOAT_HORN
       description:
-        - "Charge up (0.5s) and roar: 5s of +25%"
+        - "Charge up (0.5s) and roar: 4s of +25%"
         - "speed, and Axe Chops heal you for 30%"
         - "of their damage."
     nodes:
@@ -151,18 +150,20 @@ abilities:
         cue: berserker_war_cry
 
   # 3: Reaping Cleave (10s). Raise the axe (0.75s: the blade's band shows on the ground around you, following you), then
-  # swing it all the way round: enemies within 5 blocks take 90% base damage. Those on the OUTER edge (2.5-5 blocks:
-  # the blade) also take 8% of their max HP as true damage (ignores armor), and you heal all of that true damage.
+  # swing it all the way round: enemies within 4 blocks take 40% base damage + 30% spell power (physical). Those on the
+  # OUTER edge (2-4 blocks: the blade) also take 8% of their max HP (+0.1% per point of bonus damage) as true damage,
+  # and you heal all of that true damage.
   berserker_ab3:
     cooldown: 200                    # 10s
     display:
       name: "Reaping Cleave"
       icon: NETHERITE_AXE
       description:
-        - "Wind up (0.75s), then cleave around you:"
-        - "90% base damage (5 blocks). The blade's"
-        - "edge (2.5-5 blocks) also deals 8% max HP"
-        - "true damage, and heals you that much."
+        - "Wind up (0.75s), then cleave around you"
+        - "(4 blocks): {base:0.4|physical} + {sp:0.3|physical}."
+        - "The blade's edge (2-4 blocks) also deals"
+        - "{max_hp:0.08|true} {max_hp_bonus_dmg:0.001|true},"
+        - "and heals you that much."
     nodes:
       raise:
         type: play_cue
@@ -185,16 +186,16 @@ abilities:
         cast_bar: true
         next: swing
       swing:
-        type: apply_effects          # everyone it reaches (the cue's outer ring: 5)
-        targets: { type: radius, radius: 5 }
+        type: apply_effects          # everyone it reaches (the cue's outer ring: 4)
+        targets: { type: radius, radius: 4 }
         effects:
-          - { id: damage, base: 0.9 }
+          - { id: damage, base: 0.4, sp: 0.3, type: physical }   # 40% base damage + 30% spell power
         next: blade
       blade:
         type: apply_effects          # the blade: the outer edge also takes true damage, and it heals you
-        targets: { type: radius, radius: 5, inner: 2.5 }   # (the cue's rings: 2.5 and 5)
+        targets: { type: radius, radius: 4, inner: 2 }   # (the cue's rings: 2 and 4)
         effects:
-          - { id: damage, max_hp: 0.08, lifesteal: 1.0, knockback: false, ignore_iframes: true }   # true damage, all healed
+          - { id: damage, max_hp: 0.08, max_hp_bonus_dmg: 0.001, type: true, lifesteal: 1.0, knockback: false, ignore_iframes: true }   # 8% max HP (+0.1% per bonus damage), true damage, all healed
         next: cleave_cue
       cleave_cue:
         type: play_cue
@@ -250,9 +251,16 @@ characters:
         icon: REDSTONE
         name: "Bloodlust"
         description:
-          - "Below 40% health: +25% damage,"
+          - "Below 40% health: +15% damage,"
           - "40% faster swings."
         glint_weapon: true           # the axe glints while he's bloodlusted
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Bloodlust"
+      icon: REDSTONE
+      description:
+        - "Below 40% health: +15% damage and 40%"
+        - "faster swings. Your axe glints while it"
+        - "lasts."
     slots:
       primary: berserker_primary     # LMB: Axe Chop (no RMB)
       ability_1: berserker_ab1       # 1: Whirling Leap

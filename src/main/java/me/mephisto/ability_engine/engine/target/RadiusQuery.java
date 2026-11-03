@@ -10,7 +10,9 @@ import java.util.Optional;
  * Everything within a sphere around a blackboard target, or around the caster (was RadialTargetSelector).
  * With {@code inner} it's a ring: only what's farther than that from the centre (e.g. one band of a
  * shockwave travelling outward). With {@code sight} only those the centre can see: nobody behind a wall or
- * around a corner (a burst that doesn't go through walls).
+ * around a corner (a burst that doesn't go through walls). With {@code square} it's a square on the ground instead (lined up
+ * with the block grid, {@code radius} from its centre to each side), from a block and a half below the centre to
+ * {@code height} above it (default 2.5): e.g. a puddle drawn as a square.
  */
 public final class RadiusQuery implements TargetQuery {
 
@@ -21,6 +23,7 @@ public final class RadiusQuery implements TargetQuery {
     private final double inner;
     private final boolean sight;
     private double height;          // > 0: a column instead of a sphere (radius on the ground, this tall from the centre up)
+    private boolean square;         // a square on the ground (radius to each side) instead
 
     /** The line of sight starts this far above the centre (a spot on the ground would start inside it). */
     private static final double SIGHT_LIFT = 0.4;
@@ -51,6 +54,12 @@ public final class RadiusQuery implements TargetQuery {
         return this;
     }
 
+    /** A square on the ground, {@code radius} from its centre to each side, lined up with the block grid. */
+    public RadiusQuery square(boolean square) {
+        this.square = square;
+        return this;
+    }
+
     /** Distance on the ground plane (a ring on the floor: height doesn't count). */
     private static double flat(me.mephisto.ability_engine.engine.math.Vec3 a, me.mephisto.ability_engine.engine.math.Vec3 b) {
         double dx = a.x() - b.x(), dz = a.z() - b.z();
@@ -69,6 +78,15 @@ public final class RadiusQuery implements TargetQuery {
         var c = center.get().position();
         var eye = c.add(0, SIGHT_LIFT, 0);
         String w = center.get().world();
+        if (square) {
+            double up = height > 0 ? height : 2.5;
+            return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), Math.hypot(radius * Math.sqrt(2), up + 1.5)),
+                    e -> Math.abs(e.center().x() - c.x()) <= radius && Math.abs(e.center().z() - c.z()) <= radius
+                            && e.center().y() >= c.y() - 1.5 && e.center().y() <= c.y() + up
+                            && (!sight || world.sweep(w, eye, e.center(), 0.05, id -> true).isEmpty()),
+                    e -> flat(e.center(), c),
+                    includeCaster, maxTargets);
+        }
         if (height > 0) {
             return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), Math.hypot(radius, height + 1)),
                     e -> flat(e.center(), c) <= radius && e.center().y() >= c.y() - 1 && e.center().y() <= c.y() + height

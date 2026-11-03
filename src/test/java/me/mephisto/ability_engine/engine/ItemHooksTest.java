@@ -100,7 +100,7 @@ class ItemHooksTest {
         UUID enemy = foe(2, 0);
         give("edge");
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
-        assertEquals(BASE * 2.0, t.damage(enemy), 1e-6, "175% + 25%");
+        assertEquals(BASE * 1.65, t.damage(enemy), 1e-6, "140% + 25%");
         assertTrue(has(enemy, "shred"), "on_crit: on whoever it hit");
         assertTrue(has(p, "rush"), "self: on the attacker");
     }
@@ -116,7 +116,7 @@ class ItemHooksTest {
         t.engine.cooldowns().clearAll(p);
         give("lens");
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
-        assertEquals(BASE * 0.6 * 1.75, t.damage(enemy) - plain, 1e-6, "with ability_crits it does");
+        assertEquals(BASE * 0.6 * 1.2, t.damage(enemy) - plain, 1e-6, "with ability_crits it does: an ability crits for 120%");
     }
 
     @Test

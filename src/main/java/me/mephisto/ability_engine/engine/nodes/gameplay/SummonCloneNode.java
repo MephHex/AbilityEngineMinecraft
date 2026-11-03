@@ -53,6 +53,33 @@ public final class SummonCloneNode implements GraphNode {
         return this;
     }
 
+    private String side = "random";
+    private boolean body;
+    private java.util.Set<String> echo = java.util.Set.of();
+    private boolean splitHealth;
+    private String fuseCue;
+    private String transferCue;
+
+    /** With beside: which side of the caster first (left, right or random; a wall there: the other side). */
+    public SummonCloneNode side(String side) {
+        this.side = side;
+        return this;
+    }
+
+    /**
+     * A second body (see Bodies): it plays the caster's character, follows their moves as they are (not mirrored), copies
+     * their casts from the {@code echo} slots, and can be fused back, swapped with or moved into. {@code splitHealth}:
+     * it takes half of the caster's health (rounded down) and the caster keeps the rest; its max HP is theirs.
+     */
+    public SummonCloneNode body(boolean body, java.util.Set<String> echo, boolean splitHealth, String fuseCue, String transferCue) {
+        this.body = body;
+        this.echo = java.util.Set.copyOf(echo);
+        this.splitHealth = splitHealth;
+        this.fuseCue = fuseCue;
+        this.transferCue = transferCue;
+        return this;
+    }
+
     /** Placed this many blocks to the left or right of the caster (at random), instead of where they stand. */
     public SummonCloneNode beside(double blocks) {
         this.beside = Math.max(0, blocks);
@@ -120,13 +147,33 @@ public final class SummonCloneNode implements GraphNode {
                     : new me.mephisto.ability_engine.engine.target.PointTarget(p.world(), p.position().add(0, HALF_HEIGHT, 0)));
         }
         double hp = healthShare > 0 ? ctx.engine().stats().maxHealth(of) * healthShare : health;
+        double maxHp = 0;
+        double keep = -1; // split_health: the caster's share of max HP left after it
+        if (splitHealth) { // half their health (rounded down) goes into it; they keep the rest
+            double max = ctx.engine().stats().maxHealth(ctx.caster());
+            double now = max * world.healthFraction(ctx.caster()).orElse(1);
+            hp = Math.floor(now / 2);
+            if (hp < 1 || max <= 0) return NodeResult.NEXT; // nothing to split
+            maxHp = max;
+            keep = (now - hp) / max;
+        }
         var options = new me.mephisto.ability_engine.engine.platform.CloneSpawner.Options(hp, glowing,
-                hp > 0 ? of : null, disguise);
+                hp > 0 ? of : null, disguise || body, maxHp);
         java.util.UUID copyOf = of;
         var summons = ctx.engine().summons();
+        double kept = keep;
+        // a second body looks exactly where its owner looks (yaw and pitch)
+        me.mephisto.ability_engine.engine.math.Vec3 bodyLook = body
+                ? world.aimOf(ctx.caster()).map(a -> a.direction()).orElse(null) : null;
         center.ifPresent(p -> summons
-                .summonClone(ctx.caster(), name, copyOf, p.world(), p.position(), lifetime, facing(ctx, p.position()), options)
+                .summonClone(ctx.caster(), name, copyOf, p.world(), p.position(), lifetime,
+                        body ? bodyLook : facing(ctx, p.position()), options)
                 .ifPresent(id -> {
+                    if (kept >= 0) ctx.engine().movement().setHealthShare(ctx.caster(), kept);
+                    if (body) {
+                        ctx.engine().bodies().add(new me.mephisto.ability_engine.engine.summon.Bodies.Body(ctx.caster(), id,
+                                echo, ctx.instance().ability().id(), fuseCue, transferCue));
+                    }
                     summons.breakAfter(id, hits);
                     summons.endCue(id, endCue);
                     summons.onBreak(id, onBreak);
@@ -151,7 +198,11 @@ public final class SummonCloneNode implements GraphNode {
         if (flat.isZero()) flat = new me.mephisto.ability_engine.engine.math.Vec3(1, 0, 0);
         flat = flat.normalize();
         var left = new me.mephisto.ability_engine.engine.math.Vec3(flat.z(), 0, -flat.x());
-        double first = ctx.engine().random().nextBoolean() ? 1 : -1;
+        double first = switch (side) {
+            case "left" -> 1;
+            case "right" -> -1;
+            default -> ctx.engine().random().nextBoolean() ? 1 : -1;
+        };
         for (double side : new double[]{first, -first}) {
             var dir = left.multiply(side);
             var to = here.add(dir.multiply(beside));

@@ -27,9 +27,9 @@ statuses:
     stacking: refresh
     tags: [state.burning]
     tick:
-      every: 10                      # ...2% of their max HP every 0.5s = 12% total
+      every: 15                      # ...2% of their max HP every 0.75s = 8% total (magic)
       effects:
-        - { id: damage, max_hp: 0.02, damage_type: fire }
+        - { id: damage, max_hp: 0.02, type: magic, damage_type: fire, knockback: false }
 
 abilities:
 
@@ -159,17 +159,18 @@ abilities:
         at: caster
         to: aim_now
 
-  # 1: Buckshot. A heavy shotgun blast in a wider cone (70 degrees, 9 blocks): 160% base damage, a slight
+  # 1: Buckshot. A heavy shotgun blast in a wider cone (70 degrees, 9 blocks): 100% base damage (physical), a slight
   # knockback and 1.5s slow. The recoil throws you away from where you aimed: backwards, or up if you shot at your
-  # feet (a blast jump). Fills the shotgun.
+  # feet (a blast jump, at most ~4 blocks up). Fills the shotgun.
   gunner_ab1:
     cooldown: 160                    # 8s
     display:
       name: "Buckshot"
       icon: FLINT
       description:
-        - "A heavy blast (9 blocks, wide): 160% base"
-        - "damage, knockback and 1.5s slow. The recoil"
+        - "A heavy blast (9 blocks, wide):"
+        - "{base:1.0|physical}, knockback and 1.5s"
+        - "slow. The recoil"
         - "throws you back (shoot down: up into the"
         - "air). Refills the shotgun."
     nodes:
@@ -185,7 +186,7 @@ abilities:
         targets: { type: cone, range: 9, angle: 70 }
         on_hit: true                 # your on-hit effects
         effects:
-          - { id: damage, base: 1.6 }             # 160% base damage
+          - { id: damage, base: 1.0, type: physical }   # 100% base damage
           - { id: status, status: slow, duration: 30 }   # 1.5s
           - { id: knockback, from: caster, radius: 9, center: 0.9, edge: 0.4, lift: 0.2 }
         next: recoil
@@ -194,7 +195,7 @@ abilities:
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: knockback, from: aim, radius: 1, center: 1.3, edge: 1.3, lift: 0.35, vertical: true }
+          - { id: knockback, from: aim, radius: 1, center: 1.3, edge: 1.3, lift: 0.35, vertical: true, max_up: 0.85 }   # (the lift on top of an upward blast sent you ~13 blocks up: at most ~4)
         next: keg
       keg:
         type: strike_constructs
@@ -211,7 +212,7 @@ abilities:
         at: caster
         to: aim
 
-  # 2: Smoke Grenade (19s). Lob a grenade that bounces up to 3 times, then bursts into smoke: 90% base damage and 2s
+  # 2: Smoke Grenade (19s). Lob a grenade that bounces up to 3 times, then bursts into smoke: 20 + 90% spell power (magic) and 2s
   # blind around it (3.5 blocks), and the smoke hangs there for 4s, blinding anyone standing in it (3 blocks). Caught
   # in the burst yourself: faster for 3s, and Null Ward is ready again at once.
   gunner_ab2:
@@ -220,8 +221,9 @@ abilities:
       name: "Smoke Grenade"
       icon: FIREWORK_STAR
       description:
-        - "A bouncing grenade: 90% base damage and"
-        - "2s blind, then 4s of blinding smoke."
+        - "A bouncing grenade: {flat:20|magic} +"
+        - "{sp:0.9|magic} and 2s blind, then 4s of"
+        - "blinding smoke."
         - "Caught in it yourself: faster, Null Ward"
         - "ready."
     nodes:
@@ -249,7 +251,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: spot, radius: 3.5 }
         effects:
-          - { id: damage, base: 0.9 }             # 90% base damage
+          - { id: damage, amount: 20, sp: 0.9, type: magic }   # 20 + 90% spell power
           - { id: status, status: blinded, duration: 40 }   # 2s
         next: burst_cue
       burst_cue:
@@ -323,8 +325,9 @@ abilities:
         effects:
           - { id: status, status: null_rush }
 
-  # ULTIMATE (F): Powder Keg. Throw a keg: where it lands it sits for 2.5s, then explodes (5 blocks): 200%
-  # base damage, sets them on fire (12% of their max HP over 3s) and blows them away from the centre.
+  # ULTIMATE (F): Powder Keg. Throw a keg: where it lands it sits for 2.5s, then explodes (5 blocks): up to 120%
+  # base damage (physical; all of it at the centre, half at the edge), sets them on fire (8% of their max HP over 3s,
+  # magic) and blows them away from the centre.
   # Shoot it (either gun, or Buckshot) to set it off early. A direct hit on an enemy explodes at once.
   gunner_ult1:
     cooldown: 900                    # (unused while ultimates charge up: config.yml ultimate-charge)
@@ -333,7 +336,8 @@ abilities:
       icon: TNT
       description:
         - "Throw a keg: explodes after 2.5s (5 blocks):"
-        - "200% base damage, burning, knocked away."
+        - "up to {base:1.2|physical} (less farther out),"
+        - "burning ({max_hp:0.08|magic}), knocked away."
         - "Shoot it to set it off early."
     nodes:
       throw:
@@ -367,7 +371,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: keg, radius: 5 }
         effects:
-          - { id: damage, base: 2.0 }             # 200% base damage
+          - { id: damage, base: 1.2, type: physical, falloff_from: keg, falloff_radius: 5, falloff_edge: 0.5 }   # 120% at the centre, 60% at the edge
           - { id: status, status: keg_burn }
           - { id: knockback, from: keg, radius: 5, center: 1.6, edge: 0.5, lift: 0.45 }
         next: boom_cue

@@ -16,6 +16,10 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 /** The Slime's cues: lime green goo - vanilla's slime particles and squelches - and big wet landings. */
 final class SlimeCues {
 
@@ -124,6 +128,154 @@ final class SlimeCues {
         });
         c.register("slime_flop", loc -> landing(loc, FLOP_RADIUS));
         c.register("slime_slam", loc -> landing(loc, SLAM_RADIUS));
+
+        // ---- ultimate: Bubble Trouble (Mitosis's, mitosis.yml), in her own squishing green slime ----
+        // (slime.yml's variant: while she has mitosis.melted, each mitosis_x cue plays as mitosis_x_slime)
+        // Her pool: a flat slab of slime block growing over the 2s channel to POOL_MAX each way (what the slow and the
+        // root reach), wobbling and squelching. It doesn't go after 2s: it stays under her (she's invisible: the pool
+        // is her) until the bubble leaps (the spot picked), or the ult ends.
+        c.registerLoop("mitosis_puddle_slime", e -> {
+            UUID id = e.getUniqueId();
+            BlockDisplay pool = e.getWorld().spawn(level(e.getLocation()), BlockDisplay.class, d -> {
+                d.setBlock(Material.SLIME_BLOCK.createBlockData());
+                d.setPersistent(false);
+                d.setTeleportDuration(1);
+                d.setTransformation(slab(POOL_MIN, POOL_HEIGHT));
+                VisualEntities.mark(d);
+            });
+            int[] age = {0};
+            BukkitTask[] task = new BukkitTask[1];
+            Runnable[] end = new Runnable[1];
+            end[0] = () -> {
+                if (task[0] != null) task[0].cancel();
+                if (pool.isValid()) pool.remove();
+                POOLS.remove(id, end[0]);
+            };
+            Runnable old = POOLS.put(id, end[0]);
+            if (old != null) old.run();
+            task[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid() || !pool.isValid()) {
+                    end[0].run();
+                    return;
+                }
+                int t = ++age[0];
+                double grown = Math.min(1, (double) t / POOL_GROW_TICKS);
+                double half = Math.max(POOL_MIN, POOL_MAX * grown);
+                // the squish: it swells flat and wide, then bunches up thick and narrow, over and over
+                double squish = Math.sin(t * 0.35);
+                double width = half + squish * 0.12;
+                float height = (float) (POOL_HEIGHT * (1 - squish * 0.45));
+                pool.teleport(level(e.getLocation()));
+                pool.setInterpolationDelay(0);
+                pool.setInterpolationDuration(2);
+                pool.setTransformation(slab(width, height));
+                World w = e.getWorld();
+                Location feet = e.getLocation();
+                if (t <= POOL_GROW_TICKS ? t % 2 == 0 : t % 8 == 0) square(w, feet, half, t % 4 == 0 ? LIME : MOSS); // its reach
+                if (t % 3 == 0) { // bubbling up all over it
+                    w.spawnParticle(Particle.ITEM_SLIME, feet.clone().add(0, 0.2, 0), (int) Math.ceil(half * 1.5), half * 0.6, 0.05, half * 0.6, 0);
+                }
+                if (t % 9 == 0) w.playSound(feet, Sound.ENTITY_SLIME_SQUISH, 0.7f, 0.5f + (float) grown * 0.3f);
+                if (t <= POOL_GROW_TICKS && t % 5 == 0) w.playSound(feet, Sound.BLOCK_HONEY_BLOCK_SLIDE, 0.6f, 0.5f + t / 80f);
+            }, 1, 1);
+            e.getWorld().playSound(e.getLocation(), Sound.ENTITY_SLIME_SQUISH, 1f, 0.5f);
+            return (CueHandle) () -> end[0].run();
+        });
+        c.register("mitosis_root_slime", loc -> { // the full pool sets: rooted
+            World w = loc.getWorld();
+            Location feet = loc.clone().add(0, -0.9, 0);
+            square(w, feet, POOL_MAX, MOSS);
+            square(w, feet, POOL_MAX - 0.3, LIME);
+            w.spawnParticle(Particle.ITEM_SLIME, feet, 50, POOL_MAX / 2, 0.1, POOL_MAX / 2, 0.05);
+            w.playSound(loc, Sound.BLOCK_SLIME_BLOCK_PLACE, 1.2f, 0.5f);
+            w.playSound(loc, Sound.ENTITY_SLIME_SQUISH, 1.2f, 0.4f);
+        });
+        // the bubble: a big block of slime round her (and whoever she swallowed), squashing and stretching as it flies
+        c.registerLoop("mitosis_bubble_slime", e -> {
+            Runnable pool = POOLS.remove(e.getUniqueId()); // the spot is picked: the pool goes up into the bubble
+            if (pool != null) pool.run();
+            BlockDisplay bubble = e.getWorld().spawn(middle(e), BlockDisplay.class, d -> {
+                d.setBlock(Material.SLIME_BLOCK.createBlockData());
+                d.setPersistent(false);
+                d.setTeleportDuration(1);
+                d.setTransformation(blob(BUBBLE, BUBBLE));
+                VisualEntities.mark(d);
+            });
+            int[] age = {0};
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid() || !bubble.isValid()) return;
+                int t = ++age[0];
+                double squish = Math.sin(t * 0.6);
+                float width = (float) (BUBBLE * (1 + squish * 0.14));
+                float height = (float) (BUBBLE * (1 - squish * 0.18));
+                bubble.teleport(middle(e));
+                bubble.setInterpolationDelay(0);
+                bubble.setInterpolationDuration(2);
+                bubble.setTransformation(blob(width, height));
+                World w = e.getWorld();
+                w.spawnParticle(Particle.ITEM_SLIME, middle(e), 3, 1.0, 1.0, 1.0, 0);
+                if (t % 6 == 0) w.playSound(e.getLocation(), Sound.ENTITY_SLIME_SQUISH, 0.6f, 0.7f);
+            }, 1, 1);
+            return (CueHandle) () -> {
+                task.cancel();
+                if (bubble.isValid()) bubble.remove();
+            };
+        });
+        c.register("mitosis_land_slime", loc -> {
+            World w = loc.getWorld();
+            ring(w, loc, LAND_RADIUS, LIME);
+            w.spawnParticle(Particle.DUST, loc, 60, LAND_RADIUS / 2, 0.4, LAND_RADIUS / 2, 0, LIME);
+            w.spawnParticle(Particle.ITEM_SLIME, loc, 60, LAND_RADIUS / 2, 0.3, LAND_RADIUS / 2, 0.15);
+            w.spawnParticle(Particle.EXPLOSION, loc, 1, 0, 0, 0, 0);
+            w.playSound(loc, Sound.BLOCK_SLIME_BLOCK_FALL, 1.4f, 0.4f);
+            w.playSound(loc, Sound.ENTITY_SLIME_SQUISH, 1.2f, 0.5f);
+        });
+    }
+
+    /** Bubble Trouble (mitosis.yml): the pool grows to this far from her to each side over the channel (2s)... */
+    private static final double POOL_MAX = 4, POOL_MIN = 0.4;
+    private static final int POOL_GROW_TICKS = 40;
+    /** ...a slab this thick... */
+    private static final float POOL_HEIGHT = 0.18f;
+    /** ...the bubble this big, and the landing's reach. */
+    private static final float BUBBLE = 2.4f;
+    private static final double LAND_RADIUS = 4;
+    /** Whose pool is still down (to take it away when the bubble leaps). */
+    private static final Map<UUID, Runnable> POOLS = new HashMap<>();
+
+    /** The pool's slab, {@code half} from its middle to each side, lying on the ground. */
+    private static Transformation slab(double half, float height) {
+        float h = (float) half;
+        return new Transformation(new Vector3f(-h, 0.01f, -h), new Quaternionf(), new Vector3f(2 * h, height, 2 * h), new Quaternionf());
+    }
+
+    /** A block centred on its spot, {@code width} across and {@code height} tall. */
+    private static Transformation blob(float width, float height) {
+        return new Transformation(new Vector3f(-width / 2, -height / 2, -width / 2), new Quaternionf(),
+                new Vector3f(width, height, width), new Quaternionf());
+    }
+
+    private static Location middle(Entity e) {
+        return e.getLocation().add(0, e.getHeight() / 2, 0);
+    }
+
+    /** The spot without its turn (a display spawned there lines up with the block grid, like the square it shows). */
+    private static Location level(Location at) {
+        Location l = at.clone();
+        l.setYaw(0);
+        l.setPitch(0);
+        return l;
+    }
+
+    /** A square's edge, {@code half} from {@code at} (on the ground) to each side, lined up with the block grid. */
+    private static void square(World w, Location at, double half, Particle.DustOptions dust) {
+        double y = at.getY() + 0.25, x0 = at.getX(), z0 = at.getZ();
+        for (double t = -half; t <= half + 1e-6; t += 0.35) {
+            w.spawnParticle(Particle.DUST, x0 + t, y, z0 - half, 1, 0, 0, 0, 0, dust);
+            w.spawnParticle(Particle.DUST, x0 + t, y, z0 + half, 1, 0, 0, 0, 0, dust);
+            w.spawnParticle(Particle.DUST, x0 - half, y, z0 + t, 1, 0, 0, 0, 0, dust);
+            w.spawnParticle(Particle.DUST, x0 + half, y, z0 + t, 1, 0, 0, 0, 0, dust);
+        }
     }
 
     /** A big wet landing: a splash ring at its reach. */

@@ -6,6 +6,8 @@
 # PASSIVE (Arcane Barrage): every enemy hit by an Arcane Bolt is +1 charge, by Arcane Missile +2 (5s without one and they're
 #   gone). 6 charges: Barrage mode for 5s - bolts are bigger and burst wider (2.5 blocks instead of 1). Enemies see it:
 #   arcane runes circle him meanwhile. No charges are gained during it. The XP bar shows the charges (and Barrage's time).
+#   Explained by the item in hotbar slot 9.
+# Damage types: all of his damage is magic.
 
 statuses:
   arcane_charge:                     # PASSIVE: charges toward Barrage mode
@@ -48,11 +50,8 @@ abilities:
       icon: AMETHYST_SHARD
       description:
         - "Fast bolt, bursts on impact (1 block):"
-        - "{base:0.5} + {sp:0.5}."
+        - "{base:0.5|magic} + {sp:0.5|magic}."
         - "Curves toward marked enemies."
-        - "Passive - Arcane Barrage: hits charge it"
-        - "(bolt +1, missile +2). 6: Barrage mode 5s,"
-        - "bigger bolts, 2.5-block bursts."
     nodes:
       mode:
         type: has_tag
@@ -74,7 +73,7 @@ abilities:
         targets: { type: radius, center: hit, radius: 1 }
         count: bolt_hits
         effects:
-          - { id: damage, base: 0.5, sp: 0.5 }    # 50% base damage + 50% spell power
+          - { id: damage, base: 0.5, sp: 0.5, type: magic }   # 50% base damage + 50% spell power
         next: burst_cue
       burst_cue:
         type: play_cue
@@ -97,7 +96,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 2.5 }
         effects:
-          - { id: damage, base: 0.5, sp: 0.5 }
+          - { id: damage, base: 0.5, sp: 0.5, type: magic }
         next: big_burst_cue
       big_burst_cue:
         type: play_cue
@@ -130,7 +129,7 @@ abilities:
         effects:
           - { id: remove_status, status: arcane_charge }
 
-  # 1: Arcane Missile (12s). A slow missile. An enemy hit takes 100% base damage and is MARKED for 4s: glowing, and your
+  # 1: Arcane Missile (12s). A slow missile. An enemy hit takes 120% spell power (no base damage) and is MARKED for 4s: glowing, and your
   # bolts curve toward them. Recast (1) while it flies: it turns to your crosshair, EMPOWERED: fast; whoever it hits is
   # stunned 0.6s and marked, and it explodes (3 blocks). Into terrain unempowered: it sinks into the face it hit, and for
   # 4s you can recast to fire it back out of there (from a block off the wall), empowered, at your crosshair.
@@ -142,10 +141,12 @@ abilities:
       name: "Arcane Missile"
       icon: ECHO_SHARD
       description:
-        - "Slow missile: {base:1.0}, marks 4s (glowing,"
-        - "your bolts curve to them). Recast: it flies"
-        - "at your crosshair, stuns 0.6s and explodes."
-        - "Into a wall: it sinks in; recast within 4s."
+        - "Slow missile: {sp:1.2|magic}, marks 4s"
+        - "(glowing, your bolts curve to them)."
+        - "Recast: it flies at your crosshair, stuns"
+        - "0.6s and explodes (3 blocks): {sp:1.2|magic}"
+        - "+ {max_hp:0.1|magic}. Into a wall: it sinks"
+        - "in; recast within 4s."
     nodes:
       fire:
         type: projectile
@@ -188,7 +189,7 @@ abilities:
         on_hit: true                 # buffs apply to the target hit
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.0 }             # 100% base damage
+          - { id: damage, sp: 1.2, type: magic }  # 120% spell power (no base damage)
           - { id: status, status: arcanist_mark }
         next: plain_cue
       plain_cue:
@@ -269,7 +270,7 @@ abilities:
         targets: { type: radius, center: hit, radius: 3 }
         count: missile_hits
         effects:
-          - { id: damage, base: 1.65, max_hp: 0.1 }       # 165% base damage + 10% of their max HP
+          - { id: damage, sp: 1.2, max_hp: 0.1, type: magic }   # 120% spell power + 10% of their max HP
         next: explode_cue
       explode_cue:
         type: play_cue
@@ -364,7 +365,7 @@ abilities:
 
   # 3: Arcane Screen (14s). At once (no aiming): a screen of light blue glass in the air 3 blocks ahead of you (or short of a
   # wall in the way), facing the way you look, 6 wide and 3 tall, for 6s. Enemy projectiles that fly through it stop inside it for 2s, then fly on. Yours and
-  # your allies' fly on 60% faster, and whoever they hit takes 60% of your spell power on top (no base damage).
+  # your allies' fly on 60% faster, and whoever they hit takes a flat 20 on top (magic).
   arcanist_ab3:
     cooldown: 280
     display:
@@ -374,7 +375,7 @@ abilities:
         - "A screen 3 blocks ahead, facing your look,"
         - "6s. Enemy shots through it stop for 2s."
         - "Allied shots fly 60% faster and their"
-        - "hit deals +{sp:0.6} more."
+        - "hit deals {flat:20|magic} more."
     nodes:
       raise:
         type: screen
@@ -384,7 +385,7 @@ abilities:
         hold: 40                     # enemy shots: held 2s
         accelerate: 1.6              # allied shots: +60% speed...
         effects:
-          - { id: damage, sp: 0.6, knockback: false }   # ...and 60% spell power on their hit (0 base)
+          - { id: damage, amount: 20, type: magic, knockback: false }   # ...and a flat 20 on their hit
         catch_cue: arcanist_screen_catch
         boost_cue: arcanist_screen_boost
         next: raise_cue
@@ -405,7 +406,7 @@ abilities:
   # ULTIMATE (F): Arcane Ascension. Rise into the sky and fly (slowly, and only level: no flying up or down) for 12s, with 3
   # unstable geometries. The boss bar counts the time down and shows the geometries left (the XP bar too). F again: pick a
   # spot (a circle, LMB places it, RMB puts the choice away): the geometry appears over it and he channels it for 1s (the XP
-  # bar fills; no abilities, basic attacks or other placing meanwhile), then it explodes (4 blocks: 220% base damage, knocked back); enemies see the
+  # bar fills; no abilities, basic attacks or other placing meanwhile), then it explodes (4 blocks: 70% spell power magic damage, knocked back); enemies see the
   # circle on the ground meanwhile. Each enemy it kills gives one back. Foldstep still works up there (a level blink). It
   # ends when the time runs out, or when the last geometry has gone off.
   arcanist_ult1:
@@ -416,7 +417,7 @@ abilities:
       description:
         - "Rise and fly level for 12s, 3 geometries."
         - "F: pick a spot, channel 1s: it explodes"
-        - "(4 blocks): {base:2.2}. A kill: +1."
+        - "(4 blocks): {sp:0.7|magic}. A kill: +1."
     active_tags: [state.arcanist_ult, state.flying, state.slow_flight]   # flight (slow), and the XP bar (see forms)
     movement: false                  # Foldstep roots you for a moment: that mustn't end the ultimate...
     blocked_by: [block.ability, block.move]   # ...but you can't START it while rooted
@@ -520,7 +521,7 @@ abilities:
         targets: { type: radius, center: blast_at, radius: 4, height: 4 }
         count_kills: kills
         effects:
-          - { id: damage, base: 2.2 }             # 220% base damage
+          - { id: damage, sp: 0.7, type: magic }   # 70% spell power
           - { id: knockback, from: blast_at, radius: 4, center: 1.2, edge: 0.4, lift: 0.5 }
         next: blast_cue
       blast_cue:
@@ -567,6 +568,14 @@ characters:
       move_speed: 1.0                # x vanilla walking speed
       attack_speed: 1.25             # basic attacks per second
     status_bar: { status: arcane_charge, fill: stacks }   # XP bar: the passive's charges (out of 6)
+    passive:                         # hotbar slot 9
+      name: "Arcane Barrage"
+      icon: ENCHANTED_BOOK
+      description:
+        - "Enemies hit charge it: Arcane Bolt +1,"
+        - "Arcane Missile +2 (5s without one: gone)."
+        - "6 charges: Barrage mode for 5s, bigger"
+        - "bolts bursting 2.5 blocks wide."
     slots:
       primary: arcanist_primary      # LMB: Arcane Bolt
       ability_1: arcanist_ab1        # 1, press 1 again (missile in a wall) to recast

@@ -61,7 +61,8 @@ public final class TestEngine {
                     me.mephisto.ability_engine.engine.combat.HitReactions.onHit(ctx);
                     // Strength, damage taken, tethers, armor: the same pipeline as the real damage effect.
                     var result = me.mephisto.ability_engine.engine.combat.DamageModifiers.apply(ctx.engine(), ctx.caster(), e.id(),
-                            parts.total(), parts.pierceShare(), !ctx.engine().stats().fromFire(ctx)); // an ability, or fire
+                            parts.total(), parts.pierceShare(), !ctx.engine().stats().fromFire(ctx), // an ability, or fire
+                            parts.trueDamage());
                     double amount = result.amount();
                     ctx.engine().notifyDamageDealt(ctx, e.id());
                     if (amount > 0) ctx.engine().notifyDamaged(e.id(), ctx.caster()); // on_damaged, like the real listener

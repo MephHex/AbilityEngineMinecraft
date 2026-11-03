@@ -23,10 +23,16 @@ final class DragonHunterCues {
     private static final Particle.DustOptions ROPE = new Particle.DustOptions(Color.fromRGB(120, 85, 50), 0.8f);
 
     /** Keep these in step with the abilities' reach: Dragonbone Slam's cone, Venom Dagger's circle. */
-    static final double SLAM_RANGE = 4.5;
+    static final double SLAM_RANGE = 10;
     static final double SLAM_ANGLE = 70;
     static final int WINDUP_TICKS = 40;
     static final double DAGGER_RADIUS = 3.5;
+    /** The rework (2026-11-02): Crescent Cleave's half circle, Dragon's Wake's slash and guard, Clean Cut's reach. */
+    static final double CRESCENT_RANGE = 4;
+    static final double WAKE_RADIUS = 3.5;
+    static final double GUARD_RADIUS = 1.6;
+    static final double CUT_RADIUS = 3;
+    private static final Particle.DustOptions EMBER = new Particle.DustOptions(Color.fromRGB(255, 140, 40), 1.0f);
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary: Zweihander Swing ----
@@ -106,12 +112,198 @@ final class DragonHunterCues {
             loc.getWorld().spawnParticle(Particle.LARGE_SMOKE, loc.clone().add(0, 1, 0), 20, 0.3, 0.6, 0.3, 0.02);
             loc.getWorld().playSound(loc, Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 0.6f);
         });
+        registerRework(c, plugin);
         c.register("dh_execute", loc -> {
             World w = loc.getWorld();
             w.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 40, 0.4, 0.7, 0.4, 0, BLOOD);
             w.spawnParticle(Particle.SWEEP_ATTACK, loc.clone().add(0, 1, 0), 3, 0.4, 0.4, 0.4, 0);
             w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.5f);
             w.playSound(loc, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.5f, 1.2f);
+        });
+    }
+
+    /** The rework's cues (Hunter's Rhythm, Crescent Cleave, Dragon's Wake, Rising Fang, Clean Cut). */
+    private static void registerRework(BukkitCuePlayer c, Plugin plugin) {
+        // ---- passive: Hunter's Rhythm (a chime that climbs with each level) ----
+        for (int level = 1; level <= 5; level++) {
+            float pitch = 0.8f + 0.2f * level;
+            boolean top = level == 5;
+            c.register("dh_combo_up_" + level, loc -> {
+                World w = loc.getWorld();
+                w.playSound(loc, Sound.BLOCK_NOTE_BLOCK_BELL, 0.6f, pitch);
+                w.spawnParticle(Particle.DUST, loc.clone().add(0, 1.1, 0), top ? 20 : 6, 0.3, 0.2, 0.3, 0, top ? BLOOD : BONE);
+                if (top) w.playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.4f, 1.6f);
+            });
+        }
+        c.register("dh_combo_up", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_NOTE_BLOCK_BELL, 0.6f, 1.2f));
+
+        // ---- 1: Crescent Cleave (line: at caster, to aim; a half circle, 4 blocks) ----
+        c.registerLine("dh_crescent", (w, from, to) -> {
+            Vector f = to.clone().subtract(from).setY(0);
+            if (f.lengthSquared() < 1e-6) f = new Vector(1, 0, 0);
+            f.normalize();
+            double base = Math.atan2(f.getZ(), f.getX());
+            for (int i = 0; i <= 6; i++) { // the blade's sweep, side to side
+                double a = base - Math.PI / 2 + Math.PI * i / 6;
+                double r = CRESCENT_RANGE * 0.7;
+                w.spawnParticle(Particle.SWEEP_ATTACK, from.getX() + Math.cos(a) * r, from.getY() + 0.1,
+                        from.getZ() + Math.sin(a) * r, 1, 0, 0, 0, 0);
+            }
+            for (int i = 0; i <= 24; i++) { // its edge: a bone-white crescent
+                double a = base - Math.PI / 2 + Math.PI * i / 24;
+                w.spawnParticle(Particle.DUST, from.getX() + Math.cos(a) * CRESCENT_RANGE, from.getY() + 0.1,
+                        from.getZ() + Math.sin(a) * CRESCENT_RANGE, 1, 0, 0, 0, 0, i % 4 == 0 ? BLOOD : BONE);
+            }
+            Location at = new Location(w, from.getX(), from.getY(), from.getZ());
+            w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.7f);
+            w.playSound(at, Sound.ITEM_TRIDENT_RIPTIDE_1, 0.6f, 1.3f);
+        });
+
+        // ---- 2: Dragon's Wake ----
+        c.register("dh_dash", loc -> {
+            loc.getWorld().spawnParticle(Particle.CLOUD, loc, 12, 0.3, 0.1, 0.3, 0.06);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PHANTOM_FLAP, 1f, 0.8f);
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 0.6f);
+        });
+        c.register("dh_wake_slash", loc -> { // all around as he arrives (3.5 blocks)
+            World w = loc.getWorld();
+            double y = loc.getY() - 0.3;
+            for (int i = 0; i < 10; i++) {
+                double a = Math.PI * 2 * i / 10;
+                w.spawnParticle(Particle.SWEEP_ATTACK, loc.getX() + Math.cos(a) * WAKE_RADIUS * 0.6, y,
+                        loc.getZ() + Math.sin(a) * WAKE_RADIUS * 0.6, 1, 0, 0, 0, 0);
+            }
+            for (int i = 0; i < 36; i++) {
+                double a = Math.PI * 2 * i / 36;
+                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * WAKE_RADIUS, loc.getY() - 0.8,
+                        loc.getZ() + Math.sin(a) * WAKE_RADIUS, 1, 0, 0, 0, 0, BONE);
+            }
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.9f);
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_STRONG, 0.8f, 0.8f);
+        });
+        // The 1.5s after: the blade whirling close round him, cutting down what flies at him
+        c.registerLoop("dh_blade_whirl", e -> {
+            int[] tick = {0};
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location at = e.getLocation();
+                World w = e.getWorld();
+                for (int i = 0; i < 2; i++) {
+                    double a = tick[0] * 1.3 + Math.PI * i;
+                    w.spawnParticle(Particle.SWEEP_ATTACK, at.getX() + Math.cos(a) * GUARD_RADIUS * 0.8, at.getY() + 1.1,
+                            at.getZ() + Math.sin(a) * GUARD_RADIUS * 0.8, 1, 0, 0, 0, 0);
+                    w.spawnParticle(Particle.DUST, at.getX() + Math.cos(a) * GUARD_RADIUS, at.getY() + 0.6 + i * 0.8,
+                            at.getZ() + Math.sin(a) * GUARD_RADIUS, 1, 0, 0, 0, 0, BONE);
+                }
+                if (tick[0] % 4 == 0) w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.6f);
+                tick[0]++;
+            }, 0, 2);
+            return (CueHandle) task::cancel;
+        });
+        c.register("dh_parry", loc -> { // a projectile cut down
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.CRIT, loc, 15, 0.15, 0.15, 0.15, 0.4);
+            w.spawnParticle(Particle.DUST, loc, 6, 0.15, 0.15, 0.15, 0, EMBER);
+            w.playSound(loc, Sound.ITEM_SHIELD_BLOCK, 0.9f, 1.5f);
+            w.playSound(loc, Sound.BLOCK_ANVIL_LAND, 0.3f, 2f);
+        });
+
+        // ---- 3: Rising Fang ----
+        c.register("dh_fang_cast", loc -> {
+            loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_RETURN, 1f, 0.8f);
+            loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 0.4, 0), 10, 0.3, 0.3, 0.3, 0, BLOOD);
+        });
+        // While it's ready: a red glint running up the blade
+        c.registerLoop("dh_fang_ready", e -> {
+            int[] tick = {0};
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!(e instanceof LivingEntity l) || !l.isValid()) return;
+                Location hand = l.getLocation().add(0, 1.0, 0);
+                Vector look = l.getLocation().getDirection().setY(0);
+                Vector side = look.lengthSquared() > 1e-6
+                        ? new Vector(-look.getZ(), 0, look.getX()).normalize().multiply(-0.4) : new Vector();
+                double up = (tick[0] % 5) * 0.2;
+                l.getWorld().spawnParticle(Particle.DUST, hand.getX() + side.getX(), hand.getY() + up, hand.getZ() + side.getZ(),
+                        1, 0, 0, 0, 0, BLOOD);
+                tick[0]++;
+            }, 0, 2);
+            return (CueHandle) task::cancel;
+        });
+        c.register("dh_fang", loc -> { // the uppercut: thrown up and marked
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.SWEEP_ATTACK, loc.clone().add(0, 0.8, 0), 1, 0, 0, 0, 0);
+            w.spawnParticle(Particle.CRIT, loc.clone().add(0, 0.5, 0), 25, 0.3, 0.8, 0.3, 0.4);
+            w.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 12, 0.3, 0.6, 0.3, 0, BLOOD);
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1f, 0.6f);
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.8f);
+        });
+        // Marked: a red rune turning over their head
+        c.registerLoop("dh_marked", e -> {
+            int[] tick = {0};
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location top = e.getLocation().add(0, e.getHeight() + 0.5, 0);
+                for (int i = 0; i < 3; i++) {
+                    double a = tick[0] * 0.5 + Math.PI * 2 * i / 3;
+                    e.getWorld().spawnParticle(Particle.DUST, top.getX() + Math.cos(a) * 0.35, top.getY(),
+                            top.getZ() + Math.sin(a) * 0.35, 1, 0, 0, 0, 0, BLOOD);
+                }
+                tick[0]++;
+            }, 0, 3);
+            return (CueHandle) task::cancel;
+        });
+        c.register("dh_bleed_open", loc -> { // the mark set off
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.DUST, loc.clone().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0, BLOOD);
+            w.spawnParticle(Particle.DAMAGE_INDICATOR, loc.clone().add(0, 1, 0), 4, 0.3, 0.3, 0.3, 0.1);
+            w.playSound(loc, Sound.ENTITY_PLAYER_HURT_SWEET_BERRY_BUSH, 1f, 0.7f);
+        });
+        // Bleeding: drops of blood falling off them
+        c.registerLoop("dh_bleeding", e -> {
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                if (!e.isValid()) return;
+                Location at = e.getLocation().add(0, e.getHeight() * 0.6, 0);
+                e.getWorld().spawnParticle(Particle.DUST, at, 3, 0.25, 0.3, 0.25, 0, BLOOD);
+                e.getWorld().spawnParticle(Particle.FALLING_DUST, at, 1, 0.2, 0.2, 0.2, 0,
+                        Material.REDSTONE_BLOCK.createBlockData());
+            }, 0, 4);
+            return (CueHandle) task::cancel;
+        });
+
+        // ---- ultimate: Clean Cut ----
+        c.register("dh_cut_ready", loc -> { // (to him only) pick a spot
+            loc.getWorld().playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.4f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BELL_USE, 0.6f, 0.6f);
+        });
+        c.register("dh_cut_leap", loc -> {
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.CLOUD, loc.clone().add(0, -0.8, 0), 15, 0.4, 0.05, 0.4, 0.06);
+            w.spawnParticle(Particle.DUST, loc, 15, 0.3, 0.6, 0.3, 0, BLOOD);
+            w.playSound(loc, Sound.ENTITY_PHANTOM_SWOOP, 1f, 0.7f);
+        });
+        c.register("dh_clean_cut", loc -> { // one clean stroke all around where he lands (3 blocks)
+            World w = loc.getWorld();
+            double y = loc.getY() + 0.9;
+            for (int i = 0; i < 12; i++) {
+                double a = Math.PI * 2 * i / 12;
+                w.spawnParticle(Particle.SWEEP_ATTACK, loc.getX() + Math.cos(a) * CUT_RADIUS * 0.7, y,
+                        loc.getZ() + Math.sin(a) * CUT_RADIUS * 0.7, 1, 0, 0, 0, 0);
+            }
+            for (int i = 0; i < 40; i++) {
+                double a = Math.PI * 2 * i / 40;
+                w.spawnParticle(Particle.DUST, loc.getX() + Math.cos(a) * CUT_RADIUS, loc.getY() + 0.1,
+                        loc.getZ() + Math.sin(a) * CUT_RADIUS, 1, 0, 0, 0, 0, i % 2 == 0 ? BLOOD : BONE);
+            }
+            w.spawnParticle(Particle.EXPLOSION, loc.clone().add(0, 0.3, 0), 1, 0, 0, 0, 0);
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1.2f, 0.5f);
+            w.playSound(loc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1f, 0.5f);
+            w.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.4f);
+        });
+        c.register("dh_cut_return", loc -> { // a kill: back where he cast it, ready again
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.LARGE_SMOKE, loc, 15, 0.3, 0.6, 0.3, 0.02);
+            w.playSound(loc, Sound.ENTITY_ENDER_DRAGON_FLAP, 0.8f, 1.2f);
+            w.playSound(loc, Sound.BLOCK_NOTE_BLOCK_BELL, 0.8f, 2f);
         });
     }
 

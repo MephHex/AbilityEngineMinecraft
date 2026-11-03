@@ -3,7 +3,7 @@
 # binds them with a whisper, and sends a Shade to finish them off.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Heard in Dreams): enemies below 40% HP within 30 blocks are "heard" by the Chorus:
+# PASSIVE (Heard in Dreams): enemies below 40% HP within 20 blocks are "heard" by the Chorus:
 #   - They glow for the Whisperer only (other players don't see it), through walls.
 #   - Moving toward a heard enemy within 15 blocks: +15% move speed.
 #   - Hotbar slot 9 ("Chorus Ear"): the stack is how many are heard right now; empty when none.
@@ -33,16 +33,21 @@ statuses:
     positive: false
   veil_fury:                         # Into the Veil: you hit harder while the duel lasts
     duration: 120                    # 6s (the duel lasts 7s: the last 1s without it)
-    damage_dealt: 1.2                # +20%
+    damage_dealt: 1.1                # +10%
     tags: [buff.veil_fury]
   whisper_wither:                    # Binding Whisper: withering, like Wither II (black hearts)
-    duration: 60                     # 3s...
+    duration: 50                     # 2.5s...
     stacking: refresh
     tags: [state.withered]
     tick:
-      every: 20                      # ...0.5 HP (5 design HP) a second = 1.5 HP (armor reduces it)
+      every: 10                      # ...2% of their max HP every 0.5s = 10% (+1% per 10 damage), true damage
       effects:
-        - { id: damage, amount: 5 }
+        - { id: damage, max_hp: 0.02, max_hp_dmg: 0.0002, type: true, knockback: false }
+  step_fury:                         # Dream Step: out of the veil, hitting harder until it pulls you back
+    duration: 60                     # 3s
+    stacking: refresh
+    damage_dealt: 1.1                # +10%
+    tags: [buff.step_fury]
 
 abilities:
 
@@ -74,18 +79,19 @@ abilities:
         at: target
 
   # 1: Dream Step. Slip through the veil: blink up to 8 blocks where you look (walls stop you). Enemies within
-  # 3 blocks of where you come out are blinded for 0.75s. A rift stays where you left for 3s: press 1 again
-  # (the icon glints) to step back into it. The cooldown starts when the rift closes or is used.
+  # 3 blocks of where you come out are blinded for 0.75s, and you deal 10% more damage. A rift stays where you left
+  # for 3s; when it closes, it pulls you back into it (you can't step back early). The cooldown starts as you're back.
   whisperer_ab1:
     cooldown: 200                    # 10s
-    recast_movement: true            # stepping back is a move too: a root stops it (the rift waits)
+    cooldown_starts: end             # (once you're pulled back)
     display:
       name: "Dream Step"
       icon: PHANTOM_MEMBRANE
       description:
         - "Blink up to 8 blocks; enemies near where"
-        - "you come out are blinded 0.75s. A rift stays"
-        - "for 3s: press again to step back to it."
+        - "you come out are blinded 0.75s, and you"
+        - "deal 10% more damage. After 3s the rift"
+        - "pulls you back to where you left."
     nodes:
       rift_here:
         type: remember_spot          # where you left: the rift
@@ -107,6 +113,13 @@ abilities:
         targets: { type: radius, radius: 3 }
         effects:
           - { id: status, status: blinded, duration: 15 }   # 0.75s
+        next: fury
+      fury:
+        type: apply_effects          # +10% damage until the rift pulls you back
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: step_fury }
         next: arrive_cue
       arrive_cue:
         type: play_cue
@@ -116,20 +129,21 @@ abilities:
         type: fork                   # the rift's 3s, and its shimmer, side by side
         on: { out: back, also: shimmer }
       back:
-        type: await_recast
-        window: 60                   # 3s
-        on: { recast: return, timeout: closed }
+        type: delay                  # 3s out of the veil...
+        ticks: 60
+        next: return
       return:
-        type: apply_effects
+        type: apply_effects          # ...then the rift pulls you back
         targets: { type: self }
         on_hit: false
         effects:
           - { id: teleport, to: rift }
+          - { id: remove_status, status: step_fury }
         next: return_cue
       return_cue:
         type: play_cue
         cue: dream_arrive
-        next: done
+        next: closed
       closed:
         type: play_cue
         cue: rift_close
@@ -149,8 +163,8 @@ abilities:
 
   # 2: Binding Whisper. Tether an enemy in front of you (8 blocks) and charge it for 2s; you can move and
   # attack meanwhile, 20% slower. It holds while they stay within 9 blocks and in sight (a wall for more
-  # than 0.5s breaks it), and until you're stunned or silenced. Held all the way: Darkness and Blindness for 4s,
-  # and a wither (1.5 HP over 3s). Broken: 40% of the cooldown back. No one to tether: nothing is spent.
+  # than 0.5s breaks it), and until you're stunned or silenced. Held all the way: Blindness and a wither for 2.5s
+  # (10% of their max HP, +1% per 10 damage, true damage). Broken: 40% of the cooldown back. No one to tether: nothing is spent.
   whisperer_ab2:
     cooldown: 240                    # 12s
     cooldown_starts: manual          # only once someone is tethered
@@ -159,8 +173,8 @@ abilities:
       icon: SCULK_VEIN
       description:
         - "Tether an enemy (8 blocks), charge 2s."
-        - "Held: Darkness, Blindness 4s + wither"
-        - "(1.5 HP over 3s)."
+        - "Held: Blindness and wither 2.5s:"
+        - "{max_hp:0.1|true} {max_hp_dmg:0.01/10|true}."
         - "Breaks past 9 blocks, out of sight, or"
         - "if you're stunned/silenced: 40% cd back."
     nodes:
@@ -197,8 +211,8 @@ abilities:
         type: apply_effects
         targets: { type: key, key: target }
         effects:
-          - { id: status, status: darkness }       # 4s
-          - { id: status, status: whisper_wither } # 1.5 HP over 3s
+          - { id: status, status: blinded, duration: 50 }   # 2.5s
+          - { id: status, status: whisper_wither }          # 10% max HP over 2.5s
         next: curse_cue
       curse_cue:
         type: play_cue
@@ -226,7 +240,8 @@ abilities:
   # (6 HP) kills it. It homes (12 blocks/s) on the nearest HEARD enemy however far, or else on any enemy
   # within 6 blocks of it; while it homes only its 8s lifetime limits it. With nobody to chase it flies
   # straight on (8 blocks/s) for 12 blocks, then hovers there for 3s, still looking. The first enemy it hits takes
-  # 6 HP, and if that leaves them below 10% HP they're executed. Then it dissolves.
+  # 30 + 120% spell power + 50% base damage (magic), and if that leaves them below 10% HP they're executed. Then it
+  # dissolves.
   whisperer_ab3:
     cooldown: 320                    # 16s
     display:
@@ -236,8 +251,9 @@ abilities:
         - "A Shade flies out through walls (12"
         - "blocks, then hovers 3s). Homes on heard"
         - "enemies, or anyone within 6 blocks;"
-        - "enemies can kill it. Hit: 6 HP, executes"
-        - "below 10% HP."
+        - "enemies can kill it. Hit: {flat:30|magic}"
+        - "+ {sp:1.2|magic} + {base:0.5|magic},"
+        - "executes below 10% HP."
     nodes:
       launch:
         type: projectile
@@ -264,7 +280,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 60 }            # 6 HP
+          - { id: damage, amount: 30, sp: 1.2, base: 0.5, type: magic }   # 30 + 120% spell power + 50% base damage
         next: finish_check
       finish_check:
         type: health_below           # left below 10%: executed
@@ -303,8 +319,8 @@ abilities:
   # ULTIMATE (F): Into the Veil. Pick an enemy in front of you (5 blocks). They get a 0.5s warning (a
   # whisper and a pulse of darkness), then you're both pulled into the veil for 7s, right where you stand:
   # you only see each other, and nobody else can hit, heal or buff either of you (you can't touch anyone
-  # else either). You hit 20% harder (for the first 6s), and your abilities' cooldowns are reset as you enter.
-  # If they die in there it ends at once and you heal 8 HP; if you die, it ends too. Nobody in front of you: nothing
+  # else either). You hit 10% harder (for the first 6s).
+  # If they die in there it ends at once and you heal 40% of your missing health; if you die, it ends too. Nobody in front of you: nothing
   # spent.
   whisperer_ult1:
     cooldown: 900                    # placeholder until ults charge from damage
@@ -315,8 +331,8 @@ abilities:
       description:
         - "Pull an enemy (5 blocks) into a 7s duel:"
         - "you only see each other; no one else can"
-        - "touch either of you. +20% damage 6s, your"
-        - "cooldowns reset. Win: heal 8 HP."
+        - "touch either of you. +10% damage 6s."
+        - "Win: heal 40% of your missing health."
     nodes:
       aim:
         type: acquire_target
@@ -353,10 +369,6 @@ abilities:
         targets: { type: key, key: target }
         effects:
           - { id: status, status: veil_shroud }
-        next: fresh
-      fresh:
-        type: reset_cooldowns        # your abilities are ready again
-        slots: [ability_1, ability_2, ability_3]
         next: enter_cue
       enter_cue:
         type: play_cue
@@ -369,11 +381,11 @@ abilities:
         duration: 140                # 7s (a boss bar)
         on: { won: won, out: over }
       won:
-        type: apply_effects          # they died in there: heal 8 HP
+        type: apply_effects          # they died in there: heal 40% of your missing health
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: heal, amount: 80 }
+          - { id: heal, missing_hp: 0.4 }
           - { id: remove_status, status: veil_fury }
           - { id: remove_status, status: veil_shroud }
         next: over_cue
@@ -408,13 +420,21 @@ characters:
       attack_speed: 1.40             # rakes per second (0.7s: 14 ticks)
     hearing:                         # PASSIVE: Heard in Dreams
       below: 0.4                     # below 40% HP...
-      range: 30                      # ...within 30 blocks: heard
+      range: 20                      # ...within 20 blocks: heard
       toward: { range: 15, status: heard_rush }   # moving toward one within 15: +15% speed
       hotbar: 9
       icon: ECHO_SHARD
       name: "Chorus Ear"
       description:
-        - "Enemies below 40% HP within 30 blocks"
+        - "Enemies below 40% HP within 20 blocks"
+        - "are heard: they glow for you only, even"
+        - "through walls. Moving toward one within"
+        - "15 blocks: +15% move speed."
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Heard in Dreams"
+      icon: ECHO_SHARD
+      description:
+        - "Enemies below 40% HP within 20 blocks"
         - "are heard: they glow for you only, even"
         - "through walls. Moving toward one within"
         - "15 blocks: +15% move speed."

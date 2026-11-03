@@ -139,6 +139,10 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
         UUID id = UUID.randomUUID(); // a real target: not in "clones", so abilities find it
         entities.put(id, center);
         health.put(id, options.health());
+        if (options.maxHealth() > 0) { // (a second body: its share of its max HP, like a player's)
+            maxHealth.put(id, options.maxHealth());
+            healthFraction.put(id, options.health() / options.maxHealth());
+        }
         if (options.glowing()) glowing.add(id);
         if (options.teamOf() != null) teamOf(options.teamOf()).ifPresent(t -> team(id, t));
         if (facingDir != null) facing.put(id, facingDir.normalize());
@@ -151,11 +155,16 @@ public final class FakeWorld implements WorldQuery, me.mephisto.ability_engine.e
         if (left == null) return;
         left -= amount;
         health.put(id, left);
+        Double max = maxHealth.get(id);
+        if (max != null && healthFraction.containsKey(id)) healthFraction.put(id, Math.max(0, left / max));
         if (left <= 0) kill(id);
     }
 
     @Override
-    public void face(UUID id, Vec3 direction) { facing.put(id, direction.normalize()); }
+    public void face(UUID id, Vec3 direction) {
+        facing.put(id, direction.normalize());
+        looking.put(id, direction.normalize()); // (it looks where it faces)
+    }
 
     /** Every arm swing asked for (MovementControl.swing), in order. */
     public final java.util.List<UUID> swings = new java.util.ArrayList<>();

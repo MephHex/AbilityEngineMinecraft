@@ -197,6 +197,12 @@ characters:
       move_speed: 1.05               # x vanilla walking speed
       attack_speed: 1.25             # basic attacks per second
     traits: [sneak_slow_fall]        # passive: hold SHIFT while falling to float down
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Parasol Drift"
+      icon: PHANTOM_MEMBRANE
+      description:
+        - "Hold SHIFT while falling to float down"
+        - "slowly."
     slots:
       primary: umbrella_primary      # LMB: Spear Poke
       ability_1: umbrella_ab1        # 1: Royal Lunge (2 charges)

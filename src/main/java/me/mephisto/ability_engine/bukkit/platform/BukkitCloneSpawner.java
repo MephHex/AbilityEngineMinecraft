@@ -63,9 +63,10 @@ public final class BukkitCloneSpawner implements CloneSpawner {
                 return;
             }
             double health = Math.max(1, options.health() / damageScale.getAsDouble());
+            double max = Math.max(health, options.maxHealth() / damageScale.getAsDouble());
             var maxHealth = m.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
-            if (maxHealth != null) maxHealth.setBaseValue(health);
-            m.setHealth(health);
+            if (maxHealth != null) maxHealth.setBaseValue(max);
+            m.setHealth(Math.min(health, maxHealth != null ? maxHealth.getValue() : health));
             m.setGlowing(options.glowing());
             // (No drop chances here: a mannequin isn't a Mob and refuses them. Its loot is cleared on death.)
             if (options.teamOf() != null) {

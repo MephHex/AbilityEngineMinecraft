@@ -433,7 +433,10 @@ public final class CombatInputListener implements Listener {
         // (one that came out of silence) is a second tap, e.g. a quick recast.
         boolean doubleTap = gap > 0 && (before == null || before >= KEY_REPEAT_DELAY_MAX);
         boolean freshPress = gap > KEY_REPEAT_GAP || doubleTap;
-        if (aimedWith(p, action)) return; // the aimed ability's own key again: nothing (only LMB confirms)
+        if (aimedWith(p, action)) { // the aimed ability's own key again: nothing (only LMB confirms)...
+            if (freshPress && engine.targeting().keyConfirms(p.getUniqueId())) confirm(p); // ...unless it confirms too
+            return;
+        }
         fire(p, action, freshPress);
     }
 
@@ -458,9 +461,34 @@ public final class CombatInputListener implements Listener {
         return fire(p, action, freshPress, java.util.Map.of());
     }
 
+    /** A plain RMB waits this long (ticks) for a SHIFT pressed with it, on a kit with a SHIFT + RMB slot. */
+    private static final long SHIFT_GRACE = 2;
+
+    /** Is SHIFT held: the key itself (the sneaking pose can lag behind it), or the pose. */
+    private static boolean shiftHeld(Player p) {
+        return p.getCurrentInput().isSneak() || p.isSneaking();
+    }
+
     /** @param extra more blackboard values for the cast (e.g. the entity a left click hit: ClickAssist) */
     private boolean fire(Player p, InputAction action, boolean freshPress, java.util.Map<String, Object> extra) {
-        return keybinds.slotFor(action).map(slot -> {
+        return keybinds.slotFor(action).map(bound -> {
+            // SHIFT + RMB (the character's sneak_secondary slot, when it has one) comes before a plain RMB
+            boolean shiftSlot = Slots.SECONDARY.equals(bound)
+                    && engine.loadouts().abilityIn(p.getUniqueId(), Slots.SNEAK_SECONDARY).isPresent();
+            if (shiftSlot && shiftHeld(p)) return fireSlot(p, action, Slots.SNEAK_SECONDARY, freshPress, extra);
+            if (shiftSlot && freshPress) { // pressed together: SHIFT may only arrive a moment after the click
+                engine.scheduler().after(SHIFT_GRACE, () -> {
+                    if (p.isOnline() && inCombat(p)) fireSlot(p, action, shiftHeld(p) ? Slots.SNEAK_SECONDARY : bound, true, extra);
+                });
+                return true;
+            }
+            return fireSlot(p, action, bound, freshPress, extra);
+        }).orElse(false);
+    }
+
+    /** Use {@code slot} (pressed with {@code action}), and report what came of it. */
+    private boolean fireSlot(Player p, InputAction action, String slot, boolean freshPress, java.util.Map<String, Object> extra) {
+        {
             ActivationResult result = engine.loadouts().activate(p.getUniqueId(), slot, freshPress, extra);
             if (result.openedTargeting()) { // the preview's action bar takes over
                 if (swingless(action)) {
@@ -485,6 +513,6 @@ public final class CombatInputListener implements Listener {
                 p.sendActionBar(Component.text(result.reason(), NamedTextColor.RED));
             }
             return false;
-        }).orElse(false);
+        }
     }
 }

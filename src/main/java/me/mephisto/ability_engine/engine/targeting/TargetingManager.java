@@ -28,6 +28,7 @@ public final class TargetingManager {
         final long openedAt;
         final Map<String, Object> presets; // e.g. which slot it was cast from, carried to the confirmed cast
         final InCast inCast;               // null = before a cast (confirm casts it); else a running cast is waiting
+        boolean keyConfirms;               // the ability's own key confirms too (not only LMB)
 
         Session(Ability ability, Targeting targeting, long openedAt, Map<String, Object> presets, InCast inCast) {
             this.ability = ability;
@@ -86,7 +87,22 @@ public final class TargetingManager {
      */
     public void openInCast(UUID caster, Ability ability, Targeting targeting,
                            java.util.function.Consumer<PointTarget> confirmed, java.util.function.Consumer<String> cancelled) {
-        start(caster, new Session(ability, targeting, engine.clock().now(), Map.of(), new InCast(confirmed, cancelled)));
+        openInCast(caster, ability, targeting, confirmed, cancelled, false);
+    }
+
+    /** @param keyConfirms the ability's own key confirms it too, not only LMB (choose_spot key_confirms: true) */
+    public void openInCast(UUID caster, Ability ability, Targeting targeting,
+                           java.util.function.Consumer<PointTarget> confirmed, java.util.function.Consumer<String> cancelled,
+                           boolean keyConfirms) {
+        Session session = new Session(ability, targeting, engine.clock().now(), Map.of(), new InCast(confirmed, cancelled));
+        session.keyConfirms = keyConfirms;
+        start(caster, session);
+    }
+
+    /** Does the ability's own key confirm what the caster aims right now (a choose_spot with key_confirms)? */
+    public boolean keyConfirms(UUID caster) {
+        Session s = sessions.get(caster);
+        return s != null && s.keyConfirms;
     }
 
     /** Close a mid-cast preview without calling back (its cast ended). */

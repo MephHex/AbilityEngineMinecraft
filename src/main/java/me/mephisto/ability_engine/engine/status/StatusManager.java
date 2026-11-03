@@ -345,4 +345,69 @@ public final class StatusManager {
     public List<ActiveStatus> on(UUID target) {
         return List.copyOf(active.getOrDefault(target, Map.of()).values());
     }
+
+    // ---- moving statuses between bodies (Mitosis: fuse, swap, consciousness transfer) ----------------------------
+
+    /**
+     * Does this status belong to the body it's on, so it can move to another one? Its buffs and debuffs do; an item's
+     * stats (additive), anything lasting (no time limit: a passive's, an item's) and bookkeeping (neutral) stay put.
+     */
+    public static boolean movable(ActiveStatus s) {
+        return !s.def().extras().additive() && !s.isInfinite() && !s.def().links().neutral();
+    }
+
+    /** Is {@code a} stronger than {@code b} (the same status): more stacks, or as many and more time left. */
+    private static boolean stronger(ActiveStatus a, ActiveStatus b) {
+        if (a.stacks != b.stacks) return a.stacks > b.stacks;
+        return a.expiresAt > b.expiresAt;
+    }
+
+    /**
+     * {@code from}'s movable statuses go over to {@code to}, each with the time and stacks it has left. Where {@code to}
+     * already has the same one, the stronger of the two is kept (more stacks; as many: the longer one).
+     */
+    public void moveAll(UUID from, UUID to) {
+        if (from.equals(to)) return;
+        for (ActiveStatus s : on(from)) {
+            if (!movable(s)) continue;
+            remove(from, s.def().id());
+            ActiveStatus there = find(to, s.def().id()).orElse(null);
+            if (there != null && !stronger(s, there)) continue;
+            install(to, s);
+        }
+    }
+
+    /** {@code a} and {@code b} trade their movable statuses (each body's stay with the body: see Mitosis's swap). */
+    public void swapAll(UUID a, UUID b) {
+        if (a.equals(b)) return;
+        List<ActiveStatus> fromA = on(a).stream().filter(StatusManager::movable).toList();
+        List<ActiveStatus> fromB = on(b).stream().filter(StatusManager::movable).toList();
+        for (ActiveStatus s : fromA) remove(a, s.def().id());
+        for (ActiveStatus s : fromB) remove(b, s.def().id());
+        for (ActiveStatus s : fromA) install(b, s);
+        for (ActiveStatus s : fromB) install(a, s);
+    }
+
+    /** Take every movable status off {@code target} (a body that's gone: its effects are gone with it). */
+    public void clearMovable(UUID target) {
+        for (ActiveStatus s : on(target)) if (movable(s)) remove(target, s.def().id());
+    }
+
+    /** Put a copy of {@code s} (already taken off its old holder) on {@code target}: its source, time and stacks. */
+    private void install(UUID target, ActiveStatus s) {
+        remove(target, s.def().id()); // (a weaker copy there)
+        ActiveStatus copy = new ActiveStatus(s.def(), s.source(), s.expiresAt());
+        copy.span = s.span;
+        copy.stacks = s.stacks;
+        active.computeIfAbsent(target, k -> new HashMap<>()).put(s.def().id(), copy);
+        copy.granted = tagsFor(target, copy);
+        tags.grantAll(target, copy.granted);
+        StatusDef def = s.def();
+        if (def.links().cue() != null) copy.cue = cueStarter.start(target, def.links().cueFor(copy.stacks));
+        if (def.tickEvery() > 0 && !def.tickEffects().isEmpty()) {
+            copy.tickTask = scheduler.every(def.tickEvery(), def.tickEvery(),
+                    () -> effectApplier.apply(copy.source, target, def.tickEffects()));
+        }
+        schedule(target, copy);
+    }
 }

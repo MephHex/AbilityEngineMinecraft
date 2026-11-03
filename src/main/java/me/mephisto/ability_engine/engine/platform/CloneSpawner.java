@@ -29,11 +29,17 @@ public interface CloneSpawner {
      * @param teamOf  put it on this entity's team (null = none), so its allies can't hit it
      * @param disguise passes for the real one: their name tag over it (no "NPC" label), everything they wear and hold,
      *                 and it moves like a body (falls, bumps into walls) so it can be walked around (see Mirrors)
+     * @param maxHealth its max health (design HP), when it starts below it (Mitosis's clone: half your health, your max
+     *                  HP); 0 = {@code health}
      */
-    record Options(double health, boolean glowing, UUID teamOf, boolean disguise) {
+    record Options(double health, boolean glowing, UUID teamOf, boolean disguise, double maxHealth) {
         public static final Options DECOY = new Options(0, false, null);
 
         public Options(double health, boolean glowing, UUID teamOf) { this(health, glowing, teamOf, false); }
+
+        public Options(double health, boolean glowing, UUID teamOf, boolean disguise) {
+            this(health, glowing, teamOf, disguise, 0);
+        }
 
         public boolean vulnerable() { return health > 0; }
     }

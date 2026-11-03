@@ -375,7 +375,15 @@ public final class AbilityLoader {
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
                 hover, variants(p), lowHealth(p), characterOnLethal(p), outOfCombat(p), characterOnKill(p), healthBands(p),
-                glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true));
+                glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true), passive(p));
+    }
+
+    /** {@code passive: { name, icon, description }}: the passive explained (slot 9, or on the weapon). */
+    private static CharacterDef.Passive passive(Params p) {
+        if (!p.has("passive")) return null;
+        Params d = p.getParams("passive");
+        return new CharacterDef.Passive(d.requireString("name"), d.getString("icon", null),
+                d.has("description") ? d.getStringList("description") : List.of());
     }
 
     /**
@@ -447,8 +455,9 @@ public final class AbilityLoader {
     }
 
     /**
-     * {@code glide: { distance, speed, gap, cue, trail, teleport }}: SHIFT + a movement key on their own floor (see
-     * Floors); {@code teleport: true} blinks there at once instead of gliding.
+     * {@code glide: { distance, speed, gap, cue, trail, teleport, rise }}: SHIFT + a movement key on their own floor (see
+     * Floors); {@code teleport: true} blinks there at once instead of gliding; {@code rise}: only with their feet at most
+     * this far above the floor.
      */
     private static CharacterDef.Glide glide(Params p) {
         if (!p.has("glide")) return null;
@@ -459,8 +468,10 @@ public final class AbilityLoader {
         if (speed <= 0) throw g.error("speed", "blocks per tick, above 0");
         int gap = g.getInt("gap", 10);
         if (gap < 1) throw g.error("gap", "ticks between glides, at least 1");
+        double rise = g.getDouble("rise", Double.NaN);
+        if (rise < 0) throw g.error("rise", "blocks above the floor their feet may be, 0 or more");
         return new CharacterDef.Glide(distance, speed, gap, g.getString("cue", null), g.getString("trail", null),
-                g.getBool("teleport", false));
+                g.getBool("teleport", false), rise);
     }
 
     /** {@code health_bands: { size: 0.2, cast: <ability>, statuses: [...] }}: see HealthBandsManager. */
@@ -601,6 +612,10 @@ public final class AbilityLoader {
         String status;
         CharacterDef.StatusBar.Level level = CharacterDef.StatusBar.Level.STACKS;
         CharacterDef.StatusBar.Fill fill = CharacterDef.StatusBar.Fill.TIME;
+        if (raw instanceof Map<?, ?> && p.getParams("status_bar").getBool("clone_health", false)) {
+            // their second body's health (Mitosis): no status, no number
+            return new CharacterDef.StatusBar(null, CharacterDef.StatusBar.Level.NONE, CharacterDef.StatusBar.Fill.CLONE_HEALTH);
+        }
         if (raw instanceof Map<?, ?>) {
             Params bar = p.getParams("status_bar");
             status = bar.requireString("status");
@@ -655,7 +670,8 @@ public final class AbilityLoader {
         // Abilities that dash are movement abilities (blocked while rooted) unless they say movement: false.
         boolean dashes = built.nodeIds().stream()
                 .anyMatch(n -> built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.DashNode
-                        || built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode);
+                        || built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode
+                        || built.node(n) instanceof me.mephisto.ability_engine.engine.nodes.gameplay.RushNode);
         Ability.Builder b = Ability.builder(id, built)
                 .movement(p.getBool("movement", dashes))
                 .cooldownAfterRecast(cdStart.equals("after_recast"))
@@ -670,6 +686,10 @@ public final class AbilityLoader {
                 .needsConstructs(p.raw("needs_constructs") instanceof java.util.List<?> ids // several: any of theirs
                         ? String.join(",", p.getStringList("needs_constructs")) : p.getString("needs_constructs", null))
                 .alsoFlying(p.getString("also_flying", null))
+                .recastReadyWhile(p.getString("recast_ready_while", null))
+                .ignoresCrowdControl(p.getBool("ignores_crowd_control", false))
+                .ultCharge(p.getBool("ult_charge", true))
+                .readyWhile(p.getString("ready_while", null))
                 .cooldownAtEnd(cdStart.equals("end"))
                 .stealable(p.getBool("stealable", true))
                 .stealAs(stealAs)
@@ -687,7 +707,8 @@ public final class AbilityLoader {
     private static AbilityDisplay display(String id, Params p) {
         int hotbar = p.getInt("hotbar", 0);
         if (hotbar < 0 || hotbar > 9) throw p.error("hotbar", "a hotbar slot 1-9 for its own icon (0: none)");
-        return new AbilityDisplay(p.getString("name", id), p.getString("icon", null), p.getStringList("description"), hotbar);
+        return new AbilityDisplay(p.getString("name", id), p.getString("icon", null), p.getStringList("description"), hotbar,
+                p.getBool("glint_when_ready", false), p.getString("countdown", null));
     }
 
     /**

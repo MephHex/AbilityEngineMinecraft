@@ -37,7 +37,34 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                            java.util.List<Variant> variants, LowHealth lowHealth,
                            me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
                            OnKill onKill, HealthBands healthBands, Glide glide, java.util.List<String> passiveStatuses,
-                           Marks marks, Brain brain, boolean playable) {
+                           Marks marks, Brain brain, boolean playable, Passive passive) {
+
+    /**
+     * The character's passive, explained to its player: an item in hotbar slot 9 when nothing else of theirs is kept
+     * there, otherwise a section of the weapon's tooltip. Only words: what the passive does is elsewhere (wards,
+     * low_health, a primary's nodes...).
+     *
+     * @param icon the slot 9 item (null = a nether star)
+     */
+    public record Passive(String name, String icon, java.util.List<String> description) {
+        public Passive {
+            description = description == null ? java.util.List.of() : java.util.List.copyOf(description);
+        }
+    }
+
+    /** Without a passive explanation. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
+                        OnKill onKill, HealthBands healthBands, Glide glide, java.util.List<String> passiveStatuses,
+                        Marks marks, Brain brain, boolean playable) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands, glide, passiveStatuses, marks,
+                brain, playable, null);
+    }
 
     /**
      * What drives a non-player playing this character (a PvE enemy, a test dummy): see BrainManager.
@@ -115,9 +142,14 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * that way at {@code speed} blocks a tick, never off the floor, at most once every {@code gap} ticks. {@code cue}
      * plays where each glide starts and {@code trail} where they are every tick of it (null = none). With
      * {@code teleport} it's a blink instead: they're there at once (still never off the floor, never inside a block), and
-     * {@code cue} plays where they left and where they arrive.
+     * {@code cue} plays where they left and where they arrive. {@code rise}: only with their feet at most this far above
+     * the floor (NaN = anywhere it counts them as on it), e.g. not from a block standing on it.
      */
-    public record Glide(double distance, double speed, int gap, String cue, String trail, boolean teleport) {
+    public record Glide(double distance, double speed, int gap, String cue, String trail, boolean teleport, double rise) {
+        public Glide(double distance, double speed, int gap, String cue, String trail, boolean teleport) {
+            this(distance, speed, gap, cue, trail, teleport, Double.NaN);
+        }
+
         public Glide(double distance, double speed, int gap, String cue, String trail) {
             this(distance, speed, gap, cue, trail, false);
         }
@@ -391,7 +423,8 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
 
         public enum Fill {
             /** its time left, draining */ TIME,
-            /** its stacks out of its max_stacks (a gauge) */ STACKS
+            /** its stacks out of its max_stacks (a gauge) */ STACKS,
+            /** their second body's health out of its max HP (Mitosis's clone; empty without one): no status */ CLONE_HEALTH
         }
 
         public StatusBar(String status, Level level) {
@@ -504,7 +537,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
                 form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, form.stats() != null ? form.stats() : stats,
                 ward, statusItems, whenHit, hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands,
-                glide, passiveStatuses, marks, brain, playable);
+                glide, passiveStatuses, marks, brain, playable, passive);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */

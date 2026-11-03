@@ -15,8 +15,8 @@ statuses:
     duration: 0                      # while she sits there (the ride takes it off)
     move_speed: 1.2                  # +20%
     tags: [buff.fae_blessing]
-    on_hit:
-      - { id: damage, amount: 20 }   # +2 HP on every basic attack
+    on_hit:                          # +10 and 5% of HER spell power (sp_of: source), magic, on every basic attack
+      - { id: damage, amount: 10, sp: 0.05, sp_of: source, type: magic }
   fae_perched:                       # the Fae, in her blossom on an ally's head: untouchable (the ally she sits
     duration: 0                      # on doesn't see her: she'd be in their way; everyone else does)
     tags: [state.untargetable, state.perched]   # abilities pass through her; no Blossom Shots up there
@@ -29,9 +29,9 @@ statuses:
     healing_taken: 0.6               # poisoned: 40% less healing
     tags: [state.poisoned, state.poison_hearts, state.nauseous]   # poison_hearts: vanilla's green hearts
     tick:
-      every: 20                      # ...2% max HP a second = 8% (armor reduces it)
+      every: 20                      # ...2% max HP a second = 8%, +0.5% per 5 spell power (physical)
       effects:
-        - { id: damage, max_hp: 0.02, max_hp_armored: true, knockback: false }
+        - { id: damage, max_hp: 0.02, max_hp_sp: 0.00025, type: physical, knockback: false }
   fae_wings:                         # Wild Hunt: free flight, no height limit
     duration: 160                    # 8s
     stacking: refresh
@@ -96,8 +96,9 @@ abilities:
 
   # 1: Seed Bomb (6s). A seed that latches onto whoever it hits, friend or foe; landing, it lies there for 15s
   # (3 at most) and latches onto the first one to come near (1.3 blocks), friend, foe or her. Latched for 2s,
-  # then: an ENEMY's seed bursts, 110% base damage to enemies within 3.5 blocks; an ALLY's blooms, healing allies
-  # within 3.5 blocks (her too) 4 HP. It goes on if she dies meanwhile.
+  # then: an ENEMY's seed bursts, 30 + 70% spell power (magic) to enemies within 3.5 blocks; an
+  # ALLY's blooms, healing allies within 3.5 blocks (her too) 60, +20 per 20 spell power. It goes on if she dies
+  # meanwhile.
   fae_ab1:
     cooldown: 120                    # 6s
     survives_death: true
@@ -106,9 +107,11 @@ abilities:
       icon: PITCHER_POD
       description:
         - "A seed that latches onto friend, foe or"
-        - "you; on the ground it waits 15s. 2s"
-        - "later: an enemy's bursts (110% base"
-        - "dmg, 3.5 blocks), an ally's heals 4 HP."
+        - "you; on the ground it waits 15s. 2s later:"
+        - "an enemy's bursts (3.5 blocks):"
+        - "{flat:30|magic} + {sp:0.7|magic}."
+        - "An ally's heals allies: {flat:60}"
+        - "{sp_per:20/20}."
     nodes:
       throw:
         type: projectile
@@ -160,7 +163,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
-          - { id: damage, base: 1.1 }
+          - { id: damage, amount: 30, sp: 0.7, type: magic }   # 30 + 70% spell power
         next: burst_cue
       burst_cue:
         type: play_cue
@@ -182,7 +185,7 @@ abilities:
         affects: allies
         on_hit: false
         effects:
-          - { id: heal, amount: 40 }
+          - { id: heal, amount: 60, sp: 1.0 }   # 60, +20 per 20 spell power
         next: bloom_cue
       bloom_cue:
         type: play_cue
@@ -195,9 +198,9 @@ abilities:
   # 2: Perch. Fly to an ally in your sights (20 blocks, a forgiving aim; you can be hit on the way) and sit in
   # your blossom on their head: you go where they go, untouchable (abilities pass through you, nothing hurts you).
   # They don't see you (you'd be in their way), everyone else does; your hunger bar shows their hearts.
-  # Landing on them gives them a 60 HP shield for 2s. They're 20% faster
-  # and their basic attacks deal +2 HP. The cooldown (10s) starts as you sit down. Press 2 again once it's
-  # over: a gust, the 60 HP shield again for them (2s); aim at ANOTHER ally instead and you fly over to them (vulnerable
+  # Landing on them gives them a shield for 2s: 60, +20 per 40 spell power. They're 20% faster
+  # and their basic attacks deal +10 +5% of your spell power (magic). The cooldown (10s) starts as you sit down.
+  # Press 2 again once it's over: a gust, the shield again for them (2s); aim at ANOTHER ally instead and you fly over to them (vulnerable
   # again on the way). Either one starts the cooldown again. Press SHIFT to hop off. It ends too when they die.
   fae_ab2:
     cooldown: 200                    # 10s
@@ -207,9 +210,10 @@ abilities:
       icon: PINK_PETALS
       description:
         - "Fly onto an ally's head (20 blocks): a"
-        - "60 HP shield for them (2s); untouchable;"
-        - "they're 20% faster, +2 HP"
-        - "per basic attack. Again (off cooldown):"
+        - "{flat:60} {sp_per:20/40} shield for them"
+        - "(2s); you're untouchable. They're 20%"
+        - "faster, basic attacks: +{flat:10|magic}"
+        - "+ {sp:0.05|magic}. Again (off cooldown):"
         - "shield them again, or fly to another"
         - "ally."
         - "Shift: hop off."
@@ -247,7 +251,7 @@ abilities:
         affects: allies
         on_hit: false
         effects:
-          - { id: shield, amount: 60, lasts: 40 }
+          - { id: shield, amount: 60, sp: 0.5, lasts: 40 }   # 60, +20 per 40 spell power
         next: sat
       sat:
         type: start_cooldown         # sitting down: the full cooldown, every time (another ally too)
@@ -277,7 +281,7 @@ abilities:
         affects: allies
         on_hit: false
         effects:
-          - { id: shield, amount: 60, lasts: 40 }   # the shield again (60 HP, 2s): no speed
+          - { id: shield, amount: 60, sp: 0.5, lasts: 40 }   # the shield again (2s): no speed
         next: gust_cue
       gust_cue:
         type: play_cue
@@ -323,27 +327,23 @@ abilities:
       end:
         type: end_cast
 
-  # 3: Deathcap Snare (3 charges, 12s each). Press 3: a small marker shows where the toadstool would come down if
-  # thrown now (its arc, bouncing off walls; up to ~17 blocks away); press 3 again to throw it. It bursts where it
-  # lands, or on whoever it hits: enemies within 3.5 blocks it can see (nobody behind a wall) take 100% base damage
-  # and are poisoned (8% max HP over 4s), 35% slower and nauseous for 4s.
+  # 3: Deathcap Snare (3 charges, 12s each). Press 3: throw a toadstool where you look. It bounces up to 3 times
+  # (ground or walls), then bursts on the next thing it touches, or on whoever it hits: enemies within 2 blocks it can
+  # see (nobody behind a wall) are poisoned (8% max HP over 4s, +0.5% per 5 spell power, physical), 35% slower and
+  # nauseous for 4s.
   fae_ab3:
     cooldown: 240                    # 12s per charge
     charges: 3
     survives_death: true             # (one in flight still bursts)
-    targeting:
-      shape: circle
-      radius: 0.75                   # just a marker where it lands (the burst itself is 3.5, see below)
-      arc: throw                     # the preview follows the throw's arc to where it lands
     display:
       name: "Deathcap Snare"
       icon: Warped_fungus
       description:
-        - "3 charges. Aim (the preview shows where"
-        - "it lands), throw: it bursts on the"
-        - "ground or whoever it hits: 100% base dmg"
-        - "(3.5 blocks, not through walls), poison"
-        - "(8% max HP), 35% slow, nausea for 4s."
+        - "3 charges. Throw a toadstool: it bounces"
+        - "3 times, then bursts (or on whoever it"
+        - "hits; not through walls): poison"
+        - "{max_hp:0.08|physical} {max_hp_sp:0.005/5|physical},"
+        - "35% slow, nausea for 4s."
     nodes:
       throw:
         type: projectile
@@ -351,7 +351,10 @@ abilities:
         size: 0.4
         lifetime: 60
         visual: "block:Warped_fungus"
-        bounce_walls: true           # off walls: it bursts on the ground (or on someone)
+        bounces: 3                   # off the ground or walls 3 times, then it bursts on the next touch
+        bounce_walls: true
+        restitution: 0.5
+        friction: 0.3
         motion:
           - { type: gravity, amount: 0.06 }
         on: { spawned: throw_cue, hit_entity: burst, hit_block: burst }
@@ -362,7 +365,6 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 2, sight: true }   # nobody behind a wall
         effects:
-          - { id: damage, base: 1.0 }
           - { id: status, status: fae_toxin }
         next: burst_cue
       burst_cue:
@@ -373,8 +375,8 @@ abilities:
   # ULTIMATE (F): Wild Hunt. 8s of free flight, no height limit (it ends a perch). Press F again: a vine
   # shoots out (a skillshot, 20 blocks, a small hitbox). If it catches an enemy it latches on, stunning them for
   # 3.5s and tethering them to you (4 blocks of slack): fly off and drag them along, up into the air if you
-  # like. Missing doesn't end it: shoot again while the flight lasts. The cooldown starts at the first shot
-  # (or after the 8s).
+  # like. Missing doesn't end it: shoot again while the flight lasts. It's used up (charge, cooldown) when the
+  # flight is over: until then its icon stays lit.
   fae_ult1:
     cooldown: 1200                   # placeholder until ults charge from damage
     display:

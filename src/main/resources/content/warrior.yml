@@ -1,0 +1,276 @@
+# content: warrior
+# The Warrior: a sword-and-steel frontliner. Leaps in, hardens himself, spins through the crowd, and charges down his
+# enemies, faster and faster, until something stops him.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Iron Resolve): slows on him are 40% weaker (a 40% slow is 24%).
+#
+# ULTIMATE (F): Unstoppable Charge. He runs forward by himself where he looks (turning a little each tick), slow at
+#   first and faster and faster (the XP bar fills: full speed after 2.5s), for up to 8s; no other abilities or swings
+#   meanwhile. Every enemy he runs into is knocked up (a little damage). At full speed his body flares up, and the first
+#   enemy he hits is pinned in front of him: crushed into the next wall, hurt and stunned. Running into terrain stops
+#   him with a blast all around.
+
+statuses:
+  warrior_resolve:                   # PASSIVE: Iron Resolve (always on: passive_statuses)
+    duration: 0
+    slow_resistance: 0.4             # slows 40% weaker
+    neutral: true                    # (his own: no purge or cleanse takes it)
+  warrior_iron_will:                 # 2: Iron Will
+    duration: 100                    # 5s
+    stacking: refresh
+    armor_flat: 25                   # +25 armor
+    spell_resistance: 25             # +25 magic resist
+    move_speed: 1.2                  # +20% speed
+    cue: warrior_iron_will_aura
+  warrior_pinned:                    # Unstoppable Charge: carried in front of him
+    duration: 60
+    stacking: refresh
+    tags: [block.walk]               # (the charge carries them: their own walking doesn't fight it)
+
+abilities:
+
+  # PRIMARY (LMB): Sword Slash. A slash in front of you (3.2 blocks, 90 degrees): 100% base damage (physical).
+  warrior_primary:
+    cooldown: 20                     # (the attack_speed stat sets it)
+    display:
+      name: "Sword Slash"
+      description:
+        - "A slash in front of you (3.2 blocks):"
+        - "{base:1.0|physical}."
+    nodes:
+      slash:
+        type: apply_effects
+        targets: { type: cone, range: 3.2, angle: 90 }
+        effects:
+          - { id: damage, base: 1.0, type: physical }
+        count: struck
+        next: struck_cue
+      struck_cue:
+        type: switch
+        key: struck
+        on: { "0": whiff, default: slash_cue }
+      slash_cue:
+        type: play_cue
+        cue: warrior_slash
+        at: caster
+        to: aim                      # (a line cue: the arc faces where he aims)
+      whiff:
+        type: play_cue
+        cue: warrior_whiff
+
+  # 1: Leaping Strike (8s). A short leap where you look (~4 blocks), then a strike in front of you as you land (3.5
+  # blocks, 110 degrees): 110% base damage (physical), a small knockback.
+  warrior_ab1:
+    cooldown: 160                    # 8s
+    interrupted_by: [state.stunned]
+    display:
+      name: "Leaping Strike"
+      icon: FEATHER
+      description:
+        - "Leap a short way (~4 blocks) and strike"
+        - "in front of you as you land (3.5 blocks):"
+        - "{base:1.1|physical}."
+    nodes:
+      take_off:
+        type: play_cue
+        cue: warrior_leap
+        next: leap
+      leap:
+        type: leap
+        direction: aim               # flattened: a short hop forward
+        speed: 0.4                   # ~4 blocks
+        up: 0.45
+        next: strike
+      strike:
+        type: apply_effects
+        targets: { type: cone, range: 3.5, angle: 110 }   # (the cue's arc: 3.5)
+        effects:
+          - { id: damage, base: 1.1, type: physical }
+          - { id: knockback, from: caster, radius: 3.5, center: 0.4, edge: 0.2, lift: 0.15 }
+        next: strike_cue
+      strike_cue:
+        type: play_cue
+        cue: warrior_leap_strike
+        at: caster
+        to: aim
+
+  # 2: Iron Will (16s). 5s of +25 armor, +25 magic resist and +20% speed.
+  warrior_ab2:
+    cooldown: 320                    # 16s
+    display:
+      name: "Iron Will"
+      icon: IRON_BLOCK
+      description:
+        - "5s: +25 armor, +25 magic resist and"
+        - "+20% speed."
+    nodes:
+      harden:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: warrior_iron_will }
+        next: harden_cue
+      harden_cue:
+        type: play_cue
+        cue: warrior_iron_will
+
+  # 3: Whirlwind (12s). Spin with your sword for 3s, hitting everyone within 3 blocks every 0.5s: 30% base damage
+  # (physical) each, 180% in all. You can walk (and use your other abilities) meanwhile.
+  warrior_ab3:
+    cooldown: 240                    # 12s
+    display:
+      name: "Whirlwind"
+      icon: BREEZE_ROD
+      description:
+        - "Spin for 3s: everyone within 3 blocks"
+        - "takes {base:0.3|physical} every 0.5s."
+    nodes:
+      spin:
+        type: start_cue              # the blade circling him (3 blocks), until it's over
+        cue: warrior_whirlwind
+        next: turns
+      turns:
+        type: repeat                 # 6 x 0.5s
+        times: 6
+        every: 10
+        on: { each: cut, out: settle }
+      cut:
+        type: apply_effects
+        targets: { type: radius, radius: 3 }   # (the cue's circle: 3)
+        effects:
+          - { id: damage, base: 0.3, type: physical, knockback: false }
+        count: cut_count
+        next: cut_hit
+      cut_hit:
+        type: switch
+        key: cut_count
+        on: { "0": ~, default: cut_cue }
+      cut_cue:
+        type: play_cue
+        cue: warrior_whirlwind_hit
+      settle:
+        type: delay                  # (the last turn's swing gets drawn out)
+        ticks: 10
+
+  # ULTIMATE (F): Unstoppable Charge (see the top of this file).
+  warrior_ult:
+    cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
+    interrupted_by: [state.stunned]
+    active_tags: [block.ability]     # no other abilities or swings while he charges
+    display:
+      name: "Unstoppable Charge"
+      icon: MACE
+      description:
+        - "Charge where you look, faster and faster"
+        - "(full speed after 2.5s; up to 8s)."
+        - "Enemies you run into are knocked up:"
+        - "{base:0.25|physical}. At full speed the first"
+        - "is pinned: into a wall, {base:1.6|physical}"
+        - "and stunned 1.5s. Hitting a wall stops you:"
+        - "{base:1.0|physical} around you (3.5 blocks)."
+    nodes:
+      start_cue:
+        type: play_cue
+        cue: warrior_charge_start
+        next: dust
+      dust:
+        type: start_cue              # the dust he kicks up as he runs
+        cue: warrior_charge
+        next: run
+      run:
+        type: rush
+        start_speed: 0.12            # ult.start_speed: about a walk (blocks a tick)...
+        max_speed: 0.75              # ...up to 15 blocks a second (ult.max_speed)
+        accelerate: 50               # ult.accelerate: 2.5s to full speed (the XP bar)
+        duration: 160                # ult.duration: 8s at most
+        turn: 5                      # degrees a tick toward where he looks
+        radius: 0.8
+        pin_distance: 1.3
+        on: { bump: bump, full: flare, pin: pin, slam: slam, wall: crash, out: tired }
+      bump:
+        type: apply_effects          # run into: knocked up, a little damage
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.25, type: physical, knockback: false }
+          - { id: launch, up: 0.8 }
+        next: bump_cue
+      bump_cue:
+        type: play_cue
+        cue: warrior_bump
+        at: hit
+      flare:
+        type: play_cue               # full speed: he flares up (and stays lit until it's over)
+        cue: warrior_charge_full_start
+        next: flare_loop
+      flare_loop:
+        type: start_cue
+        cue: warrior_charge_full
+      pin:
+        type: apply_effects          # the first at full speed: pinned in front of him
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.25, type: physical, knockback: false }
+          - { id: status, status: warrior_pinned }
+        next: pin_cue
+      pin_cue:
+        type: play_cue
+        cue: warrior_pin
+        at: hit
+      slam:
+        type: apply_effects          # crushed into the wall
+        targets: { type: key, key: hit }
+        effects:
+          - { id: remove_status, status: warrior_pinned }
+          - { id: damage, base: 1.6, type: physical, knockback: false, ignore_iframes: true }
+          - { id: status, status: stun, duration: 30 }   # 1.5s
+        next: slam_cue
+      slam_cue:
+        type: play_cue
+        cue: warrior_wall_slam
+        at: hit
+      crash:
+        type: apply_effects          # into terrain: a blast all around him
+        targets: { type: radius, radius: 3.5 }   # (the cue's ring: 3.5)
+        effects:
+          - { id: damage, base: 1.0, type: physical, ignore_iframes: true }
+          - { id: knockback, from: caster, radius: 3.5, center: 0.6, edge: 0.3, lift: 0.3 }
+        next: crash_cue
+      crash_cue:
+        type: play_cue
+        cue: warrior_crash
+        next: let_go
+      tired:
+        type: play_cue               # ran out of time: he stops
+        cue: warrior_charge_end
+        next: let_go
+      let_go:
+        type: apply_effects          # whoever is still pinned drops
+        targets: { type: radius, radius: 4 }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: warrior_pinned }
+
+characters:
+  warrior:
+    name: "Warrior"
+    weapon: IRON_SWORD
+    stats:                           # see docs/character-stats.md
+      health: 270                    # max HP
+      armor: 25                      # damage taken x 100 / (100 + armor)
+      base_damage: 40                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      attack_speed: 1.1              # slashes per second
+    passive_statuses: [warrior_resolve]   # PASSIVE: Iron Resolve
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Iron Resolve"
+      icon: ANVIL
+      description:
+        - "Slows on you are 40% weaker."
+    slots:
+      primary: warrior_primary       # LMB: Sword Slash (no RMB)
+      ability_1: warrior_ab1         # 1: Leaping Strike
+      ability_2: warrior_ab2         # 2: Iron Will
+      ability_3: warrior_ab3         # 3: Whirlwind
+      ultimate: warrior_ult          # F: Unstoppable Charge

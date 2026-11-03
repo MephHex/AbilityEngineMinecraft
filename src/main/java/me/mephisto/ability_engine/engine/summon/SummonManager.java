@@ -104,7 +104,8 @@ public final class SummonManager {
         Optional<UUID> spawned = spawner.spawnClone(of, world, center, facing, options);
         spawned.ifPresent(entity -> {
             Summon[] self = new Summon[1];
-            TaskHandle expiry = scheduler.after(lifetime, () -> remove(self[0]));
+            // (a lifetime of 0 or less: no time limit, it lasts until it's killed or dismissed)
+            TaskHandle expiry = lifetime <= 0 ? TaskHandle.NONE : scheduler.after(lifetime, () -> remove(self[0]));
             self[0] = new Summon(owner, name, entity, expiry);
             active.add(self[0]);
         });
@@ -128,6 +129,14 @@ public final class SummonManager {
 
     public void dismiss(UUID owner, String name) {
         List.copyOf(active).stream().filter(s -> s.owner().equals(owner) && s.name().equals(name)).forEach(this::remove);
+    }
+
+    /** Dismiss this one summon (whoever's it is); {@code withCue} false: quietly, without its end cue. */
+    public void dismissEntity(UUID entity, boolean withCue) {
+        List.copyOf(active).stream().filter(s -> s.entity().equals(entity)).forEach(s -> {
+            if (!withCue) endCues.remove(entity);
+            remove(s);
+        });
     }
 
     public void dismissAll(UUID owner) {

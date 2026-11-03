@@ -27,7 +27,8 @@ import java.util.UUID;
  * them. A new one with the same owner and name replaces the old (one Geode Bloom floor at a time).
  * <p>Gliding (a character's {@code glide:}): standing on one of their own floors, the owner dashes a few blocks the way
  * they press (Bukkit: SHIFT + a movement key), never off their floors: it stops at the edge. With {@code teleport} it's a
- * blink there instead (the Fae Trickster's Trick Room), which also stops in front of walls.
+ * blink there instead (the Fae Trickster's Trick Room), which also stops in front of walls. With {@code rise}, only with
+ * their feet near the floor's own height (not from a block standing on it).
  * <p>A floor can be a square instead of a disc (Trick Room).
  */
 public final class Floors {
@@ -339,7 +340,7 @@ public final class Floors {
             boolean any = false;
             var mirrors = engine.mirrors();
             for (UUID clone : mirrors.clonesOf(entity)) {
-                if (tags.has(clone, Tags.DASHING)) continue;
+                if (tags.has(clone, Tags.DASHING) || !level(clone, of(entity), g.rise())) continue;
                 if (blink(clone, entity, mirrors.reflect(clone, dir), g.distance(), g.cue()) > 0) any = true;
             }
             if (any) lastGlide.put(entity, now);
@@ -353,7 +354,7 @@ public final class Floors {
         String world = at.get().world();
         Vec3 start = at.get().position();
         List<Patch> mine = of(entity);
-        if (!inside(mine, world, start)) return false;
+        if (!inside(mine, world, start) || !level(entity, mine, g.rise())) return false;
         if (g.teleport()) {
             if (blink(entity, entity, dir, g.distance(), g.cue()) <= 0) return false;
             lastGlide.put(entity, now);
@@ -366,6 +367,21 @@ public final class Floors {
         if (g.cue() != null) engine.cuesFor(entity).play(g.cue(), world, start);
         new Glide(entity, g, world, start, dir, reach).push();
         return true;
+    }
+
+    /**
+     * Are {@code entity}'s feet at most {@code rise} blocks above one of {@code patches} they're on (NaN: anywhere on it
+     * counts)? E.g. standing on a block inside the room, a block up: no.
+     */
+    private boolean level(UUID entity, List<Patch> patches, double rise) {
+        if (Double.isNaN(rise)) return true;
+        Optional<PointTarget> at = engine.world().positionOf(new EntityTarget(entity));
+        if (at.isEmpty()) return false;
+        Vec3 middle = at.get().position();
+        for (Patch p : patches) {
+            if (on(p, at.get().world(), middle) && middle.y() - MIDDLE - p.center().y() <= rise + 1e-9) return true;
+        }
+        return false;
     }
 
     /** How far from {@code start} along {@code dir} (at most {@code distance}) stays on {@code patches}. */

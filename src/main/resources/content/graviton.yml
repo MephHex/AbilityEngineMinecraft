@@ -5,7 +5,7 @@
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
 # PASSIVE (Event Horizon): after 4s out of combat (no damage dealt or taken), a shield builds up on him: +10 every 0.5s,
-#   up to 75. It stays until it's broken.
+#   up to 40. It stays until it's broken.
 
 statuses:
   graviton_recharge:                 # Event Horizon: kept on him while he's out of combat (out_of_combat below)
@@ -14,7 +14,7 @@ statuses:
     tick:
       every: 10                      # every 0.5s:
       effects:
-        - { id: shield, amount: 10, max: 75 }   # +10 shield, up to 75
+        - { id: shield, amount: 10, max: 40 }   # +10 shield, up to 40
     positive: false                  # (his own: a tether doesn't copy it)
 
   graviton_grasped:                  # Gravity Grasp: caught (heavily slowed; he can drag them)
@@ -47,7 +47,8 @@ statuses:
 abilities:
 
   # PRIMARY (LMB): Graviton Orb. A short-range orb that bounces once off the ground or a wall, then bursts on the next
-  # thing it touches, on an enemy, or when its time runs out (~1.2s): 60% base damage to enemies within 2.5 blocks.
+  # thing it touches, on an enemy, or when its time runs out (~1.2s): 40% base damage + 60% spell power (magic) to
+  # enemies within 2.5 blocks.
   graviton_primary:
     cooldown: 23                     # (the attack_speed stat sets it)
     display:
@@ -55,8 +56,8 @@ abilities:
       description:
         - "A short-range orb: bounces once, then"
         - "bursts on an enemy, the ground, a wall"
-        - "or when it fades: 60% base damage"
-        - "around it (2.5 blocks)."
+        - "or when it fades (2.5 blocks):"
+        - "{base:0.4|magic} + {sp:0.6|magic}."
     nodes:
       shoot:
         type: projectile
@@ -78,16 +79,17 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: orb, radius: 2.5 }
         effects:
-          - { id: damage, base: 0.6 }             # 60% base damage
+          - { id: damage, base: 0.4, sp: 0.6, type: magic }   # 40% base damage + 60% spell power
         next: burst_cue
       burst_cue:
         type: play_cue
         cue: graviton_orb_burst
         at: orb
 
-  # 1: Gravity Grasp (12s, from when it's over). Throw a gravity knot (18 blocks): the enemy it catches takes 50% base
-  # damage and is heavily slowed (-70%) for 2.5s. Press 1 again meanwhile to drag them 10 blocks toward your crosshair:
-  # slammed into another enemy on the way, both take 120% base damage and are stunned 1.5s.
+  # 1: Gravity Grasp (12s, from when it's over). Throw a gravity orb (18 blocks): the enemy it catches takes 20 + 60%
+  # spell power (magic) and is heavily slowed (-70%) for 2.5s. Press 1 again meanwhile to drag them 10 blocks toward
+  # your crosshair: slammed into another enemy on the way (both of them) or into a wall, they take 20 + 70% spell power
+  # + 20% of your bonus HP (physical) and are stunned 1.5s.
   graviton_ab1:
     cooldown: 240                    # 12s (from when it's over)
     movement: false                  # dragging someone isn't him moving
@@ -95,11 +97,12 @@ abilities:
       name: "Gravity Grasp"
       icon: ENDER_EYE
       description:
-        - "Catch an enemy (18 blocks): 50% base"
-        - "damage, -70% speed 2.5s. Again: drag them"
-        - "toward your crosshair. Slammed into"
-        - "another enemy: both take 120% and are"
-        - "stunned 1.5s."
+        - "Catch an enemy (18 blocks): {flat:20|magic}"
+        - "+ {sp:0.6|magic}, -70% speed 2.5s. Again:"
+        - "drag them toward your crosshair. Slammed"
+        - "into another enemy (both) or a wall:"
+        - "{flat:20|physical} + {sp:0.7|physical} +"
+        - "{bonus_hp:0.2|physical}, stunned 1.5s."
     nodes:
       throw:
         type: projectile
@@ -107,8 +110,9 @@ abilities:
         size: 0.6
         range: 18
         lifetime: 25
-        visual: "block:CRYING_OBSIDIAN"
-        visual_size: 0.5
+        visual: orb                  # a round gravity orb (purple glass round a crying obsidian core)
+        visual_size: 0.6
+        trail: graviton_grasp_trail  # motes pulled into it, a ring circling it
         on: { spawned: throw_cue, hit_entity: catch }
       throw_cue:
         type: play_cue
@@ -117,7 +121,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.5 }
+          - { id: damage, amount: 20, sp: 0.6, type: magic }   # 20 + 60% spell power
           - { id: status, status: graviton_grasped }
         next: catch_cue
       catch_cue:
@@ -141,12 +145,12 @@ abilities:
         speed: 1.1
         range: 10
         radius: 0.6
-        on: { hit: slam, miss: let_go }   # hit = the enemy they were slammed into
+        on: { hit: slam, miss: let_go, wall: wall_slam }   # hit = the enemy they were slammed into
       slam:
         type: apply_effects          # the one they hit...
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.2 }
+          - { id: damage, amount: 20, sp: 0.7, bonus_hp: 0.2, type: physical }   # 20 + 70% spell power + 20% bonus HP
           - { id: status, status: stun, duration: 30 }   # 1.5s
         next: slam_grasped
       slam_grasped:
@@ -154,10 +158,22 @@ abilities:
         targets: { type: radius, center: hit, radius: 3, with_status: graviton_grasped }
         effects:
           - { id: remove_status, status: graviton_grasped }
-          - { id: damage, base: 1.2 }
+          - { id: damage, amount: 20, sp: 0.7, bonus_hp: 0.2, type: physical }
           - { id: status, status: stun, duration: 30 }
         next: slam_cue
       slam_cue:
+        type: play_cue
+        cue: graviton_slam
+        at: hit
+      wall_slam:
+        type: apply_effects          # into a wall: the one he dragged
+        targets: { type: key, key: hit }
+        effects:
+          - { id: remove_status, status: graviton_grasped }
+          - { id: damage, amount: 20, sp: 0.7, bonus_hp: 0.2, type: physical }
+          - { id: status, status: stun, duration: 30 }
+        next: wall_slam_cue
+      wall_slam_cue:
         type: play_cue
         cue: graviton_slam
         at: hit
@@ -217,7 +233,8 @@ abilities:
         cast_bar: true
 
   # 3: Stasis Field (15s). Pick a spot (20 blocks; the preview shows the field): a 10x6 field (4 tall) lies there for
-  # 5s, its length along your aim. Enemy projectiles inside it crawl at 15% of their speed (and last that much longer).
+  # 5s, its length along your aim, outlined in violet lines. Enemy projectiles inside it crawl at 15% of their speed
+  # (and last that much longer). Inside it yourself, you fall slowly (lower gravity).
   graviton_ab3:
     cooldown: 300                    # 15s
     targeting: { shape: rect, range: 20, length: 10, width: 6, ground: true }
@@ -227,6 +244,7 @@ abilities:
       description:
         - "Pick a spot: a 10x6 field for 5s. Enemy"
         - "projectiles inside crawl at 15% speed."
+        - "Inside it, you have lower gravity."
     nodes:
       field_cue:
         type: play_cue
@@ -245,21 +263,22 @@ abilities:
         type: delay
         ticks: 100                   # 5s
 
-  # ULTIMATE (F): Gravitic Collapse. Pick a circle (14 blocks; radius 6). You rise into the air and hang there while
-  # every enemy in the circle floats up (about 2 blocks a second, for 2.5s); they can drift out of it, slowly (-65%
+  # ULTIMATE (F): Gravitic Collapse. Pick a circle (14 blocks; radius 8). You rise into the air and hang there while
+  # every enemy in the circle floats up (about 2 blocks a second, for 2s); they can drift out of it, slowly (-65%
   # speed while they float), and whoever does falls back down unharmed. You can still fight meanwhile. Then everyone still over the circle is smashed into the
-  # ground: 300% base damage, stunned 2s.
+  # ground: 20% of their max HP + 90% spell power + 10% of your bonus HP (magic), stunned 2s.
   graviton_ult:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
-    targeting: { shape: circle, range: 14, radius: 8, ground: true }
+    targeting: { shape: circle, range: 14, radius: 10, ground: true }
     display:
       name: "Gravitic Collapse"
       icon: HEAVY_CORE
       description:
         - "Pick a circle: rise and lift every enemy"
-        - "in it for 2.5s (they drift out slowly). You"
+        - "in it for 2s (they drift out slowly). You"
         - "can still fight. Then those still over it"
-        - "are smashed down: 300% base damage,"
+        - "are smashed down: {max_hp:0.2|magic} +"
+        - "{sp:0.9|magic} + {bonus_hp:0.1|magic},"
         - "stunned 2s."
     nodes:
       rise_cue:
@@ -280,13 +299,13 @@ abilities:
           - { id: status, status: graviton_hovering }
         next: lift
       lift:
-        type: repeat                 # 10 x 0.25s = 2.5s
-        times: 10
+        type: repeat                 # 8 x 0.25s = 2s
+        times: 8
         every: 5
         on: { each: lift_each, out: slam }
       lift_each:
         type: apply_effects          # everyone over the circle right now floats up (a little longer than until the next)
-        targets: { type: radius, center: aim, radius: 6, height: 12 }
+        targets: { type: radius, center: aim, radius: 8, height: 12 }
         effects:
           - { id: status, status: graviton_lifted }
         next: well_cue
@@ -296,12 +315,12 @@ abilities:
         at: aim
       slam:
         type: apply_effects          # still floating over it: smashed down
-        targets: { type: radius, center: aim, radius: 6, height: 12, with_status: graviton_lifted }
+        targets: { type: radius, center: aim, radius: 8, height: 12, with_status: graviton_lifted }
         effects:
           - { id: remove_status, status: graviton_lifted }
           - { id: status, status: graviton_landing }
           - { id: launch, up: -2.5 }
-          - { id: damage, base: 3.0 }
+          - { id: damage, max_hp: 0.2, sp: 0.9, bonus_hp: 0.1, type: magic }   # 20% max HP + 90% spell power + 10% bonus HP
           - { id: status, status: stun, duration: 40 }   # 2s
         next: slam_cue
       slam_cue:
@@ -330,6 +349,13 @@ characters:
     out_of_combat:                   # PASSIVE: Event Horizon
       after: 80                      # 4s without dealing or taking damage...
       status: graviton_recharge      # ...then a shield builds up (see above)
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Event Horizon"
+      icon: CRYING_OBSIDIAN
+      description:
+        - "After 4s out of combat, a shield builds up"
+        - "on you: +10 every 0.5s, up to 40. It stays"
+        - "until it's broken."
     slots:
       primary: graviton_primary      # LMB: Graviton Orb
       ability_1: graviton_ab1        # 1: Gravity Grasp (again: drag)

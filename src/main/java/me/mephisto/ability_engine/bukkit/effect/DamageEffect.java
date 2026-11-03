@@ -17,7 +17,8 @@ import org.bukkit.util.Vector;
  * the caster's base damage), {@code max_hp: 0.1} (10% of the target's max HP; this part ignores armor);
  * {@code ignore_iframes} (default false).
  * Minecraft health dealt = amount / damage-scale (config.yml, default 10: 20 health = 200 design HP).
- * {@code lifesteal: 1.0} heals the caster for that share of the damage actually dealt; add
+ * {@code lifesteal: 1.0} heals the caster for that share of the damage actually dealt ({@code lifesteal_sp: 0.005}: that
+ * share more per point of their spell power, so +10% per 20); add
  * {@code overflow: true} (and optional overflow_max / overflow_decay) to turn excess into a shield.
  * {@code knockback: false} deals it as magic damage (like vanilla poison): no knockback, but the kill
  * is still credited to the caster. Meant for damage over time.
@@ -55,6 +56,11 @@ public final class DamageEffect implements Effect {
     /** Damage being applied now that comes from an ability (1, 2, 3, the ultimate), not from fire or vanilla. */
     public static boolean isAbilityDamage() { return applying > 0 && !firing; }
 
+    /** The hit being dealt now is true damage (type: true): no defense reduces it. */
+    private static boolean trueDamage;
+
+    public static boolean isTrueDamage() { return applying > 0 && trueDamage; }
+
     /** Share (0..1) of the hit this effect is dealing right now that armor doesn't reduce (its max_hp part). */
     public static double pierceShare() { return applying > 0 ? pierceShare : 0; }
 
@@ -86,6 +92,9 @@ public final class DamageEffect implements Effect {
 
         double before = living.getHealth();
         Entity damager = Bukkit.getEntity(ctx.caster());
+        // A second body's hit (Mitosis's clone) is its owner's: theirs for kills and assists, dealt from where it stands
+        java.util.UUID creditId = ctx.caster() == null ? null : ctx.engine().bodies().credited(ctx.caster());
+        Entity credit = creditId == null || creditId.equals(ctx.caster()) ? null : Bukkit.getEntity(creditId);
         DamageType type = typeOf(ctx.params().getString("damage_type", null));
         boolean knockback = type == null && ctx.params().getBool("knockback", true);
         Vector velocityBefore = living.getVelocity();
@@ -94,8 +103,19 @@ public final class DamageEffect implements Effect {
         firing = ctx.engine().stats().fromFire(ctx);
         double previousShare = pierceShare;
         pierceShare = parts.pierceShare();
+        boolean previousTrue = trueDamage;
+        trueDamage = parts.trueDamage();
         try {
-            if (betrayal(damager, living)) { // teammates hitting each other under friendly fire: vanilla would refuse it
+            if (credit != null && damager != null && !credit.equals(living)) {
+                DamageSource.Builder source = DamageSource.builder(type != null ? type : knockback ? DamageType.GENERIC : DamageType.MAGIC);
+                source.withCausingEntity(credit).withDirectEntity(damager);
+                living.damage(amount, source.build());
+                living.setVelocity(velocityBefore);
+                if (knockback) { // pushed away from the body that hit them (not from its owner)
+                    Vector away = living.getLocation().toVector().subtract(damager.getLocation().toVector()).setY(0);
+                    if (away.lengthSquared() > 1e-6) living.setVelocity(velocityBefore.clone().add(away.normalize().multiply(0.4).setY(0.35)));
+                }
+            } else if (betrayal(damager, living)) { // teammates hitting each other under friendly fire: vanilla would refuse it
                 living.damage(amount, typed(type != null ? type : DamageType.GENERIC, null, living));
                 living.setKiller((org.bukkit.entity.Player) damager); // (still their kill)
                 if (knockback) {
@@ -108,6 +128,7 @@ public final class DamageEffect implements Effect {
         } finally {
             applying--;
             pierceShare = previousShare;
+            trueDamage = previousTrue;
             firing = previousFiring;
         }
         // Magic damage has no knockback in vanilla; if anything pushed them anyway, undo it.
@@ -116,6 +137,7 @@ public final class DamageEffect implements Effect {
         if (after < before) ctx.engine().notifyDamageDealt(ctx, target.id()); // e.g. stealth breaks, the ultimate charges
 
         double lifesteal = ctx.params().getDouble("lifesteal", 0)
+                + ctx.params().getDouble("lifesteal_sp", 0) * (ctx.caster() == null ? 0 : ctx.engine().stats().spellPower(ctx.caster()))
                 + (ctx.engine().stats().fromFire(ctx) ? 0 : ctx.engine().stats().abilityLifesteal(ctx.caster())); // abilities only
         if (lifesteal > 0 && after < before && shields != null && damager instanceof LivingEntity self && !self.equals(living)) {
             Params p = ctx.params();

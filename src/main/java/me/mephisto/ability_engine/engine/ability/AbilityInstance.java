@@ -125,6 +125,23 @@ public final class AbilityInstance {
         engine.tags().revokeAll(caster, ability.activeTags());
     }
 
+    // ---- an echo: the same cast by a clone that copies its owner (see Bodies) ------------------------
+
+    private EchoPair pair;
+
+    /** {@code echo} is this cast's copy, cast at the same moment by the caster's clone: they can talk (EchoPair). */
+    public void pairWith(AbilityInstance echo) {
+        EchoPair p = new EchoPair(this, echo);
+        this.pair = p;
+        echo.pair = p;
+    }
+
+    /** This cast and its echo (null = it has none: no clone, or the clone couldn't cast it). */
+    public EchoPair pair() { return pair; }
+
+    /** Is this the clone's copy of its owner's cast? */
+    public boolean isEcho() { return pair != null && pair.echo() == this; }
+
     // ---- deferred cooldown (recast abilities) -----------------------------------------------------
 
     /** The cooldown waits for the recast window to close (see Ability.cooldownAfterRecast). */
@@ -139,6 +156,32 @@ public final class AbilityInstance {
     public void deferCooldownManually() {
         cooldownPending = true;
         cooldownOnEnd = false;
+    }
+
+    // ---- an ultimate with a recast: it lasts the whole cast ----------------------------------------
+
+    private boolean ultimateHeld;
+    private boolean spendChargeAtEnd;
+
+    /**
+     * An ultimate with a recast (AbilityActivator.ultimateLastsTheCast): it isn't used up until this cast ends. Its
+     * charge ({@code spendCharge}: ultimates charge up) is spent then, and its cooldown starts then, not at a recast.
+     */
+    public void holdUltimateToEnd(boolean spendCharge) {
+        ultimateHeld = true;
+        spendChargeAtEnd = spendCharge;
+        cooldownPending = true;
+        cooldownOnEnd = true;
+    }
+
+    /** Its cooldown waits for the cast to end, through every recast ({@code cooldown_starts: end}, or a held ultimate). */
+    public boolean cooldownWaitsForEnd() { return ultimateHeld || ability.cooldownAtEnd(); }
+
+    /** A held ultimate given back (a refund): the cast's end spends nothing and starts no cooldown. */
+    public void releaseHeldUltimate() {
+        if (!ultimateHeld) return;
+        spendChargeAtEnd = false;
+        cooldownPending = false;
     }
 
     /** Start the deferred cooldown now (window closed). Safe to call more than once. */
@@ -364,6 +407,10 @@ public final class AbilityInstance {
         state = newState;
         endReason = reason;
         if (cooldownOnEnd) startDeferredCooldown(); // e.g. stunned during the recast window: no free cast
+        if (spendChargeAtEnd) {                      // a held ultimate: now it's used up
+            spendChargeAtEnd = false;
+            engine.ultCharge().spend(caster);
+        }
         recastHandler = null;
         releaseHandler = null;
         killHandler = null;

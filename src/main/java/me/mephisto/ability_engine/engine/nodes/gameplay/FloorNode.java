@@ -62,6 +62,17 @@ public final class FloorNode implements GraphNode {
         this.sight = sight;
     }
 
+    private String level;   // at the height of the caster's floor of this name (null: on the ground)
+
+    /**
+     * {@code level: <floor name>}: at the height of the caster's floor of that name, if they have one (e.g. a room moved
+     * along: it stays level with where it was, not down on the ground below); none: on the ground as usual.
+     */
+    public FloorNode level(String name) {
+        this.level = name;
+        return this;
+    }
+
     private String over;    // laid exactly over the caster's floor of this name (null: at {@code at})
     private boolean lit;
     private boolean sticky;
@@ -106,6 +117,10 @@ public final class FloorNode implements GraphNode {
         Vec3 c = spot.get().position();
         // (from a little above: a spot right on the ground is its own ground)
         Vec3 ground = world.groundBelow(spot.get().world(), c.add(0, 0.5, 0), drop + 0.5).orElse(c);
+        if (level != null) {
+            var same = ctx.engine().floors().of(ctx.caster()).stream().filter(f -> level.equals(f.name())).findFirst();
+            if (same.isPresent()) ground = new Vec3(ground.x(), same.get().center().y(), ground.z());
+        }
         // A square sits on the block grid: an odd size (9x9) centred on the middle of the block below, an even one
         // (10x10) on the nearest block corner, so its edges run along block edges either way
         if (square) {

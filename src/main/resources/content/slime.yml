@@ -1,6 +1,8 @@
 # content: slime
 # The Slime: a brawler / tank made of slime. Bits of her drop off as she's hurt (she can eat them back up), she gets
-# smaller and faster the more she's lost, flings enemies into walls where they stick, and bounces all over the fight.
+# smaller and faster the more she's lost, flings enemies into walls where they stick, and swallows them in a bubble.
+# ULTIMATE (F): Bubble Trouble, the same as Mitosis's (mitosis_ult in mitosis.yml), drawn as her own squishing green
+#   slime (variants below), and her pool stays under her until the bubble leaps (the spot is picked), not just 2s.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
 # PASSIVE (Gelatinous): every 20% of her max HP she loses, a slime drops off her (it pops out a couple of blocks away).
@@ -39,11 +41,6 @@ statuses:
     stacking: refresh
     tags: [state.rooted, block.move, state.anchored]
     cue: slime_stuck
-  slime_bounces:                     # Bounce Storm: slams so far (the ultimate ends at 5)
-    duration: 300
-    stacking: stack
-    max_stacks: 5
-    positive: false
 
 abilities:
 
@@ -119,9 +116,6 @@ abilities:
       name: "Slime Slap"
       description:
         - "A heavy slap: 100% base damage."
-        - "Passive - Gelatinous: every 20% HP lost"
-        - "drops a slime (step on it: +15% HP). The"
-        - "lower your HP, the smaller and faster."
     nodes:
       slap:
         type: apply_effects
@@ -134,17 +128,18 @@ abilities:
         cue: slime_slap
 
   # 1: Ooze Burst (10s). Give up 10% of your max HP: a slime drops off you, and slime bursts out around you (4.5 blocks):
-  # enemies take 8% of their max HP and are slowed 40% for 2s. Not below 15% HP (then it does nothing, and it's free).
+  # enemies take 10% of their max HP (+2% per 10 spell power, magic) and are slowed 40% for 2s. Not below 15% HP (then it does nothing, and it's free).
   slime_ab1:
     cooldown: 200                    # 10s
+    blocked_by: [block.ability, mitosis.melted]   # (not during Bubble Trouble)
     cooldown_starts: manual          # (a refusal is free)
     display:
       name: "Ooze Burst"
       icon: SLIME_BLOCK
       description:
         - "Give up 10% of your HP: drop a slime and"
-        - "burst (4.5 blocks): 8% of their max HP,"
-        - "-40% speed 2s."
+        - "burst (4.5 blocks): {max_hp:0.1|magic}"
+        - "{max_hp_sp:0.02/10|magic}, -40% speed 2s."
     nodes:
       check:
         type: health_below
@@ -172,27 +167,28 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 4.5 }
         effects:
-          - { id: damage, max_hp: 0.08, knockback: false }
+          - { id: damage, max_hp: 0.1, max_hp_sp: 0.002, type: magic, knockback: false }   # 10% max HP, +2% per 10 spell power
           - { id: status, status: slime_slimed }
         next: burst_cue
       burst_cue:
         type: play_cue
         cue: slime_burst
 
-  # 2: Slime Ball (12s). Wind up (0.6s), then throw a big ball of slime (20 blocks): the enemy it hits takes 90% base
-  # damage and is flung away (8 blocks, the way you threw it). Flung into a wall (mid-air too): stuck to it, rooted 1.5s,
+  # 2: Slime Ball (12s). Wind up (0.6s), then throw a big ball of slime (20 blocks): the enemy it hits takes 15% of
+  # their max HP (magic) and is flung away (8 blocks, the way you threw it). Flung into a wall (mid-air too): stuck to it, rooted 1.5s,
   # in a block of slime.
   slime_ab2:
     cooldown: 240                    # 12s
+    blocked_by: [block.ability, mitosis.melted]
     active_tags: [state.channeling]  # (the wind-up)
     interrupted_by: [state.stunned]
     display:
       name: "Slime Ball"
       icon: LIME_DYE
       description:
-        - "Wind up, throw a big ball of slime: 90%,"
-        - "flung away. Into a wall: stuck to it,"
-        - "rooted 1.5s."
+        - "Wind up, throw a big ball of slime:"
+        - "{max_hp:0.15|magic}, flung away. Into a"
+        - "wall: stuck to it, rooted 1.5s."
     nodes:
       windup_cue:
         type: start_cue
@@ -226,7 +222,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.9, knockback: false }
+          - { id: damage, max_hp: 0.15, type: magic, knockback: false }   # 15% max HP
         next: smack_cue
       smack_cue:
         type: play_cue
@@ -252,19 +248,20 @@ abilities:
         cue: slime_stick
         at: hit
 
-  # 3: Belly Flop (12s). Pick a circle (16 blocks; radius 3.5): launch yourself into the air and come down on it: 100%
-  # base damage, enemies knocked up and stunned 0.6s.
+  # 3: Belly Flop (12s). Pick a circle (16 blocks; radius 3.5): launch yourself into the air and come down on it: 70%
+  # base damage + 90% spell power (physical), enemies knocked up and stunned 0.6s.
   slime_ab3:
     cooldown: 240                    # 12s
+    blocked_by: [block.ability, mitosis.melted]
     targeting: { shape: circle, range: 16, radius: 3.5, ground: true }
     active_tags: [state.safe_fall]
     display:
       name: "Belly Flop"
       icon: PISTON
       description:
-        - "Pick a spot: launch up and flop onto it:"
-        - "100% base damage, knocked up, stunned"
-        - "0.6s (3.5 blocks)."
+        - "Pick a spot: launch up and flop onto it"
+        - "(3.5 blocks): {base:0.7|physical} +"
+        - "{sp:0.9|physical}, knocked up, stunned 0.6s."
     nodes:
       launch_cue:
         type: play_cue
@@ -287,93 +284,13 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 3.5 }
         effects:
-          - { id: damage, base: 1.0, knockback: false }
+          - { id: damage, base: 0.7, sp: 0.9, type: physical, knockback: false }   # 70% base damage + 90% spell power
           - { id: knockback, from: caster, radius: 3.5, center: 0.2, edge: 0.2, lift: 0.9 }   # knocked UP
           - { id: status, status: stun, duration: 12 }   # 0.6s
         next: land_cue
       land_cue:
         type: play_cue
         cue: slime_flop
-
-  # ULTIMATE (F): Bounce Storm. Bounce 5 times by yourself: up into the air (the way you're looking, so you can steer),
-  # then storming straight down: 80% base damage within 4 blocks of each landing, enemies knocked up and back. The boss
-  # bar shows the bounces left. No abilities or basic attacks meanwhile; falls don't hurt.
-  slime_ult:
-    cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
-    active_tags: [block.ability, state.disarmed, state.safe_fall]
-    blocked_by: [block.ability, block.move]
-    display:
-      name: "Bounce Storm"
-      icon: MOSS_BLOCK
-      description:
-        - "Bounce 5 times (steer by looking): each"
-        - "landing 80% base damage (4 blocks),"
-        - "enemies knocked up and back."
-    nodes:
-      fresh:
-        type: apply_effects          # (none counted yet)
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: slime_bounces }
-        next: bar
-      bar:
-        type: boss_bar               # the bounces left, on the boss bar
-        stacks_of: slime_bounces
-        max: 5
-        next: hop_cue
-      hop_cue:
-        type: play_cue
-        cue: slime_launch
-        next: hop
-      hop:
-        type: leap                   # up, the way she's looking (flattened)...
-        direction: aim
-        speed: 0.35
-        up: 0.9                      # ~5 blocks
-        until: apex
-        next: mark
-      mark:
-        type: remember_spot          # ...then straight down onto the ground under her
-        of: caster
-        store: below
-        next: storm
-      storm:
-        type: dash
-        to: below
-        speed: 2.2
-        range: 40
-        pierce: true
-        on: { miss: slam }
-      slam:
-        type: apply_effects
-        targets: { type: radius, radius: 4 }
-        effects:
-          - { id: damage, base: 0.8, knockback: false }
-          - { id: knockback, from: caster, radius: 4, center: 1.0, edge: 0.6, lift: 0.7 }   # up and back
-        next: slam_cue
-      slam_cue:
-        type: play_cue
-        cue: slime_slam
-        next: count
-      count:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: status, status: slime_bounces }
-        next: done
-      done:
-        type: has_status             # 5 landings: over; else bounce again
-        status: slime_bounces
-        min_stacks: 5
-        on: { has: over, lacks: hop_cue }
-      over:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: remove_status, status: slime_bounces }
 
 characters:
   slime:
@@ -395,9 +312,20 @@ characters:
       - { while: slime.size_3, slots: {}, stats: { scale: 1.0, move_speed: 1.05 } }
       - { while: slime.size_2, slots: {}, stats: { scale: 0.9, move_speed: 1.12 } }
       - { while: slime.size_1, slots: {}, stats: { scale: 0.75, move_speed: 1.25 } }
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Gelatinous"
+      icon: SLIME_BLOCK
+      description:
+        - "Every 20% HP you lose drops a slime (20s,"
+        - "6 max): step on it to eat it, +15% of your"
+        - "max HP. Enemies squash them. The lower"
+        - "your HP, the smaller and faster you are."
+    variants:
+      - while: mitosis.melted        # during Bubble Trouble (shared with Mitosis): her own green slime, not Mitosis's
+        cue_suffix: _slime           # blue glass (SlimeCues: mitosis_puddle_slime, mitosis_bubble_slime...)
     slots:
       primary: slime_primary         # LMB: Slime Slap
       ability_1: slime_ab1           # 1: Ooze Burst
       ability_2: slime_ab2           # 2: Slime Ball
       ability_3: slime_ab3           # 3: Belly Flop
-      ultimate: slime_ult            # F: Bounce Storm
+      ultimate: mitosis_ult          # F: Bubble Trouble (mitosis.yml, shared with Mitosis)

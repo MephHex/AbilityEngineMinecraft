@@ -30,6 +30,11 @@ public final class TagBindings implements TagListener {
         }
     }
 
+    /** How much of a slow each entity shrugs off (slow_resistance), for the state.slowed tag's -40%. */
+    public static void setSlowResistance(java.util.function.ToDoubleFunction<UUID> resistance) {
+        MovementLock.slowResistance = resistance;
+    }
+
     public static TagBindings withDefaults() {
         TagBindings b = new TagBindings();
         b.bind(Tags.BLOCK_MOVE, MovementLock::apply, MovementLock::remove);
@@ -59,6 +64,7 @@ public final class TagBindings implements TagListener {
                     e.setFallDistance(0);
                 });
         b.bind(Tags.GLOWING, e -> e.setGlowing(true), e -> e.setGlowing(false));
+        b.bind(RedGlow.TAG, RedGlow::on, RedGlow::off);   // a red outline through walls (execution range)
         b.bind(Tags.PHASING, e -> e.setCollidable(false), e -> e.setCollidable(true));   // through units
         b.bind(Tags.FROZEN, FrostAndFlight::freeze, FrostAndFlight::thaw);   // blue hearts + frost overlay
         b.bind(Tags.FLYING, FrostAndFlight::fly, FrostAndFlight::land);

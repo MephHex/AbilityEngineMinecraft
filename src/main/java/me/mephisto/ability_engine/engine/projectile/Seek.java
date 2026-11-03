@@ -21,12 +21,18 @@ import java.util.UUID;
  *       hovers there.</li>
  * </ol>
  * {@code lock: true}: it keeps after the first enemy it found until they're gone (then it looks again).
- * {@code mark: <status>}: whoever it's after keeps that status meanwhile (e.g. glowing), and a little after.
+ * {@code mark: <status>}: whoever it's after keeps that status meanwhile (e.g. glowing), and a little after. With
+ * {@code mark_lasts: <ticks>} it's put on them once instead, as it finds them, for that long (glowing 3s).
  * The ProjectileSystem runs it itself ({@link #steer}); {@link #apply} is only for the MotionModifier type.
  */
 public record Seek(double range, double speed, double base, double turnRate, double maxDistance, int hoverTicks,
-                   String toKey, double up, boolean lock, String mark)
+                   String toKey, double up, boolean lock, String mark, int markLasts)
         implements MotionModifier {
+
+    public Seek(double range, double speed, double base, double turnRate, double maxDistance, int hoverTicks,
+                String toKey, double up, boolean lock, String mark) {
+        this(range, speed, base, turnRate, maxDistance, hoverTicks, toKey, up, lock, mark, 0);
+    }
 
     /** A mark is put on again this often, lasting {@link #MARK_LASTS}: it wears off soon after the chase. */
     private static final int MARK_EVERY = 5;
@@ -88,6 +94,13 @@ public record Seek(double range, double speed, double base, double turnRate, dou
     /** {@code mark}: put on whoever it's after, again every few ticks, so it wears off soon after. */
     private void markOn(Projectile p, ExecutionContext ctx, UUID quarry) {
         if (mark == null) return;
+        if (markLasts > 0) { // once, as it finds them, for that long
+            if (quarry.equals(p.marked)) return;
+            ctx.engine().statuses().apply(quarry, mark, markLasts, ctx.caster());
+            p.marked = quarry;
+            p.markedAt = p.ticksLived;
+            return;
+        }
         if (quarry.equals(p.marked) && p.ticksLived - p.markedAt < MARK_EVERY) return;
         ctx.engine().statuses().apply(quarry, mark, MARK_LASTS, ctx.caster());
         p.marked = quarry;

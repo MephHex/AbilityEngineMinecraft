@@ -346,6 +346,14 @@ characters:
     forms:
       - while: state.grand_finale    # Grand Finale: big fireworks
         slots: { primary: firecracker_finale }
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Double Tap"
+      icon: FIREWORK_ROCKET
+      description:
+        - "Every basic attack fires two shots, 50%"
+        - "base damage each (both apply on-hit"
+        - "effects). A kill: 50% faster basic"
+        - "attacks for 3s."
     slots:
       primary: firecracker_primary   # LMB: Firecracker (Double Tap)
       ability_1: firecracker_ab1     # 1: Rocket

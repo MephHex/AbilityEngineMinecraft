@@ -27,7 +27,7 @@ statuses:
     duration: 80                     # 4s
     stacking: refresh
     move_speed: 1.25                 # +25%
-    damage_dealt: 1.2                # +20% damage
+    damage_dealt: 1.1                # +10% damage
     tags: [buff.battle_cry]
   valkyrie_marked:                     # Divine Ward: the ally in her sights while she chooses (they glow)
     duration: 4                      # (kept on every 2 ticks while she looks at them)
@@ -51,9 +51,6 @@ abilities:
       name: "Gilded Slash"
       description:
         - "A golden sword sweep: 100% base damage."
-        - "Passive - Wings: jump while falling to"
-        - "glide; you fall slowly. Fervor: hits make"
-        - "your attacks faster (+8% a stack, 5 max)."
     nodes:
       slash:
         type: apply_effects
@@ -66,10 +63,11 @@ abilities:
         type: play_cue
         cue: valkyrie_slash
 
-  # 1: Valkyrie's Leap (8s). Leap forward and slash a half circle in front of you as you land (4 blocks): 100% base
-  # damage, and your next basic attack is ready at once. Hit someone: press 1 again (within 3s) to leap and slash again.
-  # Hit again: press 1 once more to soar up (you can drift a little up there) and pick a spot (1 again, or where you look after
-  # 3s): you dive onto it, 140% base damage within 4 blocks, knocking enemies up. Not while gliding. Builds Fervor.
+  # 1: Valkyrie's Leap (8s). Leap forward and slash a half circle in front of you as you land (4 blocks): 40% base
+  # damage (physical), and your next basic attack is ready at once. Hit someone: press 1 again (within 3s) to leap and
+  # slash again (40%). Hit again: press 1 once more to soar up (you can drift a little up there) and pick a spot within 10
+  # blocks (1 again, or where you look after 3s): you dive onto it, 70% base damage within 4 blocks, knocking enemies up.
+  # Not while gliding. Builds Fervor.
   # The cooldown starts when the chain ends: a miss, a window let go, or the third press (the dive). Until then its icon
   # glints while 1 can be pressed again.
   valkyrie_ab1:
@@ -80,10 +78,12 @@ abilities:
       name: "Valkyrie's Leap"
       icon: FEATHER
       description:
-        - "Leap and slash a half circle: 100%, and"
-        - "attack reset. Hit: again (1). Hit again:"
-        - "soar up, pick a spot (1) and dive: 140%,"
-        - "enemies knocked up. Not while gliding."
+        - "Leap and slash a half circle:"
+        - "{base:0.4|physical}, and attack reset. Hit:"
+        - "again (1), {base:0.4|physical}. Hit again:"
+        - "soar up, pick a spot (1, 10 blocks) and"
+        - "dive: {base:0.7|physical}, enemies knocked"
+        - "up. Not while gliding."
     nodes:
       leap1_cue:
         type: play_cue
@@ -103,7 +103,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 5, angle: 180 }   # a half circle in front of her
         effects:
-          - { id: damage, base: 1.0 }
+          - { id: damage, base: 0.4, type: physical }   # 40% base damage
           - { id: status, status: valkyrie_fervor, self: true }
         count: struck1
         next: slash1_cue
@@ -143,7 +143,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 4, angle: 180 }
         effects:
-          - { id: damage, base: 1.0 }
+          - { id: damage, base: 0.4, type: physical }   # 40% base damage
           - { id: status, status: valkyrie_fervor, self: true }
         count: struck2
         next: slash2_cue
@@ -194,7 +194,7 @@ abilities:
         next: choose
       choose:
         type: choose_spot            # a preview circle follows your crosshair: 1 again to dive there
-        range: 30
+        range: 10
         radius: 4
         timeout: 60                  # 3s, then: wherever you're looking
         store: landing
@@ -225,7 +225,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 4 }
         effects:
-          - { id: damage, base: 1.4, knockback: false }
+          - { id: damage, base: 0.7, type: physical, knockback: false }   # the last hit: 70% base damage
           - { id: knockback, from: caster, radius: 4, center: 0.2, edge: 0.2, lift: 1.0 }   # knocked UP
           - { id: status, status: valkyrie_fervor, self: true }
         next: impact_cue
@@ -370,7 +370,7 @@ abilities:
         effects:
           - { id: shield, max_hp: 0.15, lasts: 80 }   # 15% of her max HP, 4s
 
-  # 3: War Cry (16s). A battle cry: you and allies within 8 blocks are 25% faster and deal 20% more damage for 4s.
+  # 3: War Cry (16s). A battle cry: you and allies within 8 blocks are 25% faster and deal 10% more damage for 4s.
   valkyrie_ab3:
     cooldown: 320                    # 16s
     display:
@@ -378,7 +378,7 @@ abilities:
       icon: GOAT_HORN
       description:
         - "A battle cry: you and allies within 8"
-        - "blocks are 25% faster and deal 20% more"
+        - "blocks are 25% faster and deal 10% more"
         - "damage for 4s."
     nodes:
       cry:
@@ -505,6 +505,14 @@ characters:
     forms:
       - while: state.choosing_ward   # Divine Ward: choosing
         slots: { primary: valkyrie_ward_ally, secondary: valkyrie_ward_self }
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Wings & Fervor"
+      icon: FEATHER
+      description:
+        - "Jump while falling to glide; falling, you"
+        - "drift down (no fall damage). Fervor: each"
+        - "enemy hit, a stack (5 max, 3s): basic"
+        - "attacks 8% faster each."
     slots:
       primary: valkyrie_primary        # LMB: Gilded Slash (no RMB)
       ability_1: valkyrie_ab1          # 1: Valkyrie's Leap (again on a hit, twice; then the dive)

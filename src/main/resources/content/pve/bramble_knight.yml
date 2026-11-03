@@ -24,13 +24,13 @@ abilities:
     display:
       name: "Thorned Axe"
       description:
-        - "A heavy swing in front of it: {base:1.0}."
+        - "A heavy swing in front of it: {base:1.0|physical}."
     nodes:
       swing:
         type: apply_effects
         targets: { type: cone, range: 3.5, angle: 100 }
         effects:
-          - { id: damage, base: 1.0 }  # 100% base damage
+          - { id: damage, base: 1.0, type: physical }  # 100% base damage
         next: swing_cue
       swing_cue:
         type: play_cue
@@ -46,7 +46,7 @@ abilities:
       name: "Bramble Slam"
       description:
         - "Telegraphed 1s, then a slam (4 blocks):"
-        - "{base:1.5}, knocked away, rooted 1s."
+        - "{base:1.5|physical}, knocked away, rooted 1s."
     nodes:
       warn:
         type: play_cue               # the warning ring (4 blocks: keep it in step with the slam's radius)
@@ -60,7 +60,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 4 }
         effects:
-          - { id: damage, base: 1.5, knockback: false }   # 150% base damage
+          - { id: damage, base: 1.5, type: physical, knockback: false }   # 150% base damage
           - { id: knockback, from: caster, radius: 4, center: 1.4, edge: 0.5, lift: 0.4 }
           - { id: status, status: root, duration: 20 }    # rooted 1s
         next: slam_cue
@@ -75,7 +75,7 @@ abilities:
     display:
       name: "Thorn Charge"
       description:
-        - "Charges 10 blocks ahead: {base:1.2}"
+        - "Charges 10 blocks ahead: {base:1.2|physical}"
         - "and slowed, to everyone it runs through."
     nodes:
       off:
@@ -94,7 +94,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.2 }  # 120% base damage
+          - { id: damage, base: 1.2, type: physical }  # 120% base damage
           - { id: status, status: slow, duration: 40 }
 
   # 3: Enrage. +30% damage and +25% speed for 10s (its brain does this once, below 40% HP).

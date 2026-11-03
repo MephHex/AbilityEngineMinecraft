@@ -22,8 +22,8 @@ final class BerserkerCues {
     /** Whirling Leap's spin: keep it in step with the ability's radius. */
     static final double SPIN_RADIUS = 3.2;
     /** Reaping Cleave: the handle's reach and the blade's edge (keep them in step with the ability's radii). */
-    static final double CLEAVE_INNER = 2.5;
-    static final double CLEAVE_OUTER = 5;
+    static final double CLEAVE_INNER = 2.0;
+    static final double CLEAVE_OUTER = 4;
 
     static void register(BukkitCuePlayer c, Plugin plugin) {
         // ---- primary: Axe Chop ----

@@ -276,7 +276,7 @@ public final class StatsHud {
                 String.format("Health: %.0f / %.0f", now, max),
                 String.format("One heart = %.0f HP (always 10 hearts)", max / 10)));
         if (shield > 0) health.add(String.format("Shield: %.0f", shield));
-        out.add(new Stat(Material.GLISTERING_MELON_SLICE, "Max HP: " + fmt(max), NamedTextColor.RED, health));
+        out.add(new Stat(Material.GOLDEN_APPLE, "Max HP: " + fmt(max), NamedTextColor.RED, health));
 
         double dealt = engine.stats().damageDealtMultiplier(id);
         List<String> sources = new ArrayList<>();
@@ -287,9 +287,9 @@ public final class StatsHud {
         }
         List<String> damage = new ArrayList<>(List.of("Your abilities and attacks deal", "a % of this."));
         if (!sources.isEmpty()) {
-            damage.add(String.format("Right now: %.0f (%s)", sheet.baseDamage() * dealt, String.join(", ", sources)));
+            damage.add(String.format("Right now: %.0f (%s)", engine.stats().baseDamage(id) * dealt, String.join(", ", sources)));
         }
-        out.add(new Stat(Material.BLAZE_POWDER, "Base damage: " + fmt(sheet.baseDamage()), NamedTextColor.GOLD, damage));
+        out.add(new Stat(Material.IRON_SWORD, "Base damage: " + fmt(engine.stats().baseDamage(id)), NamedTextColor.GOLD, damage));
 
         out.add(new Stat(Material.IRON_CHESTPLATE, "Armor: " + fmt(Math.round(engine.stats().armor(id))), NamedTextColor.GRAY, List.of(
                 String.format("Takes %.0f%% less damage", engine.stats().armorReduction(id) * 100),
@@ -302,7 +302,7 @@ public final class StatsHud {
 
         AttributeInstance speed = p.getAttribute(Attribute.MOVEMENT_SPEED);
         double current = speed == null ? sheet.moveSpeed() : speed.getValue() / VANILLA_SPEED;
-        out.add(new Stat(Material.SUGAR, String.format("Move speed: %.0f%%", sheet.moveSpeed() * 100), NamedTextColor.AQUA,
+        out.add(new Stat(Material.FEATHER, String.format("Move speed: %.0f%%", sheet.moveSpeed() * 100), NamedTextColor.AQUA,
                 List.of(String.format("Right now: %.0f%%", current * 100), "(100% = vanilla walking; slows and",
                         "haste multiply it, sprinting too)")));
 
@@ -315,22 +315,25 @@ public final class StatsHud {
 
         double chance = engine.stats().critChance(id);
         double critDamage = engine.crits().damage() + engine.stats().critDamageBonus(id);
-        out.add(new Stat(Material.FLINT, String.format("Critical strike: %.0f%%", chance * 100), NamedTextColor.YELLOW, lines(
-                engine.stats().abilitiesCrit(id) ? "Your abilities can crit too." : null,
+        double abilityCrit = engine.crits().abilityDamage() + engine.stats().critDamageBonus(id);
+        out.add(new Stat(Material.BLAZE_POWDER, String.format("Critical strike: %.0f%%", chance * 100), NamedTextColor.YELLOW, lines(
+                engine.stats().abilitiesCrit(id) ? String.format("Your abilities can crit too: %.0f%%.", abilityCrit * 100) : null,
                 String.format("Basic attacks crit for %.0f%% damage.", critDamage * 100),
                 "Not a flat roll: every attack that",
                 "doesn't crit makes the next likelier,",
                 "and a crit starts it over.")));
 
-        out.add(new Stat(Material.PRISMARINE_CRYSTALS, "Spell resistance: " + fmt(engine.stats().spellResistance(id)),
+        out.add(new Stat(Material.SHIELD, "Spell resistance: " + fmt(Math.round(engine.stats().spellResistance(id))),
                 NamedTextColor.DARK_AQUA, List.of(
                 String.format("Takes %.0f%% less damage from", engine.stats().spellResistanceReduction(id) * 100),
                 "enemy abilities and damage over time",
-                String.format("(resistance / (resistance + %.0f))", engine.stats().armorConstant()))));
+                String.format("(resistance / (resistance + %.0f))", engine.stats().armorConstant()),
+                engine.stats().resistanceFromArmor() ? String.format("Your own: %.0f (from your armor)",
+                        me.mephisto.ability_engine.engine.stats.StatSheets.baseSpellResistance(sheet.armor())) : "")));
         return out;
     }
 
-    /** Cooldown reduction: the statuses' cooldown_reduction (items), multiplied together. */
+    /** Cooldown reduction: points (ability_haste, items) like armor, and any statuses' cooldown_reduction multipliers. */
     private Stat cooldownReduction(UUID id) {
         double m = engine.stats().cooldownMultiplier(id);
         List<String> sources = new ArrayList<>();
@@ -340,8 +343,11 @@ public final class StatsHud {
             double share = s.def().extras().additive() ? (1 - cdr) * n : 1 - Math.pow(cdr, n);
             if (cdr != 1) sources.add(String.format("%.0f%% %s", share * 100, s.def().id()));
         }
+        double haste = engine.stats().abilityHaste(id);
         List<String> lines = new ArrayList<>(List.of("Your abilities (1, 2, 3, ultimate)",
-                String.format("come back %.0f%% sooner.", (1 - m) * 100), "Not primary / secondary fire or melee."));
+                String.format("come back %.0f%% sooner.", (1 - m) * 100), "Not primary / secondary fire or melee.",
+                String.format("%.0f points: cooldown x %.0f / (%.0f + points)", haste, engine.stats().armorConstant(),
+                        engine.stats().armorConstant())));
         if (!sources.isEmpty()) lines.add("From: " + String.join(", ", sources));
         return new Stat(Material.CLOCK, String.format("Cooldown reduction: %.0f%%", (1 - m) * 100), NamedTextColor.LIGHT_PURPLE, lines);
     }
@@ -356,17 +362,17 @@ public final class StatsHud {
         if (crossbow) {
             if (engine.quivers().rapidFire(id)) {
                 double perSecond = primaryCooldown(character).map(t -> 20.0 / t).orElse(0.0) * slowed;
-                return new Stat(Material.FEATHER, "Draw speed: rapid fire", NamedTextColor.GREEN,
+                return new Stat(Material.GOLDEN_SWORD, "Draw speed: rapid fire", NamedTextColor.GREEN,
                         lines(why, String.format("No drawing: %.1f shots a second", perSecond)));
             }
             int quickCharge = engine.quivers().reloadSpeed(id);
             double draw = Math.max(0, 1.25 - 0.25 * quickCharge) / slowed;
-            return new Stat(Material.FEATHER, String.format("Draw time: %.2fs", draw), NamedTextColor.GREEN, lines(why,
+            return new Stat(Material.GOLDEN_SWORD, String.format("Draw time: %.2fs", draw), NamedTextColor.GREEN, lines(why,
                     "Quick Charge " + quickCharge + " (Hunter's Rhythm makes", "it faster)"));
         }
         double perSecond = (sheet.attackSpeed() > 0 ? sheet.attackSpeed()
                 : character == null ? 0 : primaryCooldown(character).map(t -> 20.0 / t).orElse(0.0)) * slowed;
-        return new Stat(Material.FEATHER, String.format("Attack speed: %.2f/s", perSecond), NamedTextColor.GREEN,
+        return new Stat(Material.GOLDEN_SWORD, String.format("Attack speed: %.2f/s", perSecond), NamedTextColor.GREEN,
                 lines(why, "Basic attacks per second"));
     }
 

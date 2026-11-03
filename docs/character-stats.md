@@ -8,10 +8,11 @@ from here.
 
 - **Players see their stats:** the top row of the inventory holds one item per stat. Hovering one shows
   its value right now: current health, Strength on base damage, a slow on move speed, the Alchemist's draw.
-- **Armor applies to everything** (abilities, basic attacks, vanilla hits, falls) **except damage over
-  time and % max HP hits.** Damage over time is % max HP now: poison, frost and flame are 15% of
-  the target's max HP each in all (3.75% a tick); poison and flame are reduced by armor like flat damage, frost is true
-  damage (ignores armor). The shared burn is 2.5% a tick. Tether redirect and soul mirror damage stay
+- **Damage types:** a hit is physical, magic or true (`type:`). Physical and magic go through armor (and spell
+  resistance on abilities), % max HP parts too; true damage ignores both. Descriptions show the type as the colour
+  of the number in brackets (orange physical, blue magic, dark purple true). A hit without a type: armor applies to
+  everything but its % max HP part. Damage over time is % max HP: poison (physical), flame (magic) and frost (true)
+  are 8% of the target's max HP each in all (2% a tick). The shared burn is 2.5% a tick. Tether redirect and soul mirror damage stay
   final: not reduced again.
 - **Heals and shields are flat**, unless an effect says `max_hp:`.
 - **Alchemist has no attack speed stat:** his crossbow draw (and Hunter's Rhythm) is his fire rate, and the
@@ -113,13 +114,14 @@ Durable, but his real toughness is lifesteal and Overflow. Fast swings for small
 | Ability | Now | As % of base (35) |
 |---|---|---|
 | Reaver Strike (primary) | 35 | **100%** |
-| Vital Overflow cleave (3rd hit) | 45, heals 100% of it | **130%** |
-| Essence Absorption: attach | 30 | **85%** |
-| Essence Absorption: recall | 40, heals 100% of it | **115%** |
-| Meditation heal (per tick) | 12 | flat (see Q3) |
-| Soul Rend: strike | 40 | **115%** |
+| Vital Overflow cleave (3rd hit) | heals 50% of it | **130%** physical |
+| Essence Absorption: attach | | **20% + 30% spell power** physical |
+| Essence Absorption: recall | heals 100% of it | **10% of their max HP, +1% per 50 spell power** magic |
+| Lifeline Step: echo | + 0.8s stun | **20 + 20%** physical |
+| Meditation heal (2s, 8 ticks) | 60 in all, +10 per 50 spell power | flat |
+| Soul Rend: strike | 40 | **115%** physical |
 | Soul Rend: soul health | 150 | flat, or % of the *victim's* max HP (see Q6) |
-| Soul Rend: backlash | 90 | **260%** |
+| Soul Rend: backlash | | **15% of their max HP, +1% per 50 spell power** magic |
 | Soul Rend: your heal | 150 | flat, or **60% max HP** (see Q3) |
 
 ### Umbrella: Diver
@@ -165,12 +167,13 @@ only for comparison.
 
 | Ability | Now | As % of base (45) |
 |---|---|---|
-| Infused Bolt (primary) | 45 | **100%** |
-| Snare mark bonus | +40 | **90%** |
-| Volatile Flask | 9 + spell power x 1.1 | **20%** + **110% spell power** |
-| Poison (per second, 4 ticks) | 3.75% max HP (15% total, -40% healing), armor reduces it | % max HP |
-| Frost (every 0.75s, 4 ticks) | 3.75% max HP (15% total), true damage, slowed | % max HP |
-| Flame (every 0.75s, 4 ticks) | 3.75% max HP (15% total), armor reduces it | % max HP |
+| Infused Bolt (primary) | 45, physical | **100%** |
+| Snare mark bonus | 90 flat, physical | flat |
+| Volatile Flask | 9 + spell power x 1.1, magic | **20%** + **110% spell power** |
+| Poison (per second, 4 ticks) | 2% max HP (8% total, -40% healing), physical | % max HP |
+| Frost (every 0.75s, 4 ticks) | 2% max HP (8% total), true damage, slowed | % max HP |
+| Flame (every 0.75s, 4 ticks) | 2% max HP (8% total), magic | % max HP |
+| Venom Step | +1 Hunter's Rhythm stack at once | |
 | Flask tonic (self heal) | 10 x 6 | flat (see Q3) |
 
 The flask's random infusions are Frost, Flame and Paralysis (no Vitality any more).
@@ -188,9 +191,11 @@ and 10 armor now; the numbers below are shares of base damage, so they hold eith
 |---|---|
 | Arcane Bolt (primary) | **50% + 50% spell power** to everyone within 1 block of where it bursts (an enemy or terrain); curves slightly toward marked enemies |
 | Passive: Arcane Barrage | bolt hit +1 charge, missile hit +2; at 6: 5s of bigger bolts bursting in **2.5 blocks** (same damage) |
-| Arcane Missile: plain hit | **100%**, marks 4s (glowing; bolts curve to them) |
-| Arcane Missile: empowered (recast in flight, or out of a wall) | stun 0.6s + mark, explosion **165% + 10% of their max HP** in 3 blocks |
-| Arcane Screen | enemy shots through it held 2s; allied shots +60% speed and **60% spell power** on their hit (no base part) |
+| Arcane Missile: plain hit | **120% spell power** (no base part), marks 4s (glowing; bolts curve to them) |
+| Arcane Missile: empowered (recast in flight, or out of a wall) | stun 0.6s + mark, explosion **120% spell power + 10% of their max HP** in 3 blocks |
+| Arcane Screen | enemy shots through it held 2s; allied shots +60% speed and a flat **20** on their hit |
+
+All of the Arcanist's damage is magic.
 | Arcane Ascension (ult) | 12s of slow, level flight, 3 geometries (a kill: +1): each channeled 1s (no abilities or basic attacks meanwhile), then **220%** in 4 blocks, knocked back |
 
 ### Gunner: Gunslinger Anti-Caster
@@ -218,16 +223,17 @@ off one debuff after 6s out of combat; Counterspell blocks a spell.
 |---|---|---|---|---|---|---|
 | **320** | **45** (31%) | **34** | **0.92** | **1.0** (20 ticks) | 464 | 34 |
 
-20% bigger than a player. Cuprous Might: after 5s out of combat a copper barrier takes half of the next hit;
-enemy basic attacks landing on him take 0.5s off his abilities' cooldowns.
+20% bigger than a player. Cuprous Might: after 10s out of combat a copper barrier takes half of the next hit;
+enemy basic attacks landing on him take 0.5s off his abilities' cooldowns. All of his damage is physical; bonus HP
+is his max HP above his own.
 
 | Ability | Damage |
 |---|---|
 | Anchor Swing (primary) | **100%** in a wide 3.5-block arc |
-| Groundbreaker | **90%** + 1s stun, and the chain drags them to him |
-| Rustbreaker | shield up to 120 over 2s (slower and slower), 1s stun on himself, then **130%** (4.5 blocks) + 2s disarm |
-| Conduction Field | **80%** + knock-up, a ring rolling out to 8 blocks |
-| Lightning Rod (ult) | **220%** (5 blocks) + 2s paralysis, then 6s: faster, a field that deals **30%** every 0.5s and keeps them paralyzed |
+| Groundbreaker | **90% + 70% spell power** + 1s stun, and the chain drags them to him |
+| Rustbreaker | shield up to 100 over 2s (slower and slower), 1s stun on himself, then **130% + 0.5% bonus HP** (4.5 blocks) + 2s disarm |
+| Conduction Field | **80% + 40% spell power** + knock-up, a ring rolling out to 8 blocks |
+| Lightning Rod (ult) | **90% spell power + 0.1% bonus HP** physical (5 blocks) + 2s paralysis, then 6s: faster, a field that deals **30%** every 0.5s and keeps them paralyzed |
 
 ### Whisperer: Diver
 
@@ -257,10 +263,10 @@ on her knocks back enemies within 4 blocks (10s, or 4s out of combat).
 | Ability | Damage |
 |---|---|
 | Blossom Shot (primary) | **75%** within 2.2 blocks of where it bursts |
-| Seed Bomb | 6s; latches onto friend, foe or her (or waits 15s on the ground, 3 at most): 2s later **110%** to enemies within 3.5 blocks, or heals allies within 3.5 blocks 4 HP |
-| Perch | sit in her blossom on an ally's head (they don't see her, others do): a 60 HP shield for them (2s); untouchable; they're +20% faster, +2 HP per basic attack; 10s cd from sitting down; again (off cd, restarts it): +35% speed 2s or fly to another ally; shift: off |
+| Seed Bomb | 6s; latches onto friend, foe or her (or waits 15s on the ground, 3 at most): 2s later **110% + 70% spell power** magic to enemies within 3.5 blocks, or heals allies within 3.5 blocks **60, +20 per 20 spell power** |
+| Perch | sit in her blossom on an ally's head (they don't see her, others do): a **60, +20 per 40 spell power** shield for them (2s); untouchable; they're +20% faster, basic attacks **+10 + 5% of her spell power** magic; 10s cd from sitting down; again (off cd, restarts it): +35% speed 2s or fly to another ally; shift: off |
 | Deathcap Snare | 3 charges, 12s each; an aim preview shows where the throw lands; bursts on the ground or whoever it hits: **100%** within 3.5 blocks (not through walls) + 8% max HP poison (green hearts), 35% slow and nausea for 4s |
-| Wild Hunt (ult) | 8s free flight; F again shoots a vine (20 blocks, small hitbox): an enemy it catches is stunned 3.5s and dragged along on a 4-block vine |
+| Wild Hunt (ult) | 8s free flight; F again shoots a vine (20 blocks, small hitbox): an enemy it catches is stunned 3.5s and dragged along on a 4-block vine; used up when the flight ends |
 
 ### Pyromancer: Mage / Burst
 
@@ -472,7 +478,7 @@ stepping on it (+15% max HP = 45), enemies squash it. Size and speed by health: 
 | Ooze Burst (1, 10s) | costs 10% of her max HP (not below 15%: free, nothing happens): drops a slime; enemies within 4.5 blocks take 8% of their max HP, -40% speed 2s |
 | Slime Ball (2, 12s) | 0.6s wind-up, a big slime ball (20 blocks): **90%**, flung 8 blocks along the throw; into a wall (mid-air too): stuck, rooted 1.5s |
 | Belly Flop (3, 12s) | a circle (16 blocks, radius 3.5): up ~6 blocks, then down onto it: **100%**, knocked up, stunned 0.6s |
-| Bounce Storm (ult) | 5 bounces (up ~5 blocks the way she looks, then straight down): **80%** within 4 blocks of each landing, knocked up and back; no abilities or basic attacks meanwhile, no fall damage |
+| Bubble Trouble (ult) | Mitosis's ultimate (see Mitosis): a growing puddle slows then roots, a bubble carries enemies to a spot: **120%** within 4 blocks (vs her 38 base damage: 46), knocked ~3 blocks |
 
 ### Firecracker: Marksman
 
@@ -490,6 +496,26 @@ Double Tap (passive): every basic attack is two bullets 0.15s apart, 50% each, b
 | Scatter Fire (2, 10s) | 3 fast rockets close together (10 degrees), ricocheting off terrain for 1.5s, through enemies: **45%** each per rocket |
 | Firework Bomb (3, 14s) | a spot (18 blocks): 0.4s wind-up, a bomb that goes off 1.5s later (or when 3 is pressed again): **60%** within 4 blocks, knocked back and up, -40% speed 2s; on herself only the push (and no fall damage) |
 | Grand Finale (ult) | 6s (a boss bar): basic attacks become big fireworks, still two a shot: **100%** each and knockback |
+
+### Mitosis: Brawler
+
+| Max HP | Armor | Base dmg | Move speed | Attack speed | EHP | Basic DPS |
+|---|---|---|---|---|---|---|
+| **240** | **20** (17%) | **38** | **1.05** | **1.1** (18 ticks) | 288 | 42 (84 with the clone) |
+
+Mitosis (passive, RMB): buds a clone 1.5 blocks to the left with half her health (rounded down). It has her stats, walks
+and turns as she does from its own facing, and casts everything she casts (LMB, 1, 2, 3, F) from where it stands; its
+damage, kills and charge are hers. RMB after 10s within 2 blocks: fuse (its health and effects back to her). SHIFT + RMB
+(5s): swap places, even under crowd control. A killing blow moves her into the clone instead. 15s cooldown after a fuse,
+the clone's death or a transfer.
+
+| Ability | Effect |
+|---|---|
+| Stretch (primary) | a slime arm (5 blocks), the first enemy or block in the way: **100%** |
+| Sticky Fingers (1, 10s) | an arm (14 blocks): **60%**, -25% speed, tethered 3s (breaks past 10 blocks). Again: another enemy: both pulled together, **100%** each, stunned 1s; a wall: pulled into it, **80%**, stunned 0.75s; the same enemy: **60%**. With the clone, both arms landing within 0.5s pull at once |
+| Blob Rush (2, 9s) | 0.5s as a blob, then 8 blocks in ~0.3s: **70%** to everyone passed, knocked 3 blocks aside |
+| Bounce Back (3, 14s) | 3s: a 3 x 3 wall 1 block ahead reflects enemy projectiles (now hers) and bounces enemies 2 blocks; 60% speed, no LMB |
+| Bubble Trouble (ult) | 2s puddle, a square growing to 4 blocks each way (9 x 9): enemies on it slowed 20% -> 70% as it grows, then rooted 1.5s on the full square; pick a spot (15 blocks, 2s); a bubble swallows enemies within 5 and leaps there in 1s: **120%** within 4, knocked ~3 blocks away. F during the puddle: cancel, half the charge back. The clone's bubble lands on the same spot (both landings hit) |
 
 ---
 

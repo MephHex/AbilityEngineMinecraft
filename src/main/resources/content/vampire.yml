@@ -33,6 +33,11 @@ statuses:
     stacking: refresh
     tags: [state.charmed, block.move, block.ability, state.disarmed]   # no walking of their own, no spells, no attacks
     cue: vampire_charmed             # hearts over their head
+  vampire_charm_shred:               # Charm: armor and spell resistance shredded
+    duration: 80                     # 4s
+    stacking: refresh
+    armor: 0.8                       # -20% armor
+    spell_resistance_mult: 0.8       # -20% spell resistance
   vampire_descent:                   # Crimson Rain: the drop back down doesn't hurt
     duration: 140                    # (the ultimate's 4s, and the fall after it)
     stacking: refresh
@@ -48,8 +53,6 @@ abilities:
       name: "Blood Missile"
       description:
         - "A missile of blood: 100% base damage."
-        - "Passive - Blood Feast: a kill heals you"
-        - "15% of your max HP, +30% speed 3s."
     nodes:
       shoot:
         type: projectile
@@ -79,9 +82,10 @@ abilities:
         cue: vampire_missile_fizzle
         at: hit
 
-  # 1: Sanguine Tether (14s). Tether up to 3 enemies within 8 blocks of you (in sight; the nearest) for 2.5s, siphoning
-  # their blood: every 0.5s each takes 15% base damage and a drop of their blood flies to you, healing you 10. Whoever
-  # doesn't break free (more than 10 blocks from you, or out of sight for 0.5s) bleeds: 16% of their max HP over 4s.
+  # 1: Sanguine Tether (14s). Tether the nearest enemy within 8 blocks of you (in sight; one only) for 2.5s, siphoning
+  # their blood: 60% base damage + 80% spell power (magic) over it (4 drinks, every 0.5s), and a drop of their blood
+  # flies to you each time: you heal 70% of the damage dealt (+10% per 20 spell power). If they don't break free (more
+  # than 10 blocks from you, or out of sight for 0.5s) they bleed: 16% of their max HP over 4s.
   # A channel: no basic attacks meanwhile (the XP bar shows it), 1 again to stop early, stunned or silenced breaks it.
   # Nobody around: nothing happens, and it's free.
   vampire_ab1:
@@ -94,10 +98,11 @@ abilities:
       name: "Sanguine Tether"
       icon: LEAD
       description:
-        - "Channel 2.5s: tether up to 3 enemies near"
-        - "you (8 blocks) and drink: 15% each 0.5s,"
-        - "+10 HP each. Held on: they bleed 16% of"
-        - "max HP over 4s. 1 again: stop."
+        - "Channel 2.5s: tether the nearest enemy"
+        - "(8 blocks) and drink: {base:0.6|magic} +"
+        - "{sp:0.8|magic} in all; heal 70% of it"
+        - "(+10% per 20 spell power). Held on: they"
+        - "bleed 16% of max HP over 4s. 1 again: stop."
     nodes:
       cast_cue:
         type: play_cue
@@ -106,7 +111,7 @@ abilities:
       pick:
         type: for_each               # each enemy its own tether (each breaks free on their own)
         query: { type: radius, radius: 8, sight: true }
-        max: 3
+        max: 1                       # one only: the nearest
         store: target
         on: { each: hold, out: paid, none: nobody }
       paid:
@@ -129,7 +134,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: target }
         effects:
-          - { id: damage, base: 0.15, knockback: false }
+          - { id: damage, base: 0.15, sp: 0.2, type: magic, lifesteal: 0.7, lifesteal_sp: 0.005, knockback: false }   # x4: 60% base damage + 80% spell power; heals 70% (+10% per 20 spell power)
         next: drop
       drop:
         type: play_cue               # a drop of blood flies from them to her...
@@ -139,14 +144,7 @@ abilities:
         next: flight
       flight:
         type: delay
-        ticks: 6                     # (the drop's flight)
-        next: mend
-      mend:
-        type: apply_effects          # ...and heals her as it arrives
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: heal, amount: 10 }
+        ticks: 6                     # (the drop's flight: the heal itself is the drink's lifesteal)
         next: mend_cue
       mend_cue:
         type: play_cue
@@ -166,8 +164,8 @@ abilities:
         cue: vampire_tether_snap
         at: target
 
-  # 2: Bat Form (8s). Turn into a bat for 1s: free flight (nobody sees you, only the bat). No fall damage on the landing
-  # after it.
+  # 2: Bat Form (8s). Spring up and a little forward into the air, then turn into a bat for 1s: free flight (nobody
+  # sees you, only the bat). No fall damage on the landing after it.
   vampire_ab2:
     cooldown: 160                    # 8s
     movement: true                   # (not while rooted)
@@ -175,11 +173,19 @@ abilities:
       name: "Bat Form"
       icon: PHANTOM_MEMBRANE
       description:
-        - "Turn into a bat: fly freely for 1s."
+        - "Spring up into the air and turn into a"
+        - "bat: fly freely for 1s."
     nodes:
       burst:
         type: play_cue
         cue: vampire_bat_burst
+        next: spring
+      spring:
+        type: leap                   # up and a little forward: airborne, so the bat can fly off
+        direction: aim
+        speed: 0.25
+        up: 0.6                      # ~2 blocks up
+        until: apex
         next: turn
       turn:
         type: apply_effects
@@ -188,8 +194,8 @@ abilities:
         effects:
           - { id: status, status: vampire_bat }
 
-  # 3: Charm (14s). A charm (1.2 blocks/tick, 16 blocks): the enemy it hits takes 40% base damage and is charmed for
-  # 1.75s: they lose control and walk slowly to you (about 1.6 blocks a second, stopping 1.5 blocks short); no spells,
+  # 3: Charm (14s). A charm (1.2 blocks/tick, 16 blocks): the enemy it hits takes 30 + 80% spell power (magic), loses
+  # 20% of their armor and spell resistance for 4s, and is charmed for 1.75s: they lose control and walk slowly to you (about 1.6 blocks a second, stopping 1.5 blocks short); no spells,
   # no basic attacks.
   vampire_ab3:
     cooldown: 280                    # 14s
@@ -197,9 +203,10 @@ abilities:
       name: "Charm"
       icon: POPPY
       description:
-        - "A charm: 40% base damage. The enemy hit"
-        - "walks to you for 1.75s, helpless: no"
-        - "spells, no attacks."
+        - "A charm: {flat:30|magic} + {sp:0.8|magic},"
+        - "-20% armor and spell resistance 4s. The"
+        - "enemy hit walks to you for 1.75s,"
+        - "helpless: no spells, no attacks."
     nodes:
       throw:
         type: projectile
@@ -222,7 +229,8 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.4 }
+          - { id: status, status: vampire_charm_shred }   # (first: the hit already counts the shred)
+          - { id: damage, amount: 30, sp: 0.8, type: magic }   # 30 + 80% spell power
           - { id: status, status: vampire_charmed }
         next: charm_cue
       charm_cue:
@@ -246,7 +254,7 @@ abilities:
 
   # ULTIMATE (F): Crimson Rain. Rise into the air and hang there for 4s (a boss bar; no flying, but you can drift a little, like the
   # Vanguard's Hero's Descent), firing a blood missile
-  # where you look every 0.25s: each bursts on what it hits for 35% base damage within 1.8 blocks (16 missiles). No
+  # where you look every 0.25s: each bursts on what it hits for 20 + 30% spell power (magic) within 1.8 blocks (16 missiles). No
   # abilities or basic attacks meanwhile. F again: stop early. The drop back down doesn't hurt.
   vampire_ult:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
@@ -258,9 +266,9 @@ abilities:
       icon: REDSTONE_BLOCK
       description:
         - "Rise and hang in the air for 4s, raining"
-        - "blood missiles where you look: 35% base"
-        - "damage around each, 4 a second. F again:"
-        - "stop."
+        - "blood missiles where you look: each"
+        - "{flat:20|magic} + {sp:0.3|magic} around it,"
+        - "4 a second. F again: stop."
     nodes:
       safe:
         type: apply_effects
@@ -316,7 +324,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: missile, radius: 1.8 }
         effects:
-          - { id: damage, base: 0.35 }
+          - { id: damage, amount: 20, sp: 0.3, type: magic }   # 20 + 30% spell power a missile
         next: burst_cue
       burst_cue:
         type: play_cue
@@ -338,6 +346,13 @@ characters:
         - { id: heal, max_hp: 0.15 }
         - { id: status, status: vampire_feast }
       cue: vampire_essence           # their essence streams into her
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Blood Feast"
+      icon: NETHER_WART
+      description:
+        - "Every kill: their essence streams to you,"
+        - "healed 15% of your max HP and 30% faster"
+        - "for 3s."
     slots:
       primary: vampire_primary       # LMB: Blood Missile
       ability_1: vampire_ab1         # 1: Sanguine Tether

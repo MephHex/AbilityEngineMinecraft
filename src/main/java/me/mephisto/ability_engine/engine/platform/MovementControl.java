@@ -16,6 +16,20 @@ public interface MovementControl {
     /** Come to a halt: zero velocity, and forget any fall so a dash off a ledge doesn't hurt. */
     void stop(UUID entity);
 
+    /**
+     * {@code a} and {@code b} trade places exactly: each stands where the other's feet were, looking the way the other
+     * looked (bodies of different sizes or poses don't end up in the floor). Default: by their centres.
+     */
+    default void swapPlaces(UUID a, UUID b, Vec3 centerA, Vec3 centerB, Vec3 lookA, Vec3 lookB) {
+        teleport(a, centerB, lookB);
+        teleport(b, centerA, lookA);
+    }
+
+    /** Put {@code who} exactly where {@code where} stands (its feet), looking its way (a body taken over). */
+    default void putAt(UUID who, UUID where, Vec3 whereCenter, Vec3 whereLook) {
+        teleport(who, whereCenter, whereLook);
+    }
+
     /** Put an entity's centre at {@code center}, keeping where it looks (a swap, a blink). */
     void teleport(UUID entity, Vec3 center);
 

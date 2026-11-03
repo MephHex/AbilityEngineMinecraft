@@ -32,8 +32,6 @@ abilities:
       name: "Valiant Strike"
       description:
         - "A heavy sweep in front of you: 45 damage."
-        - "Passive - Inspiration: your abilities give"
-        - "nearby allies +30% speed for 2s."
     nodes:
       swing:
         type: apply_effects
@@ -327,6 +325,12 @@ characters:
       base_damage: 45                # abilities deal % of this
       move_speed: 0.95               # x vanilla walking speed
       attack_speed: 1.4              # basic attacks per second
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Inspiration"
+      icon: BELL
+      description:
+        - "Every ability you use gives allies within"
+        - "8 blocks +30% speed for 2s."
     slots:
       primary: vanguard_primary      # LMB
       ability_1: vanguard_ab1        # 1: Heroic Leap

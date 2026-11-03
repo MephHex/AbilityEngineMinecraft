@@ -29,9 +29,9 @@ statuses:
     stacking: refresh
     tags: [state.burning]            # looks on fire (no vanilla fire damage)
     tick:
-      every: 20                      # ...2% max HP a second = 4% (ignores armor)
+      every: 20                      # ...3% max HP a second = 6%, +1% per 10 spell power (magic)
       effects:
-        - { id: damage, max_hp: 0.02, knockback: false }
+        - { id: damage, max_hp: 0.03, max_hp_sp: 0.0005, type: magic, knockback: false }
   pyro_coals:                        # Hot Coals: jumping higher
     duration: 120                    # 6s
     jump_boost: 2                    # Jump Boost II (the level: 3 = III, 4 = IV...)
@@ -49,7 +49,7 @@ abilities:
     display:
       name: "Fire Bolt"
       description:
-        - "A bolt of fire: 100% base magic damage."
+        - "A bolt of fire: {base:1.0|magic}."
     nodes:
       shoot:
         type: projectile
@@ -72,7 +72,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 1.0, damage_type: magic, ignore_iframes: true }   # (overheated: 2.5 a second)
+          - { id: damage, base: 1.0, type: magic, damage_type: magic, ignore_iframes: true }   # (overheated: 2.5 a second)
         count: struck
         next: heat
       heat:
@@ -89,16 +89,18 @@ abilities:
         at: hit
 
   # 1: Fireball. A large fireball (0.9 blocks/tick, a slight drop) that explodes where it lands or on whoever it
-  # hits: 120% base damage to enemies within 3.5 blocks, knocked back a little and burning (4% max HP over 2s).
+  # hits: 40 + 80% spell power (magic) to enemies within 3.5 blocks, knocked back a little and burning (6% max HP over
+  # 2s, +1% per 10 spell power).
   pyro_ab1:
     cooldown: 160                    # 8s
     display:
       name: "Fireball"
       icon: FIRE_CHARGE
       description:
-        - "A fireball that explodes: 120% base"
-        - "damage within 3.5 blocks, and they burn"
-        - "(4% max HP over 2s)."
+        - "A fireball that explodes (3.5 blocks):"
+        - "{flat:40|magic} + {sp:0.8|magic}, and they"
+        - "burn 2s: {max_hp:0.06|magic}"
+        - "{max_hp_sp:0.01/10|magic}."
     nodes:
       throw:
         type: projectile
@@ -118,7 +120,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3.5 }
         effects:
-          - { id: damage, base: 1.2 }
+          - { id: damage, amount: 40, sp: 0.8, type: magic }   # 40 + 80% spell power
           - { id: status, status: pyro_burn }
           - { id: knockback, from: hit, radius: 3.5, center: 0.8, edge: 0.3, lift: 0.3 }
         count: struck
@@ -136,38 +138,39 @@ abilities:
         cue: pyro_fireball_explode
         at: hit
 
-  # 2: Hunting Wisp. Send a will-o'-wisp to a spot (aim preview, 25 blocks; quickcast: where you look). It waits
-  # there up to 30s for an enemy to come within 7 blocks (the preview's circle; on the way there too), then hunts
-  # the first one it finds (they glow while it does) and explodes on them: 100% base damage within 3 blocks (no
-  # burn). Nobody comes: it fades away.
+  # 2: Hunting Wisp. Send a will-o'-wisp to a spot (aim preview, 25 blocks; quickcast: where you look). It drifts there
+  # slowly and waits up to 30s for an enemy to come within 5 blocks (the preview's circle; on the way there too), then
+  # hunts the first one it finds, slowly (they glow for 3s as it finds them) and explodes on them: 60% spell power
+  # (magic) within 3 blocks (no burn). Nobody comes: it fades away.
   pyro_ab2:
     cooldown: 280                    # 14s
     targeting:
       shape: circle
       range: 25
-      radius: 7                      # = how far it sees
+      radius: 5                      # = how far it sees
       ground: true
     display:
       name: "Hunting Wisp"
       icon: GLOWSTONE_DUST
       description:
-        - "Send a wisp to a spot: up to 30s it"
-        - "waits for an enemy (7 blocks), hunts"
-        - "them down (they glow) and explodes: 100%"
-        - "base damage (3 blocks)."
+        - "Send a slow wisp to a spot: up to 30s it"
+        - "waits for an enemy (5 blocks), hunts"
+        - "them down (they glow 3s) and explodes"
+        - "(3 blocks): {sp:0.6|magic}."
     nodes:
       send:
         type: projectile
-        speed: 0.6
+        speed: 0.3
         size: 0.6
-        lifetime: 720                # flying there, 30s of waiting, a chase
+        lifetime: 860                # flying there (slowly), 30s of waiting, a chase
         visual: "block:FIRE"
         visual_size: 0.5
         trail: pyro_wisp_trail
         trail_every: 2
         motion:
-          # to the spot (1.2 blocks above the ground), waits 30s; an enemy within 7: after them (0.5/tick), only them
-          - { type: seek, to: aim, up: 1.2, base: 0.6, hover: 600, range: 7, speed: 0.5, turn: 0.3, lock: true, mark: glowing }
+          # to the spot (1.2 blocks above the ground), waits 30s; an enemy within 5: after them (0.25/tick), only them;
+          # they glow for 3s as it finds them
+          - { type: seek, to: aim, up: 1.2, base: 0.3, hover: 600, range: 5, speed: 0.25, turn: 0.3, lock: true, mark: glowing, mark_lasts: 60 }
         store: wisp
         on: { spawned: send_cue, hit_entity: explode, hit_block: explode, expired: fade }
       send_cue:
@@ -177,7 +180,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: hit, radius: 3 }
         effects:
-          - { id: damage, base: 1 }
+          - { id: damage, sp: 0.6, type: magic }   # 60% spell power
         count: struck
         next: heat
       heat:
@@ -252,9 +255,9 @@ abilities:
         at: landing
 
   # ULTIMATE (F): Scorching Judgment. Mark an area (aim preview, 35 blocks, 6-block radius): everyone sees its edge
-  # burning on the ground. A meteor comes down on it (~2s): 300% base damage to enemies within 6 blocks, knocked
-  # back and burning. Then the ground stays scorched for 8s, the edge still showing: enemies inside take 15% base
-  # damage every 0.5s and keep burning.
+  # burning on the ground. A meteor comes down on it (~2s): 60 + 110% spell power (magic) to enemies within 6 blocks,
+  # knocked back and burning. Then the ground stays scorched for 8s, the edge still showing: enemies inside take 5 + 15%
+  # spell power (magic) every 0.5s and keep burning.
   pyro_ult1:
     cooldown: 1200                   # placeholder until ults charge from damage
     targeting:
@@ -267,8 +270,9 @@ abilities:
       icon: MAGMA_BLOCK
       description:
         - "Mark an area: a meteor crashes down"
-        - "(~2s): 300% base damage (6 blocks). The"
-        - "ground burns 8s: 15% base damage every"
+        - "(~2s, 6 blocks): {flat:60|magic} +"
+        - "{sp:1.1|magic}. The ground burns 8s:"
+        - "{flat:5|magic} + {sp:0.15|magic} every"
         - "0.5s to enemies inside."
     nodes:
       mark:
@@ -309,7 +313,7 @@ abilities:
         type: apply_effects          # wherever it touched down first: the blast is on the marked spot
         targets: { type: radius, center: aim, radius: 6 }
         effects:
-          - { id: damage, base: 3.0 }
+          - { id: damage, amount: 60, sp: 1.1, type: magic }   # 60 + 110% spell power
           - { id: status, status: pyro_burn }
           - { id: knockback, from: aim, radius: 6, center: 1.2, edge: 0.4, lift: 0.5 }
         count: struck
@@ -336,7 +340,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: aim, radius: 6 }
         effects:
-          - { id: damage, base: 0.15, knockback: false }
+          - { id: damage, amount: 5, sp: 0.15, type: magic, knockback: false }   # 5 + 15% spell power
           - { id: status, status: pyro_burn }
         count: struck
         next: scorch_heat
@@ -386,6 +390,14 @@ characters:
       - while: state.overheated      # Overheat: blue flames instead of orange ones
         cue_suffix: _blue            # every pyro_x cue plays as pyro_x_blue
         visuals: { "block:FIRE": "block:SOUL_FIRE" }   # and her fire bolts, fireballs and wisps are soul fire
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Overheat"
+      icon: BLAZE_POWDER
+      description:
+        - "Each enemy your abilities hit: a stack"
+        - "(8 max; 2s without a hit: back to 0)."
+        - "8 stacks: you overheat while you keep"
+        - "hitting: faster Fire Bolts, +15% speed."
     slots:
       primary: pyro_primary          # LMB: Fire Bolt (no RMB)
       ability_1: pyro_ab1            # 1: Fireball

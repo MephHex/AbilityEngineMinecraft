@@ -45,7 +45,8 @@ public final class DamageModifierListener implements Listener {
         var cause = event.getCause();
         if (cause == EntityDamageEvent.DamageCause.KILL || cause == EntityDamageEvent.DamageCause.VOID) return;
         if (event.getFinalDamage() < living.getHealth()) return;
-        var saved = engine.preventDeath(living.getUniqueId());
+        Entity by = event.getDamageSource().getCausingEntity();
+        var saved = engine.preventDeath(living.getUniqueId(), by != null ? by.getUniqueId() : null);
         if (saved.isEmpty()) return;
         event.setCancelled(true);
         engine.movement().setHealthShare(living.getUniqueId(), saved.getAsDouble());
@@ -64,7 +65,8 @@ public final class DamageModifierListener implements Listener {
         // Armor applies to everything (vanilla hits and falls too) except a hit's % max HP part (damage over time).
         double pierce = me.mephisto.ability_engine.bukkit.effect.DamageEffect.pierceShare();
         var result = DamageModifiers.apply(engine, attacker != null ? attacker.getUniqueId() : null, victim,
-                event.getDamage(), pierce, me.mephisto.ability_engine.bukkit.effect.DamageEffect.isAbilityDamage());
+                event.getDamage(), pierce, me.mephisto.ability_engine.bukkit.effect.DamageEffect.isAbilityDamage(),
+                me.mephisto.ability_engine.bukkit.effect.DamageEffect.isTrueDamage());
         if (result.amount() != event.getDamage()) event.setDamage(result.amount());
         savedFromDeath(event);
         if (!event.isCancelled() && event.getFinalDamage() > 0) { // hurt: on_damaged (a hit taken while channeling...)

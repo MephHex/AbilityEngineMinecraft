@@ -50,6 +50,16 @@ public final class BukkitIndicatorRenderer implements IndicatorRenderer {
     private static final double GLOW_SEGMENT = 0.9;
     /** How thick a glowing bar is. */
     private static final float GLOW_THICK = 0.06f;
+    /** Ticks a glowing bar takes to glide to where the crosshair moved it (its position and its edge alike). */
+    private static final int GLIDE_TICKS = 2;
+    /** A bar not in use: no size at all. */
+    private static final Transformation HIDDEN =
+            new Transformation(new Vector3f(), new Quaternionf(), new Vector3f(), new Quaternionf());
+    /**
+     * Pieces of a cone's arc: always this many, whatever the reach, so each bar keeps the same piece from one update to
+     * the next (a count that changed with the distance handed bars to other pieces: the outline seemed to grow and shrink).
+     */
+    private static final int ARC_PIECES = 12;
 
     public BukkitIndicatorRenderer(Plugin plugin) {
         this.plugin = plugin;
@@ -179,20 +189,27 @@ public final class BukkitIndicatorRenderer implements IndicatorRenderer {
             org.bukkit.entity.BlockDisplay bar = bars.get(i);
             bar.teleport(anchor);
             if (!color.equals(bar.getGlowColorOverride())) bar.setGlowColorOverride(color);
-            bar.setInterpolationDelay(0);
-            if (i >= segments.size()) { // a spare: out of sight
-                bar.setTransformation(new Transformation(new Vector3f(), new Quaternionf(), new Vector3f(), new Quaternionf()));
-                continue;
+            boolean shown = bar.getTransformation().getScale().lengthSquared() > 1e-8;
+            Transformation want = HIDDEN;
+            if (i < segments.size()) {
+                Vec3 a = segments.get(i)[0].subtract(spot), b = segments.get(i)[1].subtract(spot);
+                Vec3 d = b.subtract(a);
+                float len = (float) d.length();
+                if (len >= 1e-4) {
+                    Quaternionf rot = new Quaternionf().rotationTo(1, 0, 0, (float) (d.x() / len), (float) (d.y() / len), (float) (d.z() / len));
+                    // a bar from a to b: its box grows from its corner, so start half its thickness off the line
+                    Vector3f start = new Vector3f((float) a.x(), (float) a.y(), (float) a.z())
+                            .add(rot.transform(new Vector3f(0, -GLOW_THICK / 2, -GLOW_THICK / 2)));
+                    want = new Transformation(start, rot, new Vector3f(len, GLOW_THICK, GLOW_THICK), new Quaternionf());
+                }
             }
-            Vec3 a = segments.get(i)[0].subtract(spot), b = segments.get(i)[1].subtract(spot);
-            Vec3 d = b.subtract(a);
-            float len = (float) d.length();
-            if (len < 1e-4) continue;
-            Quaternionf rot = new Quaternionf().rotationTo(1, 0, 0, (float) (d.x() / len), (float) (d.y() / len), (float) (d.z() / len));
-            // a bar from a to b: its box grows from its corner, so start half its thickness off the line
-            Vector3f start = new Vector3f((float) a.x(), (float) a.y(), (float) a.z())
-                    .add(rot.transform(new Vector3f(0, -GLOW_THICK / 2, -GLOW_THICK / 2)));
-            bar.setTransformation(new Transformation(start, rot, new Vector3f(len, GLOW_THICK, GLOW_THICK), new Quaternionf()));
+            if (want.equals(bar.getTransformation())) continue; // unchanged: don't restart its animation
+            boolean wantShown = want != HIDDEN;
+            // Appearing or vanishing (a spare, a shape with fewer edges): snap, never animate it growing out of / shrinking
+            // into nothing (that's the shape seeming to grow and shrink). Only a bar that stays shown glides to its new edge.
+            bar.setInterpolationDuration(shown && wantShown ? GLIDE_TICKS : 0);
+            bar.setInterpolationDelay(0);
+            bar.setTransformation(want);
         }
     }
 
@@ -205,8 +222,9 @@ public final class BukkitIndicatorRenderer implements IndicatorRenderer {
             e.setBrightness(new org.bukkit.entity.Display.Brightness(15, 15));
             e.setGlowing(true);
             e.setGlowColorOverride(VALID_COLOR);
-            e.setTeleportDuration(2);     // glides with the crosshair instead of jumping
-            e.setInterpolationDuration(2);
+            e.setTeleportDuration(GLIDE_TICKS); // glides with the crosshair instead of jumping
+            e.setInterpolationDuration(0);      // (it appears as it is, see updateGlow)
+            e.setTransformation(HIDDEN);
             VisualEntities.mark(e);
         });
         owner.showEntity(plugin, d);
@@ -253,7 +271,7 @@ public final class BukkitIndicatorRenderer implements IndicatorRenderer {
             double a = -half + 2 * half * i / points;
             dot(p, dust, origin.add(rotateY(forward, a)));
         }
-        int sides = Math.max(4, (int) Math.ceil(2 * half * len / GLOW_SEGMENT));
+        int sides = ARC_PIECES;
         for (int i = 0; i < sides; i++) {
             double a = -half + 2 * half * i / sides, b = -half + 2 * half * (i + 1) / sides;
             segments.add(new Vec3[] {origin.add(rotateY(forward, a)), origin.add(rotateY(forward, b))});

@@ -60,6 +60,9 @@ public final class CastBarHud implements Listener {
             if (fill.isPresent()) {
                 p.setLevel(0); // hides the level number while the bar is up
                 p.setExp((float) Math.min(0.999, fill.get()));
+            } else if (statusBar.get().fill() == CharacterDef.StatusBar.Fill.CLONE_HEALTH) { // their clone's health
+                p.setLevel(0);
+                p.setExp((float) Math.min(0.999, engine.bodies().cloneHealthShare(id).orElse(0)));
             } else {
                 var gauge = statusBar.get().fill() == CharacterDef.StatusBar.Fill.STACKS
                         ? engine.statuses().stackGauge(id, statusBar.get().status())

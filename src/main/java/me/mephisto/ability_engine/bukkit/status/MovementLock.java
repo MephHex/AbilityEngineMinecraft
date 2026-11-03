@@ -38,8 +38,12 @@ final class MovementLock {
         if (living instanceof org.bukkit.entity.Player p) p.setFlySpeed(DEFAULT_FLY_SPEED);
     }
 
+    /** How much of a slow each entity shrugs off (slow_resistance: 0.3 = the -40% is -28%). */
+    static java.util.function.ToDoubleFunction<java.util.UUID> slowResistance = id -> 0;
+
     static void applySlow(LivingEntity living) {
-        add(living.getAttribute(Attribute.MOVEMENT_SPEED), SLOW_KEY, SLOW_AMOUNT);
+        double kept = 1 - Math.max(0, Math.min(1, slowResistance.applyAsDouble(living.getUniqueId())));
+        add(living.getAttribute(Attribute.MOVEMENT_SPEED), SLOW_KEY, SLOW_AMOUNT * kept);
     }
 
     static void removeSlow(LivingEntity living) {

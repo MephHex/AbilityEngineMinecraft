@@ -108,7 +108,9 @@ public final class ApplyEffectsNode implements GraphNode {
         java.util.List<String> usedUp = new java.util.ArrayList<>();
         for (ActiveStatus s : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
             var abilityOnHit = s.def().extras().abilityOnHit();
-            for (EffectConfig config : abilityOnHit) apply(ctx, config.asOnHit(), target);
+            me.mephisto.ability_engine.engine.combat.DamageAmount.withStatusSource(s.source(), () -> {
+                for (EffectConfig config : abilityOnHit) apply(ctx, config.asOnHit(), target);
+            });
             if (s.def().once() && !abilityOnHit.isEmpty()) usedUp.add(s.def().id()); // "your NEXT ability hit"
         }
         usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id));
@@ -135,9 +137,11 @@ public final class ApplyEffectsNode implements GraphNode {
         java.util.List<String> usedUp = new java.util.ArrayList<>();
         boolean basic = ctx.engine().stats().isBasicAttack(ctx.caster(), ctx.instance().ability().id());
         for (ActiveStatus buff : java.util.List.copyOf(ctx.engine().statuses().on(ctx.caster()))) {
-            for (EffectConfig config : buff.def().onHit()) apply(ctx, config.asOnHit(), target);
             var basicOnHit = buff.def().extras().basicOnHit();
-            if (basic) for (EffectConfig config : basicOnHit) apply(ctx, config.asOnHit(), target); // basic attacks only
+            me.mephisto.ability_engine.engine.combat.DamageAmount.withStatusSource(buff.source(), () -> { // (sp_of: source)
+                for (EffectConfig config : buff.def().onHit()) apply(ctx, config.asOnHit(), target);
+                if (basic) for (EffectConfig config : basicOnHit) apply(ctx, config.asOnHit(), target); // basic attacks only
+            });
             if (buff.def().once() && (!buff.def().onHit().isEmpty() || (basic && !basicOnHit.isEmpty()))) usedUp.add(buff.def().id());
         }
         usedUp.forEach(id -> ctx.engine().statuses().remove(ctx.caster(), id)); // "your NEXT hit" buffs
