@@ -1339,7 +1339,8 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
   (looping: that blade isn't by his head meanwhile; several add up), sm_neth_shot, sm_gold_shot, sm_neth_hit, sm_gold_hit,
   sm_heal, sm_neth_return / sm_gold_return (line: `at: flight_end, to: caster`, it flies back), sm_twin_thrust (line:
   `at: caster, to: aim`, both blades pointing ahead, meeting point to point 4.5 blocks out, and back), sm_thrust_hit,
-  sm_guard (looping: the blades plunge point first into the ground in front of him, side by side), sm_dash, sm_neth_drop / sm_gold_drop (a big blade falls point first from the sky in 10 ticks, FALL_TICKS, and stays planted 2s in all:
-  SwordMasterCues.PLANTED_TICKS, keep the sm_*_planted statuses in step), sm_neth_impact / sm_gold_impact (3 blocks),
+  sm_guard (looping: the blades crossed in front of him, points up), sm_dash, sm_neth_drop / sm_gold_drop (a blade the size of his own falls point first from the sky in 10 ticks, FALL_TICKS, and stays planted 2s in all:
+  SwordMasterCues.PLANTED_TICKS, keep the sm_*_planted statuses in step), sm_neth_impact / sm_gold_impact (blades of
+  that kind erupt all over 3 blocks and sink back),
   sm_ult_start, sm_zone (a 5-block ring), sm_cut (looping, on an enemy: a pair of blades pointing at them, following them,
   drawing back and stabbing; `ticks: 10` for one cut).

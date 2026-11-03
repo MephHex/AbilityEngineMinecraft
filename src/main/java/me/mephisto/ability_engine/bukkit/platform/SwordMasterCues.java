@@ -99,8 +99,8 @@ final class SwordMasterCues {
         // ---- 3: Falling Blade ----
         c.register("sm_neth_drop", loc -> drop(plugin, loc, NETH));
         c.register("sm_gold_drop", loc -> drop(plugin, loc, GOLD));
-        c.register("sm_neth_impact", loc -> impact(loc, DARK, Particle.CRIT));
-        c.register("sm_gold_impact", loc -> impact(loc, GILT, Particle.ENCHANTED_HIT));
+        c.register("sm_neth_impact", loc -> erupt(plugin, loc, NETH, DARK, Particle.CRIT));
+        c.register("sm_gold_impact", loc -> erupt(plugin, loc, GOLD, GILT, Particle.ENCHANTED_HIT));
 
         // ---- ULTIMATE: Death by a Thousand Cuts ----
         c.register("sm_ult_start", loc -> {
@@ -286,10 +286,7 @@ final class SwordMasterCues {
         w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 0.8f);
     }
 
-    /**
-     * 2: the blades plunge point first into the ground in front of him, side by side, flat sides to the front: a guard
-     * that follows him while he channels.
-     */
+    /** 2: the blades crossed in front of him (an X, points up, flat sides to the front), following him while he channels. */
     private static CueHandle guard(Plugin plugin, Entity e) {
         e.getWorld().playSound(e.getLocation(), Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1f, 0.8f);
         e.getWorld().playSound(e.getLocation(), Sound.BLOCK_ANVIL_PLACE, 0.4f, 1.8f);
@@ -298,28 +295,20 @@ final class SwordMasterCues {
         int[] tick = {0};
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!e.isValid()) return;
-            float yaw = e.getLocation().getYaw();
-            Vector f = facing(yaw), r = right(f);
-            double drop = Math.max(0, 3 - tick[0]) * 0.4; // the first ticks: plunging down into the ground
-            // points down, flat sides to the front (turned to face where he faces)
-            Quaternionf q = new Quaternionf().rotateY((float) Math.toRadians(-yaw)).rotateZ((float) (-Math.PI / 2 - TIP));
+            Location eye = e instanceof org.bukkit.entity.LivingEntity l ? l.getEyeLocation() : e.getLocation().add(0, 1.6, 0);
+            float yaw = eye.getYaw();
+            Location at = eye.clone().add(facing(yaw).multiply(0.9)).add(0, -0.45, 0);
+            at.setYaw(0);
+            at.setPitch(0);
+            Quaternionf turn = new Quaternionf().rotateY((float) Math.toRadians(-yaw)); // flat sides to the front
             for (ItemDisplay d : new ItemDisplay[]{neth, gold}) {
                 if (!d.isValid()) continue;
-                Location at = e.getLocation().add(f.clone().multiply(1.0)).add(r.clone().multiply(d == neth ? -0.45 : 0.45))
-                        .add(0, 0.95 + drop, 0);
-                at.setYaw(0);
-                at.setPitch(0);
                 d.teleport(at);
+                double point = d == neth ? Math.toRadians(135) : Math.toRadians(45); // one up each side: crossed
+                Quaternionf q = new Quaternionf(turn).rotateZ((float) (point - TIP));
                 d.setTransformation(new Transformation(new Vector3f(), q, new Vector3f(size), new Quaternionf()));
             }
-            Location front = e.getLocation().add(f.clone().multiply(1.0)).add(0, 0.1, 0);
-            if (tick[0] == 3) { // they hit the ground
-                front.getWorld().spawnParticle(Particle.BLOCK, front, 16, 0.5, 0.1, 0.2, 0,
-                        front.clone().add(0, -0.5, 0).getBlock().getBlockData().getMaterial().isAir()
-                                ? Material.STONE.createBlockData() : front.clone().add(0, -0.5, 0).getBlock().getBlockData());
-                front.getWorld().playSound(front, Sound.ITEM_TRIDENT_HIT_GROUND, 1f, 1.1f);
-            }
-            if (tick[0] % 4 == 0) front.getWorld().spawnParticle(Particle.DUST, front.clone().add(0, 0.9, 0), 4, 0.5, 0.5, 0.2, 0, STEEL);
+            if (tick[0] % 4 == 0) at.getWorld().spawnParticle(Particle.DUST, at, 4, 0.5, 0.5, 0.5, 0, STEEL);
             tick[0]++;
         }, 0, 1);
         return () -> {
@@ -329,16 +318,18 @@ final class SwordMasterCues {
         };
     }
 
-    /** 3: a big blade falls from the sky tip first, plants itself in the ground, stays, then fades. */
+    /** 3: the blade (as big as by his head) falls from the sky point first, plants itself in the ground, stays, then goes. */
     private static void drop(Plugin plugin, Location ground, Material m) {
         World w = ground.getWorld();
-        float size = 2.4f;
-        Vector planted = ground.toVector().add(new Vector(0, 0.75, 0));
+        float size = BLADE_SIZE;
+        Vector planted = ground.toVector().add(new Vector(0, 0.35, 0)); // (its point in the ground)
         Vector top = planted.clone().add(new Vector(0, 10, 0));
         w.playSound(ground, Sound.ITEM_TRIDENT_RIPTIDE_3, 0.8f, 1.6f);
         ItemDisplay[] d = new ItemDisplay[1];
         // pointing straight down the whole way, falling faster and faster
         d[0] = flight(plugin, w, m, top, planted, new Vector(0, -1, 0), FALL_TICKS, size, true, () -> {
+            w.spawnParticle(Particle.DUST, ground.clone().add(0, 0.1, 0), 8, 0.2, 0.05, 0.2, 0, m == GOLD ? GILT : DARK);
+            w.playSound(ground, Sound.ITEM_TRIDENT_HIT_GROUND, 1f, 1.2f);
             int[] t = {0};
             BukkitTask[] stay = new BukkitTask[1];
             stay[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -350,7 +341,7 @@ final class SwordMasterCues {
                 if (t[0] % 10 == 0) w.spawnParticle(Particle.DUST, planted.toLocation(w), 3, 0.3, 0.6, 0.3, 0,
                         m == GOLD ? GILT : DARK);
                 if (t[0] >= PLANTED_TICKS - FALL_TICKS - 4) { // the last moments: it pulls itself out
-                    d[0].teleport(d[0].getLocation().add(0, 0.25, 0));
+                    d[0].teleport(d[0].getLocation().add(0, 0.15, 0));
                 }
                 if (t[0] >= PLANTED_TICKS - FALL_TICKS) { // (its fall counts: planted from when it was dropped)
                     stay[0].cancel();
@@ -359,6 +350,31 @@ final class SwordMasterCues {
                 }
             }, 1, 1);
         });
+    }
+
+    /**
+     * 3, after a moment in the ground: blades of its kind erupt all over the area (3 blocks), points up, and sink back
+     * (the damage lands with them).
+     */
+    private static void erupt(Plugin plugin, Location center, Material m, Particle.DustOptions color, Particle sparks) {
+        World w = center.getWorld();
+        impact(center, color, sparks);
+        java.util.Random random = new java.util.Random();
+        for (int i = 0; i < 12; i++) {
+            double a = Math.PI * 2 * i / 8 + random.nextDouble() * 0.4, r = i < 8 ? 2.2 + random.nextDouble() * 0.6 : 0.9 + random.nextDouble() * 0.4;
+            if (i >= 8) a = Math.PI * 2 * (i - 8) / 4 + random.nextDouble();
+            Vector spot = center.toVector().add(new Vector(Math.cos(a) * r, 0, Math.sin(a) * r));
+            Vector under = spot.clone().add(new Vector(0, -0.7, 0)), up = spot.clone().add(new Vector(0, 0.5, 0));
+            int delay = random.nextInt(3); // (not all at once: a ragged burst)
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                ItemDisplay[] d = new ItemDisplay[1];
+                d[0] = flight(plugin, w, m, under, up, new Vector(0, 1, 0), 2, BLADE_SIZE * 1.1f, () ->
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                            if (d[0].isValid()) d[0].remove();
+                            flight(plugin, w, m, up, under, new Vector(0, 1, 0), 4, BLADE_SIZE * 1.1f, null);
+                        }, 5));
+            }, delay);
+        }
     }
 
     private static void impact(Location loc, Particle.DustOptions color, Particle sparks) {

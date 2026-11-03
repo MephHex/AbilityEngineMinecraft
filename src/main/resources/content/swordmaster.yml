@@ -42,7 +42,7 @@ statuses:
 
 abilities:
 
-  # PRIMARY (LMB): Twin Blades. The blade up next stabs whoever he aims at (8 blocks) and flies back to his side; the
+  # PRIMARY (LMB): Twin Blades. The blade up next stabs whoever he aims at (4.5 blocks) and flies back to his side; the
   # blades take turns (one cooldown for both). Netherite (left): 100% base damage (physical), +50% to shields. Gold
   # (right): 60% base damage + 60% spell power (magic), and a hit heals him 8 + 20% spell power. While one is planted
   # (3: Falling Blade), the other attacks every time.
@@ -52,7 +52,7 @@ abilities:
       name: "Twin Blades"
       description:
         - "The blade in your hand stabs where you"
-        - "aim (8 blocks); they take turns."
+        - "aim (4.5 blocks); they take turns."
         - "Netherite: {base:1.0|physical}, +50% to shields."
         - "Gold: {base:0.6|magic} + {sp:0.6|magic},"
         - "a hit heals you {flat:8} {sp_per:4/20}."
@@ -93,8 +93,8 @@ abilities:
         up: 0.05
         speed: 1.8
         size: 0.5
-        range: 8
-        lifetime: 6
+        range: 4.5
+        lifetime: 4
         on: { hit_entity: neth_hit, hit_block: neth_back, expired: neth_back }
       neth_hit:
         type: apply_effects
@@ -137,8 +137,8 @@ abilities:
         up: 0.05
         speed: 1.8
         size: 0.5
-        range: 8
-        lifetime: 6
+        range: 4.5
+        lifetime: 4
         on: { hit_entity: gold_hit, hit_block: gold_back, expired: gold_back }
       gold_hit:
         type: apply_effects
@@ -302,8 +302,8 @@ abilities:
         radius: 0.8
         flat: true
 
-  # 3: Falling Blade (14s). The blade up next drops from the sky where he chooses (16 blocks) and stays planted there
-  # 2s; meanwhile his basic attacks only use the other one. Netherite: 150% base damage around it (3 blocks, physical),
+  # 3: Falling Blade (14s). The blade up next drops from the sky where he chooses (16 blocks); a moment later blades of
+  # its kind erupt all over the area (that's when it hurts). It stays planted 2s in all; meanwhile his basic attacks only use the other one. Netherite: 150% base damage around it (3 blocks, physical),
   # +50% to shields. Gold: 60% base damage + 100% spell power around it (magic), and he heals 30 + 50% spell power if it
   # hits anyone. On-hit effects apply.
   sm_ab3:
@@ -314,8 +314,8 @@ abilities:
       name: "Falling Blade"
       icon: POINTED_DRIPSTONE
       description:
-        - "Drop the blade up next from the sky"
-        - "(3 blocks). It stays planted 2s: only"
+        - "Drop the blade up next from the sky: blades"
+        - "erupt around it (3 blocks). It stays 2s: only"
         - "the other one attacks meanwhile."
         - "Netherite: {base:1.5|physical},"
         - "+50% to shields. Gold: {base:0.6|magic} +"
@@ -341,6 +341,10 @@ abilities:
       neth_fall:
         type: delay                  # (it falls: SwordMasterCues.FALL_TICKS)
         ticks: 10
+        next: neth_brew
+      neth_brew:
+        type: delay                  # a moment in the ground, then blades erupt all around
+        ticks: 10
         next: neth_hit
       neth_hit:
         type: apply_effects
@@ -356,7 +360,7 @@ abilities:
         next: neth_wait
       neth_wait:
         type: delay                  # planted (40 ticks in all, its fall included)
-        ticks: 30
+        ticks: 20
         next: neth_back
       neth_back:
         type: play_cue
@@ -376,6 +380,10 @@ abilities:
         at: aim
         next: gold_fall
       gold_fall:
+        type: delay
+        ticks: 10
+        next: gold_brew
+      gold_brew:
         type: delay
         ticks: 10
         next: gold_hit
@@ -409,7 +417,7 @@ abilities:
         next: gold_wait
       gold_wait:
         type: delay
-        ticks: 30
+        ticks: 20
         next: gold_back
       gold_back:
         type: play_cue
@@ -419,7 +427,8 @@ abilities:
 
   # ULTIMATE (F): Death by a Thousand Cuts. An area (5 blocks, 18 away at most) for 6s: every 0.5s each enemy in it is
   # stabbed by a pair of blades: 30% base damage (physical, +50% to shields) and 15% base damage + 25% spell power
-  # (magic); he heals 4 + 8% spell power per pair. No abilities or basic attacks meanwhile.
+  # (magic); he heals 4 + 8% spell power per pair. No abilities or basic attacks meanwhile, and his own blades are gone
+  # from his side (they're the ones cutting).
   sm_ult:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
     interrupted_by: [state.stunned]
@@ -436,6 +445,14 @@ abilities:
         - "{flat:4} {sp_per:1.6/20} each time. No abilities"
         - "or basic attacks meanwhile."
     nodes:
+      neth_away:
+        type: start_cue              # his blades leave his side for the whole ult (they're the ones cutting)
+        cue: sm_neth_away
+        next: gold_away
+      gold_away:
+        type: start_cue
+        cue: sm_gold_away
+        next: open
       open:
         type: play_cue
         cue: sm_ult_start

@@ -57,7 +57,7 @@ class SwordMasterTest {
     @Test
     void theBladesTakeTurnsOnOneCooldown() throws IOException {
         setup();
-        UUID e = enemyAt(6, 0);
+        UUID e = enemyAt(4, 0);
         assertFalse(goldNext(), "netherite first");
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
         t.time.advance(10);
@@ -72,6 +72,15 @@ class SwordMasterTest {
         assertEquals(BASE + BASE * 0.6, t.damage(e), 1e-6, "gold: 60% base damage");
         assertEquals(8, healed(), 1e-6, "and a heal");
         assertFalse(goldNext(), "netherite again");
+    }
+
+    @Test
+    void theBasicAttackReaches4AndAHalfBlocks() throws IOException {
+        setup();
+        UUID far = enemyAt(6, 0);
+        t.engine.loadouts().activate(p, Slots.PRIMARY);
+        t.time.advance(10);
+        assertEquals(0, t.damage(far), 1e-9);
     }
 
     @Test
@@ -114,18 +123,18 @@ class SwordMasterTest {
     @Test
     void theFallingBladeIsTheOneUpNextAndTheOtherAttacksMeanwhile() throws IOException {
         setup();
-        UUID there = enemyAt(8, 0), shot = enemyAt(5, 6);
+        UUID there = enemyAt(8, 0), shot = enemyAt(2.5, 3);
         t.world.look(p, new Vec3(8, -1, 0).normalize());
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting());
         assertTrue(t.engine.targeting().confirm(p).success());
-        t.time.advance(12);
+        t.time.advance(22);
         assertTrue(t.engine.statuses().has(p, "sm_neth_planted"), "netherite was up next");
         assertEquals(BASE * 1.5, t.damage(there), 1e-6, "150% base damage around it");
 
-        t.world.look(p, new Vec3(5, 0, 6).normalize());
+        t.world.look(p, new Vec3(2.5, 0, 3).normalize());
         for (int i = 0; i < 2; i++) {                                // gold both times while netherite is planted
             assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
-            t.time.advance(20);
+            t.time.advance(i == 0 ? 16 : 20);
         }
         assertEquals(BASE * 0.6 * 2, t.damage(shot), 1e-6, "gold, twice");
         assertEquals(16, healed(), 1e-6);
@@ -140,7 +149,7 @@ class SwordMasterTest {
         t.world.look(p, new Vec3(8, -1, 0).normalize());
         t.engine.loadouts().activate(p, Slots.ABILITY_3);
         t.engine.targeting().confirm(p);
-        t.time.advance(12);
+        t.time.advance(22);
         assertTrue(t.engine.statuses().has(p, "sm_gold_planted"));
         assertEquals(BASE * 0.6, t.damage(there), 1e-6, "magic, 60% base damage");
         assertEquals(30, healed(), 1e-6, "it heals him");
