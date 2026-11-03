@@ -140,7 +140,7 @@ final class ModelBehaviorDriver implements Listener {
         }
         if (entity instanceof Player p) {
             if (p.isSprinting()) facts.add("sprinting");
-            if (p.isSneaking()) facts.add("sneaking");
+            if (p.isSneaking() || p.getCurrentInput().isSneak()) facts.add("sneaking"); // (the key: the pose lags)
             if (p.isFlying()) facts.add("flying");
             if (p.isBlocking()) facts.add("blocking");
         }
