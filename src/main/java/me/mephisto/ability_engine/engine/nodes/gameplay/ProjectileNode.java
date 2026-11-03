@@ -48,8 +48,14 @@ public final class ProjectileNode implements GraphNode {
      * @param back   blocks from {@code from} back toward the caster (flat; negative = beyond it)
      * @param toward a key to fly at (null = along the caster's aim)
      */
-    public record Launch(String from, double up, double back, String toward) {
+    /**
+     * @param side from the eyes: that far to the right (negative: left), flying at what they aim at (where their aim
+     *             first meets a block or someone, within its range), so it still lands under the crosshair
+     */
+    public record Launch(String from, double up, double back, String toward, double side) {
         public static final Launch EYES = new Launch(null, 0, 0, null);
+
+        public Launch(String from, double up, double back, String toward) { this(from, up, back, toward, 0); }
     }
 
     /**
@@ -156,6 +162,19 @@ public final class ProjectileNode implements GraphNode {
         if (pattern.level()) {
             Vec3 flat = new Vec3(aimDir.x(), 0, aimDir.z());
             aimDir = flat.isZero() ? new Vec3(1, 0, 0) : flat.normalize();
+        }
+        if (launch.side() != 0 && launch.from() == null && launch.toward() == null && pattern.heading() == Heading.AIM) {
+            // beside the eyes (a floating blade by their head), converging on what they aim at
+            Vec3 right = new Vec3(-a.direction().z(), 0, a.direction().x());
+            right = right.isZero() ? new Vec3(1, 0, 0) : right.normalize();
+            origin = a.eye().add(right.multiply(launch.side())).add(0, launch.up(), 0);
+            java.util.UUID self = ctx.caster();
+            Vec3 far = a.eye().add(a.direction().multiply(spec.range()));
+            Vec3 aimed = ctx.engine().world().sweep(world, a.eye(), far, 0.1, id -> id.equals(self)
+                            || ctx.engine().teams().allies(self, id))
+                    .map(me.mephisto.ability_engine.engine.platform.SweepHit::position).orElse(far);
+            Vec3 way = aimed.subtract(origin);
+            if (!way.isZero()) aimDir = way.normalize();
         }
         if (launch.toward() != null) {
             Vec3 from = origin != null ? origin : a.eye();

@@ -80,7 +80,7 @@ public final class NodeTypes {
                 p.getString("count_players", null)).countingKills(p.getString("count_kills", null)));
         t.register("projectile", (p, e) -> new ProjectileNode(seekMarksKnown(Parsers.projectile(p), p, e), p.getString("store", null),
                 new ProjectileNode.Launch(p.getString("from", null), p.getDouble("up", 0), p.getDouble("back", 0),
-                        p.getString("toward", null)), Parsers.pattern(p)));
+                        p.getString("toward", null), p.getDouble("side", 0)), Parsers.pattern(p)));
         t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3),
                 p.getBool("projectiles_only", false), p.getBool("reflect", false), p.getBool("around", false)));
         t.register("start_cue", (p, e) -> {

@@ -1318,3 +1318,21 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
   1.6 blocks), dh_parry, dh_fang_cast, dh_fang_ready (looping), dh_fang, dh_marked (looping), dh_bleed_open, dh_bleeding
   (looping), dh_cut_ready, dh_cut_leap, dh_clean_cut (3 blocks), dh_cut_return; dh_swing, dh_whiff and dh_execute as
   before. Keep the radii in step with dragon_hunter.yml (DragonHunterCues).
+
+## Added for the SwordMaster
+
+- **Projectiles:** `side: -0.75` - launched that far to the caster's right (negative: left) of their eyes (`up:` raises
+  it), flying at what they aim at (where their aim first meets a block or someone within its `range`), so it still lands
+  under the crosshair (a blade floating by the head). Primary fire as usual.
+- **Blackboard key `flight_end`:** where a projectile's flight ended, however it ended (a hit, a wall, out of range or
+  time), e.g. `{ type: play_cue, cue: sm_neth_return, at: flight_end, to: caster }` on `expired` too.
+- **Damage:** `shield_bonus: 0.5` - the target's shield (absorption) takes 50% more from the hit; what's left once it
+  breaks hits their health as usual. Write it out in the description ("+50% to shields").
+- **Tags:** `state.no_swing` - the holder's arm swing isn't shown to anyone else (their clicks still work).
+- **Cues:** sm_blades (looping: the two floating blades, netherite left, gold right), sm_neth_away / sm_gold_away
+  (looping: that blade isn't by his head meanwhile; several add up), sm_neth_shot, sm_gold_shot, sm_neth_hit, sm_gold_hit,
+  sm_heal, sm_neth_return / sm_gold_return (line: `at: flight_end, to: caster`, it flies back), sm_twin_thrust (line:
+  `at: caster, to: aim`, both blades 4.5 blocks out and back), sm_thrust_hit, sm_guard (looping: the blades crossed in
+  front of him), sm_dash, sm_neth_drop / sm_gold_drop (a big blade falls from the sky and stays planted 4s:
+  SwordMasterCues.PLANTED_TICKS, keep the sm_*_planted statuses in step), sm_neth_impact / sm_gold_impact (3 blocks),
+  sm_ult_start, sm_zone (a 5-block ring), sm_cut (a pair of blades stabbing someone).

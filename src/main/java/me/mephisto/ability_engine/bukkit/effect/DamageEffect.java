@@ -24,7 +24,8 @@ import org.bukkit.util.Vector;
  * is still credited to the caster. Meant for damage over time.
  * {@code damage_type: freeze | fire | magic} deals it as that vanilla damage (no knockback either):
  * freeze = ice damage (frozen hurt sound), fire = burning. {@code scale_by: <key>} multiplies the amount
- * by a number the cast stored (a charged shot's power).
+ * by a number the cast stored (a charged shot's power). {@code shield_bonus: 0.5}: the target's shield (absorption)
+ * takes 50% more from it; what's left once the shield breaks hits their health as usual.
  * With /ae debug on, every hit logs the target's health before/after, so a hit that the game
  * silently refused (PvP off, creative target, armor stand, protection plugin) is visible.
  */
@@ -86,7 +87,7 @@ public final class DamageEffect implements Effect {
             return;
         }
         me.mephisto.ability_engine.engine.combat.HitReactions.onHit(ctx); // e.g. basic attacks on a golem cut his cooldowns
-        double amount = design / scale;
+        double amount = againstShield(design, living.getAbsorptionAmount() * scale, ctx.params().getDouble("shield_bonus", 0)) / scale;
         // Vanilla ignores a hit landing within ~10 ticks of the last one. Rapid channels need this.
         if (ctx.params().getBool("ignore_iframes", false)) living.setNoDamageTicks(0);
 
@@ -152,6 +153,16 @@ public final class DamageEffect implements Effect {
     }
 
     /**
+     * {@code design} damage with {@code bonus} more against a {@code shield} (absorption, design HP): the shield takes
+     * (1 + bonus) times the damage; once it's broken the rest is dealt as is.
+     */
+    static double againstShield(double design, double shield, double bonus) {
+        if (bonus <= 0 || shield <= 0) return design;
+        double breaksAt = shield / (1 + bonus); // the raw damage that breaks it
+        return design <= breaksAt ? design * (1 + bonus) : shield + (design - breaksAt);
+    }
+
+    /**
      * A player hitting a teammate whose scoreboard team doesn't allow friendly fire: the engine said they're enemies
      * right now (state.friendly_fire), but vanilla would cancel a hit from them, so it's dealt without a source.
      */
@@ -186,6 +197,7 @@ public final class DamageEffect implements Effect {
     @Override
     public void validate(Params params) {
         me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, true);
+        if (params.getDouble("shield_bonus", 0) < 0) throw params.error("shield_bonus", "extra share against shields, 0 or more (0.5 = +50%)");
         String type = params.getString("damage_type", null);
         if (type != null && typeOf(type) == null) throw params.error("damage_type", "expected freeze, fire or magic");
     }

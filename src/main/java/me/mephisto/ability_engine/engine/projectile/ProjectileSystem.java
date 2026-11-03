@@ -556,9 +556,14 @@ public final class ProjectileSystem {
         if (!p.isGuided()) p.unguidedDistance += moved;
     }
 
+    /** Blackboard key: where a projectile's flight ended (a hit, a wall, or out of range / time). */
+    public static final String FLIGHT_END = "flight_end";
+
     private void finish(Projectile p, String port, Target hit) {
         p.done = true;
         p.visual.remove();
+        // Where it ended, however it ended (a miss too): e.g. a blade flying back from there
+        p.resumer.context().blackboard().putRaw(FLIGHT_END, new PointTarget(p.world, p.lastPosition));
         if (hit != null) {
             p.resumer.context().put(Keys.HIT, hit);
             if (hit instanceof EntityTarget) p.resumer.context().blackboard().putRaw(HIT_INDEX, p.pierced.size());

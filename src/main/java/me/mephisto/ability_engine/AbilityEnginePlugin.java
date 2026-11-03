@@ -123,6 +123,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         glide.start();
         pm.registerEvents(glide, this);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.input.SwingMirror(engine), this); // clones swing along
+        pm.registerEvents(new me.mephisto.ability_engine.bukkit.input.NoSwing(engine), this); // state.no_swing: no arm swing shown
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.PuppetHold(), this); // a puppeteer's decoy swings
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.ConfusionCredit(engine), this); // a confused kill: the confuser's
         marks = new me.mephisto.ability_engine.bukkit.status.MarkDisplays(engine, this); // marks passives (Sucker Punch)
