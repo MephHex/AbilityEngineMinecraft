@@ -162,6 +162,8 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new PlayerLifecycleListener(engine, tagBindings, hud), this);
         startModelEngine();
 
+        var selfView = getCommand("selfview");
+        if (selfView != null) selfView.setExecutor(new me.mephisto.ability_engine.bukkit.command.SelfViewCommand(this));
         var cmd = getCommand("ae");
         if (cmd != null) {
             AbilityCommand executor = new AbilityCommand(engine, bindings, hud, this::reloadAll);

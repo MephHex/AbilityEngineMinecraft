@@ -1322,10 +1322,13 @@ play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg re
   when it's over (a looping one: when it's stopped, e.g. `until_end`). Animations the model doesn't have don't swap it
   in. `show: always`: worn the whole time instead (kept on after a respawn or a reload, off when they pick another
   character or leave); `hide_player: true` then hides the player's own body under it, and Model Engine's own default
-  animations (idle, walk, jump...) play by themselves. While a model is swapped in, its player sees it too: Model
-  Engine only shows a model to others, so a copy only they see stands in their place and follows them (their own body
-  is made invisible meanwhile; on a team that shows invisible teammates they still see a faint ghost of it). A model
-  worn always is only seen by others.
+  animations (idle, walk, jump...) play by themselves. Others always see a swapped-in model; its own player only after
+  `/selfview on` (the server can't tell first person from third, and in first person the model blocks the view): a
+  copy only they see then stands in their place and follows them (their own body is made invisible meanwhile; on a
+  team that shows invisible teammates they still see a faint ghost of it). A model worn always is only seen by others.
+- **Smooth swaps:** `blend: 3` (the default) - ticks an animation eases in from the model's rest pose (a player
+  standing) and back out to it before the model swaps out, unless the animate step gives lerp_in / lerp_out.
+  `blend: 0` snaps.
 - **Items:** while a model is swapped in, everyone near is shown the wearer holding and wearing nothing (their real
   items would float where the hidden body is), and their real items again after. A model that should carry them has
   item bones: `ir_<name>` shows what the wearer holds in their main hand, `il_<name>` the off hand, `ih_<name>` the

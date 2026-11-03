@@ -395,8 +395,10 @@ public final class AbilityLoader {
         if (!show.equals("animating") && !show.equals("always")) {
             throw m.error("show", "animating (only while one of its animations plays) or always");
         }
+        int blend = m.getInt("blend", CharacterDef.Model.DEFAULT_BLEND);
+        if (blend < 0) throw m.error("blend", "ticks its animations ease in and out, 0 or more");
         return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix, show.equals("always"),
-                hold(m));
+                hold(m), blend);
     }
 
     /** {@code hold: false}, {@code hold_offset: [x, y, z]} (pixels), {@code hold_rotation: [x, y, z]} (degrees). */

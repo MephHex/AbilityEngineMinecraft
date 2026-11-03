@@ -10,8 +10,15 @@ commands:
     description: AbilityEngine commands
     usage: /ae <char|dummy|mob|cast|castas|bind|unbind|cdclear|list|status|apply|setres|reload|debug> [args]
     permission: abilityengine.admin
+  selfview:
+    description: See your own character model's animations (best in third person)
+    usage: /selfview [on|off]
+    permission: abilityengine.selfview
 
 permissions:
+  abilityengine.selfview:
+    description: Use /selfview
+    default: true
   abilityengine.admin:
     description: Use /ae
     default: op

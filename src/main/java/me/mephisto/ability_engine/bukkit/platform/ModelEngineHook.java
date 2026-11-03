@@ -70,8 +70,12 @@ public final class ModelEngineHook implements Animator, Listener {
         final long since = Bukkit.getCurrentTick();
         /** animation -> the tick it's over by at the latest (Long.MAX_VALUE: only when it stops playing). */
         final Map<String, Long> playing = new HashMap<>();
-        /** A player's own view of it (null: not a player, or it couldn't be made). */
+        /** A player's own view of it (null: not a player, they don't want it (/selfview), or it couldn't be made). */
         SelfDouble self;
+        /** Its model (for the blend). */
+        CharacterDef.Model def;
+        /** Its animations are over: it swaps out at this tick, after easing back to its rest pose (-1: not yet). */
+        long outAt = -1;
         /** Who was told the wearer holds and wears nothing meanwhile (the model holds it, if it has a hand bone). */
         final List<Player> blanked = new ArrayList<>();
         LivingEntity wearer;
@@ -294,7 +298,10 @@ public final class ModelEngineHook implements Animator, Listener {
                 BlueprintAnimation made = model.getBlueprint().getAnimations().get(name);
                 double speed = settings.speed();
                 if (settings.fit() > 0 && made.getLength() > 0) speed *= made.getLength() * 20 / settings.fit(); // (length: seconds)
-                double lerpIn = settings.lerpIn() / 20.0, lerpOut = settings.lerpOut() / 20.0, at = speed * time;
+                int blend = swap != null && swap.def != null ? swap.def.blend() : 0; // ease from / to the rest pose
+                int inTicks = settings.lerpIn() > 0 ? settings.lerpIn() : blend;
+                int outTicks = settings.lerpOut() > 0 ? settings.lerpOut() : blend;
+                double lerpIn = inTicks / 20.0, lerpOut = outTicks / 20.0, at = speed * time;
                 model.getAnimationHandler().playAnimation(name, lerpIn, lerpOut, at, settings.force());
                 ModeledEntity owner = model.getModeledEntity();
                 if (owner != null && !owner.isInitialized()) { // just swapped in: once Model Engine has set it up
@@ -306,7 +313,7 @@ public final class ModelEngineHook implements Animator, Listener {
                 if (swap != null && (swap.self == null || model != swap.self.model())) swap.playing.put(name, made.getLoopMode() == BlueprintAnimation.LoopMode.LOOP
                         ? Long.MAX_VALUE // until it's stopped
                         : Bukkit.getCurrentTick() + (long) Math.ceil(made.getLength() * 20 / Math.max(0.05, speed * Math.min(1, time)))
-                                + settings.lerpOut() + 5); // (at the latest: a HOLD one never ends by itself)
+                                + outTicks + 5); // (at the latest: a HOLD one never ends by itself)
             }
             if (!playing.isEmpty()) timeOf.putIfAbsent(entity, time);
             if (playing.isEmpty()) {
@@ -374,13 +381,15 @@ public final class ModelEngineHook implements Animator, Listener {
         if (swap == null || !worn.containsKey(id)) {
             endSwap(id);
             swap = new Swap();
+            swap.def = model;
             swaps.put(id, swap);
             if (!model.equals(worn.get(id))) {
                 takeOff(id);
                 putOn(entity, model);
             }
             if (entity instanceof LivingEntity living) blank(swap, living);
-            if (entity instanceof Player player) {
+            if (entity instanceof Player player
+                    && me.mephisto.ability_engine.bukkit.command.SelfViewCommand.wants(player, plugin)) {
                 try {
                     swap.self = SelfDouble.create(player, model.id());
                     if (swap.self != null) dress(player, swap.self.model(), model.hold());
@@ -500,10 +509,16 @@ public final class ModelEngineHook implements Animator, Listener {
                 ActiveModel active = modeled == null ? null : modeled.getModel(model.id()).orElse(null);
                 boolean still = active != null && e.getValue().playing.entrySet().stream().anyMatch(a ->
                         now <= a.getValue() && active.getAnimationHandler().isPlayingAnimation(a.getKey()));
-                if (!still) {
-                    it.remove();
-                    e.getValue().close();
-                    takeOff(id); // themselves again
+                Swap swap = e.getValue();
+                if (still) {
+                    swap.outAt = -1; // (another one started meanwhile)
+                } else {
+                    if (swap.outAt < 0) swap.outAt = now + (swap.def == null ? 0 : swap.def.blend()); // ease out first
+                    if (now >= swap.outAt) {
+                        it.remove();
+                        swap.close();
+                        takeOff(id); // themselves again
+                    }
                 }
             } catch (RuntimeException | LinkageError ex) {
                 if (warned.add("swap:" + ex)) log.warning("Model Engine: couldn't swap the model of " + id + ": " + ex);

@@ -52,8 +52,16 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * @param always     worn the whole time ({@code show: always}), not only while an animation plays
      * @param hold       where the wearer's main-hand item goes on a player-limb model's right arm (null: nowhere); a
      *                   model with an item bone of its own (ir_) uses that instead
+     * @param blend      ticks its animations ease in from its rest pose and back out to it, unless the animate step
+     *                   gives its own lerp_in / lerp_out (smooth swaps: the rest pose is a player standing)
      */
-    public record Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold) {
+    public record Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend) {
+        public static final int DEFAULT_BLEND = 3;
+
+        public Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold) {
+            this(id, hidePlayer, prefix, always, hold, DEFAULT_BLEND);
+        }
+
         /** Shown only while an animation plays, holding the item in the right hand. */
         public Model(String id, boolean hidePlayer, String prefix) { this(id, hidePlayer, prefix, false); }
 

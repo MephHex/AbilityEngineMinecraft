@@ -114,6 +114,14 @@ class AnimationTest {
     }
 
     @Test
+    void animationsBlendInAndOutUnlessToldOtherwise() {
+        UUID k = setup(map("id", "knight_model"));
+        assertEquals(CharacterDef.Model.DEFAULT_BLEND, t.engine.loadouts().characterOf(k).orElseThrow().model().blend());
+        UUID sharp = setup(map("id", "knight_model", "blend", 0));
+        assertEquals(0, t.engine.loadouts().characterOf(sharp).orElseThrow().model().blend());
+    }
+
+    @Test
     void aBadHoldOffsetIsReported() {
         TestEngine t = new TestEngine();
         LoadReport report = new AbilityLoader(t.engine).load(map("characters", map("knight", map(
