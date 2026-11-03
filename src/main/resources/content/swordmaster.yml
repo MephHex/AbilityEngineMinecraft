@@ -42,16 +42,17 @@ statuses:
 
 abilities:
 
-  # PRIMARY (LMB): Twin Blades. The blade up next stabs whoever he aims at (4.5 blocks) and flies back to his side; the
-  # blades take turns (one cooldown for both). Netherite (left): 100% base damage (physical), +50% to shields. Gold
-  # (right): 60% base damage + 60% spell power (magic), and a hit heals him 8 + 20% spell power. While one is planted
-  # (3: Falling Blade), the other attacks every time.
+  # PRIMARY (LMB): Twin Blades. The blade up next thrusts out from his side, pointing ahead, to 4.5 blocks along his aim
+  # and pulls back (Twin Thrust with one blade), striking the first enemy in its way; the blades take turns (one
+  # cooldown for both). Netherite (left): 100% base damage (physical), +50% to shields. Gold (right): 60% base damage +
+  # 60% spell power (magic), and a hit heals him 8 + 20% spell power. While one is planted (3: Falling Blade), the
+  # other attacks every time.
   sm_primary:
     cooldown: 16                     # (the attack_speed stat sets it)
     display:
       name: "Twin Blades"
       description:
-        - "The blade in your hand stabs where you"
+        - "The blade in your hand thrusts where you"
         - "aim (4.5 blocks); they take turns."
         - "Netherite: {base:1.0|physical}, +50% to shields."
         - "Gold: {base:0.6|magic} + {sp:0.6|magic},"
@@ -81,37 +82,31 @@ abilities:
         on_hit: false
         effects:
           - { id: status, status: sm_gold_next }
-        next: neth_shot
-      neth_shot:
-        type: play_cue
-        cue: sm_neth_shot
-        next: neth_stab
-      neth_stab:
-        type: projectile
-        visual: "point:NETHERITE_SWORD"   # point first
-        side: -0.75                  # from his left (where it floats), at what he aims at
-        up: 0.05
-        speed: 0.75                  # slow enough to see it fly (4.5 blocks: 6 ticks)
-        size: 0.5
-        range: 4.5
-        lifetime: 8
-        on: { hit_entity: neth_hit, hit_block: neth_back, expired: neth_back }
+        next: neth_thrust
+      neth_thrust:
+        type: play_cue               # out from his left to 4.5 blocks ahead and back
+        cue: sm_neth_thrust
+        at: caster
+        to: aim
+        next: neth_reach
+      neth_reach:
+        type: delay                  # (its point gets there: SwordMasterCues.THRUST_OUT)
+        ticks: 3
+        next: neth_find
+      neth_find:
+        type: acquire_target         # the first enemy in its way
+        query: { type: hitscan, range: 4.5, ray_size: 1.0 }
+        on: { hit: neth_hit, miss: home }
       neth_hit:
         type: apply_effects
-        targets: { type: key, key: hit }
+        targets: { type: key, key: target }
         effects:
           - { id: damage, base: 1.0, type: physical, shield_bonus: 0.5 }
         next: neth_hit_cue
       neth_hit_cue:
         type: play_cue
         cue: sm_neth_hit
-        at: hit
-        next: neth_back
-      neth_back:
-        type: play_cue               # it flies back to his side
-        cue: sm_neth_return
-        at: flight_end
-        to: caster
+        at: target
         next: home
 
       # ---- gold (right) ----
@@ -125,24 +120,24 @@ abilities:
         on_hit: false
         effects:
           - { id: remove_status, status: sm_gold_next }
-        next: gold_shot
-      gold_shot:
-        type: play_cue
-        cue: sm_gold_shot
-        next: gold_stab
-      gold_stab:
-        type: projectile
-        visual: "point:GOLDEN_SWORD"
-        side: 0.75                   # from his right
-        up: 0.05
-        speed: 0.75                  # slow enough to see it fly (4.5 blocks: 6 ticks)
-        size: 0.5
-        range: 4.5
-        lifetime: 8
-        on: { hit_entity: gold_hit, hit_block: gold_back, expired: gold_back }
+        next: gold_thrust
+      gold_thrust:
+        type: play_cue               # out from his right
+        cue: sm_gold_thrust
+        at: caster
+        to: aim
+        next: gold_reach
+      gold_reach:
+        type: delay
+        ticks: 3
+        next: gold_find
+      gold_find:
+        type: acquire_target
+        query: { type: hitscan, range: 4.5, ray_size: 1.0 }
+        on: { hit: gold_hit, miss: home }
       gold_hit:
         type: apply_effects
-        targets: { type: key, key: hit }
+        targets: { type: key, key: target }
         effects:
           - { id: damage, base: 0.6, sp: 0.6, type: magic }
         next: gold_mend
@@ -156,17 +151,11 @@ abilities:
       gold_hit_cue:
         type: play_cue
         cue: sm_gold_hit
-        at: hit
-        next: gold_back
-      gold_back:
-        type: play_cue
-        cue: sm_gold_return
-        at: flight_end
-        to: caster
+        at: target
         next: home
 
       home:
-        type: delay                  # (its flight back: SwordMasterCues.back)
+        type: delay                  # (held 2 ticks, pulled back in 5)
         ticks: 7
 
   # 1: Twin Thrust (8s). A spear thrust: both blades stab forward (4.5 blocks, a line 1.4 wide), each with its passive:

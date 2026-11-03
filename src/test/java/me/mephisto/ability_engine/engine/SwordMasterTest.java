@@ -84,16 +84,13 @@ class SwordMasterTest {
     }
 
     @Test
-    void aBladeFromTheSideStillHitsWhatHeAimsAt() throws IOException {
+    void aThrustStrikesOnlyTheFirstInItsWay() throws IOException {
         setup();
-        UUID e = enemyAt(4, 0);
-        t.engine.loadouts().activate(p, Slots.PRIMARY);              // from his left
+        UUID first = enemyAt(2, 0), behind = enemyAt(4, 0);
+        t.engine.loadouts().activate(p, Slots.PRIMARY);
         t.time.advance(10);
-        assertTrue(t.damage(e) > 0, "converges on the crosshair");
-        t.time.advance(10);
-        t.engine.loadouts().activate(p, Slots.PRIMARY);              // from his right
-        t.time.advance(10);
-        assertTrue(t.damage(e) > BASE, "both sides");
+        assertEquals(BASE, t.damage(first), 1e-6);
+        assertEquals(0, t.damage(behind), 1e-9, "a basic attack: one enemy");
     }
 
     @Test

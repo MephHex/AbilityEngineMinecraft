@@ -77,7 +77,10 @@ final class SwordMasterCues {
         c.registerLine("sm_gold_return", (w, from, to) -> back(plugin, w, GOLD, from, to));
 
         // ---- 1: Twin Thrust ----
-        c.registerLine("sm_twin_thrust", (w, from, to) -> twinThrust(plugin, w, from, to));
+        c.registerLine("sm_twin_thrust", (w, from, to) -> thrust(plugin, w, from, to, true, true));
+        // primary: one blade, the same thrust from its own side
+        c.registerLine("sm_neth_thrust", (w, from, to) -> thrust(plugin, w, from, to, true, false));
+        c.registerLine("sm_gold_thrust", (w, from, to) -> thrust(plugin, w, from, to, false, true));
         c.register("sm_thrust_hit", loc -> {
             World w = loc.getWorld();
             w.spawnParticle(Particle.DUST, loc, 8, 0.25, 0.3, 0.25, 0, DARK);
@@ -257,8 +260,14 @@ final class SwordMasterCues {
         flight(plugin, w, m, from, home, from.clone().subtract(home), ticks, BLADE_SIZE, null);
     }
 
-    /** 1: both blades shoot out from his sides, pointing ahead, and meet point to point 4.5 blocks along his aim. */
-    private static void twinThrust(Plugin plugin, World w, Vector from, Vector to) {
+    /** Ticks a thrust takes to reach its point (out 3, held 2, back 5: keep the YAML delays in step). */
+    static final int THRUST_OUT = 3;
+
+    /**
+     * A thrust: the blades (netherite from his left, gold from his right) shoot out pointing ahead to where they meet,
+     * 4.5 blocks along his aim, and pull back. 1: both, point to point; primary: one.
+     */
+    private static void thrust(Plugin plugin, World w, Vector from, Vector to, boolean withNeth, boolean withGold) {
         Vector dir = to.clone().subtract(from);
         if (dir.lengthSquared() < 1e-6) return;
         dir.normalize();
@@ -266,24 +275,32 @@ final class SwordMasterCues {
         Vector r = flat.lengthSquared() < 1e-6 ? new Vector(1, 0, 0) : right(flat.normalize());
         Vector meet = from.clone().add(new Vector(0, 0.75, 0)).add(dir.clone().multiply(4.5)); // where their points meet
         for (int i = 0; i < 2; i++) {
+            if (i == 0 ? !withNeth : !withGold) continue;
             Material m = i == 0 ? NETH : GOLD;
             Vector start = from.clone().add(new Vector(0, 0.75, 0)).add(r.clone().multiply(i == 0 ? -0.75 : 0.75));
-            Vector end = meet.clone().subtract(meet.clone().subtract(start).normalize().multiply(0.6)); // (point to point)
+            Vector end = withNeth && withGold
+                    ? meet.clone().subtract(meet.clone().subtract(start).normalize().multiply(0.6)) // (point to point)
+                    : meet.clone();
             Vector way = end.clone().subtract(start);
             ItemDisplay[] out = new ItemDisplay[1];
-            out[0] = flight(plugin, w, m, start, end, way, 3, 1.1f, () -> Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            float size = withNeth && withGold ? 1.1f : BLADE_SIZE;
+            out[0] = flight(plugin, w, m, start, end, way, THRUST_OUT, size, () -> Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (out[0].isValid()) out[0].remove();
-                flight(plugin, w, m, end, start, way, 5, 1.1f, null); // pulled back, still pointing ahead
+                flight(plugin, w, m, end, start, way, 5, size, null); // pulled back, still pointing ahead
             }, 2));
         }
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            Location at = meet.toLocation(w);
-            w.spawnParticle(Particle.CRIT, at, 8, 0.1, 0.1, 0.1, 0.25);
-            w.playSound(at, Sound.BLOCK_ANVIL_LAND, 0.35f, 2.0f); // the points ring together
-        }, 3);
         Location at = from.toLocation(w);
-        w.playSound(at, Sound.ITEM_TRIDENT_RIPTIDE_1, 0.8f, 1.5f);
-        w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 0.8f);
+        if (withNeth && withGold) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                Location there = meet.toLocation(w);
+                w.spawnParticle(Particle.CRIT, there, 8, 0.1, 0.1, 0.1, 0.25);
+                w.playSound(there, Sound.BLOCK_ANVIL_LAND, 0.35f, 2.0f); // the points ring together
+            }, THRUST_OUT);
+            w.playSound(at, Sound.ITEM_TRIDENT_RIPTIDE_1, 0.8f, 1.5f);
+            w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 0.8f);
+        } else {
+            w.playSound(at, Sound.ITEM_TRIDENT_THROW, 0.7f, withNeth ? 1.3f : 1.7f);
+        }
     }
 
     /** 2: the blades crossed in front of him (an X, points up, flat sides to the front), following him while he channels. */
