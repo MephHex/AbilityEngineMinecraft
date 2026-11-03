@@ -41,12 +41,27 @@ final class SelfDouble {
         place(dummy, player, Float.NaN);
         ModeledEntity modeled = ModelEngineAPI.createModeledEntity(dummy);
         modeled.addModel(active, true);
+        rideOn(active, player);
+        modeled.queuePostInitTask(() -> rideOn(active, player)); // (again once Model Engine has set it up)
         modeled.setModelRotationLocked(true); // aimed every tick (follow)
         ModelEngineHook.faceAsWearer(modeled, player); // (not turning in from south)
         modeled.queuePostInitTask(() -> ModelEngineHook.faceAsWearer(modeled, player));
         boolean was = player.isInvisible();
         if (!was) player.setInvisible(true); // their own body: the copy is it now
         return new SelfDouble(player, dummy, modeled, active, was);
+    }
+
+    /**
+     * The copy rides its player: its pieces are their passengers, so their own game moves it with them every frame,
+     * exactly where they are. Placed by the server instead (20 times a second, a ping behind), it shook against their
+     * smooth movement. Their own model always rides them; others never see this one.
+     */
+    private static void rideOn(ActiveModel active, Player player) {
+        try {
+            active.setPivotOverride(com.ticxo.modelengine.api.model.PivotOverride.create(player));
+        } catch (RuntimeException | LinkageError ex) {
+            // (not set up yet: the post-init task tries again; failing that it's placed every tick as before)
+        }
     }
 
     private static void place(Dummy<Player> dummy, Player player, float body) {
