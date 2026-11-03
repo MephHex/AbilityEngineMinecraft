@@ -50,10 +50,25 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * @param prefix     what its animations' names start with, for {@code animate: { part: ... }} (default: the
      *                   character's id): {@code <prefix>_<slot without underscores>_<part>}, e.g. warrior_ability2_swing
      * @param always     worn the whole time ({@code show: always}), not only while an animation plays
+     * @param hold       where the wearer's main-hand item goes on a player-limb model's right arm (null: nowhere); a
+     *                   model with an item bone of its own (ir_) uses that instead
      */
-    public record Model(String id, boolean hidePlayer, String prefix, boolean always) {
-        /** Shown only while an animation plays. */
+    public record Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold) {
+        /** Shown only while an animation plays, holding the item in the right hand. */
         public Model(String id, boolean hidePlayer, String prefix) { this(id, hidePlayer, prefix, false); }
+
+        /** Holding the item in the right hand. */
+        public Model(String id, boolean hidePlayer, String prefix, boolean always) {
+            this(id, hidePlayer, prefix, always, Hold.DEFAULT);
+        }
+    }
+
+    /**
+     * The held item's place on the right arm, in Blockbench units: {@code offset} pixels from the arm's pivot,
+     * {@code rotation} degrees (x, y, z). The default: at the hand (the bottom of a player arm), pointing forward.
+     */
+    public record Hold(double x, double y, double z, double pitch, double yaw, double roll) {
+        public static final Hold DEFAULT = new Hold(1, -10, 0, -90, 0, 0);
     }
 
     /** Without a model. */

@@ -168,7 +168,7 @@ public final class ModelEngineHook implements Animator, Listener {
             if (want == null) endSwap(id);
             CharacterDef.Model have = worn.get(id);
             if (Objects.equals(want, have) && (want == null || stillOn(id, want.id()))) {
-                if (want != null) dressLimbs(entity, want.id());
+                if (want != null) dressLimbs(entity, want);
                 return;
             }
             if (have != null) takeOff(id);
@@ -197,7 +197,7 @@ public final class ModelEngineHook implements Animator, Listener {
         modeled.addModel(active, true);
         modeled.setBaseEntityVisible(model.always() && !model.hidePlayer()); // swapped in: the model is their body
         worn.put(entity.getUniqueId(), model);
-        dressLimbs(entity, model.id());
+        dressLimbs(entity, model);
         timeOf.putIfAbsent(entity.getUniqueId(), 1.0);
     }
 
@@ -206,18 +206,21 @@ public final class ModelEngineHook implements Animator, Listener {
      * skin (its own /meg disguise does that). Give the empty ones the wearer's: a player's own, a mannequin's, else a
      * default one. Checked again every sync, so limbs reset by Model Engine (set up late, a respawn) get it back.
      */
-    private void dressLimbs(Entity entity, String modelId) {
+    private void dressLimbs(Entity entity, CharacterDef.Model def) {
         ModeledEntity modeled = ModelEngineAPI.getModeledEntity(entity.getUniqueId());
         if (modeled == null) return;
-        ActiveModel active = modeled.getModel(modelId).orElse(null);
-        if (active != null) dress(entity, active);
+        ActiveModel active = modeled.getModel(def.id()).orElse(null);
+        if (active != null) dress(entity, active, def.hold());
     }
 
     /**
      * The model wears {@code entity}'s skin (its player-limb bones) and holds its items: an item bone (ir_ right hand,
-     * il_ left hand, ih_ head) shows what the wearer has there, so a model with a hand bone carries their weapon.
+     * il_ left hand, ih_ head) shows what the wearer has there, so a model with a hand bone carries their weapon. A
+     * player-limb model without one gets a hand bone made for it on its right arm ({@code hold}), so any such model
+     * carries the wearer's main-hand item.
      */
-    private static void dress(Entity entity, ActiveModel active) {
+    private void dress(Entity entity, ActiveModel active, CharacterDef.Hold hold) {
+        if (hold != null && entity instanceof LivingEntity) giveHand(active, hold);
         java.util.ArrayDeque<com.ticxo.modelengine.api.model.bone.ModelBone> bones =
                 new java.util.ArrayDeque<>(active.getBones().values());
         Set<com.ticxo.modelengine.api.model.bone.ModelBone> seen =
@@ -380,7 +383,7 @@ public final class ModelEngineHook implements Animator, Listener {
             if (entity instanceof Player player) {
                 try {
                     swap.self = SelfDouble.create(player, model.id());
-                    if (swap.self != null) dress(player, swap.self.model());
+                    if (swap.self != null) dress(player, swap.self.model(), model.hold());
                 } catch (RuntimeException | LinkageError ex) {
                     if (warned.add("double:" + ex)) log.warning("Model Engine: couldn't show " + player.getName()
                             + " their own model: " + ex);
@@ -388,6 +391,72 @@ public final class ModelEngineHook implements Animator, Listener {
             }
         }
         return swap;
+    }
+
+    private static final String HAND_BONE = "ae_held_item";
+    /** Models we've tried to give a hand bone (made, or found they needn't / couldn't have one). */
+    private final Map<ActiveModel, Boolean> handTried = new java.util.WeakHashMap<>();
+
+    /**
+     * A hand for the wearer's main-hand item on the model's right player-limb arm: an item bone made at runtime, as
+     * Model Engine's importer would make one under that arm in Blockbench ({@code hold}: where on the arm, in pixels and
+     * degrees). Not for a model with an item bone of its own, nor one without a right arm limb. Once per model.
+     */
+    private void giveHand(ActiveModel active, CharacterDef.Hold hold) {
+        if (handTried.containsKey(active)) return;
+        var arm = (com.ticxo.modelengine.api.model.bone.ModelBone) null;
+        java.util.ArrayDeque<com.ticxo.modelengine.api.model.bone.ModelBone> bones = new java.util.ArrayDeque<>(active.getBones().values());
+        Set<com.ticxo.modelengine.api.model.bone.ModelBone> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        while (!bones.isEmpty()) {
+            var bone = bones.poll();
+            if (!seen.add(bone)) continue;
+            bones.addAll(bone.getChildren().values());
+            if (bone.getBoneBehavior(com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes.ITEM).isPresent()) {
+                handTried.put(active, true); // it has its own item bone
+                return;
+            }
+            var limb = bone.getBoneBehavior(com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes.PLAYER_LIMB);
+            if (limb.isPresent() && limb.get().getLimbType() == com.ticxo.modelengine.api.model.bone.type.PlayerLimb.Limb.RIGHT_ARM) {
+                arm = bone;
+            }
+        }
+        if (arm == null) {
+            if (!active.getBones().isEmpty()) handTried.put(active, true); // (no bones yet: set up later, try again)
+            return;
+        }
+        handTried.put(active, true);
+        try {
+            var parent = arm.getBlueprintBone();
+            var bp = new com.ticxo.modelengine.api.generator.blueprint.BlueprintBone();
+            bp.setName(HAND_BONE);
+            bp.setUuid(UUID.randomUUID());
+            bp.setModelBlueprint(parent.getModelBlueprint());
+            // Blockbench pixels -> Model Engine blocks (x and z flipped), degrees -> radians (x and z flipped), as its importer does.
+            org.joml.Vector3f global = new org.joml.Vector3f((float) hold.x(), (float) hold.y(), (float) hold.z())
+                    .mul(-0.0625f, 0.0625f, -0.0625f).add(parent.getGlobalPosition());
+            bp.setGlobalPosition(global);
+            org.joml.Vector3f rot = new org.joml.Vector3f((float) hold.pitch(), (float) hold.yaw(), (float) hold.roll())
+                    .mul(-0.017453292f, 0.017453292f, -0.017453292f);
+            bp.setLocalRotation(rot);
+            bp.getLocalQuaternion().rotateZYX(rot.z, rot.y, rot.x);
+            org.joml.Vector3f local = global.sub(parent.getGlobalPosition(), new org.joml.Vector3f());
+            bp.setLocalPosition(local);
+            org.joml.Quaternionf q = new org.joml.Quaternionf(parent.getGlobalQuaternion())
+                    .mul(new org.joml.Quaternionf().rotationZYX(rot.z, rot.y, rot.x));
+            bp.setGlobalRotation(com.ticxo.modelengine.api.utils.math.TMath.getEulerAnglesZYX(q, new org.joml.Vector3f()));
+            bp.setGlobalQuaternion(q);
+            bp.setRotatedGlobalPosition(local.rotate(parent.getGlobalQuaternion(), new org.joml.Vector3f())
+                    .add(parent.getRotatedGlobalPosition()));
+            bp.setParent(parent); // (the shared blueprint itself isn't touched)
+            Map<String, Object> data = new HashMap<>();
+            data.put("display", org.bukkit.entity.ItemDisplay.ItemDisplayTransform.THIRDPERSON_RIGHTHAND);
+            bp.getBehaviors().put(com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes.ITEM.getId(), data);
+            com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes.ITEM.assignCachedProvider(bp, data);
+            active.forceGenerateBone(arm.getBoneId(), "", bp);
+        } catch (RuntimeException | LinkageError ex) {
+            if (warned.add("hand:" + ex)) log.warning("Model Engine: couldn't give " + active.getBlueprint().getName()
+                    + " a hand for the held item (hold: false turns it off): " + ex);
+        }
     }
 
     /**
@@ -420,11 +489,11 @@ public final class ModelEngineHook implements Animator, Listener {
                     takeOff(id);
                     continue;
                 }
-                dressLimbs(entity, model.id());
+                dressLimbs(entity, model);
                 SelfDouble self = e.getValue().self;
                 if (self != null) {
                     self.follow();
-                    dress(entity, self.model());
+                    dress(entity, self.model(), model.hold());
                 }
                 if (now - e.getValue().since < 2) continue; // (just started)
                 ModeledEntity modeled = ModelEngineAPI.getModeledEntity(id);

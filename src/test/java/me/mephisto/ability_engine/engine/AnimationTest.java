@@ -103,6 +103,25 @@ class AnimationTest {
     }
 
     @Test
+    void theHeldItemIsInTheRightHandUnlessTurnedOff() {
+        UUID k = setup(map("id", "knight_model"));
+        assertEquals(CharacterDef.Hold.DEFAULT, t.engine.loadouts().characterOf(k).orElseThrow().model().hold());
+        UUID tuned = setup(map("id", "knight_model", "hold_offset", java.util.List.of(0, -9.5, 1),
+                "hold_rotation", java.util.List.of(-80, 180, 0)));
+        assertEquals(new CharacterDef.Hold(0, -9.5, 1, -80, 180, 0), t.engine.loadouts().characterOf(tuned).orElseThrow().model().hold());
+        UUID none = setup(map("id", "knight_model", "hold", false));
+        assertNull(t.engine.loadouts().characterOf(none).orElseThrow().model().hold());
+    }
+
+    @Test
+    void aBadHoldOffsetIsReported() {
+        TestEngine t = new TestEngine();
+        LoadReport report = new AbilityLoader(t.engine).load(map("characters", map("knight", map(
+                "slots", map(), "model", map("id", "m", "hold_offset", java.util.List.of(1, 2))))), "src/test");
+        assertTrue(String.join(" ", report.errors()).contains("hold_offset"), String.join(" ", report.errors()));
+    }
+
+    @Test
     void anUnknownShowIsReported() {
         TestEngine t = new TestEngine();
         LoadReport report = new AbilityLoader(t.engine).load(map("characters", map("knight", map(

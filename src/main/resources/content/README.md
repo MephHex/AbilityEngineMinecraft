@@ -1329,7 +1329,10 @@ play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg re
 - **Items:** while a model is swapped in, everyone near is shown the wearer holding and wearing nothing (their real
   items would float where the hidden body is), and their real items again after. A model that should carry them has
   item bones: `ir_<name>` shows what the wearer holds in their main hand, `il_<name>` the off hand, `ih_<name>` the
-  helmet slot. A model without them shows no items.
+  helmet slot. A player-limb model without its own item bone gets one made on its right arm when it's swapped in, so
+  it carries the wearer's main-hand item anyway: `hold_offset: [x, y, z]` (pixels from the arm's pivot, Blockbench
+  axes; default `[1, -10, 0]`, the hand) and `hold_rotation: [x, y, z]` (degrees; default `[-90, 0, 0]`) place it,
+  `hold: false` turns it off. Tune them with /ae reload: the next animation uses the new values.
 - **Player limbs:** bones named `phead_<name>`, `pbody_`, `prarm_`, `plarm_`, `prleg_`, `plleg_` are drawn with the
   wearer's skin (the cubes in them are ignored). Bone names must be lowercase, without spaces. Players need Model
   Engine's resource pack (see resourcepack/merge_model_engine.py).

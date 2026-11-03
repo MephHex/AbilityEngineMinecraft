@@ -395,7 +395,27 @@ public final class AbilityLoader {
         if (!show.equals("animating") && !show.equals("always")) {
             throw m.error("show", "animating (only while one of its animations plays) or always");
         }
-        return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix, show.equals("always"));
+        return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix, show.equals("always"),
+                hold(m));
+    }
+
+    /** {@code hold: false}, {@code hold_offset: [x, y, z]} (pixels), {@code hold_rotation: [x, y, z]} (degrees). */
+    private static CharacterDef.Hold hold(Params m) {
+        if (!m.getBool("hold", true)) return null;
+        CharacterDef.Hold d = CharacterDef.Hold.DEFAULT;
+        double[] at = triple(m, "hold_offset", new double[]{d.x(), d.y(), d.z()}, "pixels from the arm's pivot");
+        double[] turn = triple(m, "hold_rotation", new double[]{d.pitch(), d.yaw(), d.roll()}, "degrees around x, y and z");
+        return new CharacterDef.Hold(at[0], at[1], at[2], turn[0], turn[1], turn[2]);
+    }
+
+    private static double[] triple(Params p, String key, double[] def, String what) {
+        if (!p.has(key)) return def;
+        if (!(p.raw(key) instanceof java.util.List<?> list) || list.size() != 3
+                || !list.stream().allMatch(v -> v instanceof Number)) {
+            throw p.error(key, "three numbers [x, y, z]: " + what);
+        }
+        return new double[]{((Number) list.get(0)).doubleValue(), ((Number) list.get(1)).doubleValue(),
+                ((Number) list.get(2)).doubleValue()};
     }
 
     /** {@code passive: { name, icon, description }}: the passive explained (slot 9, or on the weapon). */
