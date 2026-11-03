@@ -64,8 +64,10 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   `pose_eat`, `pose_drink`, `pose_bundle`: the caster holds the item in their main hand with that vanilla animation (a
   bow drawn, a crossbow aimed, a trident raised...) on the real model, smooth for everyone else. Short ones: `{ type: start_cue, cue: pose_bow, ticks: 10 }`. On a player only the others see it (a
   player's own game drops any item use while they don't hold right-click, so they're shown it instead; nothing real
-  changes: no slowdown, their item untouched); a mob or mannequin really uses its item meanwhile. Needs an item in
-  the main hand.
+  changes: no slowdown, their item untouched); a mob or mannequin really uses its item meanwhile (empty-handed, as a
+  mannequin playing a character is: a bow, a trident... for the pose). A player needs an item in the main hand.
+  `/ae debug` makes each pose say what it did (to whom it was shown); the console says at startup whether poses can
+  be shown to other players on that server.
 - **Air Anchor:** the `state.anchored` tag makes the holder hover in place (no falling).
 - **Overflow:** with `overflow: true`, healing that doesn't fit becomes a decaying shield
   (absorption hearts). `overflow_max` (default 150) and `overflow_decay` per second (default 25).

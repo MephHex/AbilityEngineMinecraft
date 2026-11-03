@@ -868,6 +868,12 @@ public final class BukkitCuePlayer implements CuePlayer {
 
     boolean hasLoop(String cueId) { return loops.containsKey(cueId); }
 
+    /** /ae debug for the vanilla poses (pose_bow...): each says what it did. */
+    public static void setPoseDebug(java.util.function.BooleanSupplier on) { ItemPose.debug = on; }
+
+    /** Whether vanilla poses can be shown to other players on this server: null yes, otherwise why not. */
+    public static String poseSelfCheck() { return ItemPose.selfCheck(); }
+
     @Override
     public CueHandle start(String cueId, UUID entityId) {
         Function<Entity, CueHandle> starter = loops.get(cueId);

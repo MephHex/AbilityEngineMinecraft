@@ -69,6 +69,10 @@ public final class AbilityEnginePlugin extends JavaPlugin {
                 getLogger());
         engine = new AbilityEngine(platform);
         worldQuery.setLog(engine.log()); // ray traces under /ae debug
+        BukkitCuePlayer.setPoseDebug(() -> engine.log().isDebug()); // vanilla poses say what they did under /ae debug
+        String poses = BukkitCuePlayer.poseSelfCheck();
+        if (poses == null) getLogger().info("Vanilla poses (pose_bow...): ready (players' poses are shown to others)");
+        else getLogger().warning("Vanilla poses (pose_bow...) can't be shown to other players on this server: " + poses);
         constructRenderer.setEngine(engine); // punches on constructs are reported back to the engine
 
         OverflowShields shields = new OverflowShields();
