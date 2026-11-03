@@ -74,7 +74,7 @@ abilities:
         cue: lk_spark_hit
         at: hit
 
-  # 1: Waylight (9s). Throw your lantern (18 blocks): it passes through everyone. Allies it passes are healed 40 + 60%
+  # 1: Waylight (9s). Throw your lantern's light, a glowing sphere (18 blocks): it passes through everyone. Allies it passes are healed 40 + 60%
   # spell power; enemies take 80% base damage + 60% spell power (magic) and glow for 4s (seen through walls).
   lk_ab1:
     cooldown: 180                    # 9s
@@ -84,8 +84,8 @@ abilities:
       name: "Waylight"
       icon: SOUL_LANTERN
       description:
-        - "Throw your lantern (18 blocks) through"
-        - "everyone in its way. Allies: healed"
+        - "Throw a sphere of light (18 blocks)"
+        - "through everyone in its way. Allies: healed"
         - "{flat:40} {sp_per:12/20}. Enemies: {base:0.8|magic}"
         - "+ {sp:0.6|magic}, glowing 4s."
     nodes:
@@ -95,9 +95,9 @@ abilities:
         next: lantern
       lantern:
         type: projectile
-        visual: LANTERN
+        visual: "orb:WHITE_STAINED_GLASS:GLOWSTONE"   # a glowing sphere of light (pale glass round a glowstone core)
         size: 0.9
-        visual_size: 0.8
+        visual_size: 1.0
         speed: 0.9
         range: 18
         lifetime: 25

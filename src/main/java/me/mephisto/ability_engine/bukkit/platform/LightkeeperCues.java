@@ -39,14 +39,16 @@ final class LightkeeperCues {
         });
 
         // ---- 1: Waylight ----
-        c.register("lk_lantern_throw", loc -> {
-            loc.getWorld().playSound(loc, Sound.BLOCK_LANTERN_PLACE, 1f, 1.2f);
-            loc.getWorld().playSound(loc, Sound.ENTITY_SNOWBALL_THROW, 0.8f, 0.8f);
+        c.register("lk_lantern_throw", loc -> { // the sphere of light leaves his lantern
+            loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, 1.0f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, 0.5f, 1.8f);
+            loc.getWorld().spawnParticle(Particle.END_ROD, loc, 8, 0.2, 0.2, 0.2, 0.03);
         });
-        c.register("lk_lantern_trail", loc -> {
+        c.register("lk_lantern_trail", loc -> { // a glow round the sphere, motes left behind
             World w = loc.getWorld();
-            w.spawnParticle(Particle.DUST, loc, 3, 0.15, 0.15, 0.15, 0, WARM);
-            w.spawnParticle(Particle.END_ROD, loc, 1, 0.1, 0.1, 0.1, 0.01);
+            w.spawnParticle(Particle.DUST, loc, 4, 0.35, 0.35, 0.35, 0, WARM);
+            w.spawnParticle(Particle.DUST, loc, 2, 0.45, 0.45, 0.45, 0, PALE);
+            w.spawnParticle(Particle.END_ROD, loc, 2, 0.2, 0.2, 0.2, 0.01);
         });
         c.register("lk_lantern_heal", loc -> {
             World w = loc.getWorld();
@@ -60,9 +62,12 @@ final class LightkeeperCues {
             w.spawnParticle(Particle.SMALL_FLAME, loc, 12, 0.25, 0.4, 0.25, 0.02);
             w.playSound(loc, Sound.ENTITY_BLAZE_HURT, 0.6f, 1.6f);
         });
-        c.register("lk_lantern_land", loc -> {
-            loc.getWorld().spawnParticle(Particle.DUST, loc, 12, 0.3, 0.3, 0.3, 0, WARM);
-            loc.getWorld().playSound(loc, Sound.BLOCK_LANTERN_BREAK, 0.8f, 1.2f);
+        c.register("lk_lantern_land", loc -> { // the sphere pops into motes
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.FLASH, loc, 1, 0, 0, 0, 0, Color.fromRGB(255, 240, 190));
+            w.spawnParticle(Particle.DUST, loc, 14, 0.4, 0.4, 0.4, 0, WARM);
+            w.spawnParticle(Particle.END_ROD, loc, 10, 0.3, 0.3, 0.3, 0.06);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 0.8f, 1.4f);
         });
 
         // ---- 2: Light Guard ----
