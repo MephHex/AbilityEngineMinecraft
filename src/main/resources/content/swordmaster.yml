@@ -176,8 +176,8 @@ abilities:
         - "effects."
     nodes:
       pose:
-        type: start_cue              # vanilla's trident raise (others see it)
-        cue: pose_spear
+        type: start_cue              # vanilla's trident raise, "spear up" (others see it, not he himself)
+        cue: pose_trident
         ticks: 12
         next: neth_away
       neth_away:

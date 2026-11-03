@@ -52,9 +52,14 @@ public final class BukkitCuePlayer implements CuePlayer {
         BukkitCuePlayer c = new BukkitCuePlayer(logger);
         c.registerLoop("riptide", BukkitCuePlayer::riptide);
         // Vanilla item-use poses on the real player model: pose_bow, pose_crossbow, pose_spear, pose_block... (ItemPose)
+        // (the names are the server's own: 1.21.11 renamed the trident's raise TRIDENT and gave SPEAR to the new spears)
         for (var animation : io.papermc.paper.datacomponent.item.consumable.ItemUseAnimation.values()) {
             if (animation == io.papermc.paper.datacomponent.item.consumable.ItemUseAnimation.NONE) continue;
             c.registerLoop(ItemPose.cueName(animation), e -> ItemPose.start(plugin, e, animation));
+        }
+        if (!c.hasLoop("pose_trident")) { // before 1.21.11 the trident's raise was SPEAR
+            var trident = io.papermc.paper.datacomponent.item.consumable.ItemUseAnimation.valueOf("SPEAR");
+            c.registerLoop("pose_trident", e -> ItemPose.start(plugin, e, trident));
         }
         c.registerLoop("parasol", e -> parasol(plugin, e));
         c.registerLoop("guard_pose", e -> guardPose(plugin, e));
@@ -860,6 +865,8 @@ public final class BukkitCuePlayer implements CuePlayer {
      * plays their animation and stops it in the handle. Ability YAML just says  start_cue: <id>.
      */
     public void registerLoop(String cueId, Function<Entity, CueHandle> starter) { loops.put(cueId, starter); }
+
+    boolean hasLoop(String cueId) { return loops.containsKey(cueId); }
 
     @Override
     public CueHandle start(String cueId, UUID entityId) {

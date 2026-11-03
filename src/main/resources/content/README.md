@@ -59,10 +59,10 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Cues:** `play_cue` plays a one-shot cue at a spot (hit, impact, cast, spark, shatter, fizzle,
   teleport...), or between two spots with `to:` (geyser_beam). `start_cue` starts a looping one on
   an entity until the cast ends, or for at most `ticks` (riptide, parasol, guard_pose, geyser_charge).
-- **Vanilla poses:** looping cues `pose_bow`, `pose_crossbow`, `pose_spear`, `pose_block`, `pose_spyglass`,
-  `pose_toot_horn`, `pose_brush`, `pose_eat`, `pose_drink`, `pose_bundle`: the caster holds the item in their main
-  hand with that vanilla animation (a bow drawn, a crossbow aimed, a trident raised...) on the real model, smooth for
-  everyone. Short ones: `{ type: start_cue, cue: pose_bow, ticks: 10 }`. On a player only the others see it (a
+- **Vanilla poses:** looping cues `pose_bow`, `pose_crossbow`, `pose_trident` (raised over the shoulder), `pose_spear`
+  (1.21.11's spears; before 1.21.11 it's the trident's), `pose_block`, `pose_spyglass`, `pose_toot_horn`, `pose_brush`,
+  `pose_eat`, `pose_drink`, `pose_bundle`: the caster holds the item in their main hand with that vanilla animation (a
+  bow drawn, a crossbow aimed, a trident raised...) on the real model, smooth for everyone else. Short ones: `{ type: start_cue, cue: pose_bow, ticks: 10 }`. On a player only the others see it (a
   player's own game drops any item use while they don't hold right-click, so they're shown it instead; nothing real
   changes: no slowdown, their item untouched); a mob or mannequin really uses its item meanwhile. Needs an item in
   the main hand.
