@@ -253,7 +253,7 @@ final class SwordMasterCues {
     private static void back(Plugin plugin, World w, Material m, Vector from, Vector to) {
         Vector home = to.clone().add(new Vector(0, 0.75, 0));
         double blocks = home.distance(from);
-        int ticks = (int) Math.max(2, Math.min(5, Math.ceil(blocks / 3.5)));
+        int ticks = (int) Math.max(3, Math.min(7, Math.ceil(blocks / 1.0))); // about as fast as it flew out
         flight(plugin, w, m, from, home, from.clone().subtract(home), ticks, BLADE_SIZE, null);
     }
 

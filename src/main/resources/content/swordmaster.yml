@@ -91,10 +91,10 @@ abilities:
         visual: "point:NETHERITE_SWORD"   # point first
         side: -0.75                  # from his left (where it floats), at what he aims at
         up: 0.05
-        speed: 1.8
+        speed: 0.75                  # slow enough to see it fly (4.5 blocks: 6 ticks)
         size: 0.5
         range: 4.5
-        lifetime: 4
+        lifetime: 8
         on: { hit_entity: neth_hit, hit_block: neth_back, expired: neth_back }
       neth_hit:
         type: apply_effects
@@ -135,10 +135,10 @@ abilities:
         visual: "point:GOLDEN_SWORD"
         side: 0.75                   # from his right
         up: 0.05
-        speed: 1.8
+        speed: 0.75                  # slow enough to see it fly (4.5 blocks: 6 ticks)
         size: 0.5
         range: 4.5
-        lifetime: 4
+        lifetime: 8
         on: { hit_entity: gold_hit, hit_block: gold_back, expired: gold_back }
       gold_hit:
         type: apply_effects
@@ -166,8 +166,8 @@ abilities:
         next: home
 
       home:
-        type: delay                  # (its flight back)
-        ticks: 5
+        type: delay                  # (its flight back: SwordMasterCues.back)
+        ticks: 7
 
   # 1: Twin Thrust (8s). A spear thrust: both blades stab forward (4.5 blocks, a line 1.4 wide), each with its passive:
   # 90% base damage (physical, +50% to shields) and 50% base damage + 50% spell power (magic); he heals 8 + 20% spell
