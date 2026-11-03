@@ -1322,8 +1322,14 @@ play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg re
   when it's over (a looping one: when it's stopped, e.g. `until_end`). Animations the model doesn't have don't swap it
   in. `show: always`: worn the whole time instead (kept on after a respawn or a reload, off when they pick another
   character or leave); `hide_player: true` then hides the player's own body under it, and Model Engine's own default
-  animations (idle, walk, jump...) play by themselves. Nobody ever sees a model on themselves (Model Engine only shows
-  it to others): while it's swapped in, the player sees their own body vanish in third person.
+  animations (idle, walk, jump...) play by themselves. While a model is swapped in, its player sees it too: Model
+  Engine only shows a model to others, so a copy only they see stands in their place and follows them (their own body
+  is made invisible meanwhile; on a team that shows invisible teammates they still see a faint ghost of it). A model
+  worn always is only seen by others.
+- **Items:** while a model is swapped in, everyone near is shown the wearer holding and wearing nothing (their real
+  items would float where the hidden body is), and their real items again after. A model that should carry them has
+  item bones: `ir_<name>` shows what the wearer holds in their main hand, `il_<name>` the off hand, `ih_<name>` the
+  helmet slot. A model without them shows no items.
 - **Player limbs:** bones named `phead_<name>`, `pbody_`, `prarm_`, `plarm_`, `prleg_`, `plleg_` are drawn with the
   wearer's skin (the cubes in them are ignored). Bone names must be lowercase, without spaces. Players need Model
   Engine's resource pack (see resourcepack/merge_model_engine.py).
