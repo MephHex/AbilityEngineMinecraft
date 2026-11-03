@@ -218,7 +218,9 @@ public final class ModelEngineHook implements Animator, Listener {
         active.setScale(scaleOf(model, active));
         modeled.addModel(active, true);
         modeled.setBaseEntityVisible(model.always() && !model.hidePlayer()); // swapped in: the model is their body
-        if (!model.always()) modeled.setModelRotationLocked(true); // swapped in: we aim it (faceAsWearer, every tick)
+        if (!model.always() || !model.behavior().isEmpty()) {
+            modeled.setModelRotationLocked(true); // we aim it every tick (swapped in: faceAsWearer; becoming it: aim)
+        }
         faceAsWearer(modeled, entity);
         modeled.queuePostInitTask(() -> faceAsWearer(modeled, entity)); // (again once Model Engine has set it up)
         worn.put(entity.getUniqueId(), model);
@@ -335,12 +337,16 @@ public final class ModelEngineHook implements Animator, Listener {
             try {
                 Entity entity = Bukkit.getEntity(id);
                 if (entity == null || !entity.isValid()) continue;
+                if (!model.behavior().isEmpty()) {
+                    behavior.tick(id, entity, model);
+                    ModeledEntity modeled = ModelEngineAPI.getModeledEntity(id);
+                    if (modeled != null) aim(modeled, entity, behavior.bodyYaw(id));
+                }
                 SelfDouble self = selves.get(id);
                 if (self != null) {
-                    self.follow();
+                    self.follow(model.behavior().isEmpty() ? Float.NaN : behavior.bodyYaw(id));
                     dress(entity, self.model(), model.hold());
                 }
-                if (!model.behavior().isEmpty()) behavior.tick(id, entity, model);
             } catch (RuntimeException | LinkageError ex) {
                 if (warned.add("worn:" + ex)) log.warning("Model Engine: couldn't animate the model of " + id + ": " + ex);
             }
@@ -604,8 +610,17 @@ public final class ModelEngineHook implements Animator, Listener {
      * look around), so an attack would swing off to the side of where they aim. Every tick while it's swapped in.
      */
     static void faceAsWearer(ModeledEntity modeled, Entity wearer) {
+        aim(modeled, wearer, Float.NaN);
+    }
+
+    /**
+     * The head looks where the wearer looks (yaw and pitch); the body faces {@code body} (NaN: where they look too).
+     * A player-becoming-their-model's body turns as vanilla's does (ModelBehaviorDriver / BodyTurn): the head turns up
+     * to 50 degrees from it, then drags it along.
+     */
+    static void aim(ModeledEntity modeled, Entity wearer, float body) {
         org.bukkit.Location at = wearer.getLocation();
-        modeled.setYBodyRotImmediately(at.getYaw());
+        modeled.setYBodyRotImmediately(Float.isNaN(body) ? at.getYaw() : body);
         modeled.setYHeadRotImmediately(at.getYaw());
         modeled.setXHeadRotImmediately(at.getPitch());
     }

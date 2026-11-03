@@ -1,6 +1,7 @@
 package me.mephisto.ability_engine.bukkit.platform;
 
 import me.mephisto.ability_engine.engine.AbilityEngine;
+import me.mephisto.ability_engine.engine.loadout.BodyTurn;
 import me.mephisto.ability_engine.engine.loadout.CharacterDef;
 import me.mephisto.ability_engine.engine.loadout.ModelBehavior;
 import me.mephisto.ability_engine.engine.platform.Animator;
@@ -52,7 +53,14 @@ final class ModelBehaviorDriver implements Listener {
         ModelBehavior.State pending;
         int pendingTicks;
         double playedSpeed;
+        /** Where the model's body faces (vanilla's turn: see BodyTurn); NaN: not yet. */
+        float body = Float.NaN;
+        /** The tick of their last swing: the body turns to their aim while it lasts. */
+        long swungAt = Long.MIN_VALUE;
     }
+
+    /** Ticks a swing turns the body to the aim (vanilla's swing lasts 6). */
+    private static final int SWING_TICKS = 6;
 
     ModelBehaviorDriver(AbilityEngine engine, ModelEngineHook hook) {
         this.engine = engine;
@@ -71,18 +79,23 @@ final class ModelBehaviorDriver implements Listener {
         ModelBehavior behavior = model.behavior();
 
         Location at = entity.getLocation();
-        double dy = 0, horizontal = 0;
+        double dy = 0, horizontal = 0, dx = 0, dz = 0;
         if (t.last != null && t.last.getWorld() == at.getWorld()) {
-            double dx = at.getX() - t.last.getX(), dz = at.getZ() - t.last.getZ();
+            dx = at.getX() - t.last.getX();
+            dz = at.getZ() - t.last.getZ();
             horizontal = Math.sqrt(dx * dx + dz * dz) * 20;
             dy = at.getY() - t.last.getY();
-            if (horizontal > 40) horizontal = 0; // (a teleport, not a step)
+            if (horizontal > 40) horizontal = dx = dz = 0; // (a teleport, not a step)
         }
         t.last = at;
         t.speed = t.speed * 0.5 + horizontal * 0.5;
 
         boolean onGround = entity.isOnGround();
         Set<String> facts = facts(id, entity, t, onGround, dy, behavior);
+
+        boolean attacking = facts.contains("animating")
+                || org.bukkit.Bukkit.getCurrentTick() - t.swungAt < SWING_TICKS;
+        t.body = Float.isNaN(t.body) ? at.getYaw() : BodyTurn.next(t.body, at.getYaw(), dx, dz, attacking);
 
         if (!onGround && t.wasOnGround && dy > 0.05 && !(entity instanceof Player)
                 && !facts.contains("riding") && !facts.contains("swimming")) {
@@ -182,6 +195,12 @@ final class ModelBehaviorDriver implements Listener {
     /** The model's gone: nothing to follow. */
     void forget(UUID id) { tracks.remove(id); }
 
+    /** Where the body of the model {@code id} wears faces now (NaN: not followed yet). */
+    float bodyYaw(UUID id) {
+        Track t = tracks.get(id);
+        return t == null ? Float.NaN : t.body;
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onJump(com.destroystokyo.paper.event.player.PlayerJumpEvent e) {
         event(e.getPlayer().getUniqueId(), "jump");
@@ -189,7 +208,10 @@ final class ModelBehaviorDriver implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSwing(io.papermc.paper.event.player.PlayerArmSwingEvent e) {
-        if (e.getHand() == EquipmentSlot.HAND) event(e.getPlayer().getUniqueId(), "swing");
+        if (e.getHand() != EquipmentSlot.HAND) return;
+        Track t = tracks.get(e.getPlayer().getUniqueId());
+        if (t != null) t.swungAt = org.bukkit.Bukkit.getCurrentTick();
+        event(e.getPlayer().getUniqueId(), "swing");
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

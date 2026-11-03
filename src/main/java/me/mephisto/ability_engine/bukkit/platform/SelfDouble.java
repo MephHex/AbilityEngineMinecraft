@@ -38,7 +38,7 @@ final class SelfDouble {
         Dummy<Player> dummy = new Dummy<>(player);
         dummy.setDetectingPlayers(false); // nobody but...
         dummy.setForceViewing(player, true); // ...them
-        place(dummy, player);
+        place(dummy, player, Float.NaN);
         ModeledEntity modeled = ModelEngineAPI.createModeledEntity(dummy);
         modeled.addModel(active, true);
         modeled.setModelRotationLocked(true); // aimed every tick (follow)
@@ -49,18 +49,21 @@ final class SelfDouble {
         return new SelfDouble(player, dummy, modeled, active, was);
     }
 
-    private static void place(Dummy<Player> dummy, Player player) {
+    private static void place(Dummy<Player> dummy, Player player, float body) {
         Location at = player.getLocation();
         dummy.setLocation(at);
-        dummy.setYBodyRot(at.getYaw()); // where they look (their body lags behind it)
+        dummy.setYBodyRot(Float.isNaN(body) ? at.getYaw() : body); // (NaN: where they look; their body lags behind it)
         dummy.setYHeadRot(at.getYaw());
         dummy.setXHeadRot(at.getPitch());
     }
 
     /** Every tick: where they are, facing where they face. */
-    void follow() {
-        place(dummy, player);
-        ModelEngineHook.faceAsWearer(modeled, player);
+    void follow() { follow(Float.NaN); }
+
+    /** Every tick: where they are, looking where they look, the body facing {@code body} (NaN: that way too). */
+    void follow(float body) {
+        place(dummy, player, body);
+        ModelEngineHook.aim(modeled, player, body);
     }
 
     ActiveModel model() { return model; }
