@@ -1329,16 +1329,19 @@ play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg re
 - **Smooth swaps:** `blend: 3` (the default) - ticks an animation eases in from the model's rest pose (a player
   standing) and back out to it before the model swaps out, unless the animate step gives lerp_in / lerp_out.
   `blend: 0` snaps.
-- **Items:** while a model is swapped in, everyone near is shown the wearer holding and wearing nothing (their real
-  items would float where the hidden body is), and their real items again after. A model that should carry them has
+- **Items:** while a model is swapped in, everyone near is shown the wearer without armor (it would float where the
+  hidden body is), and their real armor again after; their hands keep their items. A model that should carry them has
   item bones: `ir_<name>` shows what the wearer holds in their main hand, `il_<name>` the off hand, `ih_<name>` the
   helmet slot. A player-limb model without its own item bone gets one made on its right arm when it's swapped in, so
   it carries the wearer's main-hand item anyway: `hold_offset: [x, y, z]` (pixels from the arm's pivot, Blockbench
   axes; default `[1, -10, 0]`, the hand) and `hold_rotation: [x, y, z]` (degrees; default `[-90, 0, 0]`) place it,
   `hold: false` turns it off. Tune them with /ae reload: the next animation uses the new values.
 - **Player limbs:** bones named `phead_<name>`, `pbody_`, `prarm_`, `plarm_`, `prleg_`, `plleg_` are drawn with the
-  wearer's skin (the cubes in them are ignored). Bone names must be lowercase, without spaces. Players need Model
-  Engine's resource pack (see resourcepack/merge_model_engine.py).
+  wearer's skin (the cubes in them are ignored). Model Engine draws them at 15/16 of vanilla size, so their skeleton
+  must be too (pivots at 15/16 of a vanilla player's: resourcepack/fix_bbmodel.py does it) or the limbs don't meet;
+  such a model is scaled by 16/15 in-game, back to exactly vanilla size (`scale: <size>` in the model overrides it).
+  Bone names must be lowercase, without spaces. Players need Model Engine's resource pack (see
+  resourcepack/merge_model_engine.py).
 - **animate** `{ animation | part, at, speed, lerp_in, lerp_out, force, until_end }`: plays an animation, anywhere in
   an ability (on a hit, a branch, a delay...). `animation:` is the whole name; `part:` is
   `<prefix>_<slot without underscores>_<part>`, prefix = the model's `prefix:` or the character's id. Cast from

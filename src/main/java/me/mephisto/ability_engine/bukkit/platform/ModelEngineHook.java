@@ -97,8 +97,9 @@ public final class ModelEngineHook implements Animator, Listener {
         }
     }
 
-    private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HAND, EquipmentSlot.OFF_HAND, EquipmentSlot.HEAD,
-            EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+    /** Hidden while a model is swapped in: armor only (the hands keep their items; the model holds the main hand's). */
+    private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS,
+            EquipmentSlot.FEET};
 
     private static Map<EquipmentSlot, ItemStack> equipmentOf(LivingEntity entity) {
         Map<EquipmentSlot, ItemStack> items = new java.util.EnumMap<>(EquipmentSlot.class);
@@ -198,6 +199,7 @@ public final class ModelEngineHook implements Animator, Listener {
         ModeledEntity modeled = ModelEngineAPI.getOrCreateModeledEntity(entity);
         ActiveModel active = ModelEngineAPI.createActiveModel(model.id());
         if (active == null) return;
+        active.setScale(scaleOf(model, active));
         modeled.addModel(active, true);
         modeled.setBaseEntityVisible(model.always() && !model.hidePlayer()); // swapped in: the model is their body
         if (!model.always()) modeled.setModelRotationLocked(true); // swapped in: we aim it (faceAsWearer, every tick)
@@ -394,7 +396,7 @@ public final class ModelEngineHook implements Animator, Listener {
             if (entity instanceof Player player
                     && me.mephisto.ability_engine.bukkit.command.SelfViewCommand.wants(player, plugin)) {
                 try {
-                    swap.self = SelfDouble.create(player, model.id());
+                    swap.self = SelfDouble.create(player, model);
                     if (swap.self != null) dress(player, swap.self.model(), model.hold());
                 } catch (RuntimeException | LinkageError ex) {
                     if (warned.add("double:" + ex)) log.warning("Model Engine: couldn't show " + player.getName()
@@ -415,6 +417,20 @@ public final class ModelEngineHook implements Animator, Listener {
         modeled.setYBodyRotImmediately(at.getYaw());
         modeled.setYHeadRotImmediately(at.getYaw());
         modeled.setXHeadRotImmediately(at.getPitch());
+    }
+
+    /**
+     * The model's size in-game: its own scale if the kit gives one, else 16/15 for a player-limb model (Model Engine
+     * draws player limbs at 15/16 of vanilla size, so their skeleton is built at 15/16 too - fix_bbmodel.py - and scaled
+     * back up here to exactly vanilla size), 1 for anything else.
+     */
+    static double scaleOf(CharacterDef.Model model, ActiveModel active) {
+        if (model.scale() > 0) return model.scale();
+        var blueprint = active.getBlueprint();
+        if (!blueprint.isFlatViewConstructed()) return 1;
+        boolean limbs = blueprint.getFlatMap().values().stream().anyMatch(b -> b.getCachedBehaviorProvider()
+                .containsKey(com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes.PLAYER_LIMB));
+        return limbs ? 16.0 / 15 : 1;
     }
 
     private static final String HAND_BONE = "ae_held_item";
@@ -484,8 +500,8 @@ public final class ModelEngineHook implements Animator, Listener {
     }
 
     /**
-     * While the model is in, everyone near (the wearer too) is told they hold and wear nothing: their real items would
-     * float where their hidden body is. The model holds them instead, if it has item bones.
+     * While the model is in, everyone near (the wearer too) is told they wear no armor: it would float where their
+     * hidden body is. Their hands keep their items.
      */
     private static void blank(Swap swap, LivingEntity wearer) {
         swap.wearer = wearer;

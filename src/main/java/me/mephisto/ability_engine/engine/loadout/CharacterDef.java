@@ -54,9 +54,16 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      *                   model with an item bone of its own (ir_) uses that instead
      * @param blend      ticks its animations ease in from its rest pose and back out to it, unless the animate step
      *                   gives its own lerp_in / lerp_out (smooth swaps: the rest pose is a player standing)
+     * @param scale      its size in-game (0: automatic - 16/15 for a player-limb model, whose limbs Model Engine draws
+     *                   at 15/16 of vanilla size on a skeleton built at 15/16, so it ends up exactly vanilla-sized; 1
+     *                   for anything else)
      */
-    public record Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend) {
+    public record Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend, double scale) {
         public static final int DEFAULT_BLEND = 3;
+
+        public Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend) {
+            this(id, hidePlayer, prefix, always, hold, blend, 0);
+        }
 
         public Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold) {
             this(id, hidePlayer, prefix, always, hold, DEFAULT_BLEND);

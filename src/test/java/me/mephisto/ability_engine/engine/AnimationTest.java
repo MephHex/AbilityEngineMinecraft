@@ -122,6 +122,14 @@ class AnimationTest {
     }
 
     @Test
+    void scaleIsAutomaticUnlessGiven() {
+        UUID k = setup(map("id", "knight_model"));
+        assertEquals(0, t.engine.loadouts().characterOf(k).orElseThrow().model().scale());
+        UUID big = setup(map("id", "knight_model", "scale", 1.5));
+        assertEquals(1.5, t.engine.loadouts().characterOf(big).orElseThrow().model().scale());
+    }
+
+    @Test
     void aBadHoldOffsetIsReported() {
         TestEngine t = new TestEngine();
         LoadReport report = new AbilityLoader(t.engine).load(map("characters", map("knight", map(

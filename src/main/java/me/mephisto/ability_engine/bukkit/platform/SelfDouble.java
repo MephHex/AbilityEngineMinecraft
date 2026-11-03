@@ -31,9 +31,10 @@ final class SelfDouble {
     }
 
     /** A copy of {@code modelId} only {@code player} sees, where they stand. Null: the model isn't loaded. */
-    static SelfDouble create(Player player, String modelId) {
-        ActiveModel active = ModelEngineAPI.createActiveModel(modelId);
+    static SelfDouble create(Player player, me.mephisto.ability_engine.engine.loadout.CharacterDef.Model def) {
+        ActiveModel active = ModelEngineAPI.createActiveModel(def.id());
         if (active == null) return null;
+        active.setScale(ModelEngineHook.scaleOf(def, active));
         Dummy<Player> dummy = new Dummy<>(player);
         dummy.setDetectingPlayers(false); // nobody but...
         dummy.setForceViewing(player, true); // ...them

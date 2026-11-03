@@ -397,8 +397,10 @@ public final class AbilityLoader {
         }
         int blend = m.getInt("blend", CharacterDef.Model.DEFAULT_BLEND);
         if (blend < 0) throw m.error("blend", "ticks its animations ease in and out, 0 or more");
+        double scale = m.getDouble("scale", 0);
+        if (m.has("scale") && scale <= 0) throw m.error("scale", "its size in-game, above 0 (1 = as made)");
         return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix, show.equals("always"),
-                hold(m), blend);
+                hold(m), blend, scale);
     }
 
     /** {@code hold: false}, {@code hold_offset: [x, y, z]} (pixels), {@code hold_rotation: [x, y, z]} (degrees). */
