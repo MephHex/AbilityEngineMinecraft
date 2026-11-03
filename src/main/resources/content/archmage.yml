@@ -53,6 +53,11 @@ abilities:
         - "{base:0.5|magic} + {sp:0.5|magic}."
         - "Curves toward marked enemies."
     nodes:
+      pose:                          # vanilla's bow draw on the real player model while the shot goes (a test)
+        type: start_cue
+        cue: pose_bow
+        ticks: 10                    # half a second (the cast itself lasts as long as the bolt flies)
+        next: mode
       mode:
         type: has_tag
         tag: arcanist.barrage

@@ -83,7 +83,11 @@ public final class NodeTypes {
                         p.getString("toward", null)), Parsers.pattern(p)));
         t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3),
                 p.getBool("projectiles_only", false), p.getBool("reflect", false), p.getBool("around", false)));
-        t.register("start_cue", (p, e) -> new StartCueNode(p.requireString("cue"), p.getString("at", null)));
+        t.register("start_cue", (p, e) -> {
+            int ticks = p.getInt("ticks", 0);
+            if (p.has("ticks") && ticks < 1) throw p.error("ticks", "how long it lasts at most, 1 or more (left out: until the cast ends)");
+            return new StartCueNode(p.requireString("cue"), p.getString("at", null), ticks);
+        });
         t.register("dash", (p, e) -> {
             boolean follow = p.getBool("follow", false);
             if (follow && !p.has("to")) throw p.error("follow", "needs to: <key> (whoever to fly after)");

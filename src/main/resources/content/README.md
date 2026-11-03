@@ -26,7 +26,8 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
 - **Node types:** print, delay, switch, acquire_target, apply_effects, projectile, play_cue, set,
   await_recast, redirect_projectile, construct, steer_projectile,
   dash `{ speed, range, radius, flat, direction }` -> hit / miss,
-  start_cue `{ cue, at }` (a looping cue on an entity, default the caster, until the cast ends),
+  start_cue `{ cue, at, ticks }` (a looping cue on an entity, default the caster, until the cast ends or
+  `ticks` have passed),
   barrier `{ distance, radius }` (a frontal barrier on the caster until the cast ends),
   counter `{ counter, every }` -> trigger / out ("every Nth time", remembered between casts),
   release_tags (drop the ability's active_tags early, e.g. right after a dash),
@@ -57,7 +58,14 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   starts a second cast). Not for `cooldown_starts: manual` ones, nor a stolen ultimate.
 - **Cues:** `play_cue` plays a one-shot cue at a spot (hit, impact, cast, spark, shatter, fizzle,
   teleport...), or between two spots with `to:` (geyser_beam). `start_cue` starts a looping one on
-  an entity until the cast ends (riptide, parasol, guard_pose, geyser_charge).
+  an entity until the cast ends, or for at most `ticks` (riptide, parasol, guard_pose, geyser_charge).
+- **Vanilla poses:** looping cues `pose_bow`, `pose_crossbow`, `pose_spear`, `pose_block`, `pose_spyglass`,
+  `pose_toot_horn`, `pose_brush`, `pose_eat`, `pose_drink`, `pose_bundle`: the caster uses the item in their main
+  hand with that vanilla animation (a bow drawn, a crossbow aimed, a trident raised...) on the real player model,
+  smooth for everyone, in first and third person. Short ones: `{ type: start_cue, cue: pose_bow, ticks: 10 }`.
+  Meanwhile the held item has a `consumable` component (never finishing, silent); on Minecraft 1.21.11+ it also
+  keeps the player's full speed and sprint (`use_effects`), older servers slow them while it lasts (as a drawn bow
+  does) and say so once in the console. Needs an item in the main hand.
 - **Air Anchor:** the `state.anchored` tag makes the holder hover in place (no falling).
 - **Overflow:** with `overflow: true`, healing that doesn't fit becomes a decaying shield
   (absorption hearts). `overflow_max` (default 150) and `overflow_decay` per second (default 25).

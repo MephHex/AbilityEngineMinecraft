@@ -51,6 +51,11 @@ public final class BukkitCuePlayer implements CuePlayer {
     public static BukkitCuePlayer withDefaults(Plugin plugin, Logger logger) {
         BukkitCuePlayer c = new BukkitCuePlayer(logger);
         c.registerLoop("riptide", BukkitCuePlayer::riptide);
+        // Vanilla item-use poses on the real player model: pose_bow, pose_crossbow, pose_spear, pose_block... (ItemPose)
+        for (var animation : io.papermc.paper.datacomponent.item.consumable.ItemUseAnimation.values()) {
+            if (animation == io.papermc.paper.datacomponent.item.consumable.ItemUseAnimation.NONE) continue;
+            c.registerLoop(ItemPose.cueName(animation), e -> ItemPose.start(plugin, e, animation));
+        }
         c.registerLoop("parasol", e -> parasol(plugin, e));
         c.registerLoop("guard_pose", e -> guardPose(plugin, e));
         c.registerLoop("geyser_charge", e -> geyserCharge(plugin, e));
