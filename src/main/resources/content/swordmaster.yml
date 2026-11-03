@@ -42,7 +42,7 @@ statuses:
 
 abilities:
 
-  # PRIMARY (LMB): Twin Blades. The blade up next stabs whoever he aims at (14 blocks) and flies back to his side; the
+  # PRIMARY (LMB): Twin Blades. The blade up next stabs whoever he aims at (8 blocks) and flies back to his side; the
   # blades take turns (one cooldown for both). Netherite (left): 100% base damage (physical), +50% to shields. Gold
   # (right): 60% base damage + 60% spell power (magic), and a hit heals him 8 + 20% spell power. While one is planted
   # (3: Falling Blade), the other attacks every time.
@@ -52,7 +52,7 @@ abilities:
       name: "Twin Blades"
       description:
         - "The blade in your hand stabs where you"
-        - "aim (14 blocks); they take turns."
+        - "aim (8 blocks); they take turns."
         - "Netherite: {base:1.0|physical}, +50% to shields."
         - "Gold: {base:0.6|magic} + {sp:0.6|magic},"
         - "a hit heals you {flat:8} {sp_per:4/20}."
@@ -94,8 +94,8 @@ abilities:
         up: 0.05
         speed: 1.8
         size: 0.5
-        range: 14
-        lifetime: 10
+        range: 8
+        lifetime: 6
         on: { hit_entity: neth_hit, hit_block: neth_back, expired: neth_back }
       neth_hit:
         type: apply_effects
@@ -139,8 +139,8 @@ abilities:
         up: 0.05
         speed: 1.8
         size: 0.5
-        range: 14
-        lifetime: 10
+        range: 8
+        lifetime: 6
         on: { hit_entity: gold_hit, hit_block: gold_back, expired: gold_back }
       gold_hit:
         type: apply_effects

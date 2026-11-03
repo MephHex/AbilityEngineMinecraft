@@ -23,7 +23,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * The SwordMaster's cues: his two floating blades (netherite on his left, gold on his right), their stabs and returns,
+ * The SwordMaster's cues: his two floating blades (netherite on his left, gold on his right, pointing where he looks),
+ * their stabs and returns,
  * the twin thrust, the crossed-blades guard, a blade dropped from the sky, and the thousand cuts.
  */
 final class SwordMasterCues {
@@ -136,8 +137,8 @@ final class SwordMasterCues {
             Location eye = e instanceof org.bukkit.entity.LivingEntity l ? l.getEyeLocation() : e.getLocation().add(0, 1.6, 0);
             Vector f = facing(eye.getYaw()), r = right(f);
             double bob = Math.sin(tick[0] * 0.12) * 0.06;
-            place(neth, eye, f, r.clone().multiply(-SIDE), UP + bob, gone[0] > 0, NETH, eye.getYaw());
-            place(gold, eye, f, r.clone().multiply(SIDE), UP - bob, gone[1] > 0, GOLD, eye.getYaw());
+            place(neth, eye, f, r.clone().multiply(-SIDE), UP + bob, gone[0] > 0, NETH, eye.getDirection());
+            place(gold, eye, f, r.clone().multiply(SIDE), UP - bob, gone[1] > 0, GOLD, eye.getDirection());
             tick[0]++;
         }, 0, 1);
         blades.put(id, task);
@@ -150,7 +151,7 @@ final class SwordMasterCues {
     }
 
     private static void place(ItemDisplay d, Location eye, Vector f, Vector side, double up, boolean hidden, Material m,
-                              float yaw) {
+                              Vector look) {
         if (!d.isValid()) return;
         Location at = eye.clone().add(side).subtract(f.clone().multiply(BACK)).add(0, up, 0);
         at.setYaw(0);
@@ -158,9 +159,8 @@ final class SwordMasterCues {
         d.teleport(at);
         boolean shown = d.getItemStack() != null && !d.getItemStack().getType().isAir();
         if (hidden == shown) d.setItemStack(hidden ? null : new ItemStack(m));
-        // upright (tip up), its flat side to the front, turning with him
-        Quaternionf q = new Quaternionf().rotateY((float) Math.toRadians(-yaw)).rotateZ((float) (Math.PI / 4));
-        d.setTransformation(new Transformation(new Vector3f(), q, new Vector3f(BLADE_SIZE), new Quaternionf()));
+        // its tip where he looks (up, down and around), ready to stab
+        d.setTransformation(new Transformation(new Vector3f(), tipAlong(look), new Vector3f(BLADE_SIZE), new Quaternionf()));
     }
 
     private static CueHandle away(Entity e, int which) {
