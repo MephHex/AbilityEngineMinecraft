@@ -40,6 +40,7 @@ final class SelfDouble {
         place(dummy, player);
         ModeledEntity modeled = ModelEngineAPI.createModeledEntity(dummy);
         modeled.addModel(active, true);
+        modeled.setModelRotationLocked(true); // aimed every tick (follow)
         ModelEngineHook.faceAsWearer(modeled, player); // (not turning in from south)
         modeled.queuePostInitTask(() -> ModelEngineHook.faceAsWearer(modeled, player));
         boolean was = player.isInvisible();
@@ -50,13 +51,16 @@ final class SelfDouble {
     private static void place(Dummy<Player> dummy, Player player) {
         Location at = player.getLocation();
         dummy.setLocation(at);
-        dummy.setYBodyRot(player.getBodyYaw());
+        dummy.setYBodyRot(at.getYaw()); // where they look (their body lags behind it)
         dummy.setYHeadRot(at.getYaw());
         dummy.setXHeadRot(at.getPitch());
     }
 
     /** Every tick: where they are, facing where they face. */
-    void follow() { place(dummy, player); }
+    void follow() {
+        place(dummy, player);
+        ModelEngineHook.faceAsWearer(modeled, player);
+    }
 
     ActiveModel model() { return model; }
 

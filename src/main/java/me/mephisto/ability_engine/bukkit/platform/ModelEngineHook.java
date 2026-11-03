@@ -200,6 +200,7 @@ public final class ModelEngineHook implements Animator, Listener {
         if (active == null) return;
         modeled.addModel(active, true);
         modeled.setBaseEntityVisible(model.always() && !model.hidePlayer()); // swapped in: the model is their body
+        if (!model.always()) modeled.setModelRotationLocked(true); // swapped in: we aim it (faceAsWearer, every tick)
         faceAsWearer(modeled, entity);
         modeled.queuePostInitTask(() -> faceAsWearer(modeled, entity)); // (again once Model Engine has set it up)
         worn.put(entity.getUniqueId(), model);
@@ -405,13 +406,13 @@ public final class ModelEngineHook implements Animator, Listener {
     }
 
     /**
-     * A model added this tick starts facing south (rotation 0) and turns toward the wearer over the next ticks, so
-     * its animation starts at an angle: face it the way the wearer faces at once.
+     * The model faces exactly where the wearer looks, body and head. A model added this tick would otherwise start
+     * facing south and turn in, and a player's body lags behind their view (up to ~50 degrees when they stand still and
+     * look around), so an attack would swing off to the side of where they aim. Every tick while it's swapped in.
      */
     static void faceAsWearer(ModeledEntity modeled, Entity wearer) {
         org.bukkit.Location at = wearer.getLocation();
-        float body = wearer instanceof LivingEntity living ? living.getBodyYaw() : at.getYaw();
-        modeled.setYBodyRotImmediately(body);
+        modeled.setYBodyRotImmediately(at.getYaw());
         modeled.setYHeadRotImmediately(at.getYaw());
         modeled.setXHeadRotImmediately(at.getPitch());
     }
@@ -513,6 +514,8 @@ public final class ModelEngineHook implements Animator, Listener {
                     continue;
                 }
                 dressLimbs(entity, model);
+                ModeledEntity aimed = ModelEngineAPI.getModeledEntity(id);
+                if (aimed != null) faceAsWearer(aimed, entity); // where they aim, as they turn
                 SelfDouble self = e.getValue().self;
                 if (self != null) {
                     self.follow();
