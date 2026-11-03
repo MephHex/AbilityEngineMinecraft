@@ -41,14 +41,20 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                            Marks marks, Brain brain, boolean playable, Passive passive, Model model) {
 
     /**
-     * A model (Model Engine) the character wears: put on whoever plays it, taken off when they stop.
+     * A model (Model Engine) for whoever plays the character. By default it's only there while one of its animations
+     * plays: they look like themselves (their own body, walking, swinging), and for an animation the model swaps in
+     * with their skin, plays it, and swaps back. {@code always}: worn the whole time instead.
      *
      * @param id         the model's id (its .bbmodel name)
-     * @param hidePlayer hide the player's own body under it
+     * @param hidePlayer (always) hide the player's own body under it; while an animation swaps it in, it's always hidden
      * @param prefix     what its animations' names start with, for {@code animate: { part: ... }} (default: the
      *                   character's id): {@code <prefix>_<slot without underscores>_<part>}, e.g. warrior_ability2_swing
+     * @param always     worn the whole time ({@code show: always}), not only while an animation plays
      */
-    public record Model(String id, boolean hidePlayer, String prefix) {}
+    public record Model(String id, boolean hidePlayer, String prefix, boolean always) {
+        /** Shown only while an animation plays. */
+        public Model(String id, boolean hidePlayer, String prefix) { this(id, hidePlayer, prefix, false); }
+    }
 
     /** Without a model. */
     public CharacterDef(String id, String name, String weapon, Map<String, String> slots,

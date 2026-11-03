@@ -566,7 +566,7 @@ characters:
   arcanist:
     name: "Arcanist"
     weapon: BREEZE_ROD
-    model: { id: test_animation, hide_player: true }   # Model Engine test model (plugins/ModelEngine/blueprints)
+    model: test_animation            # Model Engine test model: swapped in while its animation plays (Arcane Bolt)
     stats:                           # see docs/character-stats.md
       health: 175                    # max HP
       armor: 10                      # damage taken x 100 / (100 + armor)

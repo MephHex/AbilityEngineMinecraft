@@ -32,8 +32,10 @@ import java.util.logging.Logger;
 /**
  * Model Engine support. The only class that touches Model Engine: only made when its plugin is on the server.
  * <ul>
- *   <li>Characters' models ({@code model:} in a kit): whoever plays one wears its model, kept on (after a respawn, a
- *       reload, a model that registers late) and taken off when they stop playing it or leave.</li>
+ *   <li>Characters' models ({@code model:} in a kit). By default a model is only there while one of its animations
+ *       plays: the player looks like themselves, and for an animation the model swaps in (with their skin, their body
+ *       hidden), plays it and swaps back out when it's over. {@code show: always}: worn the whole time, kept on
+ *       (after a respawn, a reload, a model that registers late) and taken off when they stop playing it or leave.</li>
  *   <li>The engine's {@link Animator}: {@code animate} / {@code stop_animation} play an animation on every model of the
  *       entity that has it.</li>
  * </ul>
@@ -54,6 +56,18 @@ public final class ModelEngineHook implements Animator, Listener {
     private final Map<ActiveModel, Map<String, Double>> asked = new java.util.WeakHashMap<>();
     /** Entities whose animations follow their time scale (they wear our model, or we played on them) -> its last value. */
     private final Map<UUID, Double> timeOf = new HashMap<>();
+    /** Models swapped in for their animations (show: animating): entity -> what's playing on it. */
+    private final Map<UUID, Swap> swaps = new HashMap<>();
+
+    /**
+     * A model swapped in for its animations: out again once none of them plays any more (looping ones: once they're
+     * stopped; HOLD ones, which never end by themselves: once their length has run).
+     */
+    private static final class Swap {
+        final long since = Bukkit.getCurrentTick();
+        /** animation -> the tick it's over by at the latest (Long.MAX_VALUE: only when it stops playing). */
+        final Map<String, Long> playing = new HashMap<>();
+    }
 
     public ModelEngineHook(AbilityEngine engine, Plugin plugin) {
         this.engine = engine;
@@ -65,7 +79,10 @@ public final class ModelEngineHook implements Animator, Listener {
         engine.setAnimator(this);
         engine.loadouts().onAssign(this::sync); // a new character: its model at once
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::syncAll, SYNC_EVERY, SYNC_EVERY);
-        timeTask = Bukkit.getScheduler().runTaskTimer(plugin, this::followTime, 1, 1);
+        timeTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            followSwaps();
+            followTime();
+        }, 1, 1);
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
@@ -73,12 +90,16 @@ public final class ModelEngineHook implements Animator, Listener {
     public void shutdown() {
         if (task != null) task.cancel();
         if (timeTask != null) timeTask.cancel();
+        swaps.clear();
         for (UUID id : List.copyOf(worn.keySet())) takeOff(id);
         engine.setAnimator(Animator.NONE);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onQuit(PlayerQuitEvent e) { takeOff(e.getPlayer().getUniqueId()); }
+    public void onQuit(PlayerQuitEvent e) {
+        swaps.remove(e.getPlayer().getUniqueId());
+        takeOff(e.getPlayer().getUniqueId());
+    }
 
     // ---- models worn ----------------------------------------------------------------------------
 
@@ -95,6 +116,8 @@ public final class ModelEngineHook implements Animator, Listener {
             if (entity instanceof LivingEntity living && living.isDead()) return; // back on when they respawn
             CharacterDef.Model want = entity == null || !entity.isValid() ? null
                     : engine.loadouts().characterOf(id).map(CharacterDef::model).orElse(null);
+            if (want != null && !want.always() && !swaps.containsKey(id)) want = null; // only while an animation plays
+            if (want == null) swaps.remove(id);
             CharacterDef.Model have = worn.get(id);
             if (Objects.equals(want, have) && (want == null || stillOn(id, want.id()))) {
                 if (want != null) dressLimbs(entity, want.id());
@@ -124,7 +147,7 @@ public final class ModelEngineHook implements Animator, Listener {
         ActiveModel active = ModelEngineAPI.createActiveModel(model.id());
         if (active == null) return;
         modeled.addModel(active, true);
-        modeled.setBaseEntityVisible(!model.hidePlayer());
+        modeled.setBaseEntityVisible(model.always() && !model.hidePlayer()); // swapped in: the model is their body
         worn.put(entity.getUniqueId(), model);
         dressLimbs(entity, model.id());
         timeOf.putIfAbsent(entity.getUniqueId(), 1.0);
@@ -140,8 +163,15 @@ public final class ModelEngineHook implements Animator, Listener {
         if (modeled == null) return;
         ActiveModel active = modeled.getModel(modelId).orElse(null);
         if (active == null) return;
+        java.util.ArrayDeque<com.ticxo.modelengine.api.model.bone.ModelBone> bones =
+                new java.util.ArrayDeque<>(active.getBones().values());
+        Set<com.ticxo.modelengine.api.model.bone.ModelBone> seen =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         com.destroystokyo.paper.profile.PlayerProfile profile = null;
-        for (var bone : active.getBones().values()) {
+        while (!bones.isEmpty()) { // (the whole tree: limbs sit under other bones)
+            var bone = bones.poll();
+            if (!seen.add(bone)) continue;
+            bones.addAll(bone.getChildren().values());
             var limb = bone.getBoneBehavior(com.ticxo.modelengine.api.model.bone.BoneBehaviorTypes.PLAYER_LIMB);
             if (limb.isEmpty()) continue;
             var item = bone.getModel();
@@ -185,6 +215,7 @@ public final class ModelEngineHook implements Animator, Listener {
     @Override
     public CueHandle play(UUID entity, String animation, Settings settings) {
         try {
+            Swap swap = swapIn(entity, animation);
             ModeledEntity modeled = ModelEngineAPI.getModeledEntity(entity);
             if (modeled == null) return CueHandle.NONE;
             List<ActiveModel> playing = new ArrayList<>();
@@ -196,11 +227,18 @@ public final class ModelEngineHook implements Animator, Listener {
                 BlueprintAnimation made = model.getBlueprint().getAnimations().get(name);
                 double speed = settings.speed();
                 if (settings.fit() > 0 && made.getLength() > 0) speed *= made.getLength() * 20 / settings.fit(); // (length: seconds)
-                model.getAnimationHandler().playAnimation(name, settings.lerpIn() / 20.0, settings.lerpOut() / 20.0,
-                        speed * time, settings.force());
+                double lerpIn = settings.lerpIn() / 20.0, lerpOut = settings.lerpOut() / 20.0, at = speed * time;
+                model.getAnimationHandler().playAnimation(name, lerpIn, lerpOut, at, settings.force());
+                if (!modeled.isInitialized()) { // just swapped in: once Model Engine has set it up
+                    modeled.queuePostInitTask(() -> model.getAnimationHandler().playAnimation(name, lerpIn, lerpOut, at, true));
+                }
                 asked.computeIfAbsent(model, m -> new HashMap<>()).put(name, speed);
                 playing.add(model);
                 names.put(model, name);
+                if (swap != null) swap.playing.put(name, made.getLoopMode() == BlueprintAnimation.LoopMode.LOOP
+                        ? Long.MAX_VALUE // until it's stopped
+                        : Bukkit.getCurrentTick() + (long) Math.ceil(made.getLength() * 20 / Math.max(0.05, speed * Math.min(1, time)))
+                                + settings.lerpOut() + 5); // (at the latest: a HOLD one never ends by itself)
             }
             if (!playing.isEmpty()) timeOf.putIfAbsent(entity, time);
             if (playing.isEmpty()) {
@@ -247,6 +285,62 @@ public final class ModelEngineHook implements Animator, Listener {
                 e.setValue(time);
             } catch (RuntimeException | LinkageError ex) {
                 if (warned.add("time:" + ex)) log.warning("Model Engine: couldn't set animation speeds of " + id + ": " + ex);
+            }
+        }
+    }
+
+    /**
+     * The entity's character model, if it's only shown for its animations and has this one: swapped in now (if it
+     * isn't already). Null: nothing to swap (no such model, it's worn always, or it hasn't this animation).
+     */
+    private Swap swapIn(UUID id, String animation) {
+        CharacterDef.Model model = engine.loadouts().characterOf(id).map(CharacterDef::model).orElse(null);
+        if (model == null || model.always()) return null;
+        var blueprint = ModelEngineAPI.getBlueprint(model.id());
+        if (blueprint == null || blueprint.getAnimations().keySet().stream().noneMatch(a -> a.equalsIgnoreCase(animation))) {
+            return null;
+        }
+        Entity entity = Bukkit.getEntity(id);
+        if (entity == null || !entity.isValid()) return null;
+        Swap swap = swaps.get(id);
+        if (swap == null || !worn.containsKey(id)) {
+            swap = new Swap();
+            swaps.put(id, swap);
+            if (!model.equals(worn.get(id))) {
+                takeOff(id);
+                putOn(entity, model);
+            }
+        }
+        return swap;
+    }
+
+    /** Every tick: swapped-in models get their skin (Model Engine sets limbs up a tick late) and go once they're done. */
+    private void followSwaps() {
+        long now = Bukkit.getCurrentTick();
+        for (var it = swaps.entrySet().iterator(); it.hasNext(); ) {
+            var e = it.next();
+            UUID id = e.getKey();
+            try {
+                Entity entity = Bukkit.getEntity(id);
+                CharacterDef.Model model = worn.get(id);
+                if (entity == null || !entity.isValid() || model == null) {
+                    it.remove();
+                    takeOff(id);
+                    continue;
+                }
+                dressLimbs(entity, model.id());
+                if (now - e.getValue().since < 2) continue; // (just started)
+                ModeledEntity modeled = ModelEngineAPI.getModeledEntity(id);
+                ActiveModel active = modeled == null ? null : modeled.getModel(model.id()).orElse(null);
+                boolean still = active != null && e.getValue().playing.entrySet().stream().anyMatch(a ->
+                        now <= a.getValue() && active.getAnimationHandler().isPlayingAnimation(a.getKey()));
+                if (!still) {
+                    it.remove();
+                    takeOff(id); // themselves again
+                }
+            } catch (RuntimeException | LinkageError ex) {
+                if (warned.add("swap:" + ex)) log.warning("Model Engine: couldn't swap the model of " + id + ": " + ex);
+                it.remove();
             }
         }
     }

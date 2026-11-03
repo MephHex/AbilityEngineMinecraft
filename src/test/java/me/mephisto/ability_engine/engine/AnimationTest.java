@@ -95,6 +95,22 @@ class AnimationTest {
     }
 
     @Test
+    void aModelIsShownOnlyForItsAnimationsUnlessAlways() {
+        UUID k = setup(map("id", "knight_model"));
+        assertTrue(!t.engine.loadouts().characterOf(k).orElseThrow().model().always());
+        UUID w = setup(map("id", "knight_model", "show", "always", "hide_player", true));
+        assertEquals(new CharacterDef.Model("knight_model", true, null, true), t.engine.loadouts().characterOf(w).orElseThrow().model());
+    }
+
+    @Test
+    void anUnknownShowIsReported() {
+        TestEngine t = new TestEngine();
+        LoadReport report = new AbilityLoader(t.engine).load(map("characters", map("knight", map(
+                "slots", map(), "model", map("id", "m", "show", "sometimes")))), "src/test");
+        assertTrue(String.join(" ", report.errors()).contains("show"), String.join(" ", report.errors()));
+    }
+
+    @Test
     void noModelNoField() {
         UUID k = setup(null);
         assertNull(t.engine.loadouts().characterOf(k).orElseThrow().model());
@@ -152,7 +168,8 @@ class AnimationTest {
         t.world.players.add(p);
         t.world.look(p, new me.mephisto.ability_engine.engine.math.Vec3(1, 0, 0));
         t.engine.loadouts().assign(p, "arcanist");
-        assertEquals(new CharacterDef.Model("test_animation", true, null), t.engine.loadouts().characterOf(p).orElseThrow().model());
+        assertEquals(new CharacterDef.Model("test_animation", false, null, false), t.engine.loadouts().characterOf(p).orElseThrow().model(),
+                "only swapped in while its animation plays");
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
         assertEquals(List.of("play " + p + " animationTest"), anim.log);
         assertEquals(16, anim.settings.get(0).fit(), "1.25 shots a second: 16 ticks between them");

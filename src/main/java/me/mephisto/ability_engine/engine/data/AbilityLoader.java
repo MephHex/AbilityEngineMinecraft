@@ -378,7 +378,10 @@ public final class AbilityLoader {
                 glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true), passive(p), model(p));
     }
 
-    /** {@code model: <id>} or {@code model: { id, hide_player, prefix }}: a Model Engine model worn while playing it. */
+    /**
+     * {@code model: <id>} or {@code model: { id, show, hide_player, prefix }}: a Model Engine model, swapped in while one
+     * of its animations plays ({@code show: animating}, the default) or worn the whole time ({@code show: always}).
+     */
     private static CharacterDef.Model model(Params p) {
         if (!p.has("model")) return null;
         if (p.raw("model") instanceof String id) {
@@ -388,7 +391,11 @@ public final class AbilityLoader {
         Params m = p.getParams("model");
         String prefix = m.getString("prefix", null);
         if (prefix != null && prefix.isBlank()) throw m.error("prefix", "what its animations' names start with");
-        return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix);
+        String show = m.getString("show", "animating");
+        if (!show.equals("animating") && !show.equals("always")) {
+            throw m.error("show", "animating (only while one of its animations plays) or always");
+        }
+        return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix, show.equals("always"));
     }
 
     /** {@code passive: { name, icon, description }}: the passive explained (slot 9, or on the weapon). */

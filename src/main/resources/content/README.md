@@ -1316,10 +1316,17 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
 Works when the ModelEngine plugin is on the server (4.1.1); without it, all of this quietly does nothing and the kits
 play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg reload`).
 
-- **Characters:** `model: <model id>` or `model: { id, hide_player, prefix }`. Whoever plays the character wears that
-  model; it comes off when they pick another character (or none) or leave, and goes back on after a respawn or a
-  reload. `hide_player: true` hides the player's own body under it. Model Engine's own default animations (idle,
-  walk, jump...) play by themselves as usual.
+- **Characters:** `model: <model id>` or `model: { id, show, hide_player, prefix }`. By default (`show: animating`)
+  the model is only there while one of its animations plays: players look like themselves (their own body, walking,
+  swinging), and when an ability plays an animation the model swaps in with their skin, plays it, and swaps back out
+  when it's over (a looping one: when it's stopped, e.g. `until_end`). Animations the model doesn't have don't swap it
+  in. `show: always`: worn the whole time instead (kept on after a respawn or a reload, off when they pick another
+  character or leave); `hide_player: true` then hides the player's own body under it, and Model Engine's own default
+  animations (idle, walk, jump...) play by themselves. Nobody ever sees a model on themselves (Model Engine only shows
+  it to others): while it's swapped in, the player sees their own body vanish in third person.
+- **Player limbs:** bones named `phead_<name>`, `pbody_`, `prarm_`, `plarm_`, `prleg_`, `plleg_` are drawn with the
+  wearer's skin (the cubes in them are ignored). Bone names must be lowercase, without spaces. Players need Model
+  Engine's resource pack (see resourcepack/merge_model_engine.py).
 - **animate** `{ animation | part, at, speed, lerp_in, lerp_out, force, until_end }`: plays an animation, anywhere in
   an ability (on a hit, a branch, a delay...). `animation:` is the whole name; `part:` is
   `<prefix>_<slot without underscores>_<part>`, prefix = the model's `prefix:` or the character's id. Cast from
