@@ -85,12 +85,24 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
      * @param slotDamage         the damage of the holder's abilities in these slots is multiplied by this ({primary: 0.5,
      *                           ability_1: 0.5}: their basic attacks and 1 at half damage), e.g. while confused
      * @param slowResistance     this share (0..1) of every slow on the holder is shrugged off (0.3: a 40% slow is 28%)
+     * @param timeScale          how fast time runs for the holder (0.5: half speed): their channels, charge-ups and
+     *                           repeats take longer, their animations play slower, their projectiles fly slower; 1 = none
      */
     public record Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
                          List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
                          double ultChargeRate, List<EffectConfig> onDamaged, boolean additive, Combat combat,
                          double slowCap, String moveSpeedUnless, java.util.Map<String, Double> slotDamage,
-                         double slowResistance) {
+                         double slowResistance, double timeScale) {
+
+        /** Time runs normally. */
+        public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
+                      List<EffectConfig> abilityOnHit, double cooldownReduction, double allyHealingDealt,
+                      double ultChargeRate, List<EffectConfig> onDamaged, boolean additive, Combat combat,
+                      double slowCap, String moveSpeedUnless, java.util.Map<String, Double> slotDamage,
+                      double slowResistance) {
+            this(maxHealth, abilityDamageTaken, abilityLifesteal, basicOnHit, abilityOnHit, cooldownReduction, allyHealingDealt,
+                    ultChargeRate, onDamaged, additive, combat, slowCap, moveSpeedUnless, slotDamage, slowResistance, 1);
+        }
 
         /** No slow resistance. */
         public Extras(double maxHealth, double abilityDamageTaken, double abilityLifesteal, List<EffectConfig> basicOnHit,
@@ -155,6 +167,7 @@ public record StatusDef(String id, int defaultDurationTicks, StackPolicy stackin
             if (slowCap < 0) slowCap = 0;
             slotDamage = slotDamage == null ? java.util.Map.of() : java.util.Map.copyOf(slotDamage);
             slowResistance = Math.max(0, Math.min(1, slowResistance));
+            if (!(timeScale > 0)) timeScale = 1;
         }
     }
 

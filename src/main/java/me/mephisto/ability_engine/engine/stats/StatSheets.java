@@ -296,6 +296,15 @@ public final class StatSheets {
     }
 
     /**
+     * How fast time runs for the entity by its statuses: their {@code time_scale}, each to the power of its stacks,
+     * multiplied together (1 = normally). Unstoppable, slowing ones don't count.
+     */
+    public double timeScale(UUID entity) {
+        return combine(statsOn(entity), s -> s.def().extras().timeScale(), true,
+                s -> s.def().extras().timeScale() < 1 && statuses.crowdControlSuppressed(entity, s));
+    }
+
+    /**
      * How much of every slow the holder shrugs off (0..1): their statuses' {@code slow_resistance}, each per stack, as
      * shares that multiply (two 30%: 51%). Slows from move_speed statuses and the {@code state.slowed} tag both shrink.
      */

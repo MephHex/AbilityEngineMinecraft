@@ -53,6 +53,11 @@ abilities:
         - "{base:0.5|magic} + {sp:0.5|magic}."
         - "Curves toward marked enemies."
     nodes:
+      cast_anim:                     # Model Engine test: the swing animation on every shot (test_animation model)
+        type: animate
+        animation: animationTest     # its whole name (not <character>_primary_<part>)
+        fit: attack                  # lasts exactly the time between shots: faster with attack speed, slower with less
+        next: mode
       mode:
         type: has_tag
         tag: arcanist.barrage
@@ -561,6 +566,7 @@ characters:
   arcanist:
     name: "Arcanist"
     weapon: BREEZE_ROD
+    model: { id: test_animation, hide_player: true }   # Model Engine test model (plugins/ModelEngine/blueprints)
     stats:                           # see docs/character-stats.md
       health: 175                    # max HP
       armor: 10                      # damage taken x 100 / (100 + armor)

@@ -49,6 +49,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
     private me.mephisto.ability_engine.bukkit.platform.ScreenRenderer screens;
     private me.mephisto.ability_engine.bukkit.status.CcLabels ccLabels;
 
+    /** Takes everyone's Model Engine models off (null: no Model Engine). */
+    private Runnable modelEngine;
+
     @Override
     public void onEnable() {
         BukkitWorldQuery worldQuery = new BukkitWorldQuery();
@@ -157,6 +160,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         bossBar.start();
         pm.registerEvents(new AbilityInputListener(engine, bindings), this); // debug: /ae bind items
         pm.registerEvents(new PlayerLifecycleListener(engine, tagBindings, hud), this);
+        startModelEngine();
 
         var cmd = getCommand("ae");
         if (cmd != null) {
@@ -172,6 +176,20 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         for (Player p : getServer().getOnlinePlayers()) {
             tagBindings.scrub(p);
             hud.clear(p);
+        }
+    }
+
+    /** Model Engine, if it's on the server: characters' models and their animations (animate). */
+    private void startModelEngine() {
+        if (getServer().getPluginManager().getPlugin("ModelEngine") == null) return;
+        try {
+            var hook = new me.mephisto.ability_engine.bukkit.platform.ModelEngineHook(engine, this);
+            hook.start();
+            cuePlayer.setAnimator(engine.animator()); // looping cues fall back to a model animation of that name
+            modelEngine = hook::shutdown;
+            getLogger().info("Model Engine found: characters' models and animations are on");
+        } catch (Throwable t) { // another Model Engine version: everything else still works
+            getLogger().warning("Model Engine found, but its API didn't match (" + t + "): models and animations are off");
         }
     }
 
@@ -241,6 +259,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         if (ccLabels != null) ccLabels.shutdown();
         me.mephisto.ability_engine.bukkit.status.InvertedControls.shutdown(); // everyone walks normally again
         me.mephisto.ability_engine.bukkit.status.PuppetHold.shutdown(); // decoys gone, everyone walks
+        if (modelEngine != null) modelEngine.run();                 // everyone's models off
         engine.shutdown(); // cancels casts, removes projectiles, undoes stuns
         me.mephisto.ability_engine.bukkit.effect.PlaceBlocksEffect.restoreAll(); // ice walls: the terrain as it was
         engine = null;

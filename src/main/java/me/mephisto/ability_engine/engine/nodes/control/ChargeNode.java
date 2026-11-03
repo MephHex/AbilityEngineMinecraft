@@ -3,6 +3,7 @@ package me.mephisto.ability_engine.engine.nodes.control;
 import me.mephisto.ability_engine.engine.ability.AbilityInstance;
 import me.mephisto.ability_engine.engine.graph.ExecutionContext;
 import me.mephisto.ability_engine.engine.graph.GraphNode;
+import me.mephisto.ability_engine.engine.graph.LocalTime;
 import me.mephisto.ability_engine.engine.graph.NodeResult;
 import me.mephisto.ability_engine.engine.graph.Ports;
 import me.mephisto.ability_engine.engine.graph.Resumer;
@@ -103,6 +104,11 @@ public final class ChargeNode implements GraphNode {
         private long lastInput;
         private int loaded;
         private boolean done;
+        /** The caster's own time (time_scale): how long it's been held as far as the charge goes. */
+        private final LocalTime local;
+        private double heldAtLastInput;
+        private TaskHandle clock;
+        private boolean bent;
 
         Charge(ExecutionContext ctx, Resumer resumer) {
             this.ctx = ctx;
@@ -110,6 +116,7 @@ public final class ChargeNode implements GraphNode {
             this.instance = ctx.instance();
             this.startedAt = ctx.engine().clock().now();
             this.lastInput = startedAt;
+            this.local = new LocalTime(ctx.engine(), ctx.caster());
         }
 
         void start() {
@@ -118,37 +125,60 @@ public final class ChargeNode implements GraphNode {
             // Fully charged: fires by itself, or (fire_when_full: false) just stays full until let go.
             if (fireWhenFull) task = ctx.engine().scheduler().after(ticks, this::fire);
             if (releaseGap > 0) instance.setInputRepeat(onRepeat);
-            loadUpTo(startedAt); // what the press itself loads
+            clock = ctx.engine().scheduler().every(1, 1, this::followTime);
+            loadUpTo(0); // what the press itself loads
             if (releaseGap > 0 || load != null) {
                 watcher = ctx.engine().scheduler().every(1, 1, () -> {
                     if (releaseGap > 0 && ctx.engine().clock().now() - lastInput > releaseGap) {
                         fire();
                         return;
                     }
-                    loadUpTo(heldUntil());
+                    loadUpTo(heldFor());
                 });
             }
             instance.onEnd(() -> {
                 done = true;
                 if (task != null) task.cancel();
                 if (watcher != null) watcher.cancel();
+                if (clock != null) clock.cancel();
             });
+        }
+
+        /**
+         * Once the caster's time runs differently (a time slow, even midway), it fills on their own time: full (and
+         * firing by itself) when their time has passed {@code ticks}, the bar following it.
+         */
+        private void followTime() {
+            if (done || (!bent && !local.bent())) return;
+            if (!bent) {
+                bent = true;
+                if (task != null) task.cancel();
+            }
+            if (fireWhenFull && local.elapsed() >= ticks - 1e-9) {
+                fire();
+                return;
+            }
+            if (bar != null) {
+                instance.clearProgress(bar);
+                bar = instance.showProgress(local.barStart(), ticks);
+            }
         }
 
         private void repeated() {
             lastInput = ctx.engine().clock().now();
-            loadUpTo(lastInput);
-            if (showBar && barWhenHeld && bar == null) bar = instance.showProgress(startedAt, ticks); // really held
+            heldAtLastInput = local.elapsed();
+            loadUpTo(heldAtLastInput);
+            if (showBar && barWhenHeld && bar == null) bar = instance.showProgress(local.barStart(), ticks); // really held
         }
 
-        /** Held until when, as far as we know: the last repeat, or (the platform reports the let-go) now. */
-        private long heldUntil() { return releaseGap > 0 ? lastInput : ctx.engine().clock().now(); }
+        /** Held for how long (their own time), as far as we know: until the last repeat, or (the platform reports the let-go) now. */
+        private double heldFor() { return releaseGap > 0 ? heldAtLastInput : local.elapsed(); }
 
         /** Loading: spend what the time held so far has loaded. */
-        private void loadUpTo(long heldUntil) {
+        private void loadUpTo(double heldFor) {
             if (load == null || done) return;
             var res = ctx.engine().resources();
-            int want = (int) Math.min(load.max(), load.start() + (heldUntil - startedAt) / load.every());
+            int want = (int) Math.min(load.max(), load.start() + Math.floor(heldFor + 1e-9) / load.every());
             while (loaded < want && res.has(ctx.caster(), load.resource(), 1)) {
                 res.consume(ctx.caster(), load.resource(), 1);
                 loaded++;
@@ -161,19 +191,20 @@ public final class ChargeNode implements GraphNode {
             done = true;
             if (task != null) task.cancel();
             if (watcher != null) watcher.cancel();
+            if (clock != null) clock.cancel();
             instance.clearReleaseHandler(handler);
             instance.clearInputRepeat(onRepeat);
             instance.clearProgress(bar);
             long now = ctx.engine().clock().now();
             if (load != null) {
-                loadUpTo(heldUntil());
+                loadUpTo(heldFor());
                 ctx.blackboard().putRaw(store, (double) loaded);
                 resumer.resume(loaded > 0 ? Ports.OUT : Ports.EARLY);
                 return;
             }
             // Watching repeats: held until the last one (the gap after it is just us noticing the let-go).
-            long heldTicks = releaseGap > 0 ? Math.min(now, lastInput) - startedAt : now - startedAt;
-            if (heldTicks < min) {
+            double heldTicks = releaseGap > 0 ? Math.min(local.elapsed(), heldAtLastInput) : local.elapsed();
+            if (heldTicks < min - 1e-9) {
                 resumer.resume(Ports.EARLY); // let go too soon: not charged enough to fire
                 return;
             }

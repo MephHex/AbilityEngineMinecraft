@@ -375,7 +375,20 @@ public final class AbilityLoader {
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
                 hover, variants(p), lowHealth(p), characterOnLethal(p), outOfCombat(p), characterOnKill(p), healthBands(p),
-                glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true), passive(p));
+                glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true), passive(p), model(p));
+    }
+
+    /** {@code model: <id>} or {@code model: { id, hide_player, prefix }}: a Model Engine model worn while playing it. */
+    private static CharacterDef.Model model(Params p) {
+        if (!p.has("model")) return null;
+        if (p.raw("model") instanceof String id) {
+            if (id.isBlank()) throw p.error("model", "the model's id");
+            return new CharacterDef.Model(id, false, null);
+        }
+        Params m = p.getParams("model");
+        String prefix = m.getString("prefix", null);
+        if (prefix != null && prefix.isBlank()) throw m.error("prefix", "what its animations' names start with");
+        return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix);
     }
 
     /** {@code passive: { name, icon, description }}: the passive explained (slot 9, or on the weapon). */

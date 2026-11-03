@@ -433,7 +433,7 @@ public final class Parsers {
                 || p.getDouble("ability_haste", 0) > 0 || p.getDouble("armor_flat", 0) > 0 || p.getDouble("max_health_flat", 0) > 0
                 || p.getDouble("base_damage_flat", 0) > 0
                 || p.getDouble("crit_damage", 0) > 0 || p.getBool("ability_crits", false) || p.has("on_crit")
-                || p.getDouble("slow_resistance", 0) > 0;
+                || p.getDouble("slow_resistance", 0) > 0 || p.getDouble("time_scale", 1) > 1;
         boolean positive = p.has("positive") ? p.getBool("positive", false) : looksPositive;
         if (p.getBool("neutral", false)) {
             if (p.getBool("positive", false)) throw p.error("neutral", "a neutral status is neither a buff nor a debuff: leave out positive");
@@ -474,7 +474,14 @@ public final class Parsers {
         return new StatusDef.Extras(maxHealth, abilityTaken, lifesteal, optionalEffects(p, "basic_on_hit", registry),
                 optionalEffects(p, "ability_on_hit", registry), cdr, allyHealing, ultRate,
                 optionalEffects(p, "on_damaged", registry), p.getBool("additive", false), combat(p, registry), slowCap,
-                p.getString("move_speed_unless", null), slotDamage(p), slowResistance(p));
+                p.getString("move_speed_unless", null), slotDamage(p), slowResistance(p), timeScale(p));
+    }
+
+    /** {@code time_scale: 0.5}: time runs at half speed for the holder (channels, charge-ups, animations, shots). */
+    private static double timeScale(Params p) {
+        double t = p.getDouble("time_scale", 1);
+        if (t <= 0 || t > 10) throw p.error("time_scale", "how fast time runs for the holder, above 0 (0.5 = half speed, 1.5 = 50% faster)");
+        return t;
     }
 
     /** {@code slow_resistance: 0.3}: that share of every slow on the holder is shrugged off. */

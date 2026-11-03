@@ -76,9 +76,20 @@ public final class ProjectileSystem {
     /** Screens projectiles fly through (null = none). */
     public void setScreens(me.mephisto.ability_engine.engine.barrier.Screens screens) { this.screens = screens; }
 
-    /** How fast time runs for {@code p} where it is: below 1 inside an enemy's slow field. */
+    private java.util.function.ToDoubleFunction<java.util.UUID> shooterTime = id -> 1;
+
+    /** How fast time runs for a shooter (time_scale): what they fire flies at that, from the shot on. */
+    public void setShooterTime(java.util.function.ToDoubleFunction<java.util.UUID> shooterTime) {
+        this.shooterTime = shooterTime == null ? id -> 1 : shooterTime;
+    }
+
+    /**
+     * How fast time runs for {@code p} where it is: below 1 inside an enemy's slow field, and times its shooter's time
+     * when they fired it.
+     */
     private double timeScale(Projectile p, java.util.UUID shooter) {
-        return slowFields == null ? 1 : slowFields.factorAt(p.world, p.position, shooter);
+        double field = slowFields == null ? 1 : slowFields.factorAt(p.world, p.position, shooter);
+        return field * p.ownTime;
     }
 
     /** Launch a projectile. {@code resumer} is resumed with hit_entity / hit_block / expired. */
@@ -101,6 +112,7 @@ public final class ProjectileSystem {
         Projectile p = new Projectile(spec, worldName, position, velocity, resumer,
                 renderer.spawn(worldName, position, velocity, spec, tint, resumer.context().instance().caster()));
         p.sweepFrom = sweepFrom;
+        p.ownTime = shooterTime.applyAsDouble(resumer.context().instance().caster());
         active.add(p);
         var instance = resumer.context().instance();
         latest.computeIfAbsent(instance.caster(), k -> new HashMap<>()).put(instance.ability().id(), p);

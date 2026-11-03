@@ -105,8 +105,9 @@ public final class RepeatNode implements GraphNode {
                 branch.blackboard().putRaw(INDEX_KEY, done);
                 branch.suspend().resume(EACH);
                 if (interval > 0) {
-                    long wait = Math.max(1, Math.round(elapsed + interval) - Math.round(elapsed));
-                    elapsed += interval;
+                    double step = interval / ctx.engine().timeScale(ctx.caster()); // their own time (time_scale)
+                    long wait = Math.max(1, Math.round(elapsed + step) - Math.round(elapsed));
+                    elapsed += step;
                     task = ctx.engine().scheduler().after(wait, this::next);
                     return;
                 }

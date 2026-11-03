@@ -84,6 +84,9 @@ public final class NodeTypes {
         t.register("barrier", (p, e) -> new BarrierNode(p.getDouble("distance", 1.0), p.getDouble("radius", 1.3),
                 p.getBool("projectiles_only", false), p.getBool("reflect", false), p.getBool("around", false)));
         t.register("start_cue", (p, e) -> new StartCueNode(p.requireString("cue"), p.getString("at", null)));
+        // ---- Model Engine: a model's animations ----
+        t.register("animate", (p, e) -> animate(p, false));
+        t.register("stop_animation", (p, e) -> animate(p, true));
         t.register("dash", (p, e) -> {
             boolean follow = p.getBool("follow", false);
             if (follow && !p.has("to")) throw p.error("follow", "needs to: <key> (whoever to fly after)");
@@ -424,8 +427,10 @@ public final class NodeTypes {
             if (length <= 0) throw p.error("length", "must be above 0 (blocks)");
             if (width <= 0) throw p.error("width", "must be above 0 (blocks)");
             if (height <= 0) throw p.error("height", "must be above 0 (blocks)");
+            double time = p.getDouble("time_scale", 1);
+            if (time <= 0 || time > 1) throw p.error("time_scale", "how fast time runs for enemies inside, above 0 up to 1 (0.5 = half speed)");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.SlowFieldNode(p.getString("at", "aim"), length, width,
-                    height, slow);
+                    height, slow).slowingPeople(time);
         });
         // ---- Arcanist: a screen shots fly through (see Screens) ----
         t.register("screen", (p, e) -> {
@@ -568,4 +573,37 @@ public final class NodeTypes {
         return t.equals("cursor");
     }
 
+    /** animate / stop_animation: { animation | part, at, speed, lerp_in, lerp_out, force, until_end }. */
+    private static me.mephisto.ability_engine.engine.graph.GraphNode animate(Params p, boolean stop) {
+        if (p.has("animation") == p.has("part")) throw p.error("animation", "give animation: <whole name> or part: <part>, one of them");
+        String animation = p.getString("animation", null);
+        String part = p.getString("part", null);
+        if ((animation != null && animation.isBlank()) || (part != null && part.isBlank())) {
+            throw p.error(animation != null ? "animation" : "part", "the animation's name");
+        }
+        double speed = p.getDouble("speed", 1);
+        if (speed <= 0) throw p.error("speed", "how fast it plays, above 0 (1 = as made)");
+        int lerpIn = p.getInt("lerp_in", 0);
+        int lerpOut = p.getInt("lerp_out", 0);
+        if (lerpIn < 0) throw p.error("lerp_in", "ticks to blend into it, 0 or more");
+        if (lerpOut < 0) throw p.error("lerp_out", "ticks to blend out of it, 0 or more");
+        var node = new me.mephisto.ability_engine.engine.nodes.gameplay.AnimateNode(animation, part, p.getString("at", null),
+                new me.mephisto.ability_engine.engine.platform.Animator.Settings(speed, lerpIn, lerpOut, p.getBool("force", true)),
+                !stop && p.getBool("until_end", false), stop);
+        if (stop) return node;
+        if (p.has("scale_with")) {
+            if (!"attack_speed".equals(p.getString("scale_with", null))) throw p.error("scale_with", "expected attack_speed");
+            node.byAttackSpeed();
+        }
+        if (p.has("fit")) {
+            if ("attack".equals(p.raw("fit"))) {
+                node.fit(0, true);
+            } else {
+                int fit = p.getInt("fit", 0);
+                if (fit < 1) throw p.error("fit", "ticks it should last (at least 1), or attack: the time between basic attacks");
+                node.fit(fit, false);
+            }
+        }
+        return node;
+    }
 }

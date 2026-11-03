@@ -25,6 +25,14 @@ public final class SlowFieldNode implements GraphNode {
     private final double height;
     private final double slow;
 
+    private double timeScale = 1;
+
+    /** {@code time_scale}: enemies standing inside run at this (their channels, animations, shots). */
+    public SlowFieldNode slowingPeople(double timeScale) {
+        this.timeScale = timeScale;
+        return this;
+    }
+
     public SlowFieldNode(String at, double length, double width, double height, double slow) {
         this.at = at;
         this.length = length;
@@ -48,7 +56,7 @@ public final class SlowFieldNode implements GraphNode {
                 .orElse(new Vec3(1, 0, 0))
                 .normalize();
         Runnable remove = ctx.engine().slowFields().add(new SlowFields.Field(ctx.caster(), spot.get().world(), c, forward,
-                length, width, height, slow));
+                length, width, height, slow, timeScale));
         ctx.instance().onEnd(remove);
         return NodeResult.NEXT;
     }

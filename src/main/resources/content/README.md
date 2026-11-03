@@ -1310,3 +1310,55 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
   1.6 blocks), dh_parry, dh_fang_cast, dh_fang_ready (looping), dh_fang, dh_marked (looping), dh_bleed_open, dh_bleeding
   (looping), dh_cut_ready, dh_cut_leap, dh_clean_cut (3 blocks), dh_cut_return; dh_swing, dh_whiff and dh_execute as
   before. Keep the radii in step with dragon_hunter.yml (DragonHunterCues).
+
+## Model Engine (models and animations)
+
+Works when the ModelEngine plugin is on the server (4.1.1); without it, all of this quietly does nothing and the kits
+play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg reload`).
+
+- **Characters:** `model: <model id>` or `model: { id, hide_player, prefix }`. Whoever plays the character wears that
+  model; it comes off when they pick another character (or none) or leave, and goes back on after a respawn or a
+  reload. `hide_player: true` hides the player's own body under it. Model Engine's own default animations (idle,
+  walk, jump...) play by themselves as usual.
+- **animate** `{ animation | part, at, speed, lerp_in, lerp_out, force, until_end }`: plays an animation, anywhere in
+  an ability (on a hit, a branch, a delay...). `animation:` is the whole name; `part:` is
+  `<prefix>_<slot without underscores>_<part>`, prefix = the model's `prefix:` or the character's id. Cast from
+  ability_2 as the Warrior, `part: swing` is `warrior_ability2_swing` (primary: `warrior_primary_x`, ultimate:
+  `warrior_ultimate_x`; a hidden helper with no slot uses its ability id, underscores dropped). `at: <key>` plays it on
+  someone else (`hit`, a target...); default the caster. `speed` (1 = as made), `lerp_in` / `lerp_out` (ticks to blend
+  in/out, default 0), `force` (restart it if it's already playing, default true). `until_end: true` stops it when the
+  cast ends, however it ends (finished, cancelled, stunned, died): for looping animations.
+- **stop_animation** `{ animation | part, at }`: stops it (blending out by its lerp_out).
+- **Animation speed:** `scale_with: attack_speed` multiplies `speed` by the caster's attack speed buffs and slows
+  (+30%: 1.3x, a 40% attack slow: 0.6x). `fit: <ticks>` plays it in exactly that long, however long it was made in
+  Blockbench (a 2s animation with `fit: 20` plays twice as fast); `speed` then multiplies the fitted speed. `fit: attack`
+  fits it to the time between the caster's basic attacks right now (attack speed already in it, so don't add
+  scale_with too unless you want both). Time slows (below) apply on top.
+- **Looping cues:** a `start_cue` or a status's `cue:` that no plugin code registered plays the model's animation of
+  that exact name instead, until it stops (e.g. a status `cue: warrior_ultimate_run`: it plays as long as he has it).
+- A missing model or animation is logged once in the console (with the models the entity has) and otherwise ignored.
+
+```yaml
+characters:
+  warrior:
+    model: { id: warrior, hide_player: true }
+
+abilities:
+  warrior_ab1:
+    nodes:
+      windup: { type: animate, part: jump, next: leap }      # warrior_ability1_jump
+      ...
+      land:   { type: animate, part: land, lerp_in: 2 }      # warrior_ability1_land
+```
+
+## Time slows (time_scale)
+
+- **Statuses:** `time_scale: 0.5` - time runs at half speed for the holder (1.5: 50% faster; several multiply, per
+  stack). Their `delay`s (wind-ups, channels, an ultimate's duration, cast and boss bars following), `charge`s
+  (fill slower: a full charge and `min` take longer, the power is by their own time), `repeat` intervals, the
+  projectiles they fire (fly, fall and age slower, from the shot on) and their model's animations (all of them,
+  Model Engine's idle and walk too) go at that. It counts from the moment it lands: a channel half done when it's
+  slowed takes the other half twice as long. Cooldowns are untouched. Unstoppable: slowing ones don't count. Above 1 it
+  counts as a buff.
+- **slow_field:** `time_scale: 0.5` - enemies standing inside run at that too (not only their projectiles); the
+  strongest field counts, together with their statuses'.

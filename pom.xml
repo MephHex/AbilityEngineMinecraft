@@ -73,6 +73,15 @@
             <version>1.21.10-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Model Engine (optional, softdepend): models and their animations. Compile-only, never shaded; the
+             server's own ModelEngine plugin provides it. The jar goes in library/ (git-ignored: proprietary; its repo needs a login). -->
+        <dependency>
+            <groupId>com.ticxo.modelengine</groupId>
+            <artifactId>ModelEngine</artifactId>
+            <version>R4.1.1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/library/ModelEngine-4.1.1.jar</systemPath>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

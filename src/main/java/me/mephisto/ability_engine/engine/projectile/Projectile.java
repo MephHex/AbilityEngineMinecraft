@@ -9,6 +9,8 @@ import java.util.List;
 /** One projectile in flight. Mutable, owned by ProjectileSystem; exposed to graphs as a ProjectileHandle. */
 final class Projectile implements ProjectileHandle {
     final ProjectileSpec spec;
+    /** How fast time ran for its shooter when they fired it (time_scale): it flies, falls and ages at that. */
+    double ownTime = 1;
     final String world;
     final Resumer resumer;
     final ProjectileVisual visual;

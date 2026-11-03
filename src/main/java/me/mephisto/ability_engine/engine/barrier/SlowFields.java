@@ -23,7 +23,13 @@ public final class SlowFields {
      * @param forward its length's direction (flat, unit length)
      */
     public record Field(UUID owner, String world, Vec3 center, Vec3 forward, double length, double width, double height,
-                        double factor) {
+                        double factor, double timeScale) {
+
+        /** Enemies inside aren't slowed themselves (only their projectiles). */
+        public Field(UUID owner, String world, Vec3 center, Vec3 forward, double length, double width, double height,
+                     double factor) {
+            this(owner, world, center, forward, length, width, height, factor, 1);
+        }
 
         /** Is {@code p} inside it? */
         public boolean contains(String inWorld, Vec3 p) {
@@ -51,6 +57,26 @@ public final class SlowFields {
     public Runnable add(Field field) {
         active.add(field);
         return () -> active.remove(field);
+    }
+
+    /**
+     * How fast time runs for {@code who} standing at {@code at}: the time_scale of the strongest enemy field they're in,
+     * 1 outside them (or in fields that only slow projectiles).
+     */
+    public double timeAt(String world, Vec3 at, UUID who) {
+        double f = 1;
+        for (Field field : active) {
+            if (field.timeScale() >= f || !field.contains(world, at)) continue;
+            if (who.equals(field.owner()) || !teams.enemies(who, field.owner())) continue;
+            f = field.timeScale();
+        }
+        return f;
+    }
+
+    /** Whether any field up now slows people (not only projectiles). */
+    public boolean slowsPeople() {
+        for (Field field : active) if (field.timeScale() < 1) return true;
+        return false;
     }
 
     /** Every field up right now (e.g. to draw them). */

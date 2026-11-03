@@ -111,6 +111,7 @@ public final class AbilityEngine {
         constructs.setCues(this::cuesFor);
         this.projectiles = new ProjectileSystem(platform.world(), constructs, teams, barriers, platform.projectileRenderer(), platform.scheduler(), log);
         projectiles.setSlowFields(slowFields);
+        projectiles.setShooterTime(this::timeScale); // a time-slowed shooter's shots fly slower
         projectiles.setScreens(screens);
         this.quivers = new QuiverManager(tags, statuses,
                 id -> loadouts().characterOf(id).map(me.mephisto.ability_engine.engine.loadout.CharacterDef::quiver));
@@ -225,6 +226,31 @@ public final class AbilityEngine {
     public WorldQuery world() { return platform.world(); }
     public me.mephisto.ability_engine.engine.platform.MovementControl movement() { return platform.movement(); }
     public CuePlayer cues() { return platform.cues(); }
+
+    private me.mephisto.ability_engine.engine.platform.Animator animator =
+            me.mephisto.ability_engine.engine.platform.Animator.NONE;
+
+    /**
+     * How fast time runs for {@code entity} right now (1 = normally, 0.5 = half speed): their statuses' time_scale, and
+     * an enemy field slowing people they stand in. Their channels, charge-ups and repeats, their animations and the
+     * projectiles they fire follow it; cooldowns don't.
+     */
+    public double timeScale(java.util.UUID entity) {
+        if (entity == null) return 1;
+        double t = stats().timeScale(entity);
+        if (slowFields.slowsPeople()) {
+            var at = world().positionOf(new me.mephisto.ability_engine.engine.target.EntityTarget(entity));
+            if (at.isPresent()) t *= slowFields.timeAt(at.get().world(), at.get().position(), entity);
+        }
+        return Math.max(0.05, Math.min(10, t));
+    }
+
+    /** Model animations (Model Engine), or NONE without a model plugin. */
+    public me.mephisto.ability_engine.engine.platform.Animator animator() { return animator; }
+
+    public void setAnimator(me.mephisto.ability_engine.engine.platform.Animator animator) {
+        this.animator = animator == null ? me.mephisto.ability_engine.engine.platform.Animator.NONE : animator;
+    }
 
     /**
      * Cues caused by {@code actor} (their abilities): if they're in a veil, only the two in it see and hear

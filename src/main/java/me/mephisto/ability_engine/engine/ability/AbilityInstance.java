@@ -342,7 +342,12 @@ public final class AbilityInstance {
 
     /** Show a timer running out over {@code durationTicks}. Returns a token for {@link #clearTimer}. */
     public CastProgress showTimer(long durationTicks) {
-        timer = new CastProgress(engine.clock().now(), Math.max(1, durationTicks));
+        return showTimer(engine.clock().now(), durationTicks);
+    }
+
+    /** Like {@link #showTimer(long)}, for one that began at {@code startTick} (part run out). */
+    public CastProgress showTimer(long startTick, long durationTicks) {
+        timer = new CastProgress(startTick, Math.max(1, durationTicks));
         return timer;
     }
 

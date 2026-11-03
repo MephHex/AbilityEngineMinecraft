@@ -855,10 +855,24 @@ public final class BukkitCuePlayer implements CuePlayer {
      */
     public void registerLoop(String cueId, Function<Entity, CueHandle> starter) { loops.put(cueId, starter); }
 
+    private me.mephisto.ability_engine.engine.platform.Animator animator =
+            me.mephisto.ability_engine.engine.platform.Animator.NONE;
+
+    /**
+     * A looping cue nobody registered plays the entity's model animation of that name instead (Model Engine), until
+     * it's stopped: a status's cue or start_cue can be an animation.
+     */
+    public void setAnimator(me.mephisto.ability_engine.engine.platform.Animator animator) {
+        this.animator = animator == null ? me.mephisto.ability_engine.engine.platform.Animator.NONE : animator;
+    }
+
     @Override
     public CueHandle start(String cueId, UUID entityId) {
         Function<Entity, CueHandle> starter = loops.get(cueId);
         if (starter == null) {
+            CueHandle animation = animator.play(entityId, cueId,
+                    me.mephisto.ability_engine.engine.platform.Animator.Settings.DEFAULT);
+            if (animation != CueHandle.NONE) return animation;
             if (warned.add(cueId)) logger.warning("Unknown looping cue '" + cueId + "' (known: " + loops.keySet() + ")");
             return CueHandle.NONE;
         }

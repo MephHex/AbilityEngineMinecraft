@@ -3,6 +3,7 @@ version: ${project.version}
 main: ${main.class}
 author: ${author}
 api-version: '1.21'
+softdepend: [ModelEngine]
 
 commands:
   ae:

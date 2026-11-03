@@ -29,6 +29,7 @@ import java.util.Map;
  * @param marks     a passive marker only they see over nearby enemies (null = none)
  * @param brain     what drives a non-player playing it (a PvE enemy; null = nothing: it only casts when told to)
  * @param playable  players can pick it (champ select); false for enemies-only kits (a boss)
+ * @param model     a Model Engine model worn while playing it (null = none)
  */
 public record CharacterDef(String id, String name, String weapon, Map<String, String> slots,
                            Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
@@ -37,7 +38,34 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
                            java.util.List<Variant> variants, LowHealth lowHealth,
                            me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
                            OnKill onKill, HealthBands healthBands, Glide glide, java.util.List<String> passiveStatuses,
-                           Marks marks, Brain brain, boolean playable, Passive passive) {
+                           Marks marks, Brain brain, boolean playable, Passive passive, Model model) {
+
+    /**
+     * A model (Model Engine) the character wears: put on whoever plays it, taken off when they stop.
+     *
+     * @param id         the model's id (its .bbmodel name)
+     * @param hidePlayer hide the player's own body under it
+     * @param prefix     what its animations' names start with, for {@code animate: { part: ... }} (default: the
+     *                   character's id): {@code <prefix>_<slot without underscores>_<part>}, e.g. warrior_ability2_swing
+     */
+    public record Model(String id, boolean hidePlayer, String prefix) {}
+
+    /** Without a model. */
+    public CharacterDef(String id, String name, String weapon, Map<String, String> slots,
+                        Map<String, ResourceDef> resources, QuiverDef quiver, StatusBar statusBar,
+                        java.util.List<Form> forms, java.util.Set<String> traits, Stats stats, Ward ward,
+                        java.util.List<StatusItem> statusItems, WhenHit whenHit, Hearing hearing, Hover hover,
+                        java.util.List<Variant> variants, LowHealth lowHealth,
+                        me.mephisto.ability_engine.engine.status.StatusDef.OnLethal onLethal, OutOfCombat outOfCombat,
+                        OnKill onKill, HealthBands healthBands, Glide glide, java.util.List<String> passiveStatuses,
+                        Marks marks, Brain brain, boolean playable, Passive passive) {
+        this(id, name, weapon, slots, resources, quiver, statusBar, forms, traits, stats, ward, statusItems, whenHit,
+                hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands, glide, passiveStatuses, marks,
+                brain, playable, passive, null);
+    }
+
+    /** What its animations' names start with: the model's prefix, or the character's id. */
+    public String animationPrefix() { return model != null && model.prefix() != null ? model.prefix() : id; }
 
     /**
      * The character's passive, explained to its player: an item in hotbar slot 9 when nothing else of theirs is kept
@@ -537,7 +565,7 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
         return new CharacterDef(id, name, form.weapon() != null ? form.weapon() : weapon, changed, resources, quiver,
                 form.statusBar() != null ? form.statusBar() : statusBar, forms, traits, form.stats() != null ? form.stats() : stats,
                 ward, statusItems, whenHit, hearing, hover, variants, lowHealth, onLethal, outOfCombat, onKill, healthBands,
-                glide, passiveStatuses, marks, brain, playable, passive);
+                glide, passiveStatuses, marks, brain, playable, passive, model);
     }
 
     /** Ability id in this slot, or null if the slot is empty. */
