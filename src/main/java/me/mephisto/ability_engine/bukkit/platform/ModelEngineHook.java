@@ -200,6 +200,8 @@ public final class ModelEngineHook implements Animator, Listener {
         if (active == null) return;
         modeled.addModel(active, true);
         modeled.setBaseEntityVisible(model.always() && !model.hidePlayer()); // swapped in: the model is their body
+        faceAsWearer(modeled, entity);
+        modeled.queuePostInitTask(() -> faceAsWearer(modeled, entity)); // (again once Model Engine has set it up)
         worn.put(entity.getUniqueId(), model);
         dressLimbs(entity, model);
         timeOf.putIfAbsent(entity.getUniqueId(), 1.0);
@@ -400,6 +402,18 @@ public final class ModelEngineHook implements Animator, Listener {
             }
         }
         return swap;
+    }
+
+    /**
+     * A model added this tick starts facing south (rotation 0) and turns toward the wearer over the next ticks, so
+     * its animation starts at an angle: face it the way the wearer faces at once.
+     */
+    static void faceAsWearer(ModeledEntity modeled, Entity wearer) {
+        org.bukkit.Location at = wearer.getLocation();
+        float body = wearer instanceof LivingEntity living ? living.getBodyYaw() : at.getYaw();
+        modeled.setYBodyRotImmediately(body);
+        modeled.setYHeadRotImmediately(at.getYaw());
+        modeled.setXHeadRotImmediately(at.getPitch());
     }
 
     private static final String HAND_BONE = "ae_held_item";

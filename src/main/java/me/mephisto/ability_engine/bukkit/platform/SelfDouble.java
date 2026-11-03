@@ -40,6 +40,8 @@ final class SelfDouble {
         place(dummy, player);
         ModeledEntity modeled = ModelEngineAPI.createModeledEntity(dummy);
         modeled.addModel(active, true);
+        ModelEngineHook.faceAsWearer(modeled, player); // (not turning in from south)
+        modeled.queuePostInitTask(() -> ModelEngineHook.faceAsWearer(modeled, player));
         boolean was = player.isInvisible();
         if (!was) player.setInvisible(true); // their own body: the copy is it now
         return new SelfDouble(player, dummy, modeled, active, was);
