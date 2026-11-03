@@ -290,7 +290,7 @@ final class SwordMasterCues {
     private static CueHandle guard(Plugin plugin, Entity e) {
         e.getWorld().playSound(e.getLocation(), Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1f, 0.8f);
         e.getWorld().playSound(e.getLocation(), Sound.BLOCK_ANVIL_PLACE, 0.4f, 1.8f);
-        float size = 1.5f;
+        float size = BLADE_SIZE; // (as big as by his head)
         ItemDisplay neth = blade(e.getLocation(), NETH, size), gold = blade(e.getLocation(), GOLD, size);
         int[] tick = {0};
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
