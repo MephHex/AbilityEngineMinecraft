@@ -60,12 +60,12 @@ An unwired port just ends that branch. Typos are reported by `/ae reload`.
   teleport...), or between two spots with `to:` (geyser_beam). `start_cue` starts a looping one on
   an entity until the cast ends, or for at most `ticks` (riptide, parasol, guard_pose, geyser_charge).
 - **Vanilla poses:** looping cues `pose_bow`, `pose_crossbow`, `pose_spear`, `pose_block`, `pose_spyglass`,
-  `pose_toot_horn`, `pose_brush`, `pose_eat`, `pose_drink`, `pose_bundle`: the caster uses the item in their main
-  hand with that vanilla animation (a bow drawn, a crossbow aimed, a trident raised...) on the real player model,
-  smooth for everyone, in first and third person. Short ones: `{ type: start_cue, cue: pose_bow, ticks: 10 }`.
-  Meanwhile the held item has a `consumable` component (never finishing, silent); on Minecraft 1.21.11+ it also
-  keeps the player's full speed and sprint (`use_effects`), older servers slow them while it lasts (as a drawn bow
-  does) and say so once in the console. Needs an item in the main hand.
+  `pose_toot_horn`, `pose_brush`, `pose_eat`, `pose_drink`, `pose_bundle`: the caster holds the item in their main
+  hand with that vanilla animation (a bow drawn, a crossbow aimed, a trident raised...) on the real model, smooth for
+  everyone. Short ones: `{ type: start_cue, cue: pose_bow, ticks: 10 }`. On a player only the others see it (a
+  player's own game drops any item use while they don't hold right-click, so they're shown it instead; nothing real
+  changes: no slowdown, their item untouched); a mob or mannequin really uses its item meanwhile. Needs an item in
+  the main hand.
 - **Air Anchor:** the `state.anchored` tag makes the holder hover in place (no falling).
 - **Overflow:** with `overflow: true`, healing that doesn't fit becomes a decaying shield
   (absorption hearts). `overflow_max` (default 150) and `overflow_decay` per second (default 25).

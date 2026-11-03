@@ -5,7 +5,6 @@ import io.papermc.paper.datacomponent.item.Consumable;
 import io.papermc.paper.datacomponent.item.consumable.ItemUseAnimation;
 import me.mephisto.ability_engine.engine.platform.CueHandle;
 import net.kyori.adventure.key.Key;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -13,26 +12,26 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
- * Vanilla poses as looping cues ({@code pose_bow}, {@code pose_crossbow}, {@code pose_spear}, ...): the caster "uses"
+ * Vanilla poses as looping cues ({@code pose_bow}, {@code pose_crossbow}, {@code pose_spear}, ...): the caster holds
  * the item in their main hand with that item-use animation - a bow drawn, a crossbow aimed, a trident raised - for as
- * long as the cue runs. Everyone's own game draws it on the real player model, so it's as smooth as vanilla, in first
- * and third person.
+ * long as the cue runs, drawn by everyone's own game on the real model, so it's as smooth as vanilla.
  * <p>
- * How: for the time of the pose the held item gets a {@code consumable} component with that animation (one that never
- * finishes, silent, no crumbs) and the server starts using it; stopped, it stops using it and the component goes again.
- * Using an item slows a player to 20% (like drawing a bow): on Minecraft 1.21.11+ the item also gets
- * {@code use_effects} that keep their full speed and sprint; on older servers they're slowed while it lasts.
+ * A player's own game drops any item use the moment they aren't holding the use key, so the server can't make a
+ * player use an item. Instead everyone who sees them is told (packets) that they're using their held item, and shown
+ * that item with the animation (a {@code consumable} component); their real item and state are untouched, so they
+ * aren't slowed, and they don't see the pose on themselves. A mob (or mannequin) has no game of its own: it really
+ * uses the item for the time of the pose.
  */
 final class ItemPose {
 
-    /** Never finishes by itself (seconds): the cue ends it. Also how we know the component is ours. */
+    /** Never finishes by itself (seconds): the cue ends it. */
     private static final float FOREVER = 1_000_000f;
-    private static final String FULL_SPEED = "[minecraft:use_effects={can_sprint:true,speed_multiplier:1.0f}]";
-    private static final String NO_FULL_SPEED = "[!minecraft:use_effects]";
-    private static boolean warnedSlow;
+    private static boolean warned;
 
     private ItemPose() {}
 
@@ -47,54 +46,95 @@ final class ItemPose {
         }
         ItemStack held = living.getEquipment().getItemInMainHand();
         if (held.getType().isAir()) return CueHandle.NONE;
-        if (living.hasActiveItem()) living.clearActiveItem(); // (a pose still on from the shot before: anew)
-        int slot = entity instanceof Player p ? p.getInventory().getHeldItemSlot() : -1;
-        boolean ours = !held.hasData(DataComponentTypes.CONSUMABLE) || isOurs(held);
-        if (ours) {
-            held.setData(DataComponentTypes.CONSUMABLE, Consumable.consumable()
-                    .consumeSeconds(FOREVER)
-                    .animation(animation)
-                    .sound(Key.key("minecraft", "intentionally_empty"))
-                    .hasConsumeParticles(false)
-                    .build());
-            held = fullSpeed(plugin, held, true);
-            living.getEquipment().setItemInMainHand(held);
-        }
-        living.startUsingItem(EquipmentSlot.HAND);
-        return () -> stop(plugin, living, slot, ours);
-    }
-
-    private static void stop(Plugin plugin, LivingEntity living, int slot, boolean ours) {
-        if (!living.isValid()) return;
-        if (living.hasActiveItem()) living.clearActiveItem();
-        if (!ours) return;
-        // The item it was put on: the same hotbar slot (they may have switched since), else the main hand.
-        ItemStack item = living instanceof Player p && slot >= 0 ? p.getInventory().getItem(slot)
-                : living.getEquipment() == null ? null : living.getEquipment().getItemInMainHand();
-        if (item == null || !isOurs(item)) return;
-        item.unsetData(DataComponentTypes.CONSUMABLE);
-        item = fullSpeed(plugin, item, false);
-        if (living instanceof Player p && slot >= 0) p.getInventory().setItem(slot, item);
-        else living.getEquipment().setItemInMainHand(item);
-    }
-
-    private static boolean isOurs(ItemStack item) {
-        Consumable c = item.getData(DataComponentTypes.CONSUMABLE);
-        return c != null && c.consumeSeconds() >= FOREVER;
-    }
-
-    /** use_effects (1.21.11+): full speed and sprint while using it. Older servers: as it is, warned once. */
-    @SuppressWarnings("deprecation")
-    private static ItemStack fullSpeed(Plugin plugin, ItemStack item, boolean on) {
         try {
-            return Bukkit.getUnsafe().modifyItemStack(item, on ? FULL_SPEED : NO_FULL_SPEED);
-        } catch (RuntimeException ex) {
-            if (on && !warnedSlow) {
-                warnedSlow = true;
-                plugin.getLogger().warning("Vanilla poses (pose_bow...): this server's Minecraft has no use_effects "
-                        + "item component (1.21.11+), so players are slowed while a pose plays: " + ex.getMessage());
+            return living instanceof Player player ? shown(plugin, player, held, animation) : used(living, held, animation);
+        } catch (RuntimeException | ReflectiveOperationException | LinkageError ex) {
+            if (!warned) {
+                warned = true;
+                plugin.getLogger().warning("Vanilla poses (pose_bow...) don't work on this server: " + ex);
             }
-            return item;
+            return CueHandle.NONE;
+        }
+    }
+
+    private static ItemStack posed(ItemStack item, ItemUseAnimation animation) {
+        ItemStack copy = item.clone();
+        copy.setData(DataComponentTypes.CONSUMABLE, Consumable.consumable()
+                .consumeSeconds(FOREVER)
+                .animation(animation)
+                .sound(Key.key("minecraft", "intentionally_empty"))
+                .hasConsumeParticles(false)
+                .build());
+        return copy;
+    }
+
+    /** A player: everyone who sees them sees them use their (posed) item; nothing real changes. */
+    private static CueHandle shown(Plugin plugin, Player player, ItemStack held, ItemUseAnimation animation)
+            throws ReflectiveOperationException {
+        ItemStack copy = posed(held, animation);
+        List<Player> told = new ArrayList<>();
+        for (Player viewer : player.getTrackedBy()) {
+            viewer.sendEquipmentChange(player, EquipmentSlot.HAND, copy); // (first: the use reads the item it's told of)
+            Packets.livingFlags(viewer, player, (byte) 1); // using, main hand
+            told.add(viewer);
+        }
+        return () -> {
+            if (!player.isOnline()) return;
+            ItemStack real = player.getInventory().getItemInMainHand();
+            byte flags = (byte) ((player.hasActiveItem() ? 1 : 0)
+                    | (player.getActiveItemHand() == EquipmentSlot.OFF_HAND ? 2 : 0) | (player.isRiptiding() ? 4 : 0));
+            for (Player viewer : told) {
+                if (!viewer.isOnline()) continue;
+                try {
+                    Packets.livingFlags(viewer, player, flags);
+                } catch (ReflectiveOperationException | RuntimeException ex) {
+                    // (warned when it started)
+                }
+                viewer.sendEquipmentChange(player, EquipmentSlot.HAND, real);
+            }
+        };
+    }
+
+    /** A mob: it really uses its item, given the animation for the time of the pose. */
+    private static CueHandle used(LivingEntity living, ItemStack held, ItemUseAnimation animation) {
+        if (living.hasActiveItem()) living.clearActiveItem();
+        ItemStack before = held.clone();
+        living.getEquipment().setItemInMainHand(posed(held, animation));
+        living.startUsingItem(EquipmentSlot.HAND);
+        return () -> {
+            if (!living.isValid()) return;
+            if (living.hasActiveItem()) living.clearActiveItem();
+            ItemStack now = living.getEquipment().getItemInMainHand();
+            if (now.getType() == before.getType() && now.hasData(DataComponentTypes.CONSUMABLE)) {
+                living.getEquipment().setItemInMainHand(before);
+            }
+        };
+    }
+
+    /** The one packet Paper has no API for: an entity's living flags (using an item...), told to one player. */
+    private static final class Packets {
+        private static Object flagsAccessor;
+        private static java.lang.reflect.Method createValue;
+        private static java.lang.reflect.Constructor<?> packet;
+
+        static void livingFlags(Player viewer, LivingEntity of, byte flags) throws ReflectiveOperationException {
+            if (packet == null) {
+                Class<?> living = Class.forName("net.minecraft.world.entity.LivingEntity");
+                var field = living.getDeclaredField("DATA_LIVING_ENTITY_FLAGS");
+                field.setAccessible(true);
+                flagsAccessor = field.get(null);
+                Class<?> accessor = Class.forName("net.minecraft.network.syncher.EntityDataAccessor");
+                createValue = Class.forName("net.minecraft.network.syncher.SynchedEntityData$DataValue")
+                        .getMethod("create", accessor, Object.class);
+                packet = Class.forName("net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket")
+                        .getConstructor(int.class, List.class);
+            }
+            Object value = createValue.invoke(null, flagsAccessor, flags);
+            Object p = packet.newInstance(of.getEntityId(), List.of(value));
+            Object handle = viewer.getClass().getMethod("getHandle").invoke(viewer);
+            Object connection = handle.getClass().getField("connection").get(handle);
+            connection.getClass().getMethod("send", Class.forName("net.minecraft.network.protocol.Packet"))
+                    .invoke(connection, p);
         }
     }
 }
