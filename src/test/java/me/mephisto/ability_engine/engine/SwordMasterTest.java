@@ -118,7 +118,7 @@ class SwordMasterTest {
         t.world.look(p, new Vec3(8, -1, 0).normalize());
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting());
         assertTrue(t.engine.targeting().confirm(p).success());
-        t.time.advance(10);
+        t.time.advance(12);
         assertTrue(t.engine.statuses().has(p, "sm_neth_planted"), "netherite was up next");
         assertEquals(BASE * 1.5, t.damage(there), 1e-6, "150% base damage around it");
 
@@ -129,8 +129,7 @@ class SwordMasterTest {
         }
         assertEquals(BASE * 0.6 * 2, t.damage(shot), 1e-6, "gold, twice");
         assertEquals(16, healed(), 1e-6);
-        t.time.advance(60);
-        assertFalse(t.engine.statuses().has(p, "sm_neth_planted"), "back after 4s");
+        assertFalse(t.engine.statuses().has(p, "sm_neth_planted"), "back after 2s");
     }
 
     @Test
@@ -141,7 +140,7 @@ class SwordMasterTest {
         t.world.look(p, new Vec3(8, -1, 0).normalize());
         t.engine.loadouts().activate(p, Slots.ABILITY_3);
         t.engine.targeting().confirm(p);
-        t.time.advance(10);
+        t.time.advance(12);
         assertTrue(t.engine.statuses().has(p, "sm_gold_planted"));
         assertEquals(BASE * 0.6, t.damage(there), 1e-6, "magic, 60% base damage");
         assertEquals(30, healed(), 1e-6, "it heals him");
@@ -157,7 +156,7 @@ class SwordMasterTest {
         t.world.look(p, new Vec3(1, 0, 0));
         t.time.advance(5);
         assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "no abilities meanwhile");
-        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "his blades still attack");
+        assertFalse(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "nor basic attacks");
         t.time.advance(130);
         double pair = BASE * 0.3 + BASE * 0.15;
         assertEquals(pair * 12, t.damage(in), 1e-6, "a pair every 0.5s for 6s");

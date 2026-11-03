@@ -10,11 +10,11 @@
 #   (and on-hit effects). Nothing else meanwhile.
 # 2: Blade Guard. The blades cross in front of him for 1s: 40% less damage taken, and enemy shots from the front are
 #   cut down. Then he dashes where he aims.
-# 3: Falling Blade. The blade up next drops from the sky where he chooses, and stays planted for 4s (meanwhile his
+# 3: Falling Blade. The blade up next drops from the sky where he chooses, and stays planted for 2s (meanwhile his
 #   basic attacks only use the other one). Netherite: physical damage around it, +50% to shields. Gold: magic damage
 #   around it, and it heals him.
 # ULTIMATE: Death by a Thousand Cuts. An area for 6s: every enemy in it is stabbed by a pair of blades every 0.5s
-#   (netherite and gold, each with its passive). His abilities wait meanwhile (his blades still attack).
+#   (netherite and gold, each with its passive). No abilities or basic attacks meanwhile.
 
 statuses:
   sm_twin_blades:                    # PASSIVE: the two blades by his head; no arm swings (always on: passive_statuses)
@@ -26,13 +26,13 @@ statuses:
     duration: 0
     neutral: true
     tags: [swordmaster.gold_next]
-  sm_neth_planted:                   # 3: the netherite blade is in the ground (keep 80 = SwordMasterCues.PLANTED_TICKS)
-    duration: 80
+  sm_neth_planted:                   # 3: the netherite blade is in the ground (keep 40 = SwordMasterCues.PLANTED_TICKS)
+    duration: 40
     neutral: true
     tags: [swordmaster.neth_planted]
     cue: sm_neth_away                # (not by his head meanwhile)
   sm_gold_planted:
-    duration: 80
+    duration: 40
     neutral: true
     tags: [swordmaster.gold_planted]
     cue: sm_gold_away
@@ -177,7 +177,6 @@ abilities:
   sm_ab1:
     cooldown: 160                    # 8s
     interrupted_by: [state.stunned]
-    blocked_by: [block.ability, swordmaster.cutting]
     active_tags: [block.ability]     # no other abilities or swings meanwhile
     display:
       name: "Twin Thrust"
@@ -247,7 +246,6 @@ abilities:
   sm_ab2:
     cooldown: 240                    # 12s
     interrupted_by: [state.stunned]
-    blocked_by: [block.ability, swordmaster.cutting]
     display:
       name: "Blade Guard"
       icon: IRON_BARS
@@ -307,20 +305,19 @@ abilities:
         flat: true
 
   # 3: Falling Blade (14s). The blade up next drops from the sky where he chooses (16 blocks) and stays planted there
-  # 4s; meanwhile his basic attacks only use the other one. Netherite: 150% base damage around it (3 blocks, physical),
+  # 2s; meanwhile his basic attacks only use the other one. Netherite: 150% base damage around it (3 blocks, physical),
   # +50% to shields. Gold: 60% base damage + 100% spell power around it (magic), and he heals 30 + 50% spell power if it
   # hits anyone. On-hit effects apply.
   sm_ab3:
     cooldown: 280                    # 14s
     interrupted_by: [state.stunned]
-    blocked_by: [block.ability, swordmaster.cutting]
     targeting: { shape: circle, range: 16, radius: 3, ground: true }
     display:
       name: "Falling Blade"
       icon: POINTED_DRIPSTONE
       description:
         - "Drop the blade up next from the sky"
-        - "(3 blocks). It stays planted 4s: only"
+        - "(3 blocks). It stays planted 2s: only"
         - "the other one attacks meanwhile."
         - "Netherite: {base:1.5|physical},"
         - "+50% to shields. Gold: {base:0.6|magic} +"
@@ -344,8 +341,8 @@ abilities:
         at: aim
         next: neth_fall
       neth_fall:
-        type: delay                  # (it falls)
-        ticks: 6
+        type: delay                  # (it falls: SwordMasterCues.FALL_TICKS)
+        ticks: 10
         next: neth_hit
       neth_hit:
         type: apply_effects
@@ -360,8 +357,8 @@ abilities:
         at: aim
         next: neth_wait
       neth_wait:
-        type: delay                  # planted (80 ticks in all)
-        ticks: 74
+        type: delay                  # planted (40 ticks in all, its fall included)
+        ticks: 30
         next: neth_back
       neth_back:
         type: play_cue
@@ -382,7 +379,7 @@ abilities:
         next: gold_fall
       gold_fall:
         type: delay
-        ticks: 6
+        ticks: 10
         next: gold_hit
       gold_hit:
         type: apply_effects
@@ -414,7 +411,7 @@ abilities:
         next: gold_wait
       gold_wait:
         type: delay
-        ticks: 74
+        ticks: 30
         next: gold_back
       gold_back:
         type: play_cue
@@ -424,12 +421,12 @@ abilities:
 
   # ULTIMATE (F): Death by a Thousand Cuts. An area (5 blocks, 18 away at most) for 6s: every 0.5s each enemy in it is
   # stabbed by a pair of blades: 30% base damage (physical, +50% to shields) and 15% base damage + 25% spell power
-  # (magic); he heals 4 + 8% spell power per pair. His abilities wait meanwhile (his blades still attack).
+  # (magic); he heals 4 + 8% spell power per pair. No abilities or basic attacks meanwhile.
   sm_ult:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
     interrupted_by: [state.stunned]
     targeting: { shape: circle, range: 18, radius: 5, ground: true }
-    active_tags: [swordmaster.cutting]   # 1, 2 and 3 are blocked_by it
+    active_tags: [block.ability]     # no abilities or basic attacks meanwhile
     display:
       name: "Death by a Thousand Cuts"
       icon: IRON_SWORD
@@ -438,8 +435,8 @@ abilities:
         - "each enemy in it is stabbed by two blades:"
         - "{base:0.3|physical} (+50% to shields) and"
         - "{base:0.15|magic} + {sp:0.25|magic}; heals you"
-        - "{flat:4} {sp_per:1.6/20} each time. No other"
-        - "abilities meanwhile."
+        - "{flat:4} {sp_per:1.6/20} each time. No abilities"
+        - "or basic attacks meanwhile."
     nodes:
       open:
         type: play_cue
@@ -470,9 +467,10 @@ abilities:
           - { id: damage, base: 0.15, sp: 0.25, type: magic, knockback: false, ignore_iframes: true }
         next: cut_cue
       cut_cue:
-        type: play_cue
+        type: start_cue              # the pair stabbing them, following them (one cut: 0.5s)
         cue: sm_cut
         at: victim
+        ticks: 10
         next: cut_mend
       cut_mend:
         type: apply_effects
@@ -484,11 +482,11 @@ abilities:
 characters:
   swordmaster:
     name: "SwordMaster"
-    weapon: NETHERITE_SWORD          # the blade up next: netherite, or gold (forms)
+    weapon: "hidden:NETHERITE_SWORD" # the blade up next (netherite, or gold: forms), an icon only: not held in hand
     forms:                           # the blade up next in his hand (first match wins)
-      - { while: swordmaster.neth_planted, weapon: GOLDEN_SWORD }
-      - { while: swordmaster.gold_planted, weapon: NETHERITE_SWORD }
-      - { while: swordmaster.gold_next, weapon: GOLDEN_SWORD }
+      - { while: swordmaster.neth_planted, weapon: "hidden:GOLDEN_SWORD" }
+      - { while: swordmaster.gold_planted, weapon: "hidden:NETHERITE_SWORD" }
+      - { while: swordmaster.gold_next, weapon: "hidden:GOLDEN_SWORD" }
     stats:                           # see docs/character-stats.md
       health: 230                    # max HP
       armor: 15                      # damage taken x 100 / (100 + armor)

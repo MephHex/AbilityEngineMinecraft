@@ -850,8 +850,20 @@ public final class HotbarHud {
     }
 
     private static Material weaponMaterial(CharacterDef c) {
-        Material m = c.weapon() == null ? null : Material.matchMaterial(c.weapon());
+        Material m = c.weapon() == null ? null : Material.matchMaterial(materialOf(c.weapon()));
         return m != null && m.isItem() ? m : Material.IRON_SWORD;
+    }
+
+    /** {@code weapon: "hidden:<item>"}: its icon in the hotbar only, nothing held in hand (needs the resource pack). */
+    private static final String HIDDEN_WEAPON = "hidden:";
+
+    private static String materialOf(String weapon) {
+        return weapon.regionMatches(true, 0, HIDDEN_WEAPON, 0, HIDDEN_WEAPON.length())
+                ? weapon.substring(HIDDEN_WEAPON.length()).trim() : weapon;
+    }
+
+    private static boolean hiddenInHand(CharacterDef c) {
+        return c.weapon() != null && c.weapon().regionMatches(true, 0, HIDDEN_WEAPON, 0, HIDDEN_WEAPON.length());
     }
 
     /**
@@ -865,7 +877,7 @@ public final class HotbarHud {
             weapons.add(weaponMaterial(c));
             engine.loadouts().baseCharacterOf(id).ifPresent(base -> weapons.add(weaponMaterial(base)));
             for (CharacterDef.Form f : c.forms()) {
-                Material m = f.weapon() == null ? null : Material.matchMaterial(f.weapon());
+                Material m = f.weapon() == null ? null : Material.matchMaterial(materialOf(f.weapon()));
                 if (m != null) weapons.add(m);
             }
             if (weapons.contains(icon)) return icon;
@@ -893,6 +905,9 @@ public final class HotbarHud {
         ItemMeta meta = item.getItemMeta();
         if (count.isPresent()) meta.setMaxStackSize(MAX_COUNT);
         if (weaponGlints(p.getUniqueId(), c)) meta.setEnchantmentGlintOverride(true); // magic rounds loaded
+        if (hiddenInHand(c) && hideOffhandInHand) { // drawn in the hotbar only (the resource pack's hidden/ models)
+            meta.setItemModel(new NamespacedKey("ability_engine", "hidden/" + weaponMaterial(c).getKey().getKey()));
+        }
         meta.displayName(plain(c.name(), NamedTextColor.GOLD));
         meta.setUnbreakable(true);
         List<Component> lore = new ArrayList<>();

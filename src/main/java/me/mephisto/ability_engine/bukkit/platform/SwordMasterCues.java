@@ -36,7 +36,9 @@ final class SwordMasterCues {
     private static final double SIDE = 0.75, BACK = 0.2, UP = 0.05;
     private static final float BLADE_SIZE = 0.85f;
     /** A dropped blade stays planted this long (keep in step with swordmaster.yml's sm_*_planted statuses). */
-    static final int PLANTED_TICKS = 80;
+    static final int PLANTED_TICKS = 40;
+    /** Ticks a dropped blade takes to fall (keep the *_fall delays in swordmaster.yml in step). */
+    static final int FALL_TICKS = 10;
 
     private static final Particle.DustOptions DARK = new Particle.DustOptions(Color.fromRGB(70, 60, 70), 1.1f);
     private static final Particle.DustOptions GILT = new Particle.DustOptions(Color.fromRGB(250, 200, 60), 1.1f);
@@ -111,7 +113,7 @@ final class SwordMasterCues {
             ring(loc.getWorld(), loc, 5, 32, STEEL);
             loc.getWorld().spawnParticle(Particle.DUST, loc.clone().add(0, 0.2, 0), 6, 3, 0.1, 3, 0, GILT);
         });
-        c.register("sm_cut", loc -> cut(plugin, loc));
+        c.registerLoop("sm_cut", e -> cut(plugin, e));
     }
 
     // ---- the floating blades -----------------------------------------------------------------------------------
@@ -212,6 +214,12 @@ final class SwordMasterCues {
      */
     private static ItemDisplay flight(Plugin plugin, World w, Material m, Vector from, Vector to, Vector tip, int ticks,
                                       float size, Runnable done) {
+        return flight(plugin, w, m, from, to, tip, ticks, size, false, done);
+    }
+
+    /** {@code falling}: speeding up as it goes (k squared), like something dropped. */
+    private static ItemDisplay flight(Plugin plugin, World w, Material m, Vector from, Vector to, Vector tip, int ticks,
+                                      float size, boolean falling, Runnable done) {
         ItemDisplay d = blade(from.toLocation(w), m, size);
         aim(d, tip, size);
         int[] t = {0};
@@ -223,6 +231,7 @@ final class SwordMasterCues {
                 return;
             }
             double k = Math.min(1, t[0] / (double) ticks);
+            if (falling) k = k * k;
             Location at = from.clone().add(to.clone().subtract(from).multiply(k)).toLocation(w);
             d.teleport(at);
             if (k >= 1) {
@@ -238,7 +247,7 @@ final class SwordMasterCues {
     private static void back(Plugin plugin, World w, Material m, Vector from, Vector to) {
         Vector home = to.clone().add(new Vector(0, 0.75, 0));
         double blocks = home.distance(from);
-        int ticks = (int) Math.max(3, Math.min(8, Math.ceil(blocks / 2.5)));
+        int ticks = (int) Math.max(2, Math.min(5, Math.ceil(blocks / 3.5)));
         flight(plugin, w, m, from, home, from.clone().subtract(home), ticks, BLADE_SIZE, null);
     }
 
@@ -300,10 +309,11 @@ final class SwordMasterCues {
         World w = ground.getWorld();
         float size = 2.4f;
         Vector planted = ground.toVector().add(new Vector(0, 0.75, 0));
-        Vector top = planted.clone().add(new Vector(0, 12, 0));
+        Vector top = planted.clone().add(new Vector(0, 10, 0));
         w.playSound(ground, Sound.ITEM_TRIDENT_RIPTIDE_3, 0.8f, 1.6f);
         ItemDisplay[] d = new ItemDisplay[1];
-        d[0] = flight(plugin, w, m, top, planted, new Vector(0, -1, 0), 6, size, () -> {
+        // pointing straight down the whole way, falling faster and faster
+        d[0] = flight(plugin, w, m, top, planted, new Vector(0, -1, 0), FALL_TICKS, size, true, () -> {
             int[] t = {0};
             BukkitTask[] stay = new BukkitTask[1];
             stay[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -314,10 +324,10 @@ final class SwordMasterCues {
                 }
                 if (t[0] % 10 == 0) w.spawnParticle(Particle.DUST, planted.toLocation(w), 3, 0.3, 0.6, 0.3, 0,
                         m == GOLD ? GILT : DARK);
-                if (t[0] >= PLANTED_TICKS - 6) { // the last moments: it pulls itself out
+                if (t[0] >= PLANTED_TICKS - FALL_TICKS - 4) { // the last moments: it pulls itself out
                     d[0].teleport(d[0].getLocation().add(0, 0.25, 0));
                 }
-                if (t[0] >= PLANTED_TICKS) {
+                if (t[0] >= PLANTED_TICKS - FALL_TICKS) { // (its fall counts: planted from when it was dropped)
                     stay[0].cancel();
                     w.spawnParticle(Particle.DUST, d[0].getLocation(), 12, 0.3, 0.6, 0.3, 0, m == GOLD ? GILT : DARK);
                     d[0].remove();
@@ -344,20 +354,46 @@ final class SwordMasterCues {
         }
     }
 
-    /** ULTIMATE: a pair of blades (netherite, gold) from either side above someone, stabbing through them. */
-    private static void cut(Plugin plugin, Location target) {
-        World w = target.getWorld();
-        Vector center = target.toVector();
+    /**
+     * ULTIMATE: a pair of blades (netherite, gold) on either side of someone, a little above, pointing at them: they
+     * draw back, stab into them and pull out again, following them as they move (10 ticks: one cut).
+     */
+    private static CueHandle cut(Plugin plugin, Entity victim) {
+        World w = victim.getWorld();
         double a = Math.random() * Math.PI * 2;
-        for (int i = 0; i < 2; i++) {
-            double side = a + i * Math.PI;
-            Vector start = center.clone().add(new Vector(Math.cos(side) * 1.8, 1.4, Math.sin(side) * 1.8));
-            Vector through = center.clone().add(center.clone().subtract(start).multiply(0.35));
-            Vector dir = through.clone().subtract(start);
-            flight(plugin, w, i == 0 ? NETH : GOLD, start, through, dir, 3, 1.0f, null);
-        }
-        w.spawnParticle(Particle.SWEEP_ATTACK, target, 1, 0.2, 0.2, 0.2, 0);
-        w.spawnParticle(Particle.CRIT, target, 6, 0.2, 0.3, 0.2, 0.2);
-        w.playSound(target, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.6f);
+        ItemDisplay neth = blade(victim.getLocation(), NETH, 1.0f), gold = blade(victim.getLocation(), GOLD, 1.0f);
+        int[] t = {0};
+        BukkitTask[] task = new BukkitTask[1];
+        Runnable end = () -> {
+            task[0].cancel();
+            if (neth.isValid()) neth.remove();
+            if (gold.isValid()) gold.remove();
+        };
+        task[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!victim.isValid() || t[0] >= 10) {
+                end.run();
+                return;
+            }
+            // how far out: drawn back (0-3), the stab (4-5), pulled out (6-9)
+            int k = t[0];
+            double out = k < 4 ? 1.6 + k * 0.1 : k < 6 ? 1.9 - (k - 3) * 0.8 : 0.3 + (k - 5) * 0.3;
+            Vector center = victim.getBoundingBox().getCenter();
+            for (int i = 0; i < 2; i++) {
+                ItemDisplay d = i == 0 ? neth : gold;
+                if (!d.isValid()) continue;
+                double side = a + i * Math.PI;
+                Vector from = new Vector(Math.cos(side), 0.55, Math.sin(side)).normalize().multiply(out);
+                d.teleport(center.clone().add(from).toLocation(w));
+                aim(d, from.clone().multiply(-1), 1.0f); // its tip at them
+            }
+            if (k == 5) {
+                Location c = center.toLocation(w);
+                w.spawnParticle(Particle.SWEEP_ATTACK, c, 1, 0.2, 0.2, 0.2, 0);
+                w.spawnParticle(Particle.CRIT, c, 6, 0.2, 0.3, 0.2, 0.2);
+                w.playSound(c, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.6f);
+            }
+            t[0]++;
+        }, 0, 1);
+        return end::run;
     }
 }

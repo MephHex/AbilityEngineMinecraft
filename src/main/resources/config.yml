@@ -60,7 +60,7 @@ melee-assist-reach: 1.0
 # offhand slot shows in the hotbar / inventory as usual but isn't held in the left hand (nobody sees it in your hand).
 # Only turn this on when every player has the pack (server.properties resource-pack + require-resource-pack): without
 # it they'd see a missing-model icon.
-resource-pack:
+resource-pack:                       # (also: weapons given as "hidden:<item>" are icons only, not held in hand)
   hide-ultimate-in-hand: true
 
 # Primary-fire projectiles (shots, bolts, shards) are this many blocks wider against players and mobs (not terrain:

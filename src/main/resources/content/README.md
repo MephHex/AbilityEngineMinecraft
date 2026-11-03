@@ -1329,10 +1329,14 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
 - **Damage:** `shield_bonus: 0.5` - the target's shield (absorption) takes 50% more from the hit; what's left once it
   breaks hits their health as usual. Write it out in the description ("+50% to shields").
 - **Tags:** `state.no_swing` - the holder's arm swing isn't shown to anyone else (their clicks still work).
+- **Characters:** `weapon: "hidden:NETHERITE_SWORD"` (forms too) - the weapon is only an icon in the hotbar, nothing is
+  held in hand (first or third person). Uses the resource pack's hidden models, so only while config.yml
+  `resource-pack.hide-ultimate-in-hand` is on (the pack is sent); off, it's held as usual.
 - **Cues:** sm_blades (looping: the two floating blades, netherite left, gold right), sm_neth_away / sm_gold_away
   (looping: that blade isn't by his head meanwhile; several add up), sm_neth_shot, sm_gold_shot, sm_neth_hit, sm_gold_hit,
   sm_heal, sm_neth_return / sm_gold_return (line: `at: flight_end, to: caster`, it flies back), sm_twin_thrust (line:
   `at: caster, to: aim`, both blades 4.5 blocks out and back), sm_thrust_hit, sm_guard (looping: the blades crossed in
-  front of him), sm_dash, sm_neth_drop / sm_gold_drop (a big blade falls from the sky and stays planted 4s:
+  front of him), sm_dash, sm_neth_drop / sm_gold_drop (a big blade falls point first from the sky in 10 ticks, FALL_TICKS, and stays planted 2s in all:
   SwordMasterCues.PLANTED_TICKS, keep the sm_*_planted statuses in step), sm_neth_impact / sm_gold_impact (3 blocks),
-  sm_ult_start, sm_zone (a 5-block ring), sm_cut (a pair of blades stabbing someone).
+  sm_ult_start, sm_zone (a 5-block ring), sm_cut (looping, on an enemy: a pair of blades pointing at them, following them,
+  drawing back and stabbing; `ticks: 10` for one cut).
