@@ -57,9 +57,20 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
      * @param scale      its size in-game (0: automatic - 16/15 for a player-limb model, whose limbs Model Engine draws
      *                   at 15/16 of vanilla size on a skeleton built at 15/16, so it ends up exactly vanilla-sized; 1
      *                   for anything else)
+     * @param behavior   what it plays by itself, copying its wearer (states: idle, walk...; on: jump, hurt...).
+     *                   Worn always: the player becomes the model
      */
-    public record Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend, double scale) {
+    public record Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend, double scale,
+                        ModelBehavior behavior) {
         public static final int DEFAULT_BLEND = 3;
+
+        public Model {
+            if (behavior == null) behavior = ModelBehavior.NONE;
+        }
+
+        public Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend, double scale) {
+            this(id, hidePlayer, prefix, always, hold, blend, scale, ModelBehavior.NONE);
+        }
 
         public Model(String id, boolean hidePlayer, String prefix, boolean always, Hold hold, int blend) {
             this(id, hidePlayer, prefix, always, hold, blend, 0);

@@ -9,6 +9,7 @@ import me.mephisto.ability_engine.engine.graph.GraphBuilder;
 import me.mephisto.ability_engine.engine.graph.GraphNode;
 import me.mephisto.ability_engine.engine.graph.GraphValidationException;
 import me.mephisto.ability_engine.engine.loadout.CharacterDef;
+import me.mephisto.ability_engine.engine.loadout.ModelBehavior;
 import me.mephisto.ability_engine.engine.loadout.Slots;
 import me.mephisto.ability_engine.engine.quiver.QuiverDef;
 import me.mephisto.ability_engine.engine.state.ResourceDef;
@@ -375,14 +376,16 @@ public final class AbilityLoader {
         return new CharacterDef(id, p.getString("name", id), p.getString("weapon", null), slots, resources, quiver,
                 statusBar, forms(p, stats), traits(p), stats, ward(p, resources, quiver), statusItems(p), whenHit(p), hearing(p),
                 hover, variants(p), lowHealth(p), characterOnLethal(p), outOfCombat(p), characterOnKill(p), healthBands(p),
-                glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true), passive(p), model(p));
+                glide(p), passiveStatuses(p), marks(p), brain(p, slots), p.getBool("playable", true), passive(p), model(p, id));
     }
 
     /**
-     * {@code model: <id>} or {@code model: { id, show, hide_player, prefix }}: a Model Engine model, swapped in while one
-     * of its animations plays ({@code show: animating}, the default) or worn the whole time ({@code show: always}).
+     * {@code model: <id>} or {@code model: { id, show, hide_player, prefix, states, on, ... }}: a Model Engine model,
+     * swapped in while one of its animations plays ({@code show: animating}, the default) or worn the whole time
+     * ({@code show: always}). With {@code states} / {@code on} the player becomes it: worn always, their body hidden,
+     * copying what they do.
      */
-    private static CharacterDef.Model model(Params p) {
+    private static CharacterDef.Model model(Params p, String character) {
         if (!p.has("model")) return null;
         if (p.raw("model") instanceof String id) {
             if (id.isBlank()) throw p.error("model", "the model's id");
@@ -391,16 +394,75 @@ public final class AbilityLoader {
         Params m = p.getParams("model");
         String prefix = m.getString("prefix", null);
         if (prefix != null && prefix.isBlank()) throw m.error("prefix", "what its animations' names start with");
-        String show = m.getString("show", "animating");
+        ModelBehavior behavior = behavior(m, prefix != null ? prefix : character);
+        String show = m.getString("show", behavior.isEmpty() ? "animating" : "always");
         if (!show.equals("animating") && !show.equals("always")) {
             throw m.error("show", "animating (only while one of its animations plays) or always");
+        }
+        if (show.equals("animating") && !behavior.isEmpty()) {
+            throw m.error("show", "states / on need the model worn the whole time: show: always (or leave show out)");
         }
         int blend = m.getInt("blend", CharacterDef.Model.DEFAULT_BLEND);
         if (blend < 0) throw m.error("blend", "ticks its animations ease in and out, 0 or more");
         double scale = m.getDouble("scale", 0);
         if (m.has("scale") && scale <= 0) throw m.error("scale", "its size in-game, above 0 (1 = as made)");
-        return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", false), prefix, show.equals("always"),
-                hold(m), blend, scale);
+        return new CharacterDef.Model(m.requireString("id"), m.getBool("hide_player", !behavior.isEmpty()), prefix,
+                show.equals("always"), hold(m), blend, scale, behavior);
+    }
+
+    /**
+     * {@code states: [ { animation | part, when, health_below, speed, scale_with: movement, made_for, blend } ]} and
+     * {@code on: { jump: <animation>, ... }}. {@code part: walk} is {@code <prefix>_walk}.
+     */
+    private static ModelBehavior behavior(Params m, String prefix) {
+        List<ModelBehavior.State> states = new java.util.ArrayList<>();
+        if (m.has("states") && !(m.raw("states") instanceof List<?>)) {
+            throw m.error("states", "a list, in order: the first whose conditions hold plays");
+        }
+        for (Params s : m.getParamsList("states")) {
+            String animation = s.getString("animation", null);
+            if (s.has("part")) {
+                if (animation != null) throw s.error("part", "either animation (the whole name) or part, not both");
+                animation = prefix + "_" + s.requireString("part");
+            }
+            if (animation == null || animation.isBlank()) throw s.error("animation", "the animation it loops (or part:)");
+            List<ModelBehavior.Condition> when = new java.util.ArrayList<>();
+            for (String word : s.getStringList("when")) {
+                ModelBehavior.Condition c = ModelBehavior.condition(word);
+                if (c.fact().isEmpty() || !c.isTag() && !ModelBehavior.FACTS.contains(c.fact())) {
+                    throw s.error("when", "unknown condition '" + word + "': one of " + new java.util.TreeSet<>(ModelBehavior.FACTS)
+                            + ", a tag (like state.stunned), or either after not (not sneaking)");
+                }
+                when.add(c);
+            }
+            double below = s.getDouble("health_below", 0);
+            if (s.has("health_below") && (below <= 0 || below > 1)) {
+                throw s.error("health_below", "a share of their max health, above 0 and at most 1 (0.3 = 30%)");
+            }
+            double speed = s.getDouble("speed", 1);
+            if (speed <= 0) throw s.error("speed", "how fast it plays, above 0 (1 = as made)");
+            boolean byMovement = false;
+            if (s.has("scale_with")) {
+                if (!"movement".equals(s.getString("scale_with", null))) throw s.error("scale_with", "expected movement");
+                byMovement = true;
+            }
+            double madeFor = s.getDouble("made_for", ModelBehavior.WALK_SPEED);
+            if (madeFor <= 0) throw s.error("made_for", "blocks per second it was made for, above 0 (walking: 4.3, sprinting: 5.6)");
+            int blend = s.getInt("blend", -1);
+            if (s.has("blend") && blend < 0) throw s.error("blend", "ticks it eases in and out, 0 or more");
+            states.add(new ModelBehavior.State(animation, when, below, speed, byMovement, madeFor, blend));
+        }
+        Map<String, String> on = new java.util.LinkedHashMap<>();
+        Params events = m.getParams("on");
+        for (String event : events.keys()) {
+            if (!ModelBehavior.EVENTS.contains(event)) {
+                throw events.error(event, "unknown event: one of " + new java.util.TreeSet<>(ModelBehavior.EVENTS));
+            }
+            String animation = events.requireString(event);
+            if (animation.isBlank()) throw events.error(event, "the animation it plays once");
+            on.put(event, animation);
+        }
+        return new ModelBehavior(states, on);
     }
 
     /** {@code hold: false}, {@code hold_offset: [x, y, z]} (pixels), {@code hold_rotation: [x, y, z]} (degrees). */

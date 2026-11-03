@@ -1316,7 +1316,7 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
 Works when the ModelEngine plugin is on the server (4.1.1); without it, all of this quietly does nothing and the kits
 play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg reload`).
 
-- **Characters:** `model: <model id>` or `model: { id, show, hide_player, prefix }`. By default (`show: animating`)
+- **Characters:** `model: <model id>` or `model: { id, show, hide_player, prefix, states, on }`. By default (`show: animating`)
   the model is only there while one of its animations plays: players look like themselves (their own body, walking,
   swinging), and when an ability plays an animation the model swaps in with their skin, plays it, and swaps back out
   when it's over (a looping one: when it's stopped, e.g. `until_end`). Animations the model doesn't have don't swap it
@@ -1325,11 +1325,27 @@ play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg re
   animations (idle, walk, jump...) play by themselves. Others always see a swapped-in model; its own player only after
   `/selfview on` (the server can't tell first person from third, and in first person the model blocks the view): a
   copy only they see then stands in their place and follows them (their own body is made invisible meanwhile; on a
-  team that shows invisible teammates they still see a faint ghost of it). A model worn always is only seen by others.
+  team that shows invisible teammates they still see a faint ghost of it). A model worn always over a hidden body
+  works the same: others see it, its player after `/selfview on`.
+- **Becoming the model** (`states:` / `on:`): the player turns into their model for good - worn always, their body
+  hidden (`hide_player: false` to keep it) - and it copies what they do. `states:` is a list of looping animations,
+  in order: every tick the first whose conditions hold plays, easing over from the one before (its `blend`, default
+  the model's). `when:` is one condition or a list (all must hold), left out: always (a last idle). Conditions:
+  `moving`, `sprinting`, `sneaking`, `swimming`, `in_water`, `on_ground`, `airborne`, `falling`, `rising`, `gliding`,
+  `flying`, `riding`, `climbing`, `blocking` (a shield up), `animating` (one of the model's other animations plays:
+  an ability's), any tag (`state.stunned`, `state.channeling`, a status's own tag...), and `not <any of those>`
+  (`"!sneaking"` works too, quoted). `health_below: 0.3`: only under 30% health. `scale_with: movement` speeds it up
+  and slows it down with how fast they move (`made_for:` the pace it was animated at, blocks per second, default 4.3
+  = walking; sprinting is 5.6), so a slowed player walks slower. `speed`, `animation:` or `part:` (`<prefix>_<part>`)
+  as in animate. `on:` plays an animation once when something happens: `jump`, `land` (after a fall or jump),
+  `swing` (a left click), `hurt` (a hit taken), `death`. Abilities' animate steps play on top of the states (in
+  Blockbench, bones an animation keyframes override the state's; the rest keep walking). Model Engine's own idle /
+  walk / jump don't play on such a model: only these. Their armor is hidden from everyone (it would float where the
+  hidden body is); their hands keep their items, which the model holds.
 - **Smooth swaps:** `blend: 3` (the default) - ticks an animation eases in from the model's rest pose (a player
   standing) and back out to it before the model swaps out, unless the animate step gives lerp_in / lerp_out.
   `blend: 0` snaps.
-- **Items:** while a model is swapped in, everyone near is shown the wearer without armor (it would float where the
+- **Items:** while a model is swapped in (or worn always over a hidden body), everyone near is shown the wearer without armor (it would float where the
   hidden body is), and their real armor again after; their hands keep their items. A model that should carry them has
   item bones: `ir_<name>` shows what the wearer holds in their main hand, `il_<name>` the off hand, `ih_<name>` the
   helmet slot. A player-limb model without its own item bone gets one made on its right arm when it's swapped in, so
@@ -1363,7 +1379,19 @@ play as before. Models go in `plugins/ModelEngine/blueprints` as usual (`/meg re
 ```yaml
 characters:
   warrior:
-    model: { id: warrior, hide_player: true }
+    model:
+      id: warrior
+      states:                       # the first that holds plays
+        - { part: stunned, when: state.stunned }           # warrior_stunned
+        - { part: swim, when: swimming }
+        - { part: fall, when: [airborne, falling] }
+        - { part: sneak_walk, when: [sneaking, moving] }
+        - { part: sneak, when: sneaking }
+        - { part: run, when: sprinting, scale_with: movement, made_for: 5.6 }
+        - { part: walk, when: moving, scale_with: movement }
+        - { part: idle_hurt, health_below: 0.3 }
+        - { part: idle }
+      on: { jump: warrior_jump, land: warrior_land, swing: warrior_swing, hurt: warrior_hurt, death: warrior_death }
 
 abilities:
   warrior_ab1:

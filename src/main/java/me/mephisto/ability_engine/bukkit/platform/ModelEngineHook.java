@@ -38,7 +38,8 @@ import java.util.logging.Logger;
  *   <li>Characters' models ({@code model:} in a kit). By default a model is only there while one of its animations
  *       plays: the player looks like themselves, and for an animation the model swaps in (with their skin, their body
  *       hidden), plays it and swaps back out when it's over. {@code show: always}: worn the whole time, kept on
- *       (after a respawn, a reload, a model that registers late) and taken off when they stop playing it or leave.</li>
+ *       (after a respawn, a reload, a model that registers late) and taken off when they stop playing it or leave.
+ *       With {@code states} / {@code on} the player becomes it: {@link ModelBehaviorDriver} plays them as they move.</li>
  *   <li>The engine's {@link Animator}: {@code animate} / {@code stop_animation} play an animation on every model of the
  *       entity that has it.</li>
  * </ul>
@@ -61,6 +62,12 @@ public final class ModelEngineHook implements Animator, Listener {
     private final Map<UUID, Double> timeOf = new HashMap<>();
     /** Models swapped in for their animations (show: animating): entity -> what's playing on it. */
     private final Map<UUID, Swap> swaps = new HashMap<>();
+    /** What a player sees of their own always-worn model, if they asked to (/selfview). */
+    private final Map<UUID, SelfDouble> selves = new HashMap<>();
+    /** Always-worn models over a hidden body: wearer -> who's been told they wear no armor. */
+    private final Map<UUID, Set<Player>> bare = new HashMap<>();
+    /** Plays the models' states and events (model: states / on), copying what their wearers do. */
+    private ModelBehaviorDriver behavior;
 
     /**
      * A model swapped in for its animations: out again once none of them plays any more (looping ones: once they're
@@ -132,11 +139,14 @@ public final class ModelEngineHook implements Animator, Listener {
         engine.setAnimator(this);
         engine.loadouts().onAssign(this::sync); // a new character: its model at once
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::syncAll, SYNC_EVERY, SYNC_EVERY);
+        behavior = new ModelBehaviorDriver(engine, this);
         timeTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             followSwaps();
+            followWorn();
             followTime();
         }, 1, 1);
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        Bukkit.getPluginManager().registerEvents(behavior, plugin);
     }
 
     /** Everyone's models off (the plugin stops). */
@@ -173,7 +183,13 @@ public final class ModelEngineHook implements Animator, Listener {
             if (want == null) endSwap(id);
             CharacterDef.Model have = worn.get(id);
             if (Objects.equals(want, have) && (want == null || stillOn(id, want.id()))) {
-                if (want != null) dressLimbs(entity, want);
+                if (want != null) {
+                    dressLimbs(entity, want);
+                    if (want.always()) {
+                        keepSelf(entity, want); // (/selfview may have changed)
+                        if (want.hidePlayer() && entity instanceof LivingEntity living) keepBare(living);
+                    }
+                }
                 return;
             }
             if (have != null) takeOff(id);
@@ -208,6 +224,173 @@ public final class ModelEngineHook implements Animator, Listener {
         worn.put(entity.getUniqueId(), model);
         dressLimbs(entity, model);
         timeOf.putIfAbsent(entity.getUniqueId(), 1.0);
+        if (!model.behavior().isEmpty()) quietDefaults(active);
+        if (model.always()) {
+            keepSelf(entity, model);
+            if (model.hidePlayer() && entity instanceof LivingEntity living) keepBare(living);
+        }
+    }
+
+    /**
+     * Model Engine plays a model's idle, walk, jump... by itself when it has animations with those names; a model
+     * whose states we play (model: states) has only ours.
+     */
+    private void quietDefaults(ActiveModel active) {
+        try {
+            var handler = active.getAnimationHandler();
+            for (com.ticxo.modelengine.api.animation.ModelState state : com.ticxo.modelengine.api.animation.ModelState.values()) {
+                handler.setDefaultProperty(new com.ticxo.modelengine.api.animation.handler.AnimationHandler.DefaultProperty(
+                        state, "ae_none", 0, 0, 1));
+            }
+        } catch (RuntimeException | LinkageError ex) {
+            if (warned.add("defaults:" + ex)) log.warning("Model Engine: couldn't turn off the default animations of "
+                    + active.getBlueprint().getName() + " (an animation named idle, walk... may play by itself): " + ex);
+        }
+    }
+
+    /**
+     * A player wearing a model always sees it on themselves if they asked to (/selfview): Model Engine shows it only to
+     * others. Made or removed as they change their mind.
+     */
+    private void keepSelf(Entity entity, CharacterDef.Model model) {
+        if (!(entity instanceof Player player)) return;
+        boolean wants = model.hidePlayer() && me.mephisto.ability_engine.bukkit.command.SelfViewCommand.wants(player, plugin);
+        SelfDouble have = selves.get(player.getUniqueId());
+        if (wants == (have != null)) return;
+        if (have != null) {
+            selves.remove(player.getUniqueId()).remove();
+            restoreOwnView(player);
+            return;
+        }
+        try {
+            SelfDouble self = SelfDouble.create(player, model);
+            if (self == null) return;
+            selves.put(player.getUniqueId(), self);
+            if (!model.behavior().isEmpty()) quietDefaults(self.model());
+            dress(player, self.model(), model.hold());
+        } catch (RuntimeException | LinkageError ex) {
+            if (warned.add("double:" + ex)) log.warning("Model Engine: couldn't show " + player.getName() + " their own model: " + ex);
+        }
+    }
+
+    /**
+     * Their body is hidden under the model, but its armor would still show (floating where the body is): everyone near
+     * is told they wear none - them too while they see their own model (/selfview). Again every sync and whenever their
+     * equipment changes, since the server tells everyone the real armor then.
+     */
+    private void keepBare(LivingEntity wearer) {
+        UUID id = wearer.getUniqueId();
+        Set<Player> told = bare.computeIfAbsent(id, k -> new HashSet<>());
+        Map<EquipmentSlot, ItemStack> none = new java.util.EnumMap<>(EquipmentSlot.class);
+        for (EquipmentSlot slot : SLOTS) none.put(slot, new ItemStack(org.bukkit.Material.AIR));
+        for (Player viewer : wearer.getWorld().getPlayers()) {
+            if (viewer.equals(wearer) && !selves.containsKey(id)) continue; // (they see their own body: as it is)
+            if (viewer.getLocation().distanceSquared(wearer.getLocation()) > 96 * 96) continue;
+            viewer.sendEquipmentChange(wearer, none);
+            told.add(viewer);
+        }
+    }
+
+    /** Everyone told the wearer wears no armor sees the real one again. */
+    private void unbare(UUID id) {
+        Set<Player> told = bare.remove(id);
+        if (told == null) return;
+        if (!(Bukkit.getEntity(id) instanceof LivingEntity wearer) || !wearer.isValid()) return;
+        Map<EquipmentSlot, ItemStack> real = equipmentOf(wearer);
+        for (Player viewer : told) if (viewer.isOnline()) viewer.sendEquipmentChange(wearer, real);
+    }
+
+    /** They stopped seeing their own model: their own armor as it is again. */
+    private void restoreOwnView(Player player) {
+        Set<Player> told = bare.get(player.getUniqueId());
+        if (told == null || !told.remove(player)) return;
+        player.sendEquipmentChange(player, equipmentOf(player));
+    }
+
+    /** Their equipment changed: the server shows everyone the real armor, so it's hidden again (next tick, after it). */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEquipment(io.papermc.paper.event.entity.EntityEquipmentChangedEvent e) {
+        bareAgainSoon(e.getEntity().getUniqueId());
+    }
+
+    /** Someone starts seeing a wearer: they're told the real armor with it, so it's hidden from them (next tick). */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onTrack(io.papermc.paper.event.player.PlayerTrackEntityEvent e) {
+        bareAgainSoon(e.getEntity().getUniqueId());
+    }
+
+    private void bareAgainSoon(UUID id) {
+        if (!bare.containsKey(id)) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (bare.containsKey(id) && Bukkit.getEntity(id) instanceof LivingEntity living && living.isValid()) keepBare(living);
+        });
+    }
+
+    /** Every tick: the always-worn models' own views follow their players, and their states play. */
+    private void followWorn() {
+        for (var e : List.copyOf(worn.entrySet())) {
+            UUID id = e.getKey();
+            CharacterDef.Model model = e.getValue();
+            if (!model.always()) continue;
+            try {
+                Entity entity = Bukkit.getEntity(id);
+                if (entity == null || !entity.isValid()) continue;
+                SelfDouble self = selves.get(id);
+                if (self != null) {
+                    self.follow();
+                    dress(entity, self.model(), model.hold());
+                }
+                if (!model.behavior().isEmpty()) behavior.tick(id, entity, model);
+            } catch (RuntimeException | LinkageError ex) {
+                if (warned.add("worn:" + ex)) log.warning("Model Engine: couldn't animate the model of " + id + ": " + ex);
+            }
+        }
+    }
+
+    /** The always-worn model with states / on that {@code id} wears (null: none). */
+    CharacterDef.Model behaving(UUID id) {
+        CharacterDef.Model model = worn.get(id);
+        return model != null && model.always() && !model.behavior().isEmpty() ? model : null;
+    }
+
+    /** The model {@code id} wears, as Model Engine has it (null: none). */
+    private ActiveModel wornModel(UUID id) {
+        ModeledEntity modeled = ModelEngineAPI.getModeledEntity(id);
+        CharacterDef.Model model = worn.get(id);
+        if (modeled == null || model == null) return null;
+        return modeled.getModel(model.id()).orElse(null);
+    }
+
+    /** Whether {@code animation} plays on the model {@code id} wears. */
+    boolean isPlaying(UUID id, String animation) {
+        ActiveModel active = wornModel(id);
+        if (active == null) return false;
+        String name = animationIn(active, animation);
+        return name != null && active.getAnimationHandler().isPlayingAnimation(name);
+    }
+
+    /** Whether an animation other than {@code own} plays on the model {@code id} wears (an ability's). */
+    boolean playingOther(UUID id, Set<String> own) {
+        ActiveModel active = wornModel(id);
+        if (active == null) return false;
+        for (String name : active.getAnimationHandler().getAnimations().keySet()) {
+            if (own.stream().noneMatch(name::equalsIgnoreCase) && active.getAnimationHandler().isPlayingAnimation(name)) return true;
+        }
+        return false;
+    }
+
+    /** {@code animation}, already playing, at a new speed (times their time scale), on every model of {@code id}. */
+    void respeed(UUID id, String animation, double speed) {
+        ModeledEntity modeled = ModelEngineAPI.getModeledEntity(id);
+        if (modeled == null) return;
+        double time = engine.timeScale(id);
+        for (ActiveModel model : withDouble(id, modeled)) {
+            String name = animationIn(model, animation);
+            if (name == null) continue;
+            asked.computeIfAbsent(model, m -> new HashMap<>()).put(name, speed);
+            IAnimationProperty playing = model.getAnimationHandler().getAnimation(name);
+            if (playing != null) playing.setSpeed(speed * time);
+        }
     }
 
     /**
@@ -273,6 +456,14 @@ public final class ModelEngineHook implements Animator, Listener {
     private void takeOff(UUID id) {
         CharacterDef.Model model = worn.remove(id);
         if (model == null) return;
+        if (behavior != null) behavior.forget(id);
+        try {
+            SelfDouble self = selves.remove(id);
+            if (self != null) self.remove();
+            unbare(id);
+        } catch (RuntimeException | LinkageError ex) {
+            if (warned.add("unworn:" + ex)) log.warning("Model Engine: couldn't restore how " + id + " looks: " + ex);
+        }
         try {
             ModeledEntity modeled = ModelEngineAPI.getModeledEntity(id);
             if (modeled == null) return;
@@ -570,6 +761,8 @@ public final class ModelEngineHook implements Animator, Listener {
         List<ActiveModel> all = new ArrayList<>(modeled.getModels().values());
         Swap swap = swaps.get(id);
         if (swap != null && swap.self != null) all.add(swap.self.model());
+        SelfDouble self = selves.get(id);
+        if (self != null) all.add(self.model());
         return all;
     }
 
