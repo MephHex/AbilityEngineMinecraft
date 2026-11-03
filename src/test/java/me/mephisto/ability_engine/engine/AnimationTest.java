@@ -203,8 +203,12 @@ class AnimationTest {
         t.world.players.add(p);
         t.world.look(p, new me.mephisto.ability_engine.engine.math.Vec3(1, 0, 0));
         t.engine.loadouts().assign(p, "arcanist");
-        assertEquals(new CharacterDef.Model("test_animation", false, null, false), t.engine.loadouts().characterOf(p).orElseThrow().model(),
-                "only swapped in while its animation plays");
+        CharacterDef.Model model = t.engine.loadouts().characterOf(p).orElseThrow().model();
+        assertEquals("arcanist", model.id());
+        assertTrue(model.always() && model.hidePlayer(), "he is the model: worn always over his hidden body");
+        assertEquals("arcanist_walk", model.behavior().pick(java.util.Set.of("moving"), tag -> false, 1).animation());
+        assertEquals("arcanist_run", model.behavior().pick(java.util.Set.of("moving", "sprinting"), tag -> false, 1).animation());
+        assertEquals("arcanist_idle", model.behavior().pick(java.util.Set.of("on_ground"), tag -> false, 1).animation());
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
         assertEquals(List.of("play " + p + " animationTest"), anim.log);
         assertEquals(16, anim.settings.get(0).fit(), "1.25 shots a second: 16 ticks between them");

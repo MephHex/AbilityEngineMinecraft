@@ -53,7 +53,7 @@ abilities:
         - "{base:0.5|magic} + {sp:0.5|magic}."
         - "Curves toward marked enemies."
     nodes:
-      cast_anim:                     # Model Engine test: the swing animation on every shot (test_animation model)
+      cast_anim:                     # Model Engine: the swing on every shot (arcanist model; the legs keep walking)
         type: animate
         animation: animationTest     # its whole name (not <character>_primary_<part>)
         fit: attack                  # lasts exactly the time between shots: faster with attack speed, slower with less
@@ -566,7 +566,18 @@ characters:
   arcanist:
     name: "Arcanist"
     weapon: BREEZE_ROD
-    model: test_animation            # Model Engine test model: swapped in while its animation plays (Arcane Bolt)
+    model:                           # Model Engine: arcanist.bbmodel (resourcepack/make_arcanist_model.py). He IS the
+      id: arcanist                   # model: his body hidden, it moves the way a vanilla player does (his own skin)
+      states:                        # the first that holds plays; Arcane Bolt's animationTest plays over them
+        - { part: swim, when: swimming }
+        - { part: glide, when: gliding }
+        - { part: ride, when: riding }
+        - { part: sneak_walk, when: [sneaking, moving], scale_with: movement, made_for: 1.3 }
+        - { part: sneak, when: sneaking }
+        - { part: run, when: [sprinting, moving], scale_with: movement, made_for: 5.6 }
+        - { part: walk, when: moving, scale_with: movement }
+        - { part: idle }
+      on: { death: arcanist_death }
     stats:                           # see docs/character-stats.md
       health: 175                    # max HP
       armor: 10                      # damage taken x 100 / (100 + armor)

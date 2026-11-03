@@ -4,7 +4,8 @@ to the plugins/ModelEngine folder's blueprints, never inside it):
 
 - bone names lowercase, without spaces (Model Engine rejects the whole model otherwise: "Non [a-z0-9_-./] character");
 - the six player bones (Head, Body, Right Arm, Left Arm, Right Leg, Left Leg, any case or spacing) become Model
-  Engine's player limbs (phead_head, pbody_body, prarm_right_arm, ...), drawn with the wearer's own skin;
+  Engine's player limbs (h_phead_head, pbody_body, prarm_right_arm, ...), drawn with the wearer's own skin; the head
+  (h_) also turns where the wearer looks;
 - the animations follow the new names;
 - a player-limb model built at vanilla size gets its skeleton shrunk to 15/16 (bone pivots, cubes and position
   keyframes, around the feet): Model Engine draws player limbs at 15/16 of vanilla size, so at vanilla pivots they
@@ -22,7 +23,7 @@ import sys
 from pathlib import Path
 
 LIMBS = {
-    "head": "phead_head", "body": "pbody_body",
+    "head": "h_phead_head", "body": "pbody_body",
     "right_arm": "prarm_right_arm", "left_arm": "plarm_left_arm",
     "right_leg": "prleg_right_leg", "left_leg": "plleg_left_leg",
 }
@@ -30,8 +31,8 @@ LIMBS = {
 
 def fixed(name):
     plain = re.sub(r"[^a-z0-9_\-.]", "_", name.strip().lower().replace(" ", "_"))
-    if plain in LIMBS.values() or re.match(r"^[a-z_]+\[", name):  # already a limb / a Model Engine tag: keep it
-        return plain if plain in LIMBS.values() else name
+    if re.match(r"^(h_|hi_)?p(head|body|rarm|larm|rleg|lleg)_", plain) or re.match(r"^[a-z_]+\[", name):
+        return plain if "[" not in name else name  # already a limb / a Model Engine tag: keep it
     return LIMBS.get(plain, plain)
 
 
@@ -40,7 +41,7 @@ LIMB_SCALE = 15 / 16  # Model Engine draws player limbs at this share of vanilla
 
 def shrink_to_limb_scale(model):
     """Shrinks a vanilla-sized player-limb skeleton to 15/16 around the feet. False: none, or already done."""
-    heads = [g for g in model.get("groups", []) if g.get("name", "").startswith("phead_")]
+    heads = [g for g in model.get("groups", []) if re.match(r"^(h_|hi_)?phead_", g.get("name", ""))]
     if not heads or abs(heads[0]["origin"][1] - 24) > 0.01:  # vanilla neck at 24 px; 15/16: 22.5
         return False
     k = LIMB_SCALE
