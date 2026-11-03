@@ -1334,6 +1334,9 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
 - **Damage:** `shield_bonus: 0.5` - the target's shield (absorption) takes 50% more from the hit; what's left once it
   breaks hits their health as usual. Write it out in the description ("+50% to shields").
 - **Tags:** `state.no_swing` - the holder's arm swing isn't shown to anyone else (their clicks still work).
+- **Swings:** anyone with a character who left-clicks while their primary fire (on a target: their melee slot, if they
+  have one) is on cooldown swings only on their own screen: the others don't see a swing that hits nothing. A click
+  that fires swings as usual.
 - **Characters:** `weapon: "hidden:NETHERITE_SWORD"` (forms too) - the weapon is only an icon in the hotbar, nothing is
   held in hand (first or third person). Uses the resource pack's hidden models, so only while config.yml
   `resource-pack.hide-ultimate-in-hand` is on (the pack is sent); off, it's held as usual.
