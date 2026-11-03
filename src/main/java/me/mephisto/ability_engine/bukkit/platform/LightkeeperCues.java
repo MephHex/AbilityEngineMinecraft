@@ -33,7 +33,6 @@ final class LightkeeperCues {
         c.register("lk_spark_shot", loc -> loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.7f, 1.8f));
         c.register("lk_spark_trail", loc -> loc.getWorld().spawnParticle(Particle.DUST, loc, 2, 0.05, 0.05, 0.05, 0, WARM));
         c.register("lk_spark_hit", loc -> {
-            loc.getWorld().spawnParticle(Particle.FLASH, loc, 1, 0, 0, 0, 0, Color.fromRGB(255, 230, 150));
             loc.getWorld().spawnParticle(Particle.DUST, loc, 10, 0.2, 0.2, 0.2, 0, WARM);
             loc.getWorld().playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.8f, 1.5f);
         });

@@ -224,7 +224,7 @@ abilities:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
     interrupted_by: [state.stunned]
     blocked_by: [block.ability, lightkeeper.guarding]
-    active_tags: [block.ability, state.rooted]   # a channel: no moving, no other abilities or attacks
+    active_tags: [block.ability, block.move, state.rooted]   # a channel: no moving (block.move), no abilities or attacks
     aura: lk_beacon                  # the pillar of light (5 blocks at its foot)
     display:
       name: "Beacon of Dawn"

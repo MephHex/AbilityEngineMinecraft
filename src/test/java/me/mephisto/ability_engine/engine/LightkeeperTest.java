@@ -150,10 +150,12 @@ class LightkeeperTest {
         assertTrue(t.engine.loadouts().activate(p, Slots.ULTIMATE).success());
         t.time.advance(2);
         assertTrue(t.engine.tags().has(p, Tags.ROOTED), "rooted while he channels");
+        assertTrue(t.engine.tags().has(p, "block.move"), "really: it's block.move that holds him in place");
         assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_3).success(), "nothing else");
         assertFalse(t.engine.tags().has(friend, Tags.BLINDED), "cleansed");
         t.time.advance(110);
         assertEquals(25 * 10, t.healed.getOrDefault(friend, 0.0), 1e-6, "10 pulses");
         assertFalse(t.engine.tags().has(p, Tags.ROOTED), "over");
+        assertFalse(t.engine.tags().has(p, "block.move"));
     }
 }
