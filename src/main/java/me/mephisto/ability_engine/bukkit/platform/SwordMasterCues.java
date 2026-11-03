@@ -193,7 +193,13 @@ final class SwordMasterCues {
         });
     }
 
-    /** A sword's sprite points up-right: turned so its tip points along {@code dir} (blade upright). */
+    /**
+     * The angle of a sword's tip as an item display draws it: the sprite's tip is up-right, but item displays draw
+     * their item turned half a turn about y, so in the display's own frame it's up-LEFT (135 degrees).
+     */
+    static final double TIP = Math.toRadians(135);
+
+    /** Turned so a sword's tip points along {@code dir} (blade upright). */
     private static Quaternionf tipAlong(Vector dir) {
         Vector d = dir.clone();
         if (d.lengthSquared() < 1e-9) d = new Vector(0, 1, 0);
@@ -201,7 +207,7 @@ final class SwordMasterCues {
         double flat = Math.sqrt(d.getX() * d.getX() + d.getZ() * d.getZ());
         float heading = (float) Math.atan2(-d.getZ(), d.getX());
         float pitch = (float) Math.atan2(d.getY(), flat);
-        return new Quaternionf().rotateY(heading).rotateZ(pitch - (float) Math.toRadians(45));
+        return new Quaternionf().rotateY(heading).rotateZ(pitch - (float) TIP);
     }
 
     private static void aim(ItemDisplay d, Vector dir, float size) {
@@ -251,29 +257,39 @@ final class SwordMasterCues {
         flight(plugin, w, m, from, home, from.clone().subtract(home), ticks, BLADE_SIZE, null);
     }
 
-    /** 1: both blades shoot out from his sides 4.5 blocks along his aim and back. */
+    /** 1: both blades shoot out from his sides, pointing ahead, and meet point to point 4.5 blocks along his aim. */
     private static void twinThrust(Plugin plugin, World w, Vector from, Vector to) {
         Vector dir = to.clone().subtract(from);
         if (dir.lengthSquared() < 1e-6) return;
         dir.normalize();
         Vector flat = new Vector(dir.getX(), 0, dir.getZ());
         Vector r = flat.lengthSquared() < 1e-6 ? new Vector(1, 0, 0) : right(flat.normalize());
+        Vector meet = from.clone().add(new Vector(0, 0.75, 0)).add(dir.clone().multiply(4.5)); // where their points meet
         for (int i = 0; i < 2; i++) {
             Material m = i == 0 ? NETH : GOLD;
-            Vector start = from.clone().add(new Vector(0, 0.75, 0)).add(r.clone().multiply(i == 0 ? -0.6 : 0.6));
-            Vector end = start.clone().add(dir.clone().multiply(4.5));
+            Vector start = from.clone().add(new Vector(0, 0.75, 0)).add(r.clone().multiply(i == 0 ? -0.75 : 0.75));
+            Vector end = meet.clone().subtract(meet.clone().subtract(start).normalize().multiply(0.6)); // (point to point)
+            Vector way = end.clone().subtract(start);
             ItemDisplay[] out = new ItemDisplay[1];
-            out[0] = flight(plugin, w, m, start, end, dir, 3, 1.1f, () -> Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            out[0] = flight(plugin, w, m, start, end, way, 3, 1.1f, () -> Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (out[0].isValid()) out[0].remove();
-                flight(plugin, w, m, end, start, dir, 5, 1.1f, null);
+                flight(plugin, w, m, end, start, way, 5, 1.1f, null); // pulled back, still pointing ahead
             }, 2));
         }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Location at = meet.toLocation(w);
+            w.spawnParticle(Particle.CRIT, at, 8, 0.1, 0.1, 0.1, 0.25);
+            w.playSound(at, Sound.BLOCK_ANVIL_LAND, 0.35f, 2.0f); // the points ring together
+        }, 3);
         Location at = from.toLocation(w);
         w.playSound(at, Sound.ITEM_TRIDENT_RIPTIDE_1, 0.8f, 1.5f);
         w.playSound(at, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.8f, 0.8f);
     }
 
-    /** 2: the blades crossed in front of him (an X, big), following him while he channels. */
+    /**
+     * 2: the blades plunge point first into the ground in front of him, side by side, flat sides to the front: a guard
+     * that follows him while he channels.
+     */
     private static CueHandle guard(Plugin plugin, Entity e) {
         e.getWorld().playSound(e.getLocation(), Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1f, 0.8f);
         e.getWorld().playSound(e.getLocation(), Sound.BLOCK_ANVIL_PLACE, 0.4f, 1.8f);
@@ -282,19 +298,28 @@ final class SwordMasterCues {
         int[] tick = {0};
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!e.isValid()) return;
-            Location eye = e instanceof org.bukkit.entity.LivingEntity l ? l.getEyeLocation() : e.getLocation().add(0, 1.6, 0);
-            float yaw = eye.getYaw();
-            Location at = eye.clone().add(facing(yaw).multiply(0.9)).add(0, -0.45, 0);
-            at.setYaw(0);
-            at.setPitch(0);
-            Quaternionf turn = new Quaternionf().rotateY((float) Math.toRadians(-yaw));
+            float yaw = e.getLocation().getYaw();
+            Vector f = facing(yaw), r = right(f);
+            double drop = Math.max(0, 3 - tick[0]) * 0.4; // the first ticks: plunging down into the ground
+            // points down, flat sides to the front (turned to face where he faces)
+            Quaternionf q = new Quaternionf().rotateY((float) Math.toRadians(-yaw)).rotateZ((float) (-Math.PI / 2 - TIP));
             for (ItemDisplay d : new ItemDisplay[]{neth, gold}) {
                 if (!d.isValid()) continue;
+                Location at = e.getLocation().add(f.clone().multiply(1.0)).add(r.clone().multiply(d == neth ? -0.45 : 0.45))
+                        .add(0, 0.95 + drop, 0);
+                at.setYaw(0);
+                at.setPitch(0);
                 d.teleport(at);
-                Quaternionf q = new Quaternionf(turn).rotateZ(d == neth ? (float) (Math.PI / 2) : 0f); // tips up-left / up-right
                 d.setTransformation(new Transformation(new Vector3f(), q, new Vector3f(size), new Quaternionf()));
             }
-            if (tick[0] % 4 == 0) at.getWorld().spawnParticle(Particle.DUST, at, 4, 0.5, 0.5, 0.5, 0, STEEL);
+            Location front = e.getLocation().add(f.clone().multiply(1.0)).add(0, 0.1, 0);
+            if (tick[0] == 3) { // they hit the ground
+                front.getWorld().spawnParticle(Particle.BLOCK, front, 16, 0.5, 0.1, 0.2, 0,
+                        front.clone().add(0, -0.5, 0).getBlock().getBlockData().getMaterial().isAir()
+                                ? Material.STONE.createBlockData() : front.clone().add(0, -0.5, 0).getBlock().getBlockData());
+                front.getWorld().playSound(front, Sound.ITEM_TRIDENT_HIT_GROUND, 1f, 1.1f);
+            }
+            if (tick[0] % 4 == 0) front.getWorld().spawnParticle(Particle.DUST, front.clone().add(0, 0.9, 0), 4, 0.5, 0.5, 0.2, 0, STEEL);
             tick[0]++;
         }, 0, 1);
         return () -> {

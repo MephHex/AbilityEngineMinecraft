@@ -88,8 +88,7 @@ abilities:
         next: neth_stab
       neth_stab:
         type: projectile
-        visual: NETHERITE_SWORD
-        face_flight: true            # point first
+        visual: "point:NETHERITE_SWORD"   # point first
         side: -0.75                  # from his left (where it floats), at what he aims at
         up: 0.05
         speed: 1.8
@@ -133,8 +132,7 @@ abilities:
         next: gold_stab
       gold_stab:
         type: projectile
-        visual: GOLDEN_SWORD
-        face_flight: true
+        visual: "point:GOLDEN_SWORD"
         side: 0.75                   # from his right
         up: 0.05
         speed: 1.8

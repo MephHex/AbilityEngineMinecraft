@@ -153,17 +153,29 @@ public final class BukkitProjectileRenderer implements ProjectileRenderer, org.b
         }
     }
 
+    /**
+     * {@code visual: "point:<item>"}: it flies point first (implies face_flight). An item display draws its item turned
+     * half a turn about y, so a tool's tip, up-right in its sprite, is up-LEFT in the display's frame (135 degrees);
+     * plain face_flight assumes 45 (kept as it is for the kits already tuned to it).
+     */
+    private static final String POINT_PREFIX = "point:";
+
     @Override
     public ProjectileVisual spawn(String world, Vec3 position, ProjectileSpec spec) {
         Location loc = Convert.location(world, position);
         if (loc == null) return NONE;
         float scale = (float) spec.shownSize();
-        if (WireStarVisual.matches(spec.visual())) return WireStarVisual.spawn(loc, spec.visual(), scale); // a 3D star
-        if (OrbVisual.matches(spec.visual())) return OrbVisual.spawn(loc, spec.visual(), scale); // a round orb
-        VisualSpawner.Spawned s = VisualSpawner.spawn(loc, spec.visual(), scale, log);
+        String visual = spec.visual();
+        // "point:<item>": a sword or tool flying point / head first for real (see pointAlong)
+        boolean point = visual != null && visual.regionMatches(true, 0, POINT_PREFIX, 0, POINT_PREFIX.length());
+        if (point) visual = visual.substring(POINT_PREFIX.length());
+        if (WireStarVisual.matches(visual)) return WireStarVisual.spawn(loc, visual, scale); // a 3D star
+        if (OrbVisual.matches(visual)) return OrbVisual.spawn(loc, visual, scale); // a round orb
+        VisualSpawner.Spawned s = VisualSpawner.spawn(loc, visual, scale, log);
         Entity entity = s.entity();
         double yOffset = s.yOffset();
-        boolean face = spec.faceFlight() && entity instanceof ItemDisplay;
+        boolean face = (spec.faceFlight() || point) && entity instanceof ItemDisplay;
+        double tip = Math.toRadians(point ? 135 : 45);
         return new ProjectileVisual() {
             private Vec3 facing;
 
@@ -190,7 +202,7 @@ public final class BukkitProjectileRenderer implements ProjectileRenderer, org.b
                 double flat = Math.sqrt(dir.x() * dir.x() + dir.z() * dir.z());
                 float heading = (float) Math.atan2(-dir.z(), dir.x());
                 float pitch = (float) Math.atan2(dir.y(), flat);
-                Quaternionf turn = new Quaternionf().rotateY(heading).rotateZ(pitch - (float) Math.toRadians(45));
+                Quaternionf turn = new Quaternionf().rotateY(heading).rotateZ(pitch - (float) tip);
                 display.setTransformation(new Transformation(new Vector3f(), turn, new Vector3f(scale, scale, scale),
                         new Quaternionf()));
             }

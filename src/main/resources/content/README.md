@@ -1324,6 +1324,9 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
 - **Projectiles:** `side: -0.75` - launched that far to the caster's right (negative: left) of their eyes (`up:` raises
   it), flying at what they aim at (where their aim first meets a block or someone within its `range`), so it still lands
   under the crosshair (a blade floating by the head). Primary fire as usual.
+- **Projectiles:** `visual: "point:<item>"` - a sword or tool that flies point / head first (no face_flight needed). Plain
+  `face_flight` draws tools turned 90 degrees from that (item displays turn their item half a turn); the kits that use it
+  are tuned to how it looks, so it's kept.
 - **Blackboard key `flight_end`:** where a projectile's flight ended, however it ended (a hit, a wall, out of range or
   time), e.g. `{ type: play_cue, cue: sm_neth_return, at: flight_end, to: caster }` on `expired` too.
 - **Damage:** `shield_bonus: 0.5` - the target's shield (absorption) takes 50% more from the hit; what's left once it
@@ -1335,8 +1338,8 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
 - **Cues:** sm_blades (looping: the two floating blades, netherite left, gold right), sm_neth_away / sm_gold_away
   (looping: that blade isn't by his head meanwhile; several add up), sm_neth_shot, sm_gold_shot, sm_neth_hit, sm_gold_hit,
   sm_heal, sm_neth_return / sm_gold_return (line: `at: flight_end, to: caster`, it flies back), sm_twin_thrust (line:
-  `at: caster, to: aim`, both blades 4.5 blocks out and back), sm_thrust_hit, sm_guard (looping: the blades crossed in
-  front of him), sm_dash, sm_neth_drop / sm_gold_drop (a big blade falls point first from the sky in 10 ticks, FALL_TICKS, and stays planted 2s in all:
+  `at: caster, to: aim`, both blades pointing ahead, meeting point to point 4.5 blocks out, and back), sm_thrust_hit,
+  sm_guard (looping: the blades plunge point first into the ground in front of him, side by side), sm_dash, sm_neth_drop / sm_gold_drop (a big blade falls point first from the sky in 10 ticks, FALL_TICKS, and stays planted 2s in all:
   SwordMasterCues.PLANTED_TICKS, keep the sm_*_planted statuses in step), sm_neth_impact / sm_gold_impact (3 blocks),
   sm_ult_start, sm_zone (a 5-block ring), sm_cut (looping, on an enemy: a pair of blades pointing at them, following them,
   drawing back and stabbing; `ticks: 10` for one cut).
