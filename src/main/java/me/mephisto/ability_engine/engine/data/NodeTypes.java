@@ -43,8 +43,10 @@ public final class NodeTypes {
         t.register("delay", (p, e) -> {
             String countOf = knownStatus(p, "boss_bar_count", e);
             if (countOf != null && !p.getBool("boss_bar", false)) throw p.error("boss_bar_count", "needs boss_bar: true");
-            return new DelayNode(p.requireInt("ticks"), p.getBool("cast_bar", false), p.getBool("boss_bar", false))
+            boolean drain = "drain".equals(p.raw("cast_bar")); // (cast_bar: drain - empties instead of filling)
+            DelayNode delay = new DelayNode(p.requireInt("ticks"), !drain && p.getBool("cast_bar", false), p.getBool("boss_bar", false))
                     .counting(countOf, p.getString("boss_bar_label", ""));
+            return drain ? delay.draining() : delay;
         });
         t.register("timer_color", (p, e) -> {
             if (!p.has("color") && !p.has("text")) throw p.error("color", "give color: (the bar) and/or text: (its title's letters)");

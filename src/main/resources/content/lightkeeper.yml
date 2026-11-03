@@ -1,0 +1,289 @@
+# content: lightkeeper
+# The Lightkeeper: a lantern-bearing support. Throws his lantern through friend and foe, shelters allies in his light,
+# and calls down a pillar of dawn that heals and cleanses.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Clear Sight): nothing blinds him or darkens his sight (blindness and darkness, vanilla's too).
+#
+# PRIMARY: Sunspark (not in the spec: a plain bolt so he has a basic attack). 1: Waylight. 2: Light Guard (a toggle:
+# 2 again ends it; only 3 works meanwhile; the XP bar empties over its time). 3: Illuminate. ULTIMATE: Beacon of Dawn.
+
+statuses:
+  lk_revealed:                       # Waylight / Illuminate: glowing, seen through walls
+    duration: 80                     # 4s
+    stacking: refresh
+    tags: [state.glowing]
+  lk_sheltered:                      # 2: in his light (kept on while they stay inside; gone 0.75s after they leave)
+    duration: 15
+    stacking: refresh
+    damage_taken: 0.75               # 25% less damage taken
+    cue: lk_sheltered
+    on_hit:                          # their attacks set enemies burning, with HIS spell power
+      - { id: status, status: lk_sunfire, from: source }
+  lk_sunfire:                        # burning: 4 ticks over 2s, each 5 + 5% of the Lightkeeper's spell power (magic)
+    duration: 40
+    stacking: refresh
+    tags: [state.burning]
+    cue: lk_sunfire
+    tick:
+      every: 10
+      effects:
+        - { id: damage, amount: 5, sp: 0.05, type: magic, knockback: false }
+  lk_quickened:                      # 3: +25% speed for 3s
+    duration: 60
+    stacking: refresh
+    move_speed: 1.25
+
+abilities:
+
+  # PRIMARY (LMB): Sunspark. A bolt of light (22 blocks): 60% base damage + 50% spell power (magic).
+  lk_primary:
+    cooldown: 18                     # (the attack_speed stat sets it)
+    blocked_by: [block.ability, lightkeeper.guarding]
+    display:
+      name: "Sunspark"
+      description:
+        - "A bolt of light (22 blocks):"
+        - "{base:0.6|magic} + {sp:0.5|magic}."
+    nodes:
+      shot_cue:
+        type: play_cue
+        cue: lk_spark_shot
+        next: bolt
+      bolt:
+        type: projectile
+        visual: "orb:YELLOW_STAINED_GLASS:GLOWSTONE"
+        size: 0.4
+        speed: 1.6
+        range: 22
+        lifetime: 20
+        trail: lk_spark_trail
+        on: { hit_entity: hit, hit_block: fizzle }
+      hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, sp: 0.5, type: magic }
+        next: hit_cue
+      hit_cue:
+        type: play_cue
+        cue: lk_spark_hit
+        at: hit
+      fizzle:
+        type: play_cue
+        cue: lk_spark_hit
+        at: hit
+
+  # 1: Waylight (9s). Throw your lantern (18 blocks): it passes through everyone. Allies it passes are healed 40 + 60%
+  # spell power; enemies take 80% base damage + 60% spell power (magic) and glow for 4s (seen through walls).
+  lk_ab1:
+    cooldown: 180                    # 9s
+    interrupted_by: [state.stunned]
+    blocked_by: [block.ability, lightkeeper.guarding]
+    display:
+      name: "Waylight"
+      icon: SOUL_LANTERN
+      description:
+        - "Throw your lantern (18 blocks) through"
+        - "everyone in its way. Allies: healed"
+        - "{flat:40} {sp_per:12/20}. Enemies: {base:0.8|magic}"
+        - "+ {sp:0.6|magic}, glowing 4s."
+    nodes:
+      throw_cue:
+        type: play_cue
+        cue: lk_lantern_throw
+        next: lantern
+      lantern:
+        type: projectile
+        visual: LANTERN
+        size: 0.9
+        visual_size: 0.8
+        speed: 0.9
+        range: 18
+        lifetime: 25
+        hits_allies: true            # through allies too...
+        pierce: 99                   # ...and everyone: one hit each
+        trail: lk_lantern_trail
+        on: { hit_entity: who, hit_block: landed, expired: landed }
+      who:
+        type: is_ally
+        target: hit
+        on: { ally: mend, enemy: sear }
+      mend:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: heal, amount: 40, sp: 0.6 }
+        next: mend_cue
+      mend_cue:
+        type: play_cue
+        cue: lk_lantern_heal
+        at: hit
+      sear:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.8, sp: 0.6, type: magic }
+          - { id: status, status: lk_revealed }
+        next: sear_cue
+      sear_cue:
+        type: play_cue
+        cue: lk_lantern_sear
+        at: hit
+      landed:
+        type: play_cue
+        cue: lk_lantern_land
+        at: flight_end
+
+  # 2: Light Guard (14s, from when it ends). A light around you (5 blocks) for up to 8s; 2 again ends it early. You
+  # walk slower meanwhile, and only 3 works (the XP bar empties over its time). Allies inside (you too) take 25% less
+  # damage, and their attacks set enemies burning: 2s, 4 x (5 + 5% of your spell power) magic.
+  lk_ab2:
+    cooldown: 280                    # 14s
+    cooldown_starts: end             # (once the light goes out)
+    cancel_on_repress: true          # 2 again: it goes out
+    interrupted_by: [state.stunned]
+    active_tags: [lightkeeper.guarding, state.slowed]   # slower; primary, 1 and the ultimate are blocked_by it
+    aura: lk_guard_aura              # the ring of light (5 blocks) round him, for as long as it's up
+    display:
+      name: "Light Guard"
+      icon: SHROOMLIGHT
+      description:
+        - "Up to 8s: a light around you (5 blocks)."
+        - "Allies inside (you too) take 25% less"
+        - "damage; their attacks burn enemies:"
+        - "2s, 4 x ({flat:5} {sp_per:1/20}) magic."
+        - "You're slower; only 3 works. 2 again ends it."
+    nodes:
+      on_cue:
+        type: play_cue
+        cue: lk_guard_on
+        next: split
+      split:
+        type: fork                   # the timer and the light side by side
+        on: { out: time, also: pulses }
+      time:
+        type: delay                  # the XP bar empties over it
+        ticks: 160
+        cast_bar: drain
+        next: done
+      done:
+        type: end_cast
+      pulses:
+        type: repeat                 # who's inside, every 0.5s
+        times: 16
+        every: 10
+        on: { each: shelter }
+      shelter:
+        type: apply_effects
+        targets: { type: radius, radius: 5, include_caster: true }   # (the cue's ring: 5)
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: status, status: lk_sheltered }
+
+  # 3: Illuminate (12s). A flash of light around you (6 blocks): allies (you too) get a 50 + 50% spell power shield
+  # (4s) and +25% speed (3s); enemies glow for 4s. Works during Light Guard.
+  lk_ab3:
+    cooldown: 240                    # 12s
+    interrupted_by: [state.stunned]
+    display:
+      name: "Illuminate"
+      icon: GLOWSTONE_DUST
+      description:
+        - "Light around you (6 blocks): allies (you"
+        - "too) get a {flat:50} {sp_per:10/20} shield (4s)"
+        - "and +25% speed (3s); enemies glow 4s."
+        - "Works during Light Guard."
+    nodes:
+      flash:
+        type: play_cue
+        cue: lk_illuminate
+        next: bless
+      bless:
+        type: apply_effects
+        targets: { type: radius, radius: 6, include_caster: true }
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: shield, amount: 50, sp: 0.5, lasts: 80 }
+          - { id: status, status: lk_quickened }
+        next: reveal
+      reveal:
+        type: apply_effects
+        targets: { type: radius, radius: 6 }
+        on_hit: false
+        effects:
+          - { id: status, status: lk_revealed }
+
+  # ULTIMATE (F): Beacon of Dawn. Channel a pillar of light on yourself for 5s (rooted, nothing else meanwhile; a stun
+  # ends it): every 0.5s allies within 5 blocks (you too) are healed 25 + 35% spell power and cleansed of debuffs.
+  lk_ult:
+    cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
+    interrupted_by: [state.stunned]
+    blocked_by: [block.ability, lightkeeper.guarding]
+    active_tags: [block.ability, state.rooted]   # a channel: no moving, no other abilities or attacks
+    aura: lk_beacon                  # the pillar of light (5 blocks at its foot)
+    display:
+      name: "Beacon of Dawn"
+      icon: BEACON
+      description:
+        - "Channel a pillar of light for 5s (rooted):"
+        - "every 0.5s allies within 5 blocks (you"
+        - "too) heal {flat:25} {sp_per:7/20} and are"
+        - "cleansed of debuffs."
+    nodes:
+      split:
+        type: fork
+        on: { out: channel, also: pulses }
+      channel:
+        type: delay                  # the XP bar empties over it
+        ticks: 100
+        cast_bar: drain
+        next: done
+      done:
+        type: end_cast
+      pulses:
+        type: repeat
+        times: 10
+        every: 10
+        on: { each: mend }
+      mend:
+        type: apply_effects
+        targets: { type: radius, radius: 5, include_caster: true }   # (the cue's ring: 5)
+        affects: allies
+        on_hit: false
+        effects:
+          - { id: heal, amount: 25, sp: 0.35 }
+          - { id: cleanse }
+        count: mended
+        next: mend_cue
+      mend_cue:
+        type: play_cue
+        cue: lk_beacon_mend
+
+characters:
+  lightkeeper:
+    name: "Lightkeeper"
+    weapon: LANTERN
+    traits: [blind_immune, darkness_immune]   # PASSIVE: Clear Sight
+    stats:                           # see docs/character-stats.md
+      health: 210                    # max HP
+      armor: 10                      # damage taken x 100 / (100 + armor)
+      base_damage: 30                # abilities deal % of this
+      move_speed: 1.0                # x vanilla walking speed
+      attack_speed: 1.1              # bolts per second
+    passive:                         # explained in hotbar slot 9 (or on the weapon when slot 9 is taken)
+      name: "Clear Sight"
+      icon: ENDER_EYE
+      description:
+        - "Nothing blinds you or darkens your"
+        - "sight (blindness and darkness)."
+    slots:
+      primary: lk_primary            # LMB: Sunspark
+      ability_1: lk_ab1              # 1: Waylight
+      ability_2: lk_ab2              # 2: Light Guard
+      ability_3: lk_ab3              # 3: Illuminate
+      ultimate: lk_ult               # F: Beacon of Dawn

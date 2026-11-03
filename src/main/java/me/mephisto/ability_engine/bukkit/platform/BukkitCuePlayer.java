@@ -748,6 +748,7 @@ public final class BukkitCuePlayer implements CuePlayer {
         ValkyrieCues.register(c, plugin);
         AmethystCues.register(c, plugin);
         SwordMasterCues.register(c, plugin);
+        LightkeeperCues.register(c, plugin);
         DragonHunterCues.register(c, plugin);
         WarriorCues.register(c, plugin);
         TricksterCues.register(c, plugin);

@@ -1346,3 +1346,17 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
   that kind erupt all over 3 blocks and sink back),
   sm_ult_start, sm_zone (a 5-block ring), sm_cut (looping, on an enemy: a pair of blades pointing at them, following them,
   drawing back and stabbing; `ticks: 10` for one cut).
+
+## Added for the Lightkeeper
+
+- **Characters:** traits `blind_immune` (nothing that blinds them: a status with the tag `state.blinded`, or vanilla
+  Blindness from anywhere) and `darkness_immune` (`state.darkness`, vanilla Darkness).
+- **delay:** `cast_bar: drain` - the XP bar starts full and empties as the wait runs out (a duration, e.g. a toggle that
+  lasts up to 8s; it goes when the cast ends, however it ends).
+- **Effects:** status `{ from: source }` - in a buff's `on_hit`: put on by whoever gave the holder that buff, so it's
+  theirs (its ticks scale with THEIR spell power, the kill is theirs): an ally's hits in the Lightkeeper's light set
+  enemies burning with his power.
+- **Cues:** lk_spark_shot, lk_spark_trail, lk_spark_hit, lk_lantern_throw, lk_lantern_trail, lk_lantern_heal,
+  lk_lantern_sear, lk_lantern_land, lk_guard_aura (looping: a ring of light, 5 blocks, round him), lk_guard_on,
+  lk_sheltered (looping: gold motes off an ally), lk_sunfire (looping: burning in gold), lk_illuminate (6 blocks),
+  lk_revealed, lk_beacon (looping: a 40-block pillar of light on him, a 5-block ring at its foot), lk_beacon_mend.

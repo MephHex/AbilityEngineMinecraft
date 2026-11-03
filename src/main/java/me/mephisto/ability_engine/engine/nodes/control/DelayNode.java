@@ -41,10 +41,24 @@ public final class DelayNode implements GraphNode {
         this.bossBar = bossBar;
     }
 
+    /** {@code cast_bar: drain}: the bar starts full and empties as the wait runs out (a duration, not a wind-up). */
+    private boolean drain;
+
+    public DelayNode draining() {
+        this.drain = true;
+        return this;
+    }
+
     @Override
     public NodeResult execute(ExecutionContext ctx) {
         Resumer resumer = ctx.suspend();
-        var bar = castBar ? ctx.instance().showProgress(ticks) : null;
+        var bar = castBar && !drain ? ctx.instance().showProgress(ticks) : null;
+        if (drain) {
+            long start = ctx.engine().clock().now();
+            int total = ticks;
+            var clock = ctx.engine().clock();
+            ctx.instance().showGauge(() -> 1 - (clock.now() - start) / (double) total);
+        }
         var timer = bossBar ? ctx.instance().showTimer(ticks) : null;
         if (timer != null && countOf != null) {
             var statuses = ctx.engine().statuses();
@@ -56,6 +70,7 @@ public final class DelayNode implements GraphNode {
         }
         TaskHandle task = ctx.engine().scheduler().after(ticks, () -> {
             if (bar != null) ctx.instance().clearProgress(bar);
+            if (drain) ctx.instance().showGauge(null);
             if (timer != null) ctx.instance().clearTimer(timer);
             resumer.resume(Ports.OUT);
         });

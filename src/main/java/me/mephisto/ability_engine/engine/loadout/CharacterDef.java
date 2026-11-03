@@ -391,7 +391,12 @@ public record CharacterDef(String id, String name, String weapon, Map<String, St
     public static final String ELYTRA = "elytra";
     /** Nothing that freezes (a status with the tag state.frozen) lands on them. */
     public static final String FREEZE_IMMUNE = "freeze_immune";
-    public static final java.util.Set<String> TRAITS = java.util.Set.of(SNEAK_SLOW_FALL, SLOW_FALL, ELYTRA, FREEZE_IMMUNE);
+    /** Nothing that blinds them (a status with the tag state.blinded, or vanilla Blindness) lands on them. */
+    public static final String BLIND_IMMUNE = "blind_immune";
+    /** Nothing that darkens their sight (a status with the tag state.darkness, or vanilla Darkness) lands on them. */
+    public static final String DARKNESS_IMMUNE = "darkness_immune";
+    public static final java.util.Set<String> TRAITS = java.util.Set.of(SNEAK_SLOW_FALL, SLOW_FALL, ELYTRA, FREEZE_IMMUNE,
+            BLIND_IMMUNE, DARKNESS_IMMUNE);
 
     /**
      * A kit change while the player has {@code tag} (e.g. an ultimate that replaces the primary, or a stage of growth).

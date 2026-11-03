@@ -35,6 +35,9 @@ import java.util.UUID;
  */
 public final class AbilityEngine {
 
+    /** Darkened sight (on Bukkit: vanilla Darkness). */
+    private static final String DARKNESS = "state.darkness";
+
     private final Platform platform;
     private final EngineLog log;
     private final GraphRunner runner;
@@ -185,6 +188,13 @@ public final class AbilityEngine {
         statuses.addGuard((target, def, source) -> def.grantedTags().contains(me.mephisto.ability_engine.engine.tag.Tags.FROZEN)
                 && loadouts.characterOf(target).map(c -> c.traits().contains(
                         me.mephisto.ability_engine.engine.loadout.CharacterDef.FREEZE_IMMUNE)).orElse(false));
+        // blind_immune / darkness_immune (the Lightkeeper): nothing that blinds or darkens their sight lands on them.
+        statuses.addGuard((target, def, source) -> def.grantedTags().contains(me.mephisto.ability_engine.engine.tag.Tags.BLINDED)
+                && loadouts.characterOf(target).map(c -> c.has(
+                        me.mephisto.ability_engine.engine.loadout.CharacterDef.BLIND_IMMUNE)).orElse(false));
+        statuses.addGuard((target, def, source) -> def.grantedTags().contains(DARKNESS)
+                && loadouts.characterOf(target).map(c -> c.has(
+                        me.mephisto.ability_engine.engine.loadout.CharacterDef.DARKNESS_IMMUNE)).orElse(false));
 
         tags.addListener(instances); // interrupts
         tags.addListener(confusion);

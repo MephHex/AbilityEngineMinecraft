@@ -132,6 +132,9 @@ public final class DamageAmount {
         }
     }
 
+    /** While a status's on-hit effects run: whoever put that status on (null otherwise). */
+    public static java.util.UUID statusSource() { return statusSource; }
+
     /** Whose spell power the {@code sp} / {@code max_hp_sp} parts use: the caster's, or (sp_of: source) the status's giver's. */
     private static java.util.UUID spellPowerOf(EffectContext ctx) {
         return SOURCE.equals(ctx.params().getString("sp_of", null)) && statusSource != null ? statusSource : ctx.caster();
