@@ -6,15 +6,15 @@
 # PASSIVE (Twin Blades): his basic attacks alternate between the blades (the one up next shows in his hand).
 #   Netherite: physical damage, +50% damage to shields. Gold: magic damage, and it heals him on hit (spell power).
 #
-# 1: Twin Thrust. A spear thrust (he raises his weapon like a spear): both blades stab forward, each with its passive
-#   (and on-hit effects). Nothing else meanwhile.
+# 1: Twin Thrust. A spear thrust (he raises his weapon like a spear): both blades stab forward, true damage (base
+#   damage and spell power alike), and on-hit effects. Nothing else meanwhile.
 # 2: Blade Guard. The blades cross in front of him for 1s: 40% less damage taken, and enemy shots from the front are
 #   cut down. Then he dashes where he aims.
-# 3: Falling Blade. The blade up next drops from the sky where he chooses, and stays planted for 2s (meanwhile his
-#   basic attacks only use the other one). Netherite: physical damage around it, +50% to shields. Gold: magic damage
-#   around it, and it heals him.
-# ULTIMATE: Death by a Thousand Cuts. An area for 6s: every enemy in it is stabbed by a pair of blades every 0.5s
-#   (netherite and gold, each with its passive). No abilities or basic attacks meanwhile.
+# 3: Blade Stance. Faster, his blades lie crossed in front of him for 6s (the XP bar: its number is the waves left);
+#   his next 3 basic attacks swing them out and back and send a wave of energy (15 blocks): 1 magic damage and heals
+#   him, 2 breaks shields and physical damage, 3 true damage. His other abilities work meanwhile.
+# ULTIMATE: Death by a Thousand Cuts. 8s (the boss bar): basic attacks only, but they reach 20 blocks, 20% faster,
+#   with spell power: both blades stab whoever he aims at (that enemy glows for him while in reach and in sight).
 
 statuses:
   sm_twin_blades:                    # PASSIVE: the two blades by his head; no arm swings (always on: passive_statuses)
@@ -26,16 +26,20 @@ statuses:
     duration: 0
     neutral: true
     tags: [swordmaster.gold_next]
-  sm_neth_planted:                   # 3: the netherite blade is in the ground (keep 40 = SwordMasterCues.PLANTED_TICKS)
-    duration: 40
+  sm_stance:                         # 3: Blade Stance; a stack per wave left (the XP bar: number = waves left)
+    duration: 120                    # 6s
+    stacking: stack
+    max_stacks: 3
     neutral: true
-    tags: [swordmaster.neth_planted]
-    cue: sm_neth_away                # (not by his head meanwhile)
-  sm_gold_planted:
-    duration: 40
-    neutral: true
-    tags: [swordmaster.gold_planted]
-    cue: sm_gold_away
+    cue: sm_stance                   # (his blades crossed in front of him meanwhile)
+  sm_stance_haste:                   # 3: faster for the stance's 6s
+    duration: 120
+    stacking: refresh
+    move_speed: 1.25                 # +25% speed
+  sm_cutting:                        # ULTIMATE: 20% faster attacks for its 8s
+    duration: 160
+    stacking: refresh
+    attack_speed: 1.2
   sm_guarded:                        # 2: behind the crossed blades
     duration: 20
     damage_taken: 0.6                # 40% less damage taken
@@ -45,8 +49,10 @@ abilities:
   # PRIMARY (LMB): Twin Blades. The blade up next thrusts out from his side, pointing ahead, to 4.5 blocks along his aim
   # and pulls back (Twin Thrust with one blade), striking the first enemy in its way; the blades take turns (one
   # cooldown for both). Netherite (left): 100% base damage (physical), +50% to shields. Gold (right): 60% base damage +
-  # 60% spell power (magic), and a hit heals him 8 + 20% spell power. While one is planted (3: Falling Blade), the
-  # other attacks every time.
+  # 60% spell power (magic), and a hit heals him 8 + 20% spell power.
+  # In Blade Stance (3): a wave of energy instead (see 3). In the ultimate: both blades stab whoever he aims at, 20
+  # blocks away: 90% base damage + 40% spell power (physical, +50% to shields) and 50% base damage + 80% spell power
+  # (magic), and he heals 8 + 20% spell power.
   sm_primary:
     cooldown: 16                     # (the attack_speed stat sets it)
     display:
@@ -58,18 +64,194 @@ abilities:
         - "Gold: {base:0.6|magic} + {sp:0.6|magic},"
         - "a hit heals you {flat:8} {sp_per:4/20}."
     nodes:
-      neth_planted:
-        type: has_tag                # one in the ground: the other one
-        tag: swordmaster.neth_planted
-        on: { has: gold_go, lacks: gold_planted }
-      gold_planted:
-        type: has_tag
-        tag: swordmaster.gold_planted
-        on: { has: neth_go, lacks: up_next }
+      in_ult:
+        type: has_tag                # the ultimate: both blades, 20 blocks
+        tag: swordmaster.cutting
+        on: { has: ult_find, lacks: in_stance }
+      in_stance:
+        type: has_status             # Blade Stance: a wave
+        status: sm_stance
+        on: { has: stance_go, lacks: up_next }
       up_next:
         type: has_tag
         tag: swordmaster.gold_next
         on: { has: gold_go, lacks: neth_go }
+
+      # ---- the ultimate: both blades stab whoever he aims at ----
+      ult_find:
+        type: acquire_target         # the enemy under his crosshair, in sight, 20 blocks
+        query: { type: hitscan, range: 20, ray_size: 0.5 }
+        on: { hit: ult_neth_away, miss: ult_whiff }
+      ult_neth_away:
+        type: start_cue              # his blades leave his side to stab them
+        cue: sm_neth_away
+        ticks: 10
+        next: ult_gold_away
+      ult_gold_away:
+        type: start_cue
+        cue: sm_gold_away
+        ticks: 10
+        next: ult_cut_cue
+      ult_cut_cue:
+        type: start_cue              # the pair pointing at them, stabbing (the cut's point: 5 ticks in)
+        cue: sm_cut
+        at: target
+        ticks: 10
+        next: ult_reach
+      ult_reach:
+        type: delay
+        ticks: 5
+        next: ult_hit
+      ult_hit:
+        type: apply_effects
+        targets: { type: key, key: target }
+        effects:
+          - { id: damage, base: 0.9, sp: 0.4, type: physical, shield_bonus: 0.5 }
+          - { id: damage, base: 0.5, sp: 0.8, type: magic, ignore_iframes: true }
+        next: ult_mend
+      ult_mend:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: heal, amount: 8, sp: 0.2 }
+        next: home
+      ult_whiff:
+        type: play_cue
+        cue: sm_neth_shot
+
+      # ---- Blade Stance: a wave from the crossed blades ----
+      stance_go:
+        type: start_cue              # the stance blades swing out and back (8 ticks)
+        cue: sm_neth_away
+        ticks: 8
+        next: stance_gold
+      stance_gold:
+        type: start_cue
+        cue: sm_gold_away
+        ticks: 8
+        next: stance_spin
+      stance_spin:
+        type: play_cue
+        cue: sm_stance_spin
+        at: caster
+        to: aim
+        next: stance_wait
+      stance_wait:
+        type: delay                  # (out to his sides: the wave leaves as they come back)
+        ticks: 4
+        next: which_wave
+      which_wave:
+        type: has_status             # 3 left: the first wave
+        status: sm_stance
+        min_stacks: 3
+        on: { has: wave1, lacks: which_wave2 }
+      which_wave2:
+        type: has_status
+        status: sm_stance
+        min_stacks: 2
+        on: { has: wave2, lacks: wave3 }
+      wave1:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: sm_stance, stacks: 1 }
+        next: wave1_cue
+      wave1_cue:
+        type: play_cue
+        cue: sm_wave_shot
+        next: wave1_fly
+      wave1_fly:
+        type: projectile
+        visual: "entity:MARKER"      # (nothing to see but its trail: the wave)
+        size: 1.6
+        speed: 1.5
+        range: 15
+        lifetime: 12
+        pierce: 99                   # through everyone
+        trail: sm_wave1_trail
+        on: { hit_entity: wave1_hit }
+      wave1_hit:
+        type: apply_effects          # magic, and it heals him
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, sp: 0.8, type: magic }
+        next: wave1_mend
+      wave1_mend:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: heal, amount: 12, sp: 0.25 }
+        next: wave1_hit_cue
+      wave1_hit_cue:
+        type: play_cue
+        cue: sm_gold_hit
+        at: hit
+      wave2:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: sm_stance, stacks: 1 }
+        next: wave2_cue
+      wave2_cue:
+        type: play_cue
+        cue: sm_wave_shot
+        next: wave2_fly
+      wave2_fly:
+        type: projectile
+        visual: "entity:MARKER"
+        size: 1.6
+        speed: 1.5
+        range: 15
+        lifetime: 12
+        pierce: 99
+        trail: sm_wave2_trail
+        on: { hit_entity: wave2_hit }
+      wave2_hit:
+        type: apply_effects          # their shield breaks, then physical damage
+        targets: { type: key, key: hit }
+        effects:
+          - { id: break_shield }
+          - { id: damage, base: 1.2, type: physical }
+        next: wave2_hit_cue
+      wave2_hit_cue:
+        type: play_cue
+        cue: sm_shield_break
+        at: hit
+      wave3:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: sm_stance, stacks: 1 }
+        next: wave3_cue
+      wave3_cue:
+        type: play_cue
+        cue: sm_wave_shot
+        next: wave3_fly
+      wave3_fly:
+        type: projectile
+        visual: "entity:MARKER"
+        size: 1.6
+        speed: 1.5
+        range: 15
+        lifetime: 12
+        pierce: 99
+        trail: sm_wave3_trail
+        on: { hit_entity: wave3_hit }
+      wave3_hit:
+        type: apply_effects          # true damage, base damage and spell power alike
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.7, sp: 0.7, type: true }
+        next: wave3_hit_cue
+      wave3_hit_cue:
+        type: play_cue
+        cue: sm_true_hit
+        at: hit
 
       # ---- netherite (left) ----
       neth_go:
@@ -158,20 +340,21 @@ abilities:
         type: delay                  # (held 2 ticks, pulled back in 5)
         ticks: 7
 
-  # 1: Twin Thrust (8s). A spear thrust: both blades stab forward (4.5 blocks, a line 1.4 wide), each with its passive:
-  # 90% base damage (physical, +50% to shields) and 50% base damage + 50% spell power (magic); he heals 8 + 20% spell
-  # power per enemy hit. On-hit effects apply. Nothing else meanwhile (0.8s).
+  # 1: Twin Thrust (8s). A spear thrust: both blades stab forward (4.5 blocks, a line 1.4 wide): true damage, 50% base
+  # damage + 40% spell power and 40% base damage + 50% spell power; he heals 8 + 20% spell power per enemy hit. On-hit
+  # effects apply. Nothing else meanwhile (0.8s).
   sm_ab1:
     cooldown: 160                    # 8s
     interrupted_by: [state.stunned]
+    blocked_by: [block.ability, swordmaster.cutting]
     active_tags: [block.ability]     # no other abilities or swings meanwhile
     display:
       name: "Twin Thrust"
       icon: SPECTRAL_ARROW
       description:
         - "Both blades thrust forward (4.5 blocks):"
-        - "{base:0.9|physical} (+50% to shields) and"
-        - "{base:0.5|magic} + {sp:0.5|magic}; heals you"
+        - "{base:0.5|true} + {sp:0.4|true} and {base:0.4|true}"
+        - "+ {sp:0.5|true}; heals you"
         - "{flat:8} {sp_per:4/20} per enemy hit. Applies on-hit"
         - "effects."
     nodes:
@@ -203,8 +386,8 @@ abilities:
         targets: { type: line, range: 4.5, width: 1.4 }
         on_hit: true                 # on-hit effects too
         effects:
-          - { id: damage, base: 0.9, type: physical, shield_bonus: 0.5 }
-          - { id: damage, base: 0.5, sp: 0.5, type: magic, ignore_iframes: true }
+          - { id: damage, base: 0.5, sp: 0.4, type: true }
+          - { id: damage, base: 0.4, sp: 0.5, type: true, ignore_iframes: true }
         count: struck
         next: struck_any
       struck_any:
@@ -233,6 +416,7 @@ abilities:
   sm_ab2:
     cooldown: 240                    # 12s
     interrupted_by: [state.stunned]
+    blocked_by: [block.ability, swordmaster.cutting]
     display:
       name: "Blade Guard"
       icon: IRON_BARS
@@ -291,206 +475,85 @@ abilities:
         radius: 0.8
         flat: true
 
-  # 3: Falling Blade (14s). The blade up next drops from the sky where he chooses (16 blocks); a moment later blades of
-  # its kind erupt all over the area (that's when it hurts). It stays planted 2s in all; meanwhile his basic attacks only use the other one. Netherite: 150% base damage around it (3 blocks, physical),
-  # +50% to shields. Gold: 60% base damage + 100% spell power around it (magic), and he heals 30 + 50% spell power if it
-  # hits anyone. On-hit effects apply.
+  # 3: Blade Stance (14s). +25% speed and his blades lie crossed in front of him for 6s (the XP bar; its number: the
+  # waves left). His next 3 basic attacks swing them out and back and send a wave of energy (15 blocks, through
+  # everyone): 1st - 60% base damage + 80% spell power (magic), and he heals 12 + 25% spell power per enemy hit; 2nd -
+  # breaks their shields, 120% base damage (physical); 3rd - 70% base damage + 70% spell power (true). His other
+  # abilities work meanwhile.
   sm_ab3:
     cooldown: 280                    # 14s
     interrupted_by: [state.stunned]
-    targeting: { shape: circle, range: 16, radius: 3, ground: true }
+    blocked_by: [block.ability, swordmaster.cutting]
     display:
-      name: "Falling Blade"
-      icon: POINTED_DRIPSTONE
+      name: "Blade Stance"
+      icon: ECHO_SHARD
       description:
-        - "Drop the blade up next from the sky: blades"
-        - "erupt around it (3 blocks). It stays 2s: only"
-        - "the other one attacks meanwhile."
-        - "Netherite: {base:1.5|physical},"
-        - "+50% to shields. Gold: {base:0.6|magic} +"
-        - "{sp:1.0|magic}, heals you {flat:30} {sp_per:10/20}."
-        - "Applies on-hit effects."
+        - "6s: +25% speed, your blades crossed in front"
+        - "of you. Your next 3 attacks send a wave"
+        - "(15 blocks, through everyone):"
+        - "1: {base:0.6|magic} + {sp:0.8|magic}, heals you {flat:12} {sp_per:5/20}"
+        - "2: breaks shields, {base:1.2|physical}"
+        - "3: {base:0.7|true} + {sp:0.7|true}"
     nodes:
-      which:
-        type: has_tag
-        tag: swordmaster.gold_next
-        on: { has: gold_plant, lacks: neth_plant }
-      neth_plant:
+      ready:
         type: apply_effects
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: status, status: sm_neth_planted }
-        next: neth_drop
-      neth_drop:
+          - { id: remove_status, status: sm_stance }        # (a fresh three)
+          - { id: status, status: sm_stance, stacks: 3 }
+          - { id: status, status: sm_stance_haste }
+        next: ready_cue
+      ready_cue:
         type: play_cue
-        cue: sm_neth_drop
-        at: aim
-        next: neth_fall
-      neth_fall:
-        type: delay                  # (it falls: SwordMasterCues.FALL_TICKS)
-        ticks: 10
-        next: neth_brew
-      neth_brew:
-        type: delay                  # a moment in the ground, then blades erupt all around
-        ticks: 10
-        next: neth_hit
-      neth_hit:
-        type: apply_effects
-        targets: { type: radius, center: aim, radius: 3 }
-        on_hit: true
-        effects:
-          - { id: damage, base: 1.5, type: physical, shield_bonus: 0.5 }
-        next: neth_impact
-      neth_impact:
-        type: play_cue
-        cue: sm_neth_impact
-        at: aim
-        next: neth_wait
-      neth_wait:
-        type: delay                  # planted (40 ticks in all, its fall included)
-        ticks: 20
-        next: neth_back
-      neth_back:
-        type: play_cue
-        cue: sm_neth_return
-        at: aim
-        to: caster
-      gold_plant:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: status, status: sm_gold_planted }
-        next: gold_drop
-      gold_drop:
-        type: play_cue
-        cue: sm_gold_drop
-        at: aim
-        next: gold_fall
-      gold_fall:
-        type: delay
-        ticks: 10
-        next: gold_brew
-      gold_brew:
-        type: delay
-        ticks: 10
-        next: gold_hit
-      gold_hit:
-        type: apply_effects
-        targets: { type: radius, center: aim, radius: 3 }
-        on_hit: true
-        effects:
-          - { id: damage, base: 0.6, sp: 1.0, type: magic }
-        count: gold_struck
-        next: gold_impact
-      gold_impact:
-        type: play_cue
-        cue: sm_gold_impact
-        at: aim
-        next: gold_any
-      gold_any:
-        type: switch
-        key: gold_struck
-        on: { "0": gold_wait, default: gold_mend }
-      gold_mend:
-        type: apply_effects
-        targets: { type: self }
-        on_hit: false
-        effects:
-          - { id: heal, amount: 30, sp: 0.5 }
-        next: gold_mend_cue
-      gold_mend_cue:
-        type: play_cue
-        cue: sm_heal
-        next: gold_wait
-      gold_wait:
-        type: delay
-        ticks: 20
-        next: gold_back
-      gold_back:
-        type: play_cue
-        cue: sm_gold_return
-        at: aim
-        to: caster
+        cue: sm_stance_on
 
-  # ULTIMATE (F): Death by a Thousand Cuts. An area (5 blocks, 18 away at most) for 6s: every 0.5s each enemy in it is
-  # stabbed by a pair of blades: 30% base damage (physical, +50% to shields) and 15% base damage + 25% spell power
-  # (magic); he heals 4 + 8% spell power per pair. No abilities or basic attacks meanwhile, and his own blades are gone
-  # from his side (they're the ones cutting).
+  # ULTIMATE (F): Death by a Thousand Cuts. 8s (the boss bar): no abilities, only basic attacks, but they reach 20
+  # blocks, come 20% faster and scale with spell power: both blades stab whoever he aims at (see the primary). The
+  # enemy under his crosshair, in reach and in sight, glows for him (only he sees it).
   sm_ult:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
-    interrupted_by: [state.stunned]
-    targeting: { shape: circle, range: 18, radius: 5, ground: true }
-    active_tags: [block.ability]     # no abilities or basic attacks meanwhile
+    active_tags: [swordmaster.cutting, state.aim_highlight]   # 1, 2, 3 are blocked_by it; who he'd reach glows
     display:
       name: "Death by a Thousand Cuts"
       icon: IRON_SWORD
       description:
-        - "An area (5 blocks) for 6s: every 0.5s"
-        - "each enemy in it is stabbed by two blades:"
-        - "{base:0.3|physical} (+50% to shields) and"
-        - "{base:0.15|magic} + {sp:0.25|magic}; heals you"
-        - "{flat:4} {sp_per:1.6/20} each time. No abilities"
-        - "or basic attacks meanwhile."
+        - "8s: only basic attacks, but they reach"
+        - "20 blocks, 20% faster: both blades stab"
+        - "who you aim at, {base:0.9|physical} + {sp:0.4|physical}"
+        - "and {base:0.5|magic} + {sp:0.8|magic}; heals you"
+        - "{flat:8} {sp_per:4/20}. Who you'd reach glows."
     nodes:
-      neth_away:
-        type: start_cue              # his blades leave his side for the whole ult (they're the ones cutting)
-        cue: sm_neth_away
-        next: gold_away
-      gold_away:
-        type: start_cue
-        cue: sm_gold_away
-        next: open
       open:
         type: play_cue
         cue: sm_ult_start
-        at: aim
-        next: pulses
-      pulses:
-        type: repeat                 # 12 x 0.5s
-        times: 12
-        every: 10
-        on: { each: zone }
-      zone:
-        type: play_cue
-        cue: sm_zone
-        at: aim
-        next: each
-      each:
-        type: for_each
-        query: { type: radius, center: aim, radius: 5 }
-        store: victim
-        on: { each: cut }
-      cut:
-        type: apply_effects
-        targets: { type: key, key: victim }
-        on_hit: false
-        effects:
-          - { id: damage, base: 0.3, type: physical, shield_bonus: 0.5, knockback: false, ignore_iframes: true }
-          - { id: damage, base: 0.15, sp: 0.25, type: magic, knockback: false, ignore_iframes: true }
-        next: cut_cue
-      cut_cue:
-        type: start_cue              # the pair stabbing them, following them (one cut: 0.5s)
-        cue: sm_cut
-        at: victim
-        ticks: 10
-        next: cut_mend
-      cut_mend:
+        next: faster
+      faster:
         type: apply_effects
         targets: { type: self }
         on_hit: false
         effects:
-          - { id: heal, amount: 4, sp: 0.08 }
+          - { id: status, status: sm_cutting }
+        next: time
+      time:
+        type: delay                  # the boss bar runs out
+        ticks: 160
+        boss_bar: true
+        next: over
+      over:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: sm_cutting }
 
 characters:
   swordmaster:
     name: "SwordMaster"
     weapon: "hidden:NETHERITE_SWORD" # the blade up next (netherite, or gold: forms), an icon only: not held in hand
-    forms:                           # the blade up next in his hand (first match wins)
-      - { while: swordmaster.neth_planted, weapon: "hidden:GOLDEN_SWORD" }
-      - { while: swordmaster.gold_planted, weapon: "hidden:NETHERITE_SWORD" }
+    forms:                           # the blade up next in his hand
       - { while: swordmaster.gold_next, weapon: "hidden:GOLDEN_SWORD" }
+    status_bar: sm_stance            # XP bar: Blade Stance's time left, its number the waves left
     stats:                           # see docs/character-stats.md
       health: 230                    # max HP
       armor: 15                      # damage taken x 100 / (100 + armor)
@@ -511,5 +574,5 @@ characters:
       primary: sm_primary            # LMB: Twin Blades (the blade up next)
       ability_1: sm_ab1              # 1: Twin Thrust
       ability_2: sm_ab2              # 2: Blade Guard
-      ability_3: sm_ab3              # 3: Falling Blade
+      ability_3: sm_ab3              # 3: Blade Stance
       ultimate: sm_ult               # F: Death by a Thousand Cuts

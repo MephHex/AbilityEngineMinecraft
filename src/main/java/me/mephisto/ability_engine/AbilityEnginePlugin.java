@@ -129,6 +129,9 @@ public final class AbilityEnginePlugin extends JavaPlugin {
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.input.SwingMirror(engine), this); // clones swing along
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.input.NoSwing(engine), this); // state.no_swing: no arm swing shown
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.SightGuard(engine), this); // blind_immune / darkness_immune
+        new me.mephisto.ability_engine.bukkit.status.AimHighlight(engine, getLogger()).start(this); // state.aim_highlight
+        String outlines = me.mephisto.ability_engine.bukkit.status.AimHighlight.selfCheck();
+        if (outlines != null) getLogger().warning("state.aim_highlight can't show glowing outlines here: " + outlines);
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.PuppetHold(), this); // a puppeteer's decoy swings
         pm.registerEvents(new me.mephisto.ability_engine.bukkit.status.ConfusionCredit(engine), this); // a confused kill: the confuser's
         marks = new me.mephisto.ability_engine.bukkit.status.MarkDisplays(engine, this); // marks passives (Sucker Punch)

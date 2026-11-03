@@ -42,6 +42,8 @@ public final class TestEngine {
     public final Map<UUID, Double> healed = new HashMap<>();
     /** Absorption shields received per entity (design HP, summed). */
     public final Map<UUID, Double> shields = new HashMap<>();
+    /** Whose shields a break_shield took away. */
+    public final java.util.Set<UUID> brokenShields = new java.util.HashSet<>();
     /** Lifesteal requested by damage effects: caster -> summed lifesteal share of the damage. */
     public final Map<UUID, Double> lifesteal = new HashMap<>();
 
@@ -90,6 +92,18 @@ public final class TestEngine {
 
             @Override
             public void validate(Params params) { me.mephisto.ability_engine.engine.combat.DamageAmount.validate(params, false); }
+        });
+        engine.effects().register("break_shield", new Effect() { // the shield's gone: recorded
+            @Override
+            public void apply(EffectContext ctx) {
+                if (ctx.target() instanceof EntityTarget e) {
+                    shields.remove(e.id());
+                    brokenShields.add(e.id());
+                }
+            }
+
+            @Override
+            public void validate(Params params) {}
         });
         engine.effects().register("heal", new Effect() {
             @Override

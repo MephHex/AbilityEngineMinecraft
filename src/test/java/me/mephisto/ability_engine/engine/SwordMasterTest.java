@@ -100,7 +100,7 @@ class SwordMasterTest {
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_1).success());
         assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "nothing else meanwhile");
         t.time.advance(20);
-        assertEquals(BASE * 0.9 + BASE * 0.5, t.damage(near), 1e-6, "both blades");
+        assertEquals(BASE * 0.5 + BASE * 0.4, t.damage(near), 1e-6, "both blades, true damage");
         assertEquals(0, t.damage(far), 1e-9, "4.5 blocks");
         assertEquals(8, healed(), 1e-6, "a heal per enemy hit");
     }
@@ -117,56 +117,71 @@ class SwordMasterTest {
                 .position().x() > 3, "dashed forward");
     }
 
-    @Test
-    void theFallingBladeIsTheOneUpNextAndTheOtherAttacksMeanwhile() throws IOException {
-        setup();
-        UUID there = enemyAt(8, 0), shot = enemyAt(2.5, 3);
-        t.world.look(p, new Vec3(8, -1, 0).normalize());
-        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).openedTargeting());
-        assertTrue(t.engine.targeting().confirm(p).success());
-        t.time.advance(22);
-        assertTrue(t.engine.statuses().has(p, "sm_neth_planted"), "netherite was up next");
-        assertEquals(BASE * 1.5, t.damage(there), 1e-6, "150% base damage around it");
+    // ---- 3: Blade Stance ----
 
-        t.world.look(p, new Vec3(2.5, 0, 3).normalize());
-        for (int i = 0; i < 2; i++) {                                // gold both times while netherite is planted
-            assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());
-            t.time.advance(i == 0 ? 16 : 20);
-        }
-        assertEquals(BASE * 0.6 * 2, t.damage(shot), 1e-6, "gold, twice");
-        assertEquals(16, healed(), 1e-6);
-        assertFalse(t.engine.statuses().has(p, "sm_neth_planted"), "back after 2s");
+    private void waitForPrimary() {
+        for (int i = 0; i < 40 && !t.engine.cooldowns().isReady(p, "sm_primary"); i++) t.time.advance(1);
     }
 
     @Test
-    void theGoldBladeFallsWhenItsUpNext() throws IOException {
+    void bladeStanceSendsThreeDifferentWavesThenItsOver() throws IOException {
         setup();
-        UUID there = enemyAt(8, 0);
-        t.engine.statuses().apply(p, "sm_gold_next", 0, p);
-        t.world.look(p, new Vec3(8, -1, 0).normalize());
+        UUID foe = enemyAt(8, 0);
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
+        assertEquals(3, t.engine.statuses().find(p, "sm_stance").orElseThrow().stacks(), "three waves");
+        assertTrue(t.engine.statuses().has(p, "sm_stance_haste"), "faster");
+
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());       // 1: magic, and a heal
+        t.time.advance(14);
+        assertEquals(BASE * 0.6, t.damage(foe), 1e-6, "8 blocks: a wave reaches 15");
+        assertEquals(12, healed(), 1e-6);
+        assertEquals(2, t.engine.statuses().find(p, "sm_stance").orElseThrow().stacks());
+
+        t.shields.put(foe, 40.0);
+        waitForPrimary();
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());       // 2: shields break, physical
+        t.time.advance(14);
+        assertTrue(t.brokenShields.contains(foe), "its shield broken");
+        assertEquals(BASE * 0.6 + BASE * 1.2, t.damage(foe), 1e-6);
+
+        waitForPrimary();
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());       // 3: true damage
+        t.time.advance(14);
+        assertEquals(BASE * (0.6 + 1.2 + 0.7), t.damage(foe), 1e-6);
+        assertFalse(t.engine.statuses().has(p, "sm_stance"), "three waves: over");
+
+        waitForPrimary();
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());       // back to a thrust: 4.5 blocks
+        t.time.advance(14);
+        assertEquals(BASE * 2.5, t.damage(foe), 1e-6, "8 blocks away: out of a thrust's reach");
+    }
+
+    @Test
+    void otherAbilitiesWorkInTheStance() throws IOException {
+        setup();
         t.engine.loadouts().activate(p, Slots.ABILITY_3);
-        t.engine.targeting().confirm(p);
-        t.time.advance(22);
-        assertTrue(t.engine.statuses().has(p, "sm_gold_planted"));
-        assertEquals(BASE * 0.6, t.damage(there), 1e-6, "magic, 60% base damage");
-        assertEquals(30, healed(), 1e-6, "it heals him");
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_2).success());
     }
 
+    // ---- ULTIMATE ----
+
     @Test
-    void aThousandCutsStabsEveryoneInsideAndHoldsHisAbilities() throws IOException {
+    void theUltimateReaches20BlocksWithBothBladesAndHoldsHisAbilities() throws IOException {
         setup();
-        UUID in = enemyAt(8, 2), out = enemyAt(8, 9);
-        t.world.look(p, new Vec3(8, -1, 0).normalize());
-        assertTrue(t.engine.loadouts().activate(p, Slots.ULTIMATE).openedTargeting());
-        assertTrue(t.engine.targeting().confirm(p).success());
-        t.world.look(p, new Vec3(1, 0, 0));
-        t.time.advance(5);
-        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "no abilities meanwhile");
-        assertFalse(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "nor basic attacks");
-        t.time.advance(130);
-        double pair = BASE * 0.3 + BASE * 0.15;
-        assertEquals(pair * 12, t.damage(in), 1e-6, "a pair every 0.5s for 6s");
-        assertEquals(0, t.damage(out), 1e-9);
-        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_2).success(), "over: abilities again");
+        UUID foe = enemyAt(15, 0), beyond = enemyAt(25, 2);
+        assertTrue(t.engine.loadouts().activate(p, Slots.ULTIMATE).success());
+        assertTrue(t.engine.tags().has(p, "state.aim_highlight"), "who he'd reach glows for him");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_1).success(), "no abilities");
+        assertFalse(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
+        assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success(), "basic attacks only");
+        t.time.advance(12);
+        assertEquals(BASE * 0.9 + BASE * 0.5, t.damage(foe), 1e-6, "15 blocks: both blades");
+        assertEquals(8, healed(), 1e-6);
+        assertEquals(0, t.damage(beyond), 1e-9);
+        assertTrue(t.engine.statuses().has(p, "sm_cutting"), "20% faster attacks");
+        t.time.advance(160);
+        assertFalse(t.engine.tags().has(p, "swordmaster.cutting"), "8s: over");
+        assertFalse(t.engine.tags().has(p, "state.aim_highlight"));
+        assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_1).success(), "abilities again");
     }
 }

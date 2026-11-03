@@ -1333,6 +1333,10 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
   time), e.g. `{ type: play_cue, cue: sm_neth_return, at: flight_end, to: caster }` on `expired` too.
 - **Damage:** `shield_bonus: 0.5` - the target's shield (absorption) takes 50% more from the hit; what's left once it
   breaks hits their health as usual. Write it out in the description ("+50% to shields").
+- **Effects:** `break_shield` - the target's shield (absorption) is gone at once, all of it.
+- **Tags:** `state.aim_highlight` - the enemy under the holder's crosshair, within 20 blocks and in sight, glows for the
+  holder only (nobody else sees it): what their attack would reach (e.g. an ultimate's `active_tags`). The console says
+  at startup if a server can't show it.
 - **Tags:** `state.no_swing` - the holder's arm swing isn't shown to anyone else (their clicks still work).
 - **Swings:** anyone with a character who left-clicks while their primary fire (on a target: their melee slot, if they
   have one) is on cooldown swings only on their own screen: the others don't see a swing that hits nothing. A click
@@ -1349,6 +1353,10 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
   that kind erupt all over 3 blocks and sink back),
   sm_ult_start, sm_zone (a 5-block ring), sm_cut (looping, on an enemy: a pair of blades pointing at them, following them,
   drawing back and stabbing; `ticks: 10` for one cut).
+- **Blade Stance cues:** sm_stance (looping, a status's: his blades' place is crossed flat in front of him meanwhile),
+  sm_stance_on, sm_stance_spin (line: `at: caster, to: aim`; the crossed blades swing out to his sides and back, 8
+  ticks), sm_wave_shot, sm_wave1_trail / sm_wave2_trail / sm_wave3_trail (gold, dark, white: a wave's trail; the
+  projectile itself is `visual: "entity:MARKER"`, nothing to see), sm_true_hit, sm_shield_break.
 
 ## Added for the Lightkeeper
 

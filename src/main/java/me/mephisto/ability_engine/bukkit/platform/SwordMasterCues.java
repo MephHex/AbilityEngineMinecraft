@@ -43,11 +43,16 @@ final class SwordMasterCues {
     private static final Particle.DustOptions DARK = new Particle.DustOptions(Color.fromRGB(70, 60, 70), 1.1f);
     private static final Particle.DustOptions GILT = new Particle.DustOptions(Color.fromRGB(250, 200, 60), 1.1f);
     private static final Particle.DustOptions STEEL = new Particle.DustOptions(Color.fromRGB(210, 210, 225), 0.9f);
+    private static final Particle.DustOptions PURE = new Particle.DustOptions(Color.fromRGB(235, 225, 255), 1.2f);
 
     /** Each wearer's floating blades. */
     private static final Map<UUID, BukkitTask> blades = new HashMap<>();
     /** How many reasons each blade is away (stabbing, planted, guarding): [netherite, gold]; shown again at 0. */
     private static final Map<UUID, int[]> away = new HashMap<>();
+    /** Who's in the Blade Stance (3): their blades' place is crossed flat in front of them, not by their head. */
+    private static final Map<UUID, Integer> stance = new HashMap<>();
+    /** The stance: how far ahead of the eyes the blades cross, how low, and how far each turns off straight ahead. */
+    private static final double STANCE_AHEAD = 0.8, STANCE_DOWN = 0.4, STANCE_TURN = Math.toRadians(35);
 
     private SwordMasterCues() {}
 
@@ -56,6 +61,39 @@ final class SwordMasterCues {
         c.registerLoop("sm_blades", e -> blades(plugin, e));
         c.registerLoop("sm_neth_away", e -> away(e, 0));
         c.registerLoop("sm_gold_away", e -> away(e, 1));
+
+        // ---- 3: Blade Stance ----
+        c.registerLoop("sm_stance", e -> { // (the status's cue) the blades' place is crossed in front of him meanwhile
+            stance.merge(e.getUniqueId(), 1, Integer::sum);
+            boolean[] done = {false};
+            return () -> {
+                if (done[0]) return;
+                done[0] = true;
+                stance.computeIfPresent(e.getUniqueId(), (k, n) -> n > 1 ? n - 1 : null);
+            };
+        });
+        c.register("sm_stance_on", loc -> {
+            loc.getWorld().playSound(loc, Sound.ITEM_ARMOR_EQUIP_NETHERITE, 1f, 1.2f);
+            loc.getWorld().playSound(loc, Sound.BLOCK_ANVIL_PLACE, 0.3f, 2f);
+        });
+        c.registerLine("sm_stance_spin", (w, from, to) -> spin(plugin, w, from, to));
+        c.register("sm_wave1_trail", loc -> wave(loc, GILT, Particle.ENCHANTED_HIT));
+        c.register("sm_wave2_trail", loc -> wave(loc, DARK, Particle.CRIT));
+        c.register("sm_wave3_trail", loc -> wave(loc, PURE, Particle.END_ROD));
+        c.register("sm_wave_shot", loc -> {
+            loc.getWorld().playSound(loc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.7f);
+            loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_RIPTIDE_2, 0.6f, 1.6f);
+        });
+        c.register("sm_true_hit", loc -> {
+            World w = loc.getWorld();
+            w.spawnParticle(Particle.DUST, loc, 12, 0.25, 0.3, 0.25, 0, PURE);
+            w.spawnParticle(Particle.END_ROD, loc, 6, 0.2, 0.3, 0.2, 0.08);
+            w.playSound(loc, Sound.BLOCK_AMETHYST_BLOCK_BREAK, 1f, 0.6f);
+        });
+        c.register("sm_shield_break", loc -> {
+            loc.getWorld().spawnParticle(Particle.BLOCK, loc, 16, 0.3, 0.4, 0.3, 0, Material.GLASS.createBlockData());
+            loc.getWorld().playSound(loc, Sound.BLOCK_GLASS_BREAK, 1f, 0.9f);
+        });
 
         // ---- primary: a blade stabs, then flies back to his side ----
         c.register("sm_neth_shot", loc -> loc.getWorld().playSound(loc, Sound.ITEM_TRIDENT_THROW, 0.8f, 1.4f));
@@ -142,8 +180,13 @@ final class SwordMasterCues {
             Location eye = e instanceof org.bukkit.entity.LivingEntity l ? l.getEyeLocation() : e.getLocation().add(0, 1.6, 0);
             Vector f = facing(eye.getYaw()), r = right(f);
             double bob = Math.sin(tick[0] * 0.12) * 0.06;
-            place(neth, eye, f, r.clone().multiply(-SIDE), UP + bob, gone[0] > 0, NETH, eye.getDirection());
-            place(gold, eye, f, r.clone().multiply(SIDE), UP - bob, gone[1] > 0, GOLD, eye.getDirection());
+            if (stance.containsKey(id)) { // Blade Stance: crossed flat in front of him
+                crossed(neth, eye, f, r, true, gone[0] > 0, bob);
+                crossed(gold, eye, f, r, false, gone[1] > 0, -bob);
+            } else {
+                place(neth, eye, f, r.clone().multiply(-SIDE), UP + bob, gone[0] > 0, NETH, eye.getDirection());
+                place(gold, eye, f, r.clone().multiply(SIDE), UP - bob, gone[1] > 0, GOLD, eye.getDirection());
+            }
             tick[0]++;
         }, 0, 1);
         blades.put(id, task);
@@ -166,6 +209,72 @@ final class SwordMasterCues {
         if (hidden == shown) d.setItemStack(hidden ? null : new ItemStack(m));
         // its tip where he looks (up, down and around), ready to stab
         d.setTransformation(new Transformation(new Vector3f(), tipAlong(look), new Vector3f(BLADE_SIZE), new Quaternionf()));
+    }
+
+    /**
+     * The stance: both blades lying flat at chest height, crossing in front of him (an X seen from above), the
+     * netherite one pointing ahead to his right, the gold one ahead to his left.
+     */
+    private static void crossed(ItemDisplay d, Location eye, Vector f, Vector r, boolean neth, boolean hidden, double bob) {
+        if (!d.isValid()) return;
+        Location at = eye.clone().add(f.clone().multiply(STANCE_AHEAD)).add(0, -STANCE_DOWN + bob, 0);
+        at.setYaw(0);
+        at.setPitch(0);
+        d.teleport(at);
+        boolean shown = d.getItemStack() != null && !d.getItemStack().getType().isAir();
+        if (hidden == shown) d.setItemStack(hidden ? null : new ItemStack(neth ? NETH : GOLD));
+        Vector tip = turned(f, r, neth ? STANCE_TURN : -STANCE_TURN);
+        d.setTransformation(new Transformation(new Vector3f(), lyingAlong(tip), new Vector3f(BLADE_SIZE), new Quaternionf()));
+    }
+
+    /** {@code f} turned toward {@code r} by {@code angle} (radians), flat. */
+    private static Vector turned(Vector f, Vector r, double angle) {
+        return f.clone().multiply(Math.cos(angle)).add(r.clone().multiply(Math.sin(angle)));
+    }
+
+    /** Like tipAlong, then rolled a quarter turn about its own blade: lying flat instead of upright. */
+    private static Quaternionf lyingAlong(Vector dir) {
+        return tipAlong(dir).rotateAxis((float) (Math.PI / 2), (float) Math.cos(TIP), (float) Math.sin(TIP), 0);
+    }
+
+    /** 3, an empowered attack: from the stance both blades swing out to his sides and back (8 ticks). */
+    private static void spin(Plugin plugin, World w, Vector from, Vector to) {
+        Vector aim = to.clone().subtract(from);
+        Vector f = new Vector(aim.getX(), 0, aim.getZ());
+        f = f.lengthSquared() < 1e-6 ? new Vector(1, 0, 0) : f.normalize();
+        Vector r = right(f);
+        Vector eye = from.clone().add(new Vector(0, 0.75, 0));
+        org.bukkit.entity.ItemDisplay neth = blade(eye.toLocation(w), NETH, BLADE_SIZE), gold = blade(eye.toLocation(w), GOLD, BLADE_SIZE);
+        int[] t = {0};
+        Vector ff = f;
+        BukkitTask[] task = new BukkitTask[1];
+        task[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (t[0] > 8) {
+                task[0].cancel();
+                if (neth.isValid()) neth.remove();
+                if (gold.isValid()) gold.remove();
+                return;
+            }
+            double swing = Math.sin(Math.PI * t[0] / 8); // out and back
+            for (int i = 0; i < 2; i++) {
+                org.bukkit.entity.ItemDisplay d = i == 0 ? neth : gold;
+                double angle = (i == 0 ? 1 : -1) * (STANCE_TURN + swing * Math.toRadians(70));
+                Vector way = turned(ff, r, angle);
+                Location at = eye.clone().add(way.clone().multiply(STANCE_AHEAD + swing * 0.3)).add(new Vector(0, -STANCE_DOWN, 0)).toLocation(w);
+                d.teleport(at);
+                d.setTransformation(new Transformation(new Vector3f(), lyingAlong(way), new Vector3f(BLADE_SIZE), new Quaternionf()));
+            }
+            t[0]++;
+        }, 0, 1);
+        w.playSound(from.toLocation(w), Sound.ITEM_TRIDENT_RIPTIDE_1, 0.7f, 1.8f);
+    }
+
+    /** A wave of energy flying on: a sweeping arc and its colour. */
+    private static void wave(Location loc, Particle.DustOptions color, Particle sparks) {
+        World w = loc.getWorld();
+        w.spawnParticle(Particle.SWEEP_ATTACK, loc, 1, 0.1, 0.1, 0.1, 0);
+        w.spawnParticle(Particle.DUST, loc, 8, 0.6, 0.25, 0.6, 0, color);
+        w.spawnParticle(sparks, loc, 2, 0.4, 0.2, 0.4, 0.02);
     }
 
     private static CueHandle away(Entity e, int which) {
