@@ -126,14 +126,15 @@ class SwordMasterTest {
     @Test
     void bladeStanceSendsThreeDifferentWavesThenItsOver() throws IOException {
         setup();
-        UUID foe = enemyAt(8, 0);
+        UUID foe = enemyAt(6, 0), beyond = enemyAt(9, 1);
         assertTrue(t.engine.loadouts().activate(p, Slots.ABILITY_3).success());
         assertEquals(3, t.engine.statuses().find(p, "sm_stance").orElseThrow().stacks(), "three waves");
         assertTrue(t.engine.statuses().has(p, "sm_stance_haste"), "faster");
 
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());       // 1: magic, and a heal
         t.time.advance(14);
-        assertEquals(BASE * 0.6, t.damage(foe), 1e-6, "8 blocks: a wave reaches 15");
+        assertEquals(BASE * 0.6, t.damage(foe), 1e-6, "6 blocks: a wave reaches 7");
+        assertEquals(0, t.damage(beyond), 1e-9, "9 blocks: out of its reach");
         assertEquals(12, healed(), 1e-6);
         assertEquals(2, t.engine.statuses().find(p, "sm_stance").orElseThrow().stacks());
 
@@ -153,7 +154,7 @@ class SwordMasterTest {
         waitForPrimary();
         assertTrue(t.engine.loadouts().activate(p, Slots.PRIMARY).success());       // back to a thrust: 4.5 blocks
         t.time.advance(14);
-        assertEquals(BASE * 2.5, t.damage(foe), 1e-6, "8 blocks away: out of a thrust's reach");
+        assertEquals(BASE * 2.5, t.damage(foe), 1e-6, "6 blocks away: out of a thrust's reach");
     }
 
     @Test

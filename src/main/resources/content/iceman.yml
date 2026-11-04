@@ -103,7 +103,7 @@ abilities:
         cue: iceman_whiff
 
   # 1: Glacial Shockwave (10s). Slam the mace into the ground: a cone of ice in front of you (7 blocks, 70 degrees).
-  # Enemies in it take 30 + 80% spell power + 10% of their max HP (magic) and are pulled toward you (the farther, the harder). You gain a 40 HP shield for
+  # Enemies in it take 30 + 50% spell power + 10% of your bonus HP + 10% of their max HP (magic) and are pulled toward you (the farther, the harder). You gain a 40 HP shield for
   # each enemy hit (5s).
   iceman_ab1:
     cooldown: 200                    # 10s
@@ -112,7 +112,8 @@ abilities:
       icon: BLUE_ICE
       description:
         - "A cone of ice (7 blocks): {flat:30|magic} +"
-        - "{sp:0.8|magic} + {max_hp:0.1|magic},"
+        - "{sp:0.5|magic} + {bonus_hp:0.1|magic} +"
+        - "{max_hp:0.1|magic},"
         - "enemies pulled toward you. A 40 HP shield"
         - "for each one hit (5s)."
     nodes:
@@ -120,7 +121,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 7, angle: 70 }
         effects:
-          - { id: damage, amount: 30, sp: 0.8, max_hp: 0.1, type: magic, knockback: false }   # 30 + 80% spell power + 10% max HP
+          - { id: damage, amount: 30, sp: 0.5, bonus_hp: 0.1, max_hp: 0.1, type: magic, knockback: false }   # 30 + 50% SP + 10% bonus HP + 10% max HP
           - { id: knockback, from: caster, radius: 7, center: -0.4, edge: -1.4, lift: 0.4 }   # toward him
         count: struck
         next: wave_cue
@@ -140,7 +141,7 @@ abilities:
 
   # 2: Frostbreath (12s). A channel: breathe frost in a cone in front of you for 3s (8 blocks, 70 degrees; the XP bar
   # fills; nothing else usable meanwhile; press 2 again to stop; a stun cuts it short): every 0.25s enemies in it take
-  # 12 + 3% spell power (magic) and are chilled more (slower each time); 1.5s in it and they freeze solid for 2s (4% of
+  # 12 + 2% spell power + 1% of your bonus HP (magic) and are chilled more (slower each time); 1.5s in it and they freeze solid for 2s (4% of
   # their max HP, true damage). (Nerfed 2026-11-02: was 20 + 5% SP a tick and a 6% freeze: too much for a tank.)
   iceman_ab2:
     cooldown: 240                    # 12s
@@ -152,7 +153,8 @@ abilities:
       icon: SNOW_BLOCK
       description:
         - "Channel frost for 3s (8 blocks):"
-        - "{flat:12|magic} + {sp:0.03|magic} every"
+        - "{flat:12|magic} + {sp:0.02|magic} +"
+        - "{bonus_hp:0.01|magic} every"
         - "0.25s; enemies in it are slowed more and"
         - "more, and after 1.5s freeze 2s"
         - "({max_hp:0.04|true}). Nothing else usable;"
@@ -181,14 +183,14 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 8, angle: 70 }
         effects:
-          - { id: damage, amount: 12, sp: 0.03, type: magic, knockback: false }   # 12 + 3% spell power
+          - { id: damage, amount: 12, sp: 0.02, bonus_hp: 0.01, type: magic, knockback: false }   # 12 + 2% SP + 1% bonus HP
           - { id: status, status: iceman_frostbite }
 
-  # 3: Ice Wall (13s). Pick a spot (16 blocks; the preview shows the wall): a wall of real ice rises there, 7 blocks
+  # 3: Ice Wall (18s; nerfed 2026-11-04, was 13s). Pick a spot (16 blocks; the preview shows the wall): a wall of real ice rises there, 7 blocks
   # long and 3 tall, across your aim, for 15s. It blocks movement, shots and sight; then it melts and the ground is as
   # it was.
   iceman_ab3:
-    cooldown: 260                    # 13s
+    cooldown: 360                    # 18s
     targeting: { shape: wall, range: 16, width: 7, ground: true }
     display:
       name: "Ice Wall"
@@ -221,7 +223,8 @@ abilities:
         - "Throw your mace: {base:1.0|physical} to the"
         - "enemy hit, buried in ice 3s (untouchable,"
         - "can't act) in a snowstorm, which then"
-        - "explodes (5 blocks): {sp:0.8|magic}, frozen"
+        - "explodes (5 blocks): {sp:0.5|magic} +"
+        - "{bonus_hp:0.15|magic}, frozen"
         - "1.5s ({max_hp:0.06|true})."
     nodes:
       throw:
@@ -284,7 +287,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 5, center: storm }
         effects:
-          - { id: damage, sp: 0.8, type: magic, knockback: false }   # 80% spell power
+          - { id: damage, sp: 0.5, bonus_hp: 0.15, type: magic, knockback: false }   # 50% spell power + 15% bonus HP
           - { id: status, status: iceman_freeze }
         next: blast_cue
       blast_cue:

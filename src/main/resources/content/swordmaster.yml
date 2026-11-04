@@ -11,7 +11,7 @@
 # 2: Blade Guard. The blades cross in front of him for 1s: 40% less damage taken, and enemy shots from the front are
 #   cut down. Then he dashes where he aims.
 # 3: Blade Stance. Faster, his blades lie crossed in front of him for 6s (the XP bar: its number is the waves left);
-#   his next 3 basic attacks swing them out and back and send a wave of energy (15 blocks): 1 magic damage and heals
+#   his next 3 basic attacks swing them out and back and send a wave of energy (7 blocks): 1 magic damage and heals
 #   him, 2 breaks shields and physical damage, 3 true damage. His other abilities work meanwhile.
 # ULTIMATE: Death by a Thousand Cuts. 8s (the boss bar): basic attacks only, but they reach 20 blocks, 20% faster,
 #   with spell power: both blades stab whoever he aims at (that enemy glows for him while in reach and in sight).
@@ -167,8 +167,8 @@ abilities:
         visual: "entity:MARKER"      # (nothing to see but its trail: the wave)
         size: 1.6
         speed: 1.5
-        range: 15
-        lifetime: 12
+        range: 7
+        lifetime: 5
         pierce: 99                   # through everyone
         trail: sm_wave1_trail
         on: { hit_entity: wave1_hit }
@@ -205,8 +205,8 @@ abilities:
         visual: "entity:MARKER"
         size: 1.6
         speed: 1.5
-        range: 15
-        lifetime: 12
+        range: 7
+        lifetime: 5
         pierce: 99
         trail: sm_wave2_trail
         on: { hit_entity: wave2_hit }
@@ -237,8 +237,8 @@ abilities:
         visual: "entity:MARKER"
         size: 1.6
         speed: 1.5
-        range: 15
-        lifetime: 12
+        range: 7
+        lifetime: 5
         pierce: 99
         trail: sm_wave3_trail
         on: { hit_entity: wave3_hit }
@@ -476,7 +476,7 @@ abilities:
         flat: true
 
   # 3: Blade Stance (14s). +25% speed and his blades lie crossed in front of him for 6s (the XP bar; its number: the
-  # waves left). His next 3 basic attacks swing them out and back and send a wave of energy (15 blocks, through
+  # waves left). His next 3 basic attacks swing them out and back and send a wave of energy (7 blocks, through
   # everyone): 1st - 60% base damage + 80% spell power (magic), and he heals 12 + 25% spell power per enemy hit; 2nd -
   # breaks their shields, 120% base damage (physical); 3rd - 70% base damage + 70% spell power (true). His other
   # abilities work meanwhile.
@@ -490,7 +490,7 @@ abilities:
       description:
         - "6s: +25% speed, your blades crossed in front"
         - "of you. Your next 3 attacks send a wave"
-        - "(15 blocks, through everyone):"
+        - "(7 blocks, through everyone):"
         - "1: {base:0.6|magic} + {sp:0.8|magic}, heals you {flat:12} {sp_per:5/20}"
         - "2: breaks shields, {base:1.2|physical}"
         - "3: {base:0.7|true} + {sp:0.7|true}"

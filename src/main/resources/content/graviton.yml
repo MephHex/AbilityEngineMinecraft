@@ -47,7 +47,7 @@ statuses:
 abilities:
 
   # PRIMARY (LMB): Graviton Orb. A short-range orb that bounces once off the ground or a wall, then bursts on the next
-  # thing it touches, on an enemy, or when its time runs out (~1.2s): 40% base damage + 60% spell power (magic) to
+  # thing it touches, on an enemy, or when its time runs out (~1.2s): 40% base damage + 40% spell power (magic) to
   # enemies within 2.5 blocks.
   graviton_primary:
     cooldown: 23                     # (the attack_speed stat sets it)
@@ -57,7 +57,7 @@ abilities:
         - "A short-range orb: bounces once, then"
         - "bursts on an enemy, the ground, a wall"
         - "or when it fades (2.5 blocks):"
-        - "{base:0.4|magic} + {sp:0.6|magic}."
+        - "{base:0.4|magic} + {sp:0.4|magic}."
     nodes:
       shoot:
         type: projectile
@@ -79,16 +79,16 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: orb, radius: 2.5 }
         effects:
-          - { id: damage, base: 0.4, sp: 0.6, type: magic }   # 40% base damage + 60% spell power
+          - { id: damage, base: 0.4, sp: 0.4, type: magic }   # 40% base damage + 40% spell power
         next: burst_cue
       burst_cue:
         type: play_cue
         cue: graviton_orb_burst
         at: orb
 
-  # 1: Gravity Grasp (12s, from when it's over). Throw a gravity orb (18 blocks): the enemy it catches takes 20 + 60%
-  # spell power (magic) and is heavily slowed (-70%) for 2.5s. Press 1 again meanwhile to drag them 10 blocks toward
-  # your crosshair: slammed into another enemy on the way (both of them) or into a wall, they take 20 + 70% spell power
+  # 1: Gravity Grasp (12s, from when it's over). Throw a gravity orb (18 blocks): the enemy it catches takes 20 + 40%
+  # spell power + 5% of your bonus HP (magic) and is heavily slowed (-70%) for 2.5s. Press 1 again meanwhile to drag them 10 blocks toward
+  # your crosshair: slammed into another enemy on the way (both of them) or into a wall, they take 20 + 45% spell power
   # + 20% of your bonus HP (physical) and are stunned 1.5s.
   graviton_ab1:
     cooldown: 240                    # 12s (from when it's over)
@@ -98,10 +98,11 @@ abilities:
       icon: ENDER_EYE
       description:
         - "Catch an enemy (18 blocks): {flat:20|magic}"
-        - "+ {sp:0.6|magic}, -70% speed 2.5s. Again:"
+        - "+ {sp:0.4|magic} + {bonus_hp:0.05|magic},"
+        - "-70% speed 2.5s. Again:"
         - "drag them toward your crosshair. Slammed"
         - "into another enemy (both) or a wall:"
-        - "{flat:20|physical} + {sp:0.7|physical} +"
+        - "{flat:20|physical} + {sp:0.45|physical} +"
         - "{bonus_hp:0.2|physical}, stunned 1.5s."
     nodes:
       throw:
@@ -121,7 +122,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 20, sp: 0.6, type: magic }   # 20 + 60% spell power
+          - { id: damage, amount: 20, sp: 0.4, bonus_hp: 0.05, type: magic }   # 20 + 40% SP + 5% bonus HP
           - { id: status, status: graviton_grasped }
         next: catch_cue
       catch_cue:
@@ -150,7 +151,7 @@ abilities:
         type: apply_effects          # the one they hit...
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, amount: 20, sp: 0.7, bonus_hp: 0.2, type: physical }   # 20 + 70% spell power + 20% bonus HP
+          - { id: damage, amount: 20, sp: 0.45, bonus_hp: 0.2, type: physical }   # 20 + 45% spell power + 20% bonus HP
           - { id: status, status: stun, duration: 30 }   # 1.5s
         next: slam_grasped
       slam_grasped:
@@ -158,7 +159,7 @@ abilities:
         targets: { type: radius, center: hit, radius: 3, with_status: graviton_grasped }
         effects:
           - { id: remove_status, status: graviton_grasped }
-          - { id: damage, amount: 20, sp: 0.7, bonus_hp: 0.2, type: physical }
+          - { id: damage, amount: 20, sp: 0.45, bonus_hp: 0.2, type: physical }
           - { id: status, status: stun, duration: 30 }
         next: slam_cue
       slam_cue:
@@ -170,7 +171,7 @@ abilities:
         targets: { type: key, key: hit }
         effects:
           - { id: remove_status, status: graviton_grasped }
-          - { id: damage, amount: 20, sp: 0.7, bonus_hp: 0.2, type: physical }
+          - { id: damage, amount: 20, sp: 0.45, bonus_hp: 0.2, type: physical }
           - { id: status, status: stun, duration: 30 }
         next: wall_slam_cue
       wall_slam_cue:
@@ -266,7 +267,7 @@ abilities:
   # ULTIMATE (F): Gravitic Collapse. Pick a circle (14 blocks; radius 8). You rise into the air and hang there while
   # every enemy in the circle floats up (about 2 blocks a second, for 2s); they can drift out of it, slowly (-65%
   # speed while they float), and whoever does falls back down unharmed. You can still fight meanwhile. Then everyone still over the circle is smashed into the
-  # ground: 20% of their max HP + 90% spell power + 10% of your bonus HP (magic), stunned 2s.
+  # ground: 20% of their max HP + 60% spell power + 15% of your bonus HP (magic), stunned 2s.
   graviton_ult:
     cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
     targeting: { shape: circle, range: 14, radius: 10, ground: true }
@@ -278,7 +279,7 @@ abilities:
         - "in it for 2s (they drift out slowly). You"
         - "can still fight. Then those still over it"
         - "are smashed down: {max_hp:0.2|magic} +"
-        - "{sp:0.9|magic} + {bonus_hp:0.1|magic},"
+        - "{sp:0.6|magic} + {bonus_hp:0.15|magic},"
         - "stunned 2s."
     nodes:
       rise_cue:
@@ -320,7 +321,7 @@ abilities:
           - { id: remove_status, status: graviton_lifted }
           - { id: status, status: graviton_landing }
           - { id: launch, up: -2.5 }
-          - { id: damage, max_hp: 0.2, sp: 0.9, bonus_hp: 0.1, type: magic }   # 20% max HP + 90% spell power + 10% bonus HP
+          - { id: damage, max_hp: 0.2, sp: 0.6, bonus_hp: 0.15, type: magic }   # 20% max HP + 60% spell power + 15% bonus HP
           - { id: status, status: stun, duration: 40 }   # 2s
         next: slam_cue
       slam_cue:

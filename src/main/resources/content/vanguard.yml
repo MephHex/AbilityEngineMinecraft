@@ -51,8 +51,8 @@ abilities:
       name: "Heroic Leap"
       icon: RABBIT_FOOT
       description:
-        - "Leap where you look. Landing: 50 damage and"
-        - "knocks up enemies nearby. +20 absorption"
+        - "Leap where you look. Landing: {base:1.1} +"
+        - "{bonus_hp:0.1} and knocks up enemies nearby. +20 absorption"
         - "per enemy hit (your bonded ally too)."
     active_tags: [state.leaping]
     interrupted_by: [state.stunned]
@@ -79,7 +79,7 @@ abilities:
         targets: { type: radius, radius: 4 }
         count: leap_hits             # how many enemies it hit
         effects:
-          - { id: damage, base: 1.1, knockback: false }   # 110% base damage
+          - { id: damage, base: 1.1, bonus_hp: 0.1, knockback: false }   # 110% base damage + 10% bonus HP
           - { id: knockback, from: caster, radius: 4, center: 0.15, edge: 0.15, lift: 0.9 }   # knocked UP
         next: slam_cue
       slam_cue:
@@ -245,7 +245,8 @@ abilities:
       icon: FIREWORK_STAR
       description:
         - "Launch into the sky, pick a spot (F),"
-        - "crash down: 60 damage, enemies thrown away,"
+        - "crash down: {base:1.35} + {bonus_hp:0.15},"
+        - "enemies thrown away,"
         - "you and nearby allies get 120 absorption."
     active_tags: [state.descending, block.ability]
     nodes:
@@ -296,7 +297,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 7 }
         effects:
-          - { id: damage, base: 1.35, knockback: false }   # 135% base damage
+          - { id: damage, base: 1.35, bonus_hp: 0.15, knockback: false }   # 135% base damage + 15% bonus HP
           - { id: knockback, from: caster, radius: 7, center: 2.2, edge: 0.5, lift: 0.5 }   # closer = harder
         next: rally
       rally:

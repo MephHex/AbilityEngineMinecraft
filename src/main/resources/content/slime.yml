@@ -128,7 +128,7 @@ abilities:
         cue: slime_slap
 
   # 1: Ooze Burst (10s). Give up 10% of your max HP: a slime drops off you, and slime bursts out around you (4.5 blocks):
-  # enemies take 10% of their max HP (+2% per 10 spell power, magic) and are slowed 40% for 2s. Not below 15% HP (then it does nothing, and it's free).
+  # enemies take 10% of their max HP (+1.2% per 10 spell power) + 10% of her bonus HP (magic) and are slowed 40% for 2s. Not below 15% HP (then it does nothing, and it's free).
   slime_ab1:
     cooldown: 200                    # 10s
     blocked_by: [block.ability, mitosis.melted]   # (not during Bubble Trouble)
@@ -139,7 +139,8 @@ abilities:
       description:
         - "Give up 10% of your HP: drop a slime and"
         - "burst (4.5 blocks): {max_hp:0.1|magic}"
-        - "{max_hp_sp:0.02/10|magic}, -40% speed 2s."
+        - "{max_hp_sp:0.012/10|magic} + {bonus_hp:0.1|magic},"
+        - "-40% speed 2s."
     nodes:
       check:
         type: health_below
@@ -167,7 +168,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 4.5 }
         effects:
-          - { id: damage, max_hp: 0.1, max_hp_sp: 0.002, type: magic, knockback: false }   # 10% max HP, +2% per 10 spell power
+          - { id: damage, max_hp: 0.1, max_hp_sp: 0.0012, bonus_hp: 0.1, type: magic, knockback: false }   # 10% max HP, +1.2% per 10 SP, + 10% bonus HP
           - { id: status, status: slime_slimed }
         next: burst_cue
       burst_cue:
@@ -249,7 +250,7 @@ abilities:
         at: hit
 
   # 3: Belly Flop (12s). Pick a circle (16 blocks; radius 3.5): launch yourself into the air and come down on it: 70%
-  # base damage + 90% spell power (physical), enemies knocked up and stunned 0.6s.
+  # base damage + 60% spell power + 15% bonus HP (physical), enemies knocked up and stunned 0.6s.
   slime_ab3:
     cooldown: 240                    # 12s
     blocked_by: [block.ability, mitosis.melted]
@@ -261,7 +262,8 @@ abilities:
       description:
         - "Pick a spot: launch up and flop onto it"
         - "(3.5 blocks): {base:0.7|physical} +"
-        - "{sp:0.9|physical}, knocked up, stunned 0.6s."
+        - "{sp:0.6|physical} + {bonus_hp:0.15|physical},"
+        - "knocked up, stunned 0.6s."
     nodes:
       launch_cue:
         type: play_cue
@@ -284,7 +286,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 3.5 }
         effects:
-          - { id: damage, base: 0.7, sp: 0.9, type: physical, knockback: false }   # 70% base damage + 90% spell power
+          - { id: damage, base: 0.7, sp: 0.6, bonus_hp: 0.15, type: physical, knockback: false }   # 70% base + 60% SP + 15% bonus HP
           - { id: knockback, from: caster, radius: 3.5, center: 0.2, edge: 0.2, lift: 0.9 }   # knocked UP
           - { id: status, status: stun, duration: 12 }   # 0.6s
         next: land_cue

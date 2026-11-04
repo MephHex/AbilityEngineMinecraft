@@ -52,7 +52,7 @@ abilities:
         type: play_cue
         cue: golem_swing
 
-  # 1: Groundbreaker. Throw the anchor-pickaxe (about 20 blocks). An enemy it hits takes 70% base damage + 70% spell power, is
+  # 1: Groundbreaker. Throw the anchor-pickaxe (about 20 blocks). An enemy it hits takes 70% base damage + 45% spell power + 8% bonus HP, is
   # stunned for 1s, and the chain drags them to you (they stop 1.5 blocks in front of you). Terrain just
   # stops it.
   golem_ab1:
@@ -63,7 +63,8 @@ abilities:
       icon: TRIPWIRE_HOOK
       description:
         - "Throw your anchor-pickaxe. An enemy hit:"
-        - "{base:0.7|physical} + {sp:0.7|physical},"
+        - "{base:0.7|physical} + {sp:0.45|physical} +"
+        - "{bonus_hp:0.08|physical},"
         - "stunned 1s, and the chain drags them to you."
     nodes:
       throw:
@@ -88,7 +89,7 @@ abilities:
         type: apply_effects
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.7, sp: 0.7, type: physical }   # 70% base damage + 70% spell power
+          - { id: damage, base: 0.7, sp: 0.45, bonus_hp: 0.08, type: physical }   # 70% base + 45% SP + 8% bonus HP
           - { id: status, status: stun, duration: 20 }   # 1s
         next: hooked_chain
       hooked_chain:
@@ -115,7 +116,7 @@ abilities:
 
   # 2: Rustbreaker. Rust over 2s: you build up a shield (15 every 0.25s, up to 120; what's left of it is gone
   # about 4s after the burst) but get slower and slower.
-  # At full charge you seize up (stunned 1s), then burst out: 130% base damage + 0.5% bonus HP within 4.5 blocks, and the
+  # At full charge you seize up (stunned 1s), then burst out: 130% base damage + 10% bonus HP within 4.5 blocks, and the
   # enemies hit are disarmed for 2s (no basic attacks). During Lightning Rod: it rusts in 0.8s and the stun
   # is only 0.5s.
   golem_ab2:
@@ -127,7 +128,7 @@ abilities:
         - "Rust for 2s: a shield builds up (100)"
         - "but you slow down more and more. Then"
         - "stunned 1s, and burst out (4.5 blocks):"
-        - "{base:1.3|physical} + {bonus_hp:0.005|physical}"
+        - "{base:1.3|physical} + {bonus_hp:0.1|physical}"
         - "and 2s disarm."
         - "Lightning Rod: 0.8s to rust, 0.5s stun."
     nodes:
@@ -184,7 +185,7 @@ abilities:
         type: apply_effects          # burst out of the rust
         targets: { type: radius, radius: 4.5 }
         effects:
-          - { id: damage, base: 1.3, bonus_hp: 0.005, type: physical }   # 130% base damage + 0.5% bonus HP
+          - { id: damage, base: 1.3, bonus_hp: 0.1, type: physical }   # 130% base damage + 10% bonus HP
           - { id: status, status: disarm, duration: 40 }   # 2s: no basic attacks
         next: shake_off
       shake_off:
@@ -200,7 +201,7 @@ abilities:
         cue: rust_burst
 
   # 3: Conduction Field. Raise the pickaxe (0.25s), slam it down: a shockwave rolls out from where you
-  # stand, a ring growing 2 blocks every 0.15s out to 8 blocks. Everyone it passes takes 80% base damage + 40% spell power
+  # stand, a ring growing 2 blocks every 0.15s out to 8 blocks. Everyone it passes takes 60% base damage + 25% spell power + 6% bonus HP
   # and is knocked up.
   golem_ab3:
     cooldown: 200                    # 10s
@@ -210,7 +211,8 @@ abilities:
       description:
         - "0.25s wind-up, then slam: a shockwave"
         - "rolls out to 8 blocks. Everyone it passes:"
-        - "{base:0.6|magic} + {sp:0.4|magic}"
+        - "{base:0.6|magic} + {sp:0.25|magic} +"
+        - "{bonus_hp:0.06|magic}"
         - "and knocked up."
     nodes:
       windup:
@@ -241,7 +243,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, center: center, radius: 2 }
         effects: &wave_hit
-          - { id: damage, base: 0.6, sp: 0.4, type: magic }   # 60% base damage + 40% spell power, magic
+          - { id: damage, base: 0.6, sp: 0.25, bonus_hp: 0.06, type: magic }   # 60% base + 25% SP + 6% bonus HP, magic
           - { id: knockback, from: center, radius: 8, center: 0.15, edge: 0.15, lift: 0.45 }   # up (a small hop)
         next: ring1_cue
       ring1_cue:
@@ -276,7 +278,7 @@ abilities:
         cue: shockwave_8
         at: center
 
-  # ULTIMATE (F): Lightning Rod. Channel for 1.5s (slowed), then lightning strikes you: 40 + 90% spell power + 0.1% bonus HP (magic) to
+  # ULTIMATE (F): Lightning Rod. Channel for 1.5s (slowed), then lightning strikes you: 40 + 60% spell power + 12% bonus HP (magic) to
   # everyone within 5 blocks, and they're paralyzed (slowed, slower attacks) for 2s. Then for 6s you're
   # charged: faster, an electric field (5 blocks) around you damages enemies inside every 0.5s (30% base
   # damage) and keeps them paralyzed. You're silenced the whole time (channel and field: no abilities,
@@ -289,10 +291,11 @@ abilities:
       icon: LIGHTNING_ROD
       description:
         - "Channel 1.5s: lightning strikes you"
-        - "(5 blocks): {flat:40|magic} + {sp:0.9|magic}"
-        - "+ {bonus_hp:0.001|magic}, and paralysis."
+        - "(5 blocks): {flat:40|magic} + {sp:0.6|magic}"
+        - "+ {bonus_hp:0.12|magic}, and paralysis."
         - "6s: faster, and an electric field around"
-        - "you shocks ({flat:15|magic} + {sp:0.5|magic}) and"
+        - "you shocks ({flat:15|magic} + {sp:0.3|magic}"
+        - "+ {bonus_hp:0.03|magic}) and"
         - "paralyzes enemies inside."
         - "You're silenced the whole time."
     nodes:
@@ -316,7 +319,7 @@ abilities:
         type: apply_effects          # the bolt: everyone near you
         targets: { type: radius, radius: 5 }
         effects:
-          - { id: damage, amount: 40, sp: 0.9, bonus_hp: 0.001, type: magic }   # 40 + 90% spell power + 0.1% bonus HP
+          - { id: damage, amount: 40, sp: 0.6, bonus_hp: 0.12, type: magic }   # 40 + 60% spell power + 12% bonus HP
           - { id: status, status: paralyzed, duration: 40 }   # 2s
         next: strike_cue
       strike_cue:
@@ -344,7 +347,7 @@ abilities:
         type: apply_effects          # the field follows you
         targets: { type: radius, radius: 5 }
         effects:
-          - { id: damage, amount: 15, sp: 0.5, type: magic }   # 15 + 50% spell power, every strike
+          - { id: damage, amount: 15, sp: 0.3, bonus_hp: 0.03, type: magic }   # 15 + 30% SP + 3% bonus HP, every strike
           - { id: status, status: paralyzed, duration: 15 }
         next: pulse_cue
       pulse_cue:
