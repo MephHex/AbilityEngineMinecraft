@@ -60,7 +60,7 @@ abilities:
         cue: warrior_whiff
 
   # 1: Leaping Strike (8s). A short leap where you look (~4 blocks), then a strike in front of you as you land (3.5
-  # blocks, 110 degrees): 110% base damage (physical), a small knockback.
+  # blocks, 110 degrees): 110% base damage + 8% bonus HP (physical), a small knockback.
   warrior_ab1:
     cooldown: 160                    # 8s
     interrupted_by: [state.stunned]
@@ -70,7 +70,7 @@ abilities:
       description:
         - "Leap a short way (~4 blocks) and strike"
         - "in front of you as you land (3.5 blocks):"
-        - "{base:1.1|physical}."
+        - "{base:1.1|physical} + {bonus_hp:0.08|physical}."
     nodes:
       take_off:
         type: play_cue
@@ -86,7 +86,7 @@ abilities:
         type: apply_effects
         targets: { type: cone, range: 3.5, angle: 110 }   # (the cue's arc: 3.5)
         effects:
-          - { id: damage, base: 1.1, type: physical }
+          - { id: damage, base: 1.1, bonus_hp: 0.08, type: physical }
           - { id: knockback, from: caster, radius: 3.5, center: 0.4, edge: 0.2, lift: 0.15 }
         next: strike_cue
       strike_cue:
@@ -117,7 +117,7 @@ abilities:
         cue: warrior_iron_will
 
   # 3: Whirlwind (12s). Spin with your sword for 3s, hitting everyone within 3 blocks every 0.5s: 30% base damage
-  # (physical) each, 180% in all. You can walk (and use your other abilities) meanwhile.
+  # + 2% bonus HP (physical) each, 180% base damage + 12% bonus HP in all. You can walk (and use your other abilities) meanwhile.
   warrior_ab3:
     cooldown: 240                    # 12s
     display:
@@ -125,7 +125,8 @@ abilities:
       icon: BREEZE_ROD
       description:
         - "Spin for 3s: everyone within 3 blocks"
-        - "takes {base:0.3|physical} every 0.5s."
+        - "takes {base:0.3|physical} +"
+        - "{bonus_hp:0.02|physical} every 0.5s."
     nodes:
       spin:
         type: start_cue              # the blade circling him (3 blocks), until it's over
@@ -140,7 +141,7 @@ abilities:
         type: apply_effects
         targets: { type: radius, radius: 3 }   # (the cue's circle: 3)
         effects:
-          - { id: damage, base: 0.3, type: physical, knockback: false }
+          - { id: damage, base: 0.3, bonus_hp: 0.02, type: physical, knockback: false }
         count: cut_count
         next: cut_hit
       cut_hit:
@@ -166,10 +167,12 @@ abilities:
         - "Charge where you look, faster and faster"
         - "(full speed after 2.5s; up to 8s)."
         - "Enemies you run into are knocked up:"
-        - "{base:0.25|physical}. At full speed the first"
-        - "is pinned: into a wall, {base:1.6|physical}"
+        - "{base:0.25|physical} + {bonus_hp:0.02|physical}."
+        - "At full speed the first is pinned: into a"
+        - "wall, {base:1.6|physical} + {bonus_hp:0.12|physical}"
         - "and stunned 1.5s. Hitting a wall stops you:"
-        - "{base:1.0|physical} around you (3.5 blocks)."
+        - "{base:1.0|physical} + {bonus_hp:0.08|physical}"
+        - "around you (3.5 blocks)."
     nodes:
       start_cue:
         type: play_cue
@@ -193,7 +196,7 @@ abilities:
         type: apply_effects          # run into: knocked up, a little damage
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.25, type: physical, knockback: false }
+          - { id: damage, base: 0.25, bonus_hp: 0.02, type: physical, knockback: false }
           - { id: launch, up: 0.8 }
         next: bump_cue
       bump_cue:
@@ -211,7 +214,7 @@ abilities:
         type: apply_effects          # the first at full speed: pinned in front of him
         targets: { type: key, key: hit }
         effects:
-          - { id: damage, base: 0.25, type: physical, knockback: false }
+          - { id: damage, base: 0.25, bonus_hp: 0.02, type: physical, knockback: false }
           - { id: status, status: warrior_pinned }
         next: pin_cue
       pin_cue:
@@ -223,7 +226,7 @@ abilities:
         targets: { type: key, key: hit }
         effects:
           - { id: remove_status, status: warrior_pinned }
-          - { id: damage, base: 1.6, type: physical, knockback: false, ignore_iframes: true }
+          - { id: damage, base: 1.6, bonus_hp: 0.12, type: physical, knockback: false, ignore_iframes: true }
           - { id: status, status: stun, duration: 30 }   # 1.5s
         next: slam_cue
       slam_cue:
@@ -234,7 +237,7 @@ abilities:
         type: apply_effects          # into terrain: a blast all around him
         targets: { type: radius, radius: 3.5 }   # (the cue's ring: 3.5)
         effects:
-          - { id: damage, base: 1.0, type: physical, ignore_iframes: true }
+          - { id: damage, base: 1.0, bonus_hp: 0.08, type: physical, ignore_iframes: true }
           - { id: knockback, from: caster, radius: 3.5, center: 0.6, edge: 0.3, lift: 0.3 }
         next: crash_cue
       crash_cue:
