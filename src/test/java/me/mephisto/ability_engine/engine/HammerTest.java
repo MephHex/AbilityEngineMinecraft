@@ -77,7 +77,7 @@ class HammerTest {
         t.time.advance(1);
         assertTrue(use(Slots.ABILITY_1), "1 again: slam");
         t.time.advance(1);
-        assertEquals(BASE, t.damage(near), 1e-6, "a circle 2 wide, 2 ahead: reaches 4");
+        assertEquals(BASE, t.damage(near), 1e-6, "a circle 1.75 wide, 1.75 ahead: reaches 3.5");
         assertEquals(0, t.damage(far), 1e-9);
         assertFalse(stunned(near), "not fully charged: no stun");
         assertFalse(t.engine.tags().has(p, "state.slowed"), "free again");
@@ -85,12 +85,24 @@ class HammerTest {
     }
 
     @Test
+    void leftClickSlamsToo() throws IOException {
+        setup();
+        UUID near = foe(3, 0);
+        assertTrue(use(Slots.ABILITY_1));
+        t.time.advance(1);
+        assertTrue(use(Slots.PRIMARY), "LMB while charging: slam");
+        t.time.advance(1);
+        assertEquals(BASE, t.damage(near), 1e-6);
+        assertFalse(t.engine.tags().has(p, "hammer.charging"));
+    }
+
+    @Test
     void aFullSlamIsBigAndStuns() throws IOException {
         setup();
-        UUID far = foe(7, 0);
+        UUID far = foe(6.5, 0);
         assertTrue(use(Slots.ABILITY_1));
-        t.time.advance(32); // full: it slams by itself
-        assertEquals(BASE, t.damage(far), 1e-6, "4 wide, 4 ahead: reaches 8");
+        t.time.advance(42); // full: it slams by itself
+        assertEquals(BASE, t.damage(far), 1e-6, "3.5 wide, 3.5 ahead: reaches 7");
         assertTrue(stunned(far), "fully charged: stunned");
         t.time.advance(21);
         assertFalse(stunned(far), "1s");
@@ -107,15 +119,27 @@ class HammerTest {
         foe(6, 0);
         UUID target = foe(13, 0);
         assertTrue(use(Slots.ABILITY_1));
-        t.time.advance(32);
-        assertEquals(3, t.engine.constructs().activeCount(), "a stone under each of them, at most 3");
+        t.time.advance(50); // (the stones come up one after another)
+        assertEquals(3, t.engine.constructs().activeCount(), "a stone beside him for each of them, at most 3");
+        for (var c : t.engine.constructs().all()) {
+            assertTrue(c.position().x() < 2.5 && Math.abs(c.position().z()) < 2, "near him: " + c.position());
+        }
         assertEquals(0, t.damage(target), 1e-9, "out of the slam's reach");
 
         for (int i = 0; i < 40 && !use(Slots.PRIMARY); i++) t.time.advance(1);
         t.time.advance(12);
-        assertTrue(t.engine.constructs().activeCount() < 3, "the swing sent some flying");
+        assertEquals(0, t.engine.constructs().activeCount(), "the swing sent them all flying");
         assertTrue(t.damage(target) >= BASE * 0.6 - 1e-6, "a stone flew 10 blocks into them: " + t.damage(target));
         assertTrue(stunned(target), "stunned");
+    }
+
+    @Test
+    void nobodyHitNoStones() throws IOException {
+        setup();
+        assertTrue(use(Slots.ABILITY_1));
+        assertTrue(use(Slots.ABILITY_1));
+        t.time.advance(10);
+        assertEquals(0, t.engine.constructs().activeCount());
     }
 
     @Test
@@ -143,7 +167,7 @@ class HammerTest {
         assertEquals(BASE * 0.8, t.damage(e), 1e-6, "80% base damage");
         assertTrue(t.knockbackVec.get(e).y() > 0.3, "knocked up a little");
         assertTrue(Math.abs(where(p).x() - 8) < 1.5, "he came down on the spot: " + where(p));
-        assertEquals(1, t.engine.constructs().activeCount(), "a stone under them");
+        assertEquals(1, t.engine.constructs().activeCount(), "a stone for them, beside him");
         t.time.advance(6);
         assertFalse(t.engine.tags().has(p, "state.safe_fall"), "landed: his tags gone");
         assertTrue(use(Slots.ABILITY_1), "free to act");

@@ -3,8 +3,9 @@
 # ability crumbles the ground under the enemies it hits into floating stones he can bat at them.
 # Format and all options: see README.md in this folder. Edit, then /ae reload.
 #
-# PASSIVE (Crumbling Earth): each of his abilities (1, 2, F) tears a stone out of the ground under each enemy it hits
-#   (at most 3 a cast). A stone floats half a block off the ground for 5s, then falls and breaks. His basic attack
+# PASSIVE (Crumbling Earth): each of his abilities (1, 2, F) tears a stone out of the ground beside him for each enemy it
+#   hits (at most 3 a cast: in front of him, then ahead to his left and right). A stone floats half a block off the
+#   ground for 5s, then falls and breaks. His basic attack
 #   swung through a stone sends it flying the way he faces (14 blocks, through everyone): 60% base damage + 6% bonus HP
 #   (physical), stunned 1s.
 #
@@ -74,8 +75,8 @@ abilities:
         at: caster
         ahead: 3
 
-  # 1: Earthshatter (9s). Charge a slam (up to 1.5s; slowed, no other abilities meanwhile): a circle in front of you
-  # grows as you charge, from 2 to 4 blocks wide. Press 1 again to slam (full, it slams by itself): everyone in it
+  # 1: Earthshatter (9s). Charge a slam (up to 2s; slowed, no other abilities meanwhile): a circle in front of you
+  # grows as you charge, from 1.75 to 3.5 blocks (radius). Press 1 again or LMB to slam (full, it slams by itself): everyone in it
   # takes 100% base damage + 30% spell power + 8% bonus HP (physical); fully charged, they're also stunned 1s.
   hammer_ab1:
     cooldown: 180                    # 9s
@@ -85,19 +86,19 @@ abilities:
       name: "Earthshatter"
       icon: COBBLED_DEEPSLATE
       description:
-        - "Charge a slam (up to 1.5s, slowed): the"
-        - "circle in front of you grows. Press 1"
+        - "Charge a slam (up to 2s, slowed): the"
+        - "glowing circle in front of you grows. Press 1"
         - "again to slam: {base:1.0|physical} +"
         - "{sp:0.3|physical} + {bonus_hp:0.08|physical}."
         - "Fully charged: also stunned 1s."
     nodes:
       ring:
         type: start_cue
-        cue: hammer_charge_ring      # the circle on the ground, growing (keep it in step with the charge)
+        cue: hammer_charge_ring      # a glowing circle on the ground, growing (keep it in step with the charge)
         next: wind
       wind:
         type: charge
-        ticks: 30                    # 1.5s to full
+        ticks: 40                    # 2s to full
         from: 0.5                    # a tap: half the size (2 blocks)
         store: power
         next: slam
@@ -107,7 +108,7 @@ abilities:
       spot:
         type: remember_spot          # the middle of the circle: as far ahead as it's wide
         of: caster
-        ahead: 4
+        ahead: 3.5
         scale_by: power
         store: smash
         next: full
@@ -117,13 +118,15 @@ abilities:
         on: { "1.0": smash_full, default: smash }
       smash:
         type: apply_effects
-        targets: { type: radius, center: smash, radius: 4, scale_by: power, height: 2.5 }
+        count: hits
+        targets: { type: radius, center: smash, radius: 3.5, scale_by: power, height: 2.5 }
         effects:
           - { id: damage, base: 1.0, sp: 0.3, bonus_hp: 0.08, type: physical, knockback: false }   # 100% base + 30% SP + 8% bonus HP
         next: slam_cue
       smash_full:
         type: apply_effects
-        targets: { type: radius, center: smash, radius: 4, scale_by: power, height: 2.5 }
+        count: hits
+        targets: { type: radius, center: smash, radius: 3.5, scale_by: power, height: 2.5 }
         effects:
           - { id: damage, base: 1.0, sp: 0.3, bonus_hp: 0.08, type: physical, knockback: false }
           - { id: status, status: stun, duration: 20 }   # 1s
@@ -133,16 +136,41 @@ abilities:
         cue: hammer_slam             # a line: from him to the circle's middle (its radius)
         at: caster
         to: smash
-        next: a1_crumble
+        next: a1_any
+      a1_any:
+        type: switch                 # nobody hit: no stones (a repeat runs at least once)
+        key: hits
+        on: { "0": a1_no_stones, default: a1_crumble }
+      a1_no_stones:
+        type: delay
+        ticks: 1
       a1_crumble:
-        type: for_each               # PASSIVE: the ground crumbles under each enemy it hit (at most 3)
-        query: { type: radius, center: smash, radius: 4, scale_by: power, height: 2.5 }
-        max: 3
-        store: crumbled
-        on: { each: a1_stone_spot }
-      a1_stone_spot:
-        type: remember_spot
-        of: crumbled
+        type: repeat                 # PASSIVE: a stone out of the ground beside him for each enemy it hit (at most 3)
+        times: hits
+        every: 3
+        on: { each: a1_which }
+      a1_which:
+        type: switch                 # (more than 3: no more stones)
+        key: repeat_index
+        on: { "1": a1_spot_1, "2": a1_spot_2, "3": a1_spot_3 }
+      a1_spot_1:
+        type: remember_spot          # in front of him
+        of: caster
+        ahead: 2
+        store: stone_ground
+        next: a1_stone_rise
+      a1_spot_2:
+        type: remember_spot          # ahead to his left
+        of: caster
+        ahead: 1.6
+        side: -1.5
+        store: stone_ground
+        next: a1_stone_rise
+      a1_spot_3:
+        type: remember_spot          # ahead to his right
+        of: caster
+        ahead: 1.6
+        side: 1.5
         store: stone_ground
         next: a1_stone_rise
       a1_stone_rise:
@@ -157,7 +185,7 @@ abilities:
         size: 0.6
         fuse: 100                    # 5s, then it falls and breaks
         fuse_spread: 4
-        visual: COBBLESTONE
+        visual: "float:COBBLESTONE"   # floats still, bobbing, a white glow
         store: stone
         cue: hammer_stone_idle
         cue_every: 8
@@ -201,6 +229,19 @@ abilities:
         cue: hammer_stone_fall
         at: flying_stone
 
+  # (LMB while Earthshatter charges: slam now.)
+  hammer_slam_now:
+    cooldown: 0
+    blocked_by: []                   # (Earthshatter's block.ability is on him meanwhile)
+    display:
+      name: "Slam"
+      description:
+        - "Slam Earthshatter now."
+    nodes:
+      go:
+        type: release_charge
+        ability: hammer_ab1
+
   # 2: Rock Launch (12s). Pick a circle (12 blocks; radius 3): a column of stone erupts under your feet and throws you
   # there in an arc. Landing, enemies within 3 blocks take 80% base damage + 20% spell power + 8% bonus HP (physical)
   # and are knocked up a little.
@@ -232,6 +273,7 @@ abilities:
         next: land
       land:
         type: apply_effects
+        count: hits
         targets: { type: radius, radius: 3, height: 2.5 }
         effects:
           - { id: damage, base: 0.8, sp: 0.2, bonus_hp: 0.08, type: physical, knockback: false }   # 80% base + 20% SP + 8% bonus HP
@@ -241,16 +283,44 @@ abilities:
         type: play_cue
         cue: hammer_land
         at: caster
-        next: a2_crumble
+        next: a2_split
+      a2_split:
+        type: fork                   # free again soon, the stones meanwhile
+        on: { out: settle, also: a2_any }
+      a2_any:
+        type: switch                 # nobody hit: no stones (a repeat runs at least once)
+        key: hits
+        on: { "0": a2_no_stones, default: a2_crumble }
+      a2_no_stones:
+        type: delay
+        ticks: 1
       a2_crumble:
-        type: for_each               # PASSIVE: the ground crumbles under each enemy it hit (at most 3)
-        query: { type: radius, radius: 3, height: 2.5 }
-        max: 3
-        store: crumbled
-        on: { each: a2_stone_spot, out: settle, none: settle }
-      a2_stone_spot:
-        type: remember_spot
-        of: crumbled
+        type: repeat                 # PASSIVE: a stone out of the ground beside him for each enemy it hit (at most 3)
+        times: hits
+        every: 3
+        on: { each: a2_which }
+      a2_which:
+        type: switch                 # (more than 3: no more stones)
+        key: repeat_index
+        on: { "1": a2_spot_1, "2": a2_spot_2, "3": a2_spot_3 }
+      a2_spot_1:
+        type: remember_spot          # in front of him
+        of: caster
+        ahead: 2
+        store: stone_ground
+        next: a2_stone_rise
+      a2_spot_2:
+        type: remember_spot          # ahead to his left
+        of: caster
+        ahead: 1.6
+        side: -1.5
+        store: stone_ground
+        next: a2_stone_rise
+      a2_spot_3:
+        type: remember_spot          # ahead to his right
+        of: caster
+        ahead: 1.6
+        side: 1.5
         store: stone_ground
         next: a2_stone_rise
       a2_stone_rise:
@@ -265,7 +335,7 @@ abilities:
         size: 0.6
         fuse: 100                    # 5s, then it falls and breaks
         fuse_spread: 4
-        visual: COBBLESTONE
+        visual: "float:COBBLESTONE"   # floats still, bobbing, a white glow
         store: stone
         cue: hammer_stone_idle
         cue_every: 8
@@ -373,6 +443,7 @@ abilities:
         next: wave
       wave:
         type: apply_effects
+        count: hits
         targets: { type: cone, range: 14, angle: 30 }
         effects:
           - { id: damage, base: 1.2, sp: 0.3, bonus_hp: 0.15, type: physical, knockback: false }   # 120% base + 30% SP + 15% bonus HP
@@ -383,16 +454,41 @@ abilities:
         cue: hammer_shockwave        # a line: the thin shockwave, 14 blocks the way he faces
         at: caster
         ahead: 14
-        next: u_crumble
+        next: u_any
+      u_any:
+        type: switch                 # nobody hit: no stones (a repeat runs at least once)
+        key: hits
+        on: { "0": u_no_stones, default: u_crumble }
+      u_no_stones:
+        type: delay
+        ticks: 1
       u_crumble:
-        type: for_each               # PASSIVE: the ground crumbles under each enemy it hit (at most 3)
-        query: { type: cone, range: 14, angle: 30 }
-        max: 3
-        store: crumbled
-        on: { each: u_stone_spot }
-      u_stone_spot:
-        type: remember_spot
-        of: crumbled
+        type: repeat                 # PASSIVE: a stone out of the ground beside him for each enemy it hit (at most 3)
+        times: hits
+        every: 3
+        on: { each: u_which }
+      u_which:
+        type: switch                 # (more than 3: no more stones)
+        key: repeat_index
+        on: { "1": u_spot_1, "2": u_spot_2, "3": u_spot_3 }
+      u_spot_1:
+        type: remember_spot          # in front of him
+        of: caster
+        ahead: 2
+        store: stone_ground
+        next: u_stone_rise
+      u_spot_2:
+        type: remember_spot          # ahead to his left
+        of: caster
+        ahead: 1.6
+        side: -1.5
+        store: stone_ground
+        next: u_stone_rise
+      u_spot_3:
+        type: remember_spot          # ahead to his right
+        of: caster
+        ahead: 1.6
+        side: 1.5
         store: stone_ground
         next: u_stone_rise
       u_stone_rise:
@@ -407,7 +503,7 @@ abilities:
         size: 0.6
         fuse: 100                    # 5s, then it falls and breaks
         fuse_spread: 4
-        visual: COBBLESTONE
+        visual: "float:COBBLESTONE"   # floats still, bobbing, a white glow
         store: stone
         cue: hammer_stone_idle
         cue_every: 8
@@ -466,10 +562,13 @@ characters:
       icon: COBBLESTONE
       description:
         - "Your abilities tear a stone out of the"
-        - "ground under each enemy they hit (3 at"
-        - "most). It floats for 5s. Swing through it:"
+        - "ground beside you for each enemy they hit"
+        - "(3 at most). It floats for 5s. Swing at it:"
         - "it flies the way you face (14 blocks):"
         - "{base:0.6|physical} + {bonus_hp:0.06|physical}, stunned 1s."
+    forms:
+      - while: hammer.charging       # Earthshatter charging: LMB slams
+        slots: { primary: hammer_slam_now }
     status_items:
       - status: hammer_empowered     # slot 9 while the next swing is heavy
         hotbar: 9

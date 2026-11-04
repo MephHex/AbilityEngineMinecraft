@@ -25,16 +25,18 @@ import java.util.function.BiPredicate;
 final class HammerCues {
 
     /** Keep in step with hammer.yml: Earthshatter's circle (radius, tap to full) and charge time. */
-    static final double RING_FROM = 2, RING_TO = 4;
-    static final int RING_TICKS = 30;
+    static final double RING_FROM = 1.75, RING_TO = 3.5;
+    static final int RING_TICKS = 40;
+    /** The glowing circle: its bars, and its colours as it charges (gold to red), then pulsing when full. */
+    private static final int RING_BARS = 28;
+    private static final Color RING_START_COLOR = Color.fromRGB(255, 210, 80), RING_END_COLOR = Color.fromRGB(255, 70, 30),
+            RING_FULL_COLOR = Color.fromRGB(255, 40, 20), RING_PULSE_COLOR = Color.fromRGB(255, 160, 140);
     /** Earthshatter's charge runs while the caster has this tag (it's dropped at the slam). */
     static final String CHARGING = "hammer.charging";
     /** Rock Launch's landing radius. */
     static final double LAND_RADIUS = 3;
 
     private static final Particle.DustOptions EARTH = new Particle.DustOptions(Color.fromRGB(140, 120, 95), 1.3f);
-    private static final Particle.DustOptions RING = new Particle.DustOptions(Color.fromRGB(230, 170, 70), 1.1f);
-    private static final Particle.DustOptions RING_FULL = new Particle.DustOptions(Color.fromRGB(235, 70, 40), 1.3f);
     private static final BlockData COBBLE = Material.COBBLESTONE.createBlockData();
 
     /** Does this entity have that tag? (the engine's, set by the plugin; until then: yes) */
@@ -161,33 +163,80 @@ final class HammerCues {
     // ---- 1: Earthshatter ----
 
     /**
-     * The slam's circle on the ground in front of him, growing from {@link #RING_FROM} to {@link #RING_TO} blocks over
-     * {@link #RING_TICKS} (the charge), red once full; gone when the charge ends (the tag's dropped).
+     * The slam's circle on the ground in front of him: a ring of thin GLOWING bars (seen by everyone, through walls too),
+     * growing from {@link #RING_FROM} to {@link #RING_TO} blocks over {@link #RING_TICKS} (the charge). As it grows it
+     * turns from gold to red and thickens; full, it pulses. Gone as soon as the charge ends (the tag's dropped).
      */
     private static CueHandle chargeRing(Plugin plugin, Entity e) {
+        java.util.List<BlockDisplay> bars = new java.util.ArrayList<>();
+        Location first = e.getLocation();
+        first.setYaw(0);
+        first.setPitch(0);
+        for (int i = 0; i < RING_BARS; i++) bars.add(glowBar(first));
         int[] t = {0};
         BukkitTask[] task = new BukkitTask[1];
+        Runnable stop = () -> {
+            if (task[0] != null) task[0].cancel();
+            for (BlockDisplay b : bars) if (b.isValid()) b.remove();
+            bars.clear();
+        };
         task[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!e.isValid() || (t[0] > 2 && !hasTag.test(e.getUniqueId(), CHARGING))) {
-                task[0].cancel();
+                stop.run();
                 return;
             }
             double grow = Math.min(1, t[0] / (double) RING_TICKS);
             double r = RING_FROM + (RING_TO - RING_FROM) * grow;
             Location feet = e.getLocation();
-            Vector f = flat(feet.getDirection());
-            Location mid = feet.clone().add(f.multiply(r)).add(0, 0.15, 0);
-            int points = (int) (r * 9);
-            Particle.DustOptions dust = grow >= 1 ? RING_FULL : RING;
-            for (int i = 0; i < points; i++) {
-                double a = 2 * Math.PI * i / points;
-                e.getWorld().spawnParticle(Particle.DUST, mid.clone().add(Math.cos(a) * r, 0, Math.sin(a) * r), 1, 0, 0, 0, 0, dust);
+            Location mid = feet.clone().add(flat(feet.getDirection()).multiply(r)).add(0, 0.05, 0);
+            mid.setYaw(0);
+            mid.setPitch(0);
+            Color color = grow >= 1
+                    ? ((t[0] / 4) % 2 == 0 ? RING_FULL_COLOR : RING_PULSE_COLOR)   // full: it pulses
+                    : mix(RING_START_COLOR, RING_END_COLOR, grow);
+            float thick = (float) (0.05 + 0.06 * grow);
+            for (int i = 0; i < bars.size(); i++) {
+                BlockDisplay bar = bars.get(i);
+                if (!bar.isValid()) continue;
+                double a = 2 * Math.PI * i / RING_BARS, b = 2 * Math.PI * (i + 1) / RING_BARS;
+                Vector3f from = new Vector3f((float) (Math.cos(a) * r), 0, (float) (Math.sin(a) * r));
+                Vector3f to = new Vector3f((float) (Math.cos(b) * r), 0, (float) (Math.sin(b) * r));
+                Vector3f d = new Vector3f(to).sub(from);
+                float len = d.length();
+                Quaternionf rot = new Quaternionf().rotationTo(1, 0, 0, d.x / len, d.y / len, d.z / len);
+                Vector3f corner = new Vector3f(from).add(rot.transform(new Vector3f(0, -thick / 2, -thick / 2)));
+                bar.teleport(mid);
+                bar.setInterpolationDelay(0);
+                bar.setInterpolationDuration(t[0] == 0 ? 0 : 2);   // (the first draw appears as it is)
+                bar.setTransformation(new Transformation(corner, rot, new Vector3f(len * 1.04f, thick, thick), new Quaternionf()));
+                if (!color.equals(bar.getGlowColorOverride())) bar.setGlowColorOverride(color);
             }
             if (t[0] % 6 == 0) e.getWorld().spawnParticle(Particle.BLOCK, mid, 4, r * 0.4, 0.05, r * 0.4, 0, ground(mid));
             if (t[0] == RING_TICKS) e.getWorld().playSound(feet, Sound.BLOCK_ANVIL_PLACE, 0.5f, 1.6f); // full
             t[0] += 2;
         }, 0, 2);
-        return () -> task[0].cancel();
+        return stop::run;
+    }
+
+    /** One bar of the glowing charge circle (everyone sees it). */
+    private static BlockDisplay glowBar(Location at) {
+        return at.getWorld().spawn(at, BlockDisplay.class, d -> {
+            d.setPersistent(false);
+            d.setBlock(Material.ORANGE_CONCRETE.createBlockData());
+            d.setBrightness(new org.bukkit.entity.Display.Brightness(15, 15));
+            d.setGlowing(true);
+            d.setGlowColorOverride(RING_START_COLOR);
+            d.setTeleportDuration(2);                 // glides along as he turns
+            d.setTransformation(new Transformation(new Vector3f(), new Quaternionf(), new Vector3f(0, 0, 0), new Quaternionf()));
+            VisualEntities.mark(d);
+        });
+    }
+
+    /** Between two colours ({@code f} 0: the first, 1: the second). */
+    private static Color mix(Color a, Color b, double f) {
+        return Color.fromRGB((int) Math.round(a.getRed() + (b.getRed() - a.getRed()) * f),
+                (int) Math.round(a.getGreen() + (b.getGreen() - a.getGreen()) * f),
+                (int) Math.round(a.getBlue() + (b.getBlue() - a.getBlue()) * f));
     }
 
     /** The slam: the circle (its middle at {@code to}, its radius as far as that is from him) bursts into rubble. */

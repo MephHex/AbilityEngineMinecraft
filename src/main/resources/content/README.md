@@ -1382,8 +1382,12 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
 - **Radius query:** `scale_by: <key>` - its radius x the number stored there (a charge's power): a slam that grows the
   longer it's charged.
 - **Cues:** hammer_swing, hammer_heavy (lines: `ahead:`), hammer_stone_rise, hammer_stone_idle (a construct's `cue`),
-  hammer_stone_fall, hammer_stone_launch, hammer_stone_trail, hammer_stone_hit, hammer_charge_ring (looping: a circle
-  growing from 2 to 4 blocks over 1.5s, in front of the caster, while they have the tag `hammer.charging`),
+  hammer_stone_fall, hammer_stone_launch, hammer_stone_trail, hammer_stone_hit, hammer_charge_ring (looping: a glowing circle
+  everyone sees, growing from 1.75 to 3.5 blocks over 2s in front of the caster, gold to red, pulsing when full, while they
+  have the tag `hammer.charging`),
   hammer_slam (a line from the caster to the circle's middle: its radius), hammer_erupt (a 2-block stone column out of
   the ground), hammer_land (3 blocks), hammer_empower, hammer_empowered (looping), hammer_ult_charge (looping),
   hammer_shockwave (a line: a 30-degree wedge of breaking ground). Keep the sizes in step with hammer.yml.
+- **remember_spot:** `side: 1.5` - that many blocks to the caster's right as well (negative: left), with `ahead`.
+- **Construct visual:** `"float:<item>"` (a solid one) - it just floats, bobbing gently, with a white glow: no spinning or
+  sparks (the Hammer's stones).

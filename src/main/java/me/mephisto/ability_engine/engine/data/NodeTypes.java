@@ -265,7 +265,7 @@ public final class NodeTypes {
             if (p.getDouble("ahead", 0) < 0) throw p.error("ahead", "blocks ahead of the caster, 0 or more");
             return new me.mephisto.ability_engine.engine.nodes.gameplay.RememberSpotNode(
                     p.requireString("of"), p.requireString("store"), p.getBool("ground", !p.has("into")), p.getDouble("into", 0))
-                    .ahead(p.getDouble("ahead", 0), p.getString("scale_by", null));
+                    .ahead(p.getDouble("ahead", 0), p.getString("scale_by", null)).side(p.getDouble("side", 0));
         });
         t.register("ward_reset", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.WardResetNode());
         t.register("spell_shield", (p, e) -> {

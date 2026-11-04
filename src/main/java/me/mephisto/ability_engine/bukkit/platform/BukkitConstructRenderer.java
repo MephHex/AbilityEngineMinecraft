@@ -37,11 +37,15 @@ import java.util.logging.Logger;
  *       strike; the engine decides whether that breaks it.</li>
  *   <li>Traps (not solid): the item lies flat on the ground, no hitbox, and a click when it arms.</li>
  *   <li>Hidden ones ({@code hidden: true}): only the owner and their allies see it (and hear it arm).</li>
+ *   <li>{@code "float:<item>"} (solid ones): it just floats there, bobbing gently, with a white glow: no spinning, no
+ *       sparks (e.g. a stone torn out of the ground).</li>
  * </ul>
  */
 public final class BukkitConstructRenderer implements ConstructRenderer, Listener {
 
     private static final Color ARMED_GLOW = Color.fromRGB(190, 120, 255);
+    private static final String FLOAT = "float:";
+    private static final Color FLOAT_GLOW = Color.fromRGB(255, 255, 255);
 
     private final Logger log;
     private final Map<UUID, ConstructHandle> hitboxes = new HashMap<>();
@@ -64,6 +68,8 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
         if (center == null) return NONE;
         float size = (float) construct.size();
         if (!construct.solid()) return trap(construct, center, visual, size);
+        boolean still = visual != null && visual.startsWith(FLOAT);
+        if (still) visual = visual.substring(FLOAT.length());
 
         VisualSpawner.Spawned spawned = VisualSpawner.spawn(center, visual, size * 1.5f, log);
         Entity look = spawned.entity();
@@ -80,6 +86,12 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
         // The visual may itself be hittable (an end crystal's box is bigger than ours): count punches on it too.
         hitboxes.put(look.getUniqueId(), construct);
 
+        float yaw = (float) (java.util.concurrent.ThreadLocalRandom.current().nextDouble(Math.PI * 2));
+        double phase = java.util.concurrent.ThreadLocalRandom.current().nextDouble(Math.PI * 2);
+        if (still) {
+            look.setGlowing(true);
+            if (look instanceof Display d) d.setGlowColorOverride(FLOAT_GLOW);
+        }
         return new ConstructVisual() {
             float angle;
             int ticks;
@@ -88,6 +100,16 @@ public final class BukkitConstructRenderer implements ConstructRenderer, Listene
             @Override
             public void update(double progress, boolean fragile) {
                 ticks++;
+                if (still) { // floats there: a slow bob, turned however it came out of the ground
+                    if (ticks % 2 == 0 && look instanceof ItemDisplay d && d.isValid()) {
+                        float y = (float) (Math.sin(ticks * BOB_SPEED + phase) * BOB_HEIGHT * 0.6);
+                        d.setInterpolationDelay(0);
+                        d.setInterpolationDuration(2);
+                        d.setTransformation(new Transformation(new Vector3f(0, y, 0), new Quaternionf().rotateY(yaw),
+                                new Vector3f(size * 1.5f), new Quaternionf()));
+                    }
+                    return;
+                }
                 if (look instanceof ItemDisplay d && d.isValid()) {
                     angle += (float) Math.toRadians(4 + 26 * progress);            // spins up as it destabilises
                     float pulse = size * 1.5f * (1 + 0.08f * (float) Math.sin(ticks * (0.3 + progress)));

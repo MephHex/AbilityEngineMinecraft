@@ -16,6 +16,7 @@ import me.mephisto.ability_engine.engine.target.PointTarget;
  * (from "hit_from" to it): into the wall it struck, e.g. a missile sinking into the face it hit (no ground drop then).
  * {@code ahead: 3} moves it that many blocks the way the caster faces (level) first, x the number stored under
  * {@code scale_by} if given (e.g. a charge's power): the middle of a circle in front of them that grows with it.
+ * {@code side: 1.5} moves it that many blocks to their right as well (negative: left; scaled the same way).
  */
 public final class RememberSpotNode implements GraphNode {
 
@@ -26,7 +27,14 @@ public final class RememberSpotNode implements GraphNode {
     private final boolean ground;
     private final double into;
     private double ahead;
+    private double side;
     private String scaleBy;
+
+    /** {@code side} blocks to the caster's right (negative: left), as well as {@link #ahead}. */
+    public RememberSpotNode side(double side) {
+        this.side = side;
+        return this;
+    }
 
     /** {@code ahead} blocks the way the caster faces, x the number under {@code scaleBy} (null: x1). */
     public RememberSpotNode ahead(double ahead, String scaleBy) {
@@ -49,7 +57,7 @@ public final class RememberSpotNode implements GraphNode {
     @Override
     public NodeResult execute(ExecutionContext ctx) {
         var world = ctx.engine().world();
-        KeyQuery.read(ctx, of).flatMap(world::positionOf).map(p -> ahead > 0 ? inFront(ctx, p) : p).ifPresent(p -> {
+        KeyQuery.read(ctx, of).flatMap(world::positionOf).map(p -> ahead != 0 || side != 0 ? inFront(ctx, p) : p).ifPresent(p -> {
             var at = ground ? world.groundBelow(p.world(), p.position(), MAX_DROP).orElse(p.position()) : p.position();
             if (into != 0) {
                 var from = KeyQuery.read(ctx, Keys.HIT_FROM.name()).flatMap(world::positionOf)
@@ -69,6 +77,8 @@ public final class RememberSpotNode implements GraphNode {
         var flat = new me.mephisto.ability_engine.engine.math.Vec3(d.x(), 0, d.z());
         if (flat.isZero()) return p;
         double scale = scaleBy != null && ctx.blackboard().raw(scaleBy) instanceof Number n ? Math.max(0, n.doubleValue()) : 1;
-        return new PointTarget(p.world(), p.position().add(flat.normalize().multiply(ahead * scale)));
+        var f = flat.normalize();
+        var right = new me.mephisto.ability_engine.engine.math.Vec3(-f.z(), 0, f.x());
+        return new PointTarget(p.world(), p.position().add(f.multiply(ahead * scale)).add(right.multiply(side * scale)));
     }
 }
