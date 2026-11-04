@@ -129,7 +129,8 @@ public final class BukkitCuePlayer implements CuePlayer {
             loc.getWorld().spawnParticle(Particle.SOUL, loc, 20, 0.3, 0.6, 0.3, 0.02);
             loc.getWorld().playSound(loc, Sound.PARTICLE_SOUL_ESCAPE, 1f, 1.2f);
         });
-        c.registerLine("essence_recall", (w, from, to) -> soulStreak(plugin, w, from, to, 1));
+        c.registerLine("essence_recall", (w, from, to) -> soulOrbBack(plugin, w, from, to)); // the soul orb flies home
+        c.register("essence_orb_trail", BukkitCuePlayer::soulOrbTrail);
         c.registerLine("echo_path", (w, from, to) -> soulStreak(plugin, w, from, to, 6));
         c.registerLoop("essence_mark", e -> particlesOn(plugin, e, Particle.SOUL_FIRE_FLAME, 3, 4));
         c.registerLoop("meditation", e -> {
@@ -915,6 +916,43 @@ public final class BukkitCuePlayer implements CuePlayer {
     }
 
     /** A soul streak from one point to another, drawn over {@code steps} ticks (1 = all at once). */
+    /** The Essence Reaver's soul orb (1): cyan glass round a soul-fire core. */
+    static final String SOUL_ORB = "orb:CYAN_STAINED_GLASS:SOUL_FIRE";
+    private static final Particle.DustOptions SOUL_CYAN = new Particle.DustOptions(org.bukkit.Color.fromRGB(60, 225, 235), 0.9f);
+
+    /** Around the soul orb as it flies: soul flames, a cyan haze, now and then a soul. */
+    private static void soulOrbTrail(Location loc) {
+        World w = loc.getWorld();
+        w.spawnParticle(Particle.SOUL_FIRE_FLAME, loc, 2, 0.12, 0.12, 0.12, 0.01);
+        w.spawnParticle(Particle.DUST, loc, 3, 0.2, 0.2, 0.2, 0, SOUL_CYAN);
+        if (Math.random() < 0.3) w.spawnParticle(Particle.SOUL, loc, 1, 0.1, 0.1, 0.1, 0.01);
+    }
+
+    /** 1, recalled: the soul orb flies back from the enemy (chest height) to the caster, ~1.4 blocks a tick. */
+    private static void soulOrbBack(Plugin plugin, World w, Vector from, Vector to) {
+        Vector a = from.clone().add(new Vector(0, 1.0, 0)), b = to.clone().add(new Vector(0, 1.1, 0));
+        Vector d = b.clone().subtract(a);
+        int ticks = (int) Math.max(3, Math.min(20, Math.ceil(d.length() / 1.4)));
+        w.playSound(a.toLocation(w), Sound.PARTICLE_SOUL_ESCAPE, 1.2f, 0.9f);
+        w.playSound(a.toLocation(w), Sound.ENTITY_ALLAY_ITEM_TAKEN, 0.8f, 0.6f);
+        OrbVisual orb = OrbVisual.spawn(a.toLocation(w), SOUL_ORB, 0.6f);
+        int[] t = {0};
+        BukkitTask[] task = new BukkitTask[1];
+        task[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            t[0]++;
+            Vector p = a.clone().add(d.clone().multiply(Math.min(1.0, (double) t[0] / ticks)));
+            orb.moveTo(new Vec3(p.getX(), p.getY(), p.getZ()));
+            soulOrbTrail(p.toLocation(w));
+            if (t[0] >= ticks) {
+                orb.remove();
+                task[0].cancel();
+                w.spawnParticle(Particle.SOUL, p.getX(), p.getY(), p.getZ(), 6, 0.25, 0.3, 0.25, 0.03);
+                w.spawnParticle(Particle.DUST, p.getX(), p.getY(), p.getZ(), 12, 0.3, 0.4, 0.3, 0, SOUL_CYAN);
+                w.playSound(p.toLocation(w), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.6f, 1.6f);
+            }
+        }, 1, 1);
+    }
+
     private static void soulStreak(Plugin plugin, World w, Vector from, Vector to, int steps) {
         Vector d = to.clone().subtract(from);
         double len = d.length();

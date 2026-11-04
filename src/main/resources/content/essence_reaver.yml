@@ -91,7 +91,9 @@ abilities:
         size: 0.4
         range: 25
         lifetime: 40
-        visual: GHAST_TEAR
+        visual: "orb:CYAN_STAINED_GLASS:SOUL_FIRE"   # a soul orb: cyan glass round a soul-fire core
+        visual_size: 0.6
+        trail: essence_orb_trail     # soul flames and a cyan haze around it
         on: { hit_entity: attach }   # a miss just ends it
       attach:
         type: apply_effects
@@ -117,7 +119,7 @@ abilities:
         next: recall_cue
       recall_cue:
         type: play_cue
-        cue: essence_recall
+        cue: essence_recall          # the soul orb flies back to you
         at: hit
         to: caster
 
