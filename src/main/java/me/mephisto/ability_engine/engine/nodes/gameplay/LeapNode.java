@@ -25,6 +25,8 @@ import java.util.Set;
  * Walls stop the forward part, not the fall. With {@code store: <name>}, where it ended is saved.
  * With {@code stop_at_enemies: true} it stops dead on running into an enemy (within {@code radius} of her path) and exits
  * "hit" instead, with them stored as "hit" (e.g. a leaping slash that lands on whoever it reaches).
+ * With {@code to: <key>} (a spot, e.g. a picked circle's aim) it arcs onto that spot: the way there, just fast enough
+ * along the ground to come down on it ({@code speed} is then the most it goes, blocks a tick).
  */
 public final class LeapNode implements GraphNode {
 
@@ -43,6 +45,17 @@ public final class LeapNode implements GraphNode {
     private final String store;
     private final boolean stopAtEnemies;
     private final double radius;
+    /** A spot (key) to come down on, or null: along {@code direction} at {@code speed}. */
+    private String to;
+
+    /** {@code to: <key>}: arc onto that spot (see the class comment). */
+    public LeapNode landingOn(String key) {
+        this.to = key;
+        return this;
+    }
+
+    /** From an entity's middle (what positionOf gives) down to its feet. */
+    private static final double MIDDLE_TO_FEET = 0.9;
 
     private static final Set<String> OUTPUTS = Set.of(Ports.OUT);
     /** stop_at_enemies: where along her body (blocks below its middle) the path is checked: the middle, the legs. */
@@ -84,8 +97,29 @@ public final class LeapNode implements GraphNode {
             }
             flat = flat.normalize();
         }
-        new Leap(ctx, ctx.suspend(), flat.multiply(speed)).begin();
+        Vec3 forward = flat.multiply(speed);
+        if (to != null) forward = toward(ctx).orElse(forward);
+        new Leap(ctx, ctx.suspend(), forward).begin();
         return NodeResult.SUSPENDED;
+    }
+
+    /**
+     * The push along the ground that brings the arc down on the {@code to} spot: the time up and back down to its
+     * height ({@code up} a tick to start, less {@code gravity} every tick), and the way there in that time.
+     */
+    private Optional<Vec3> toward(ExecutionContext ctx) {
+        var world = ctx.engine().world();
+        var spot = me.mephisto.ability_engine.engine.target.KeyQuery.read(ctx, to).flatMap(world::positionOf);
+        var me = world.positionOf(new EntityTarget(ctx.caster()));
+        if (spot.isEmpty() || me.isEmpty() || !spot.get().world().equals(me.get().world())) return Optional.empty();
+        Vec3 d = spot.get().position().subtract(me.get().position());
+        Vec3 flat = new Vec3(d.x(), 0, d.z());
+        double distance = flat.length();
+        if (distance < 1e-6) return Optional.of(Vec3.ZERO);
+        double rise = d.y() + MIDDLE_TO_FEET;                  // the spot is on the ground: from the feet
+        double disc = up * up - 2 * gravity * rise;
+        double ticks = disc < 0 ? up / gravity : (up + Math.sqrt(disc)) / gravity; // too high: as far as the top
+        return Optional.of(flat.normalize().multiply(Math.min(speed, distance / Math.max(1, ticks))));
     }
 
     private final class Leap {

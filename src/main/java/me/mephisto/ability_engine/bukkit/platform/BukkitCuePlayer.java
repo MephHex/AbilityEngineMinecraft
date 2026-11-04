@@ -750,6 +750,7 @@ public final class BukkitCuePlayer implements CuePlayer {
         AmethystCues.register(c, plugin);
         SwordMasterCues.register(c, plugin);
         LightkeeperCues.register(c, plugin);
+        HammerCues.register(c, plugin);
         DragonHunterCues.register(c, plugin);
         WarriorCues.register(c, plugin);
         TricksterCues.register(c, plugin);
@@ -872,6 +873,9 @@ public final class BukkitCuePlayer implements CuePlayer {
 
     /** /ae debug for the vanilla poses (pose_bow...): each says what it did. */
     public static void setPoseDebug(java.util.function.BooleanSupplier on) { ItemPose.debug = on; }
+
+    /** For cues that last while their caster has a tag (the Hammer's charge circle): the engine's tags. */
+    public static void setTagCheck(java.util.function.BiPredicate<java.util.UUID, String> check) { HammerCues.setTagCheck(check); }
 
     /** Whether vanilla poses can be shown to other players on this server: null yes, otherwise why not. */
     public static String poseSelfCheck() { return ItemPose.selfCheck(); }

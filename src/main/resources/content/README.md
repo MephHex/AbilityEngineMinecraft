@@ -1371,3 +1371,19 @@ The old kit (Blind Obsession, Dragon Harpoon) stays as `fixtures/dragon_hunter.y
   lk_lantern_sear, lk_lantern_land, lk_guard_aura (looping: a ring of light, 5 blocks, round him), lk_guard_on,
   lk_sheltered (looping: gold motes off an ally), lk_sunfire (looping: burning in gold), lk_illuminate (6 blocks),
   lk_revealed, lk_beacon (looping: a 40-block pillar of light on him, a 5-block ring at its foot), lk_beacon_mend.
+
+## Added for the Hammer
+
+- **leap:** `to: <key>` - an arc that comes down on that spot (e.g. a picked circle's `aim`): just fast enough along
+  the ground to land there, `speed` the most it goes (blocks a tick), `up` how high it starts.
+- **remember_spot:** `ahead: 4` - that many blocks the way the caster faces (level) from `of`, then onto the ground;
+  `scale_by: <key>` multiplies it by the number stored there (a charge's power). E.g. the middle of a circle in front of
+  him that grows with the charge.
+- **Radius query:** `scale_by: <key>` - its radius x the number stored there (a charge's power): a slam that grows the
+  longer it's charged.
+- **Cues:** hammer_swing, hammer_heavy (lines: `ahead:`), hammer_stone_rise, hammer_stone_idle (a construct's `cue`),
+  hammer_stone_fall, hammer_stone_launch, hammer_stone_trail, hammer_stone_hit, hammer_charge_ring (looping: a circle
+  growing from 2 to 4 blocks over 1.5s, in front of the caster, while they have the tag `hammer.charging`),
+  hammer_slam (a line from the caster to the circle's middle: its radius), hammer_erupt (a 2-block stone column out of
+  the ground), hammer_land (3 blocks), hammer_empower, hammer_empowered (looping), hammer_ult_charge (looping),
+  hammer_shockwave (a line: a 30-degree wedge of breaking ground). Keep the sizes in step with hammer.yml.

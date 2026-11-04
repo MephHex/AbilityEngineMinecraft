@@ -12,7 +12,8 @@ import java.util.Optional;
  * shockwave travelling outward). With {@code sight} only those the centre can see: nobody behind a wall or
  * around a corner (a burst that doesn't go through walls). With {@code square} it's a square on the ground instead (lined up
  * with the block grid, {@code radius} from its centre to each side), from a block and a half below the centre to
- * {@code height} above it (default 2.5): e.g. a puddle drawn as a square.
+ * {@code height} above it (default 2.5): e.g. a puddle drawn as a square. With {@code scale_by: <key>} its radius is x the
+ * number stored there (e.g. a charge's power: a slam that grows the longer it's charged).
  */
 public final class RadiusQuery implements TargetQuery {
 
@@ -24,6 +25,13 @@ public final class RadiusQuery implements TargetQuery {
     private final boolean sight;
     private double height;          // > 0: a column instead of a sphere (radius on the ground, this tall from the centre up)
     private boolean square;         // a square on the ground (radius to each side) instead
+    private String scaleBy;         // the radius x the number stored under this key (null: as it is)
+
+    /** The radius x the number stored under {@code key} when it's used (null or no number there: as it is). */
+    public RadiusQuery scaleBy(String key) {
+        this.scaleBy = key;
+        return this;
+    }
 
     /** The line of sight starts this far above the centre (a spot on the ground would start inside it). */
     private static final double SIGHT_LIFT = 0.4;
@@ -68,6 +76,10 @@ public final class RadiusQuery implements TargetQuery {
 
     @Override
     public List<Target> find(ExecutionContext ctx) {
+        double radius = this.radius;
+        if (scaleBy != null && ctx.blackboard().raw(scaleBy) instanceof Number n) radius *= Math.max(0, n.doubleValue());
+        if (radius <= 0) return List.of();
+        final double r = radius;
         WorldQuery world = ctx.engine().world();
         Optional<Target> centerTarget = centerKey == null
                 ? Optional.of(new EntityTarget(ctx.caster()))
@@ -80,22 +92,22 @@ public final class RadiusQuery implements TargetQuery {
         String w = center.get().world();
         if (square) {
             double up = height > 0 ? height : 2.5;
-            return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), Math.hypot(radius * Math.sqrt(2), up + 1.5)),
-                    e -> Math.abs(e.center().x() - c.x()) <= radius && Math.abs(e.center().z() - c.z()) <= radius
+            return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), Math.hypot(r * Math.sqrt(2), up + 1.5)),
+                    e -> Math.abs(e.center().x() - c.x()) <= r && Math.abs(e.center().z() - c.z()) <= r
                             && e.center().y() >= c.y() - 1.5 && e.center().y() <= c.y() + up
                             && (!sight || world.sweep(w, eye, e.center(), 0.05, id -> true).isEmpty()),
                     e -> flat(e.center(), c),
                     includeCaster, maxTargets);
         }
         if (height > 0) {
-            return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), Math.hypot(radius, height + 1)),
-                    e -> flat(e.center(), c) <= radius && e.center().y() >= c.y() - 1 && e.center().y() <= c.y() + height
+            return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), Math.hypot(r, height + 1)),
+                    e -> flat(e.center(), c) <= r && e.center().y() >= c.y() - 1 && e.center().y() <= c.y() + height
                             && (inner <= 0 || flat(e.center(), c) > inner),
                     e -> flat(e.center(), c),
                     includeCaster, maxTargets);
         }
-        return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), radius),
-                e -> e.center().distance(c) <= radius && (inner <= 0 || flat(e.center(), c) > inner)
+        return AreaFilter.finish(ctx, world.livingEntitiesNear(center.get(), r),
+                e -> e.center().distance(c) <= r && (inner <= 0 || flat(e.center(), c) > inner)
                         && (!sight || world.sweep(w, eye, e.center(), 0.05, id -> true).isEmpty()), // blocks only
                 e -> e.center().distance(c),
                 includeCaster, maxTargets);

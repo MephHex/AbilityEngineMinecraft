@@ -110,9 +110,12 @@ public final class NodeTypes {
             }
             String until = p.getString("until", "land");
             if (!until.equals("land") && !until.equals("apex")) throw p.error("until", "expected land or apex");
+            if (p.has("to") && dir == me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode.Direction.UP) {
+                throw p.error("to", "a leap up stays where it is: leave out direction (or to)");
+            }
             return new me.mephisto.ability_engine.engine.nodes.gameplay.LeapNode(dir, p.getDouble("speed", 0.6),
                     p.requireDouble("up"), p.getDouble("gravity", 0.08), until.equals("apex"), p.getString("store", null),
-                    p.getBool("stop_at_enemies", false), p.getDouble("radius", 0.6));
+                    p.getBool("stop_at_enemies", false), p.getDouble("radius", 0.6)).landingOn(p.getString("to", null));
         });
         t.register("rush", (p, e) -> {
             double start = p.getDouble("start_speed", 0.15);
@@ -258,8 +261,12 @@ public final class NodeTypes {
             if (ports.size() < 2) throw p.error("on", "give at least two ports to pick from");
             return new me.mephisto.ability_engine.engine.nodes.control.RandomNode(ports);
         });
-        t.register("remember_spot", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.RememberSpotNode(
-                p.requireString("of"), p.requireString("store"), p.getBool("ground", !p.has("into")), p.getDouble("into", 0)));
+        t.register("remember_spot", (p, e) -> {
+            if (p.getDouble("ahead", 0) < 0) throw p.error("ahead", "blocks ahead of the caster, 0 or more");
+            return new me.mephisto.ability_engine.engine.nodes.gameplay.RememberSpotNode(
+                    p.requireString("of"), p.requireString("store"), p.getBool("ground", !p.has("into")), p.getDouble("into", 0))
+                    .ahead(p.getDouble("ahead", 0), p.getString("scale_by", null));
+        });
         t.register("ward_reset", (p, e) -> new me.mephisto.ability_engine.engine.nodes.gameplay.WardResetNode());
         t.register("spell_shield", (p, e) -> {
             double max = p.requireDouble("max");

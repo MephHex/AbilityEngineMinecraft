@@ -97,7 +97,7 @@ public final class Parsers {
                 if (height < 0) throw p.error("height", "a column this tall above the centre (blocks), or leave it out for a sphere");
                 yield new RadiusQuery(p.getString("center", null), p.requireDouble("radius"),
                         p.getInt("max", 0), p.getBool("include_caster", false), inner, p.getBool("sight", false)).column(height)
-                        .square(p.getBool("square", false));
+                        .square(p.getBool("square", false)).scaleBy(p.getString("scale_by", null));
             }
             case "cone" -> {
                 String heading = p.getString("heading", "aim");

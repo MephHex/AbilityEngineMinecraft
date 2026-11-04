@@ -1,0 +1,486 @@
+# content: hammer
+# The Hammer: a tank with a stone-headed war hammer. Slow, heavy swings that hit everyone in front of him; every
+# ability crumbles the ground under the enemies it hits into floating stones he can bat at them.
+# Format and all options: see README.md in this folder. Edit, then /ae reload.
+#
+# PASSIVE (Crumbling Earth): each of his abilities (1, 2, F) tears a stone out of the ground under each enemy it hits
+#   (at most 3 a cast). A stone floats half a block off the ground for 5s, then falls and breaks. His basic attack
+#   swung through a stone sends it flying the way he faces (14 blocks, through everyone): 60% base damage + 6% bonus HP
+#   (physical), stunned 1s.
+#
+# ULTIMATE (F): Tectonic Slam. Wind up for 1.2s (slowed; no abilities or swings), then slam the ground: a thin
+#   shockwave (14 blocks, 30 degrees) throws every enemy in it very high up and away from him: 120% base damage + 30%
+#   spell power + 15% bonus HP (physical).
+
+statuses:
+  hammer_empowered:                  # 3: Stonebreaker - the next swing is a heavy one
+    duration: 100                    # 5s to use it
+    stacking: refresh
+    cue: hammer_empowered            # stone dust swirling round the hammer
+
+abilities:
+
+  # PRIMARY (LMB): Hammer Swing. A slow, wide swing (3.8 blocks, 110 degrees): everyone in it takes 100% base damage
+  # (physical). Swung through his floating stones, it sends them flying (the passive). After Stonebreaker (3): a heavy
+  # swing, + 7% of their max HP and knocked back.
+  hammer_primary:
+    cooldown: 31                     # (the attack_speed stat sets it)
+    display:
+      name: "Hammer Swing"
+      description:
+        - "A wide, heavy swing (3.8 blocks):"
+        - "{base:1.0|physical} to everyone in front."
+        - "Swing through your stones to send"
+        - "them flying."
+    nodes:
+      which:
+        type: has_status
+        status: hammer_empowered
+        on: { has: heavy, lacks: swing }
+      swing:
+        type: apply_effects
+        targets: { type: cone, range: 3.8, angle: 110 }
+        effects:
+          - { id: damage, base: 1.0, type: physical }   # 100% base damage
+        next: strike
+      heavy:
+        type: apply_effects          # Stonebreaker: + 7% max HP, knocked back
+        targets: { type: cone, range: 3.8, angle: 110 }
+        effects:
+          - { id: damage, base: 1.0, max_hp: 0.07, type: physical, knockback: false }   # 100% base damage + 7% max HP
+          - { id: knockback, from: caster, radius: 4, center: 1.5, edge: 1.2, lift: 0.4 }
+        next: spent
+      spent:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: remove_status, status: hammer_empowered }
+        next: heavy_cue
+      heavy_cue:
+        type: play_cue
+        cue: hammer_heavy
+        at: caster
+        ahead: 2.5
+        next: strike
+      strike:
+        type: strike_constructs      # his stones in the swing fly off
+        range: 4.5
+        angle: 110
+        next: swing_cue
+      swing_cue:
+        type: play_cue
+        cue: hammer_swing
+        at: caster
+        ahead: 3
+
+  # 1: Earthshatter (9s). Charge a slam (up to 1.5s; slowed, no other abilities meanwhile): a circle in front of you
+  # grows as you charge, from 2 to 4 blocks wide. Press 1 again to slam (full, it slams by itself): everyone in it
+  # takes 100% base damage + 30% spell power + 8% bonus HP (physical); fully charged, they're also stunned 1s.
+  hammer_ab1:
+    cooldown: 180                    # 9s
+    active_tags: [block.ability, state.slowed, hammer.charging]   # (until the slam: see "slam")
+    interrupted_by: [state.stunned]
+    display:
+      name: "Earthshatter"
+      icon: COBBLED_DEEPSLATE
+      description:
+        - "Charge a slam (up to 1.5s, slowed): the"
+        - "circle in front of you grows. Press 1"
+        - "again to slam: {base:1.0|physical} +"
+        - "{sp:0.3|physical} + {bonus_hp:0.08|physical}."
+        - "Fully charged: also stunned 1s."
+    nodes:
+      ring:
+        type: start_cue
+        cue: hammer_charge_ring      # the circle on the ground, growing (keep it in step with the charge)
+        next: wind
+      wind:
+        type: charge
+        ticks: 30                    # 1.5s to full
+        from: 0.5                    # a tap: half the size (2 blocks)
+        store: power
+        next: slam
+      slam:
+        type: release_tags           # slammed: free again (the stones linger on in this cast)
+        next: spot
+      spot:
+        type: remember_spot          # the middle of the circle: as far ahead as it's wide
+        of: caster
+        ahead: 4
+        scale_by: power
+        store: smash
+        next: full
+      full:
+        type: switch
+        key: power
+        on: { "1.0": smash_full, default: smash }
+      smash:
+        type: apply_effects
+        targets: { type: radius, center: smash, radius: 4, scale_by: power, height: 2.5 }
+        effects:
+          - { id: damage, base: 1.0, sp: 0.3, bonus_hp: 0.08, type: physical, knockback: false }   # 100% base + 30% SP + 8% bonus HP
+        next: slam_cue
+      smash_full:
+        type: apply_effects
+        targets: { type: radius, center: smash, radius: 4, scale_by: power, height: 2.5 }
+        effects:
+          - { id: damage, base: 1.0, sp: 0.3, bonus_hp: 0.08, type: physical, knockback: false }
+          - { id: status, status: stun, duration: 20 }   # 1s
+        next: slam_cue
+      slam_cue:
+        type: play_cue
+        cue: hammer_slam             # a line: from him to the circle's middle (its radius)
+        at: caster
+        to: smash
+        next: a1_crumble
+      a1_crumble:
+        type: for_each               # PASSIVE: the ground crumbles under each enemy it hit (at most 3)
+        query: { type: radius, center: smash, radius: 4, scale_by: power, height: 2.5 }
+        max: 3
+        store: crumbled
+        on: { each: a1_stone_spot }
+      a1_stone_spot:
+        type: remember_spot
+        of: crumbled
+        store: stone_ground
+        next: a1_stone_rise
+      a1_stone_rise:
+        type: play_cue
+        cue: hammer_stone_rise
+        at: stone_ground
+        next: a1_stone
+      a1_stone:
+        type: construct              # a stone floating half a block off the ground, for 5s
+        at: stone_ground
+        height: 0.8
+        size: 0.6
+        fuse: 100                    # 5s, then it falls and breaks
+        fuse_spread: 4
+        visual: COBBLESTONE
+        store: stone
+        cue: hammer_stone_idle
+        cue_every: 8
+        on: { struck: a1_stone_launch, fuse: a1_stone_fall }
+      a1_stone_fall:
+        type: play_cue
+        cue: hammer_stone_fall
+        at: stone
+      a1_stone_launch:
+        type: play_cue               # a swing struck it: it shoots off the way he faces
+        cue: hammer_stone_launch
+        at: stone
+        next: a1_stone_fly
+      a1_stone_fly:
+        type: projectile
+        from: stone
+        level: true                  # flat, whichever way he looks (down at it, too)
+        visual: COBBLESTONE
+        size: 0.6
+        visual_size: 0.6
+        speed: 1.3
+        range: 14
+        lifetime: 12
+        pierce: 99                   # through everyone in the way
+        trail: hammer_stone_trail
+        store: flying_stone
+        on: { hit_entity: a1_stone_hit, hit_block: a1_stone_break, expired: a1_stone_break }
+      a1_stone_hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, bonus_hp: 0.06, type: physical, knockback: false }   # 60% base damage + 6% bonus HP
+          - { id: status, status: stun, duration: 20 }   # 1s
+        next: a1_stone_hit_cue
+      a1_stone_hit_cue:
+        type: play_cue
+        cue: hammer_stone_hit
+        at: hit
+      a1_stone_break:
+        type: play_cue
+        cue: hammer_stone_fall
+        at: flying_stone
+
+  # 2: Rock Launch (12s). Pick a circle (12 blocks; radius 3): a column of stone erupts under your feet and throws you
+  # there in an arc. Landing, enemies within 3 blocks take 80% base damage + 20% spell power + 8% bonus HP (physical)
+  # and are knocked up a little.
+  hammer_ab2:
+    cooldown: 240                    # 12s
+    movement: true                   # (not while rooted)
+    targeting: { shape: circle, range: 12, radius: 3, ground: true }
+    active_tags: [block.ability, state.leaping, state.safe_fall]   # (until just after he lands)
+    interrupted_by: [state.stunned]
+    display:
+      name: "Rock Launch"
+      icon: POINTED_DRIPSTONE
+      description:
+        - "Pick a spot: a column of stone erupts"
+        - "under you and throws you there. Landing"
+        - "(3 blocks): {base:0.8|physical} + {sp:0.2|physical}"
+        - "+ {bonus_hp:0.08|physical}, knocked up a little."
+    nodes:
+      erupt:
+        type: play_cue
+        cue: hammer_erupt            # the column, 2 blocks tall, out of the ground under him
+        at: caster
+        next: launch
+      launch:
+        type: leap
+        to: aim                      # an arc that comes down on the spot
+        up: 1.0
+        speed: 1.6                   # (at most)
+        next: land
+      land:
+        type: apply_effects
+        targets: { type: radius, radius: 3, height: 2.5 }
+        effects:
+          - { id: damage, base: 0.8, sp: 0.2, bonus_hp: 0.08, type: physical, knockback: false }   # 80% base + 20% SP + 8% bonus HP
+          - { id: knockback, from: caster, radius: 3, center: 0.2, edge: 0.2, lift: 0.5 }   # a small knock up
+        next: land_cue
+      land_cue:
+        type: play_cue
+        cue: hammer_land
+        at: caster
+        next: a2_crumble
+      a2_crumble:
+        type: for_each               # PASSIVE: the ground crumbles under each enemy it hit (at most 3)
+        query: { type: radius, radius: 3, height: 2.5 }
+        max: 3
+        store: crumbled
+        on: { each: a2_stone_spot, out: settle, none: settle }
+      a2_stone_spot:
+        type: remember_spot
+        of: crumbled
+        store: stone_ground
+        next: a2_stone_rise
+      a2_stone_rise:
+        type: play_cue
+        cue: hammer_stone_rise
+        at: stone_ground
+        next: a2_stone
+      a2_stone:
+        type: construct              # a stone floating half a block off the ground, for 5s
+        at: stone_ground
+        height: 0.8
+        size: 0.6
+        fuse: 100                    # 5s, then it falls and breaks
+        fuse_spread: 4
+        visual: COBBLESTONE
+        store: stone
+        cue: hammer_stone_idle
+        cue_every: 8
+        on: { struck: a2_stone_launch, fuse: a2_stone_fall }
+      a2_stone_fall:
+        type: play_cue
+        cue: hammer_stone_fall
+        at: stone
+      a2_stone_launch:
+        type: play_cue               # a swing struck it: it shoots off the way he faces
+        cue: hammer_stone_launch
+        at: stone
+        next: a2_stone_fly
+      a2_stone_fly:
+        type: projectile
+        from: stone
+        level: true                  # flat, whichever way he looks (down at it, too)
+        visual: COBBLESTONE
+        size: 0.6
+        visual_size: 0.6
+        speed: 1.3
+        range: 14
+        lifetime: 12
+        pierce: 99                   # through everyone in the way
+        trail: hammer_stone_trail
+        store: flying_stone
+        on: { hit_entity: a2_stone_hit, hit_block: a2_stone_break, expired: a2_stone_break }
+      a2_stone_hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, bonus_hp: 0.06, type: physical, knockback: false }   # 60% base damage + 6% bonus HP
+          - { id: status, status: stun, duration: 20 }   # 1s
+        next: a2_stone_hit_cue
+      a2_stone_hit_cue:
+        type: play_cue
+        cue: hammer_stone_hit
+        at: hit
+      a2_stone_break:
+        type: play_cue
+        cue: hammer_stone_fall
+        at: flying_stone
+      settle:
+        type: delay                  # (a moment on the ground before the fall's safe)
+        ticks: 4
+        next: free
+      free:
+        type: release_tags
+
+  # 3: Stonebreaker (10s). Your basic attack is ready again at once, and your next one (within 5s) is a heavy swing:
+  # + 7% of their max HP (physical) and knocked back.
+  hammer_ab3:
+    cooldown: 200                    # 10s
+    display:
+      name: "Stonebreaker"
+      icon: ANVIL
+      description:
+        - "Your basic attack is ready at once, and"
+        - "your next one (5s) is heavy: + {max_hp:0.07|physical}"
+        - "and knocks them back."
+    nodes:
+      reset:
+        type: reduce_cooldown        # the swing ready again
+        slot: primary
+        ticks: 200
+        next: empower
+      empower:
+        type: apply_effects
+        targets: { type: self }
+        on_hit: false
+        effects:
+          - { id: status, status: hammer_empowered }
+        next: empower_cue
+      empower_cue:
+        type: play_cue
+        cue: hammer_empower
+        at: caster
+
+  # ULTIMATE (F): Tectonic Slam (see the top of this file).
+  hammer_ult:
+    cooldown: 1200                   # (unused while ultimates charge up: config.yml ultimate-charge)
+    active_tags: [block.ability, state.slowed]   # winding up: no abilities or swings (until the slam)
+    interrupted_by: [state.stunned]
+    display:
+      name: "Tectonic Slam"
+      icon: HEAVY_CORE
+      description:
+        - "Wind up 1.2s (slowed), then slam: a thin"
+        - "shockwave (14 blocks) throws enemies very"
+        - "high and away: {base:1.2|physical} +"
+        - "{sp:0.3|physical} + {bonus_hp:0.15|physical}."
+    nodes:
+      wind_cue:
+        type: start_cue
+        cue: hammer_ult_charge       # the hammer raised, the ground trembling
+        ticks: 24
+        next: wind
+      wind:
+        type: delay
+        ticks: 24                    # 1.2s
+        cast_bar: true
+        next: slam
+      slam:
+        type: release_tags
+        next: wave
+      wave:
+        type: apply_effects
+        targets: { type: cone, range: 14, angle: 30 }
+        effects:
+          - { id: damage, base: 1.2, sp: 0.3, bonus_hp: 0.15, type: physical, knockback: false }   # 120% base + 30% SP + 15% bonus HP
+          - { id: knockback, from: caster, radius: 14, center: 2.2, edge: 1.6, lift: 1.3 }   # very high, and away
+        next: wave_cue
+      wave_cue:
+        type: play_cue
+        cue: hammer_shockwave        # a line: the thin shockwave, 14 blocks the way he faces
+        at: caster
+        ahead: 14
+        next: u_crumble
+      u_crumble:
+        type: for_each               # PASSIVE: the ground crumbles under each enemy it hit (at most 3)
+        query: { type: cone, range: 14, angle: 30 }
+        max: 3
+        store: crumbled
+        on: { each: u_stone_spot }
+      u_stone_spot:
+        type: remember_spot
+        of: crumbled
+        store: stone_ground
+        next: u_stone_rise
+      u_stone_rise:
+        type: play_cue
+        cue: hammer_stone_rise
+        at: stone_ground
+        next: u_stone
+      u_stone:
+        type: construct              # a stone floating half a block off the ground, for 5s
+        at: stone_ground
+        height: 0.8
+        size: 0.6
+        fuse: 100                    # 5s, then it falls and breaks
+        fuse_spread: 4
+        visual: COBBLESTONE
+        store: stone
+        cue: hammer_stone_idle
+        cue_every: 8
+        on: { struck: u_stone_launch, fuse: u_stone_fall }
+      u_stone_fall:
+        type: play_cue
+        cue: hammer_stone_fall
+        at: stone
+      u_stone_launch:
+        type: play_cue               # a swing struck it: it shoots off the way he faces
+        cue: hammer_stone_launch
+        at: stone
+        next: u_stone_fly
+      u_stone_fly:
+        type: projectile
+        from: stone
+        level: true                  # flat, whichever way he looks (down at it, too)
+        visual: COBBLESTONE
+        size: 0.6
+        visual_size: 0.6
+        speed: 1.3
+        range: 14
+        lifetime: 12
+        pierce: 99                   # through everyone in the way
+        trail: hammer_stone_trail
+        store: flying_stone
+        on: { hit_entity: u_stone_hit, hit_block: u_stone_break, expired: u_stone_break }
+      u_stone_hit:
+        type: apply_effects
+        targets: { type: key, key: hit }
+        effects:
+          - { id: damage, base: 0.6, bonus_hp: 0.06, type: physical, knockback: false }   # 60% base damage + 6% bonus HP
+          - { id: status, status: stun, duration: 20 }   # 1s
+        next: u_stone_hit_cue
+      u_stone_hit_cue:
+        type: play_cue
+        cue: hammer_stone_hit
+        at: hit
+      u_stone_break:
+        type: play_cue
+        cue: hammer_stone_fall
+        at: flying_stone
+
+characters:
+  hammer:
+    name: "Hammer"
+    weapon: MACE                     # the war hammer
+    stats:                           # see docs/character-stats.md
+      health: 340                    # max HP
+      armor: 40                      # damage taken x 100 / (100 + armor)
+      base_damage: 36                # abilities deal % of this
+      move_speed: 0.95               # x vanilla walking speed
+      attack_speed: 0.65             # swings per second (slow)
+    passive:
+      name: "Crumbling Earth"
+      icon: COBBLESTONE
+      description:
+        - "Your abilities tear a stone out of the"
+        - "ground under each enemy they hit (3 at"
+        - "most). It floats for 5s. Swing through it:"
+        - "it flies the way you face (14 blocks):"
+        - "{base:0.6|physical} + {bonus_hp:0.06|physical}, stunned 1s."
+    status_items:
+      - status: hammer_empowered     # slot 9 while the next swing is heavy
+        hotbar: 9
+        icon: ANVIL
+        name: "Stonebreaker"
+        description:
+          - "Your next swing is heavy."
+        glint_weapon: true           # the hammer glints meanwhile
+    slots:
+      primary: hammer_primary        # LMB: Hammer Swing
+      ability_1: hammer_ab1          # 1: Earthshatter
+      ability_2: hammer_ab2          # 2: Rock Launch
+      ability_3: hammer_ab3          # 3: Stonebreaker
+      ultimate: hammer_ult           # F: Tectonic Slam

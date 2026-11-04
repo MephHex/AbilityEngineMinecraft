@@ -69,6 +69,7 @@ public final class AbilityEnginePlugin extends JavaPlugin {
                 getLogger());
         engine = new AbilityEngine(platform);
         worldQuery.setLog(engine.log()); // ray traces under /ae debug
+        BukkitCuePlayer.setTagCheck((id, tag) -> engine.tags().has(id, tag)); // cues that last while a tag does
         BukkitCuePlayer.setPoseDebug(() -> engine.log().isDebug()); // vanilla poses say what they did under /ae debug
         String poses = BukkitCuePlayer.poseSelfCheck();
         if (poses == null) getLogger().info("Vanilla poses (pose_bow...): ready (players' poses are shown to others)");
